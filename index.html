@@ -568,7 +568,10 @@ var sbReady = (function(){
   if(!c.supabaseUrl || /XXXX/.test(c.supabaseUrl) || !window.supabase || typeof window.supabase.createClient!=='function'){
     cloudErr='config'; return Promise.resolve(false);
   }
-  try{ SB = window.supabase.createClient(c.supabaseUrl, c.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true}}); }
+  /* config.js ga «Project URL» kerak. Agar REST havolasi (.../rest/v1) yoki
+     oxirida «/» bilan yozilgan bo‘lsa, shu yerda tozalaymiz. */
+  var sbUrl = String(c.supabaseUrl).trim().replace(/\/+$/,'').replace(/\/(rest|auth|realtime|storage)\/v1$/i,'');
+  try{ SB = window.supabase.createClient(sbUrl, c.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true}}); }
   catch(e){ cloudErr='config'; return Promise.resolve(false); }
   return SB.auth.getSession().then(function(r){
     if(r.data && r.data.session) return r.data.session;
