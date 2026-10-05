@@ -65,6 +65,40 @@ void main() {
       expect(death.killerId, hunter.id);
     });
 
+    test('endigina qo\'yilgan izga qaytib kirish o\'ldirmaydi', () {
+      // Barmoq tebranganda o'yinchi hozirgina chiqqan katagiga qaytib
+      // kirib qolishi mumkin — bu qoida buzilishi emas.
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      // Hududdan uzoqroq chiqamiz, shunda ortga qadam hududga qaytmaydi.
+      walk(world, p, kEast, 5);
+      expect(p.trail.length, 3, reason: '13, 14 va 15-kataklar');
+      final cellsBefore = p.trail.length;
+
+      walk(world, p, kWest, 1); // endigina qo'ygan iziga qaytadi
+      expect(p.alive, isTrue, reason: 'ortga bir katak — o\'lim emas');
+
+      walk(world, p, kEast, 1);
+      expect(p.alive, isTrue);
+      expect(p.trail.length, cellsBefore, reason: 'iz takrorlanmaydi');
+    });
+
+    test('eski izga tegish baribir o\'ldiradi', () {
+      // Grace oynasi faqat eng so'nggi bir necha katakka tegishli:
+      // uzoqroqdagi izni kesib o'tish hamon o'lim.
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      walk(world, p, kEast, 6);
+      walk(world, p, kSouth, 2);
+      walk(world, p, kWest, 3);
+      walk(world, p, kNorth, 2); // boshlang\'ich izni kesadi
+
+      expect(p.alive, isFalse);
+      expect(p.deathCause, DeathCause.selfCross);
+    });
+
     test('o\'z iziga tegish raqibni o\'ldirmaydi', () {
       final world = makeWorld();
       final p = placePlayer(world, left: 8, top: 8);

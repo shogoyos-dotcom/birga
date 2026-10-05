@@ -13,6 +13,7 @@ class GameConfig {
     this.botTurnRate = 9.0,
     this.botRespawnDelay = 3.0,
     this.maxStepDt = 1 / 30,
+    this.selfHitGrace = 3,
   });
 
   /// Panjara o'lchami (katak).
@@ -38,6 +39,15 @@ class GameConfig {
   /// Bir kadrda hisoblanadigan maksimal vaqt (lag paytida sakrashni oldini oladi).
   final double maxStepDt;
 
+  /// Oxirgi necha katak iz "o'ziniki" hisoblanmaydi.
+  ///
+  /// Barmoq bilan surishda yo'nalish doim biroz tebranadi va o'yinchi
+  /// endigina chiqqan katagiga qaytib kirib qolishi mumkin. Buning uchun
+  /// o'ldirish adolatsiz bo'lardi — qoida buzilmagan. Shuning uchun
+  /// eng so'nggi bir necha katak hisobga olinmaydi; undan narigi izga
+  /// tegish esa haqiqiy kesishish va o'limga olib keladi.
+  final int selfHitGrace;
+
   int get cellCount => gridWidth * gridHeight;
 
   double get botSpeed => playerSpeed * difficulty.botSpeedFactor;
@@ -53,5 +63,6 @@ class GameConfig {
     botTurnRate: botTurnRate,
     botRespawnDelay: botRespawnDelay,
     maxStepDt: maxStepDt,
+    selfHitGrace: selfHitGrace,
   );
 }

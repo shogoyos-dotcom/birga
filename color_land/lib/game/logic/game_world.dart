@@ -195,9 +195,13 @@ class GameWorld {
       return;
     }
 
-    // Qoida: o'z izingni kesib o'tsang — o'lasan.
+    // Qoida: o'z izingni kesib o'tsang — o'lasan. Lekin endigina qo'ygan
+    // bir necha katak bundan mustasno: barmoq tebranishi o'yinchini
+    // ortga qaytarib yuborishi mumkin va buning uchun o'ldirish adolatsiz.
     if (grid.trail[i] == p.id) {
-      kill(p, DeathCause.selfCross, null);
+      if (!_isFreshTrail(p, i)) {
+        kill(p, DeathCause.selfCross, null);
+      }
       return;
     }
 
@@ -210,6 +214,15 @@ class GameWorld {
 
     grid.setTrailIndex(i, p.id);
     p.trail.add(i);
+  }
+
+  /// `i` — `p` ning eng so'nggi `config.selfHitGrace` ta izidan birimi?
+  bool _isFreshTrail(PlayerState p, int i) {
+    final from = math.max(0, p.trail.length - config.selfHitGrace);
+    for (var k = p.trail.length - 1; k >= from; k--) {
+      if (p.trail[k] == i) return true;
+    }
+    return false;
   }
 
   void _finishLoop(PlayerState p) {
