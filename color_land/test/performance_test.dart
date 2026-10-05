@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// Panjarani botlar bilan to'ldirib, "o'yin o'rtasi" holatini yasaydi.
 GameWorld filledWorld({double seconds = 120, int seed = 4}) {
   final world = createMatch(
-    config: const GameConfig(botCount: 9, difficulty: Difficulty.hard),
+    config: const GameConfig(difficulty: Difficulty.hard),
     playerColorIndex: 0,
     playerName: 'Siz',
     availableColors: Palette.colorCount,
@@ -35,7 +35,7 @@ void main() {
     final percent = filled * 100 / world.config.cellCount;
     // ignore: avoid_print
     print('to\'ldirilgan maydon: ${percent.toStringAsFixed(1)}%');
-    expect(percent, greaterThan(15), reason: 'test haqiqiy yukni o\'lchasin');
+    expect(percent, greaterThan(12), reason: 'test haqiqiy yukni o\'lchasin');
   });
 
   test('mantiq yangilanishi kadr byudjetiga sig\'adi', () {
@@ -66,12 +66,12 @@ void main() {
     final world = filledWorld();
     final renderer = GridRenderer(world.grid, kCellSize, world.colorIndexById);
 
-    // Ekranda ko'rinadigan maydon: 30 katak keng, ~53 katak baland.
+    // Ekranda ko'rinadigan maydon kameraga mos (portret 16:9).
     final human = world.human;
     final visible = Rect.fromCenter(
       center: Offset(human.x * kCellSize, human.y * kCellSize),
-      width: 30 * kCellSize,
-      height: 53 * kCellSize,
+      width: kVisibleCells * kCellSize,
+      height: kVisibleCells * (16 / 9) * kCellSize,
     );
 
     double drawOnce() {
@@ -104,7 +104,7 @@ void main() {
       '($rebuilt chunk yozildi), keshdan ${cachedUs.toStringAsFixed(1)} µs/kadr',
     );
 
-    expect(rebuilt, lessThanOrEqualTo(20), reason: 'faqat ko\'rinadiganlari');
+    expect(rebuilt, lessThanOrEqualTo(40), reason: 'faqat ko\'rinadiganlari');
     expect(
       renderer.lastRebuildCount,
       0,
@@ -125,8 +125,8 @@ void main() {
       final human = world.human;
       final visible = Rect.fromCenter(
         center: Offset(human.x * kCellSize, human.y * kCellSize),
-        width: 30 * kCellSize,
-        height: 53 * kCellSize,
+        width: kVisibleCells * kCellSize,
+        height: kVisibleCells * (16 / 9) * kCellSize,
       );
       for (var i = 0; i < 3; i++) {
         final rec = ui.PictureRecorder();
@@ -146,8 +146,8 @@ void main() {
       final human = world.human;
       final visible = Rect.fromCenter(
         center: Offset(human.x * kCellSize, human.y * kCellSize),
-        width: 30 * kCellSize,
-        height: 53 * kCellSize,
+        width: kVisibleCells * kCellSize,
+        height: kVisibleCells * (16 / 9) * kCellSize,
       );
       final rec = ui.PictureRecorder();
       renderer.render(ui.Canvas(rec, visible), visible);

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:color_land/game/logic/game_grid.dart';
 import 'package:color_land/game/logic/territory_capture.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +35,47 @@ List<int> trailIndices(GameGrid grid, int id, List<(int, int)> cells) {
     final i = grid.index(x, y);
     grid.setTrailIndex(i, id);
     out.add(i);
+  }
+  return out;
+}
+
+/// Sodda, sekin, lekin aniq mos yozuvlar algoritmi: butun xaritani
+/// skanerlaydi. Tezlashtirilgan `TerritoryCapturer` shu bilan bir xil
+/// natija berishi kerak.
+List<int> referenceCapture(GameGrid grid, int playerId) {
+  final w = grid.width;
+  final h = grid.height;
+  final reached = List<bool>.filled(w * h, false);
+  final queue = <int>[];
+
+  void push(int i) {
+    if (!reached[i] && grid.owner[i] != playerId) {
+      reached[i] = true;
+      queue.add(i);
+    }
+  }
+
+  for (var x = 0; x < w; x++) {
+    push(x);
+    push((h - 1) * w + x);
+  }
+  for (var y = 0; y < h; y++) {
+    push(y * w);
+    push(y * w + w - 1);
+  }
+  for (var k = 0; k < queue.length; k++) {
+    final i = queue[k];
+    final x = i % w;
+    final y = i ~/ w;
+    if (x > 0) push(i - 1);
+    if (x < w - 1) push(i + 1);
+    if (y > 0) push(i - w);
+    if (y < h - 1) push(i + w);
+  }
+
+  final out = <int>[];
+  for (var i = 0; i < w * h; i++) {
+    if (!reached[i] && grid.owner[i] != playerId) out.add(i);
   }
   return out;
 }
@@ -180,6 +223,47 @@ void main() {
       grid.setOwner(20, 20, 1);
       expect(grid.dirtyChunks, containsAll(<int>[0, grid.chunksX + 1]));
     });
+
+    test(
+      'tezlashtirilgan versiya sodda algoritm bilan bir xil natija beradi',
+      () {
+        // Tasodifiy, lekin takrorlanadigan holatlar: o'yinchi hududi,
+        // raqib hududi va izlar aralashgan panjara.
+        final rng = math.Random(2024);
+        for (var round = 0; round < 40; round++) {
+          final grid = GameGrid(40, 40);
+          // 1-o'yinchiga bir necha to'rtburchak beramiz.
+          for (var k = 0; k < 4; k++) {
+            final left = rng.nextInt(30);
+            final top = rng.nextInt(30);
+            final wBlock = 2 + rng.nextInt(8);
+            final hBlock = 2 + rng.nextInt(8);
+            for (var y = top; y < top + hBlock && y < 40; y++) {
+              for (var x = left; x < left + wBlock && x < 40; x++) {
+                grid.setOwner(x, y, 1);
+              }
+            }
+          }
+          // Raqiblar uchun tasodifiy kataklar.
+          for (var k = 0; k < 120; k++) {
+            final x = rng.nextInt(40);
+            final y = rng.nextInt(40);
+            if (grid.ownerAt(x, y) == 0) {
+              grid.setOwner(x, y, 2 + rng.nextInt(3));
+            }
+          }
+
+          final expected = referenceCapture(grid, 1).toSet();
+          final actual = TerritoryCapturer(grid).capture(1, const []);
+
+          expect(
+            actual.cells.toSet(),
+            expected,
+            reason: '$round-urinishda natijalar farq qildi',
+          );
+        }
+      },
+    );
 
     test('kattaroq panjarada ham to\'g\'ri va tez ishlaydi', () {
       final grid = GameGrid(150, 150);

@@ -14,8 +14,20 @@ class GameGrid {
       chunksY = (height + chunkCells - 1) ~/ chunkCells,
       owner = Uint8List(width * height),
       trail = Uint8List(width * height),
-      _territory = Int32List(256) {
+      _territory = Int32List(256),
+      _minX = Int32List(256),
+      _minY = Int32List(256),
+      _maxX = Int32List(256),
+      _maxY = Int32List(256) {
     _territory[0] = width * height;
+    _resetBounds();
+  }
+
+  void _resetBounds() {
+    _minX.fillRange(0, 256, 1 << 30);
+    _minY.fillRange(0, 256, 1 << 30);
+    _maxX.fillRange(0, 256, -1);
+    _maxY.fillRange(0, 256, -1);
   }
 
   final int width;
@@ -33,6 +45,15 @@ class GameGrid {
   final Uint8List trail;
 
   final Int32List _territory;
+
+  // Har bir o'yinchi hududini o'z ichiga oluvchi to'rtburchak. Hudud
+  // kengayganda yangilanadi, qisqarganda esa qisqarmaydi — kattaroq
+  // to'rtburchak ham to'g'ri natija beradi, shunchaki biroz ko'proq
+  // katak tekshiriladi.
+  final Int32List _minX;
+  final Int32List _minY;
+  final Int32List _maxX;
+  final Int32List _maxY;
 
   /// Oxirgi tozalashdan beri o'zgargan chunklar.
   final Set<int> dirtyChunks = <int>{};
@@ -71,7 +92,25 @@ class GameGrid {
     _territory[prev]--;
     _territory[id]++;
     owner[i] = id;
+    if (id != 0) {
+      final x = i % width;
+      final y = i ~/ width;
+      if (x < _minX[id]) _minX[id] = x;
+      if (y < _minY[id]) _minY[id] = y;
+      if (x > _maxX[id]) _maxX[id] = x;
+      if (y > _maxY[id]) _maxY[id] = y;
+    }
     markDirtyIndex(i);
+  }
+
+  /// `id` ning butun hududini o'rab turgan to'rtburchak:
+  /// `(minX, minY, maxX, maxY)`. Hudud bo'sh bo'lsa `null`.
+  ///
+  /// Hudud qisqarganda to'rtburchak kichraymaydi — bu xavfsiz, chunki
+  /// kattaroq soha ham to'g'ri javob beradi.
+  (int, int, int, int)? boundsOf(int id) {
+    if (_maxX[id] < 0) return null;
+    return (_minX[id], _minY[id], _maxX[id], _maxY[id]);
   }
 
   void setOwner(int x, int y, int id) => setOwnerIndex(index(x, y), id);
@@ -102,6 +141,10 @@ class GameGrid {
         markDirtyIndex(i);
       }
     }
+    _minX[id] = 1 << 30;
+    _minY[id] = 1 << 30;
+    _maxX[id] = -1;
+    _maxY[id] = -1;
     return cleared;
   }
 
@@ -142,6 +185,7 @@ class GameGrid {
     trail.fillRange(0, trail.length, 0);
     _territory.fillRange(0, _territory.length, 0);
     _territory[0] = cellCount;
+    _resetBounds();
     markAllDirty();
   }
 }

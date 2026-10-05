@@ -3,10 +3,10 @@ import 'difficulty.dart';
 /// O'yinning barcha sozlamalari bir joyda. Mantiq qatlami faqat shuni biladi.
 class GameConfig {
   const GameConfig({
-    this.gridWidth = 150,
-    this.gridHeight = 150,
+    this.gridWidth = 250,
+    this.gridHeight = 250,
     this.startBlock = 5,
-    this.botCount = 9,
+    this.botCount = 15,
     this.difficulty = Difficulty.normal,
     this.playerSpeed = 8.0,
     this.playerTurnRate = 14.0,

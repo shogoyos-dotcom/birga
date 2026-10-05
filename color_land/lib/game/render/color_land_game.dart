@@ -17,7 +17,7 @@ import 'palette.dart';
 const double kCellSize = 10.0;
 
 /// Ekran kengligiga nechta katak sig'adi.
-const double kVisibleCells = 30.0;
+const double kVisibleCells = 48.0;
 
 /// HUD sekundiga necha marta yangilanadi.
 const double _kHudInterval = 0.12;

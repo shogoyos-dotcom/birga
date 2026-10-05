@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'game_grid.dart';
@@ -56,41 +57,66 @@ class TerritoryCapturer {
       claim(i);
     }
 
-    // 2. Xarita chetidan flood fill — o'z kataklaridan o'tmaydi.
+    // 2. Flood fill. Butun xaritani emas, faqat o'yinchi hududini o'rab
+    // turgan to'rtburchakni (bir katak kengaytirilgan holda) tekshiramiz.
+    //
+    // Bu to'g'ri, chunki "devor" vazifasini faqat shu o'yinchining kataklari
+    // bajaradi: to'rtburchakdan tashqarida uning birorta katagi yo'q, demak
+    // u yerdagi hamma bo'sh joy o'zaro va xarita cheti bilan tutashgan va
+    // hech qachon "o'ralgan" bo'la olmaydi. To'rtburchak ichiga tashqaridan
+    // kirish esa faqat uning chekka halqasi orqali mumkin — biz BFS ni
+    // o'sha halqadan boshlaymiz.
+    final bounds = grid.boundsOf(playerId);
+    if (bounds == null) return CaptureResult(captured, takenFrom);
+
     final w = grid.width;
     final h = grid.height;
     final owner = grid.owner;
-    _reached.fillRange(0, _reached.length, 0);
+    final x0 = math.max(0, bounds.$1 - 1);
+    final y0 = math.max(0, bounds.$2 - 1);
+    final x1 = math.min(w - 1, bounds.$3 + 1);
+    final y1 = math.min(h - 1, bounds.$4 + 1);
+
+    for (var y = y0; y <= y1; y++) {
+      _reached.fillRange(y * w + x0, y * w + x1 + 1, 0);
+    }
+
     var head = 0;
     var tail = 0;
 
-    void push(int i) {
+    void push(int x, int y) {
+      final i = y * w + x;
       if (_reached[i] == 0 && owner[i] != playerId) {
         _reached[i] = 1;
         _queue[tail++] = i;
       }
     }
 
-    for (var x = 0; x < w; x++) {
-      push(x);
-      push((h - 1) * w + x);
+    for (var x = x0; x <= x1; x++) {
+      push(x, y0);
+      push(x, y1);
     }
-    for (var y = 0; y < h; y++) {
-      push(y * w);
-      push(y * w + w - 1);
+    for (var y = y0; y <= y1; y++) {
+      push(x0, y);
+      push(x1, y);
     }
     while (head < tail) {
       final i = _queue[head++];
       final x = i % w;
-      if (x > 0) push(i - 1);
-      if (x < w - 1) push(i + 1);
-      if (i >= w) push(i - w);
-      if (i < owner.length - w) push(i + w);
+      final y = i ~/ w;
+      if (x > x0) push(x - 1, y);
+      if (x < x1) push(x + 1, y);
+      if (y > y0) push(x, y - 1);
+      if (y < y1) push(x, y + 1);
     }
 
     // 3. Yetib bo'lmagan begona kataklar — o'ralgan, demak o'yinchiga o'tadi.
-    for (var i = 0; i < owner.length; i++) {
-      if (_reached[i] == 0 && owner[i] != playerId) claim(i);
+    for (var y = y0; y <= y1; y++) {
+      final row = y * w;
+      for (var x = x0; x <= x1; x++) {
+        final i = row + x;
+        if (_reached[i] == 0 && owner[i] != playerId) claim(i);
+      }
     }
 
     return CaptureResult(captured, takenFrom);

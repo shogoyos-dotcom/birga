@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:color_land/game/logic/bot_ai.dart';
 import 'package:color_land/game/logic/difficulty.dart';
+import 'package:color_land/game/logic/game_events.dart';
 import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/game/logic/game_world.dart';
 import 'package:color_land/game/logic/match.dart';
@@ -10,7 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 GameWorld runMatch({
   required Difficulty difficulty,
-  int botCount = 9,
+  // O'yindagi standart bilan bir xil: kamroq bot bo'lsa xaritada
+  // uchrashuvlar siyraklashadi va o'lchov o'yinni aks ettirmaydi.
+  int botCount = 15,
   int seed = 11,
   double seconds = 60,
 }) {
@@ -93,15 +96,43 @@ void main() {
       );
     });
 
-    test("o'lgan bot qayta paydo bo'ladi", () {
-      final world = runMatch(difficulty: Difficulty.hard, seconds: 60);
-      // Qiyin darajada botlar bir-birini o'ldiradi; 60 soniyadan keyin
-      // hammasi yana o'yinda bo'lishi kerak (respawn ishlayapti).
+    test("o'lgan bot belgilangan vaqtdan keyin qayta paydo bo'ladi", () {
+      final world = createMatch(
+        config: const GameConfig(botCount: 3),
+        playerColorIndex: 0,
+        playerName: 'Siz',
+        availableColors: Palette.colorCount,
+        random: math.Random(21),
+      );
+      final bot = world.players[1];
+      expect(bot.alive, isTrue);
+
+      world.kill(bot, DeathCause.wall, null);
+      expect(bot.alive, isFalse);
+      expect(world.grid.territoryOf(bot.id), 0, reason: 'hududi bo\'shaydi');
+
+      // Kutish vaqti tugamaguncha tirilmasligi kerak.
+      const dt = 1 / 60;
+      final halfway = (world.config.botRespawnDelay / 2 / dt).round();
+      for (var i = 0; i < halfway; i++) {
+        world.update(dt);
+      }
+      expect(bot.alive, isFalse, reason: 'hali erta');
+
+      for (var i = 0; i < halfway + 120; i++) {
+        world.update(dt);
+      }
+      expect(bot.alive, isTrue, reason: 'qayta paydo bo\'ldi');
+      expect(world.grid.territoryOf(bot.id), 25, reason: 'yangi 5x5 hudud');
+    });
+
+    test('botlar bir-birini ovlaydi', () {
+      final world = runMatch(difficulty: Difficulty.hard, seconds: 90);
       final aliveBots = world.players.skip(1).where((p) => p.alive).length;
-      expect(aliveBots, greaterThanOrEqualTo(7));
+      expect(aliveBots, greaterThanOrEqualTo(world.config.botCount - 3));
 
       final kills = world.players.fold<int>(0, (s, p) => s + p.kills);
-      expect(kills, greaterThan(0), reason: 'botlar bir-birini ovlaydi');
+      expect(kills, greaterThan(0));
     });
 
     test('qiyinlik botlar tezligiga ta\'sir qiladi', () {
