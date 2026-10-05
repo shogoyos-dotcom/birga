@@ -49,7 +49,30 @@ qachon yangilanish chiqara olmaysiz.** Shuning uchun:
   saqlang;
 - git ga **hech qachon** qo'shmang (`android/.gitignore` buni bloklaydi).
 
-Kalit yaratish (bir marta):
+Kalit `keytool` bilan yaratiladi — u JDK tarkibida keladi. Android Studio
+o'rnatilgan bo'lsa, JDK allaqachon bor.
+
+**Windows (PowerShell).** Avval `keytool` ni toping:
+
+```powershell
+# Android Studio bilan kelgan JDK (eng ko'p uchraydigan joy):
+& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -help
+```
+
+Ishlasa, kalitni shu bilan yarating:
+
+```powershell
+& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" `
+  -genkey -v `
+  -keystore "$env:USERPROFILE\color-land-upload.jks" `
+  -keyalg RSA -keysize 2048 -validity 10000 `
+  -alias upload
+```
+
+`keytool` topilmasa, alohida JDK o'rnating (Temurin yoki Microsoft Build of
+OpenJDK) va `keytool` ni uning `bin` papkasidan ishga tushiring.
+
+**macOS / Linux:**
 
 ```bash
 keytool -genkey -v \
@@ -58,12 +81,23 @@ keytool -genkey -v \
   -alias upload
 ```
 
-`keytool` JDK bilan keladi. Buyruq ism, tashkilot, shahar va ikkita parol
-so'raydi (keystore paroli va kalit paroli — ikkalasini bir xil qilsangiz
-bo'ladi).
+Buyruq ketma-ket so'raydi:
+
+1. **keystore paroli** — o'ylab toping va yozib qo'ying (ekranda ko'rinmaydi);
+2. o'sha parolni takrorlash;
+3. ism-familiya, bo'lim, tashkilot, shahar, viloyat, davlat kodi (`UZ`) —
+   bular sertifikat ichida qoladi, lekin Play'da foydalanuvchiga
+   ko'rsatilmaydi, shuning uchun istalgan haqiqiy ma'lumot bo'laveradi;
+4. tasdiq: `yes` deb yozing;
+5. **kalit paroli** — Enter bosib keystore paroli bilan bir xil qilsangiz
+   bo'ladi (shunda `key.properties` da ikkalasi bir xil yoziladi).
 
 `-validity 10000` — ~27 yil. Play 2033-yildan keyin tugaydigan kalitni qabul
 qilmaydi, shuning uchun uzoq muddat qo'ying.
+
+Natijada `color-land-upload.jks` fayli paydo bo'ladi. **Shu faylni va
+parolni yo'qotmang** — zahira nusxasini parol menejeriga yoki ishonchli
+bulutga qo'ying.
 
 ## 3. `key.properties` faylini yaratish
 
@@ -73,11 +107,13 @@ qilmaydi, shuning uchun uzoq muddat qo'ying.
 storePassword=YUQORIDA_KIRITGAN_KEYSTORE_PAROLI
 keyPassword=YUQORIDA_KIRITGAN_KALIT_PAROLI
 keyAlias=upload
-storeFile=/home/foydalanuvchi/color-land-upload.jks
+storeFile=C:/Users/Shogiyos/color-land-upload.jks
 ```
 
-`storeFile` — to'liq yo'l (Windows'da `C:\\Users\\...\\color-land-upload.jks`,
-ikkita teskari chiziq bilan).
+`storeFile` — faylgacha **to'liq yo'l**. Windows'da ham **oldinga qiya
+chiziq** (`/`) ishlating: `.properties` faylida teskari chiziq maxsus
+belgi hisoblanadi va `C:\Users\...` noto'g'ri o'qiladi. (Teskari chiziqni
+ishlatmoqchi bo'lsangiz, har birini ikkitalab yozing: `C:\\Users\\...`.)
 
 Bu fayl bo'lmasa loyiha baribir quriladi — faqat debug kalit bilan
 imzolanadi, ya'ni Play uchun yaramaydi. Buyruq oxirida buni tekshirasiz
