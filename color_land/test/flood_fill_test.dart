@@ -67,19 +67,19 @@ void main() {
         '.....',
       ]);
       final trail = trailIndices(grid, 1, [
-        (0, 1), (0, 2), (0, 3),
-        (1, 3), (2, 3), (3, 3), (4, 3),
-        (4, 2), (4, 1),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (1, 3),
+        (2, 3),
+        (3, 3),
+        (4, 3),
+        (4, 2),
+        (4, 1),
       ]);
       final res = TerritoryCapturer(grid).capture(1, trail);
 
-      expect(dump(grid), const [
-        '11111',
-        '11111',
-        '11111',
-        '11111',
-        '.....',
-      ]);
+      expect(dump(grid), const ['11111', '11111', '11111', '11111', '.....']);
       expect(res.count, 9 + 6);
     });
 
@@ -105,20 +105,23 @@ void main() {
       expect(res.count, 3);
     });
 
-    test('o\'ralgan raqib hududi egallanadi va kimdan olingani qayd etiladi', () {
-      final grid = gridFrom(const [
-        '.......',
-        '.#####.',
-        '.#222#.',
-        '.#####.',
-        '.......',
-      ]);
-      final res = TerritoryCapturer(grid).capture(1, const []);
+    test(
+      'o\'ralgan raqib hududi egallanadi va kimdan olingani qayd etiladi',
+      () {
+        final grid = gridFrom(const [
+          '.......',
+          '.#####.',
+          '.#222#.',
+          '.#####.',
+          '.......',
+        ]);
+        final res = TerritoryCapturer(grid).capture(1, const []);
 
-      expect(dump(grid)[2], '.11111.');
-      expect(res.takenFrom[2], 3);
-      expect(grid.territoryOf(2), 0);
-    });
+        expect(dump(grid)[2], '.11111.');
+        expect(res.takenFrom[2], 3);
+        expect(grid.territoryOf(2), 0);
+      },
+    );
 
     test('o\'ralmagan raqib hududi tegilmaydi', () {
       final grid = gridFrom(const [
@@ -136,30 +139,15 @@ void main() {
 
     test('xarita chetiga tiralgan hudud ham o\'rab oladi', () {
       // Chap chet bilan birga yopilgan "C" shakli: ichi egallanishi kerak.
-      final grid = gridFrom(const [
-        '####.',
-        '#...#',
-        '#...#',
-        '####.',
-      ]);
+      final grid = gridFrom(const ['####.', '#...#', '#...#', '####.']);
       final res = TerritoryCapturer(grid).capture(1, const []);
 
-      expect(dump(grid), const [
-        '1111.',
-        '11111',
-        '11111',
-        '1111.',
-      ]);
+      expect(dump(grid), const ['1111.', '11111', '11111', '1111.']);
       expect(res.count, 6);
     });
 
     test('butun chet o\'yinchiga tegishli bo\'lsa hammasi egallanadi', () {
-      final grid = gridFrom(const [
-        '####',
-        '#..#',
-        '#22#',
-        '####',
-      ]);
+      final grid = gridFrom(const ['####', '#..#', '#22#', '####']);
       final res = TerritoryCapturer(grid).capture(1, const []);
 
       expect(dump(grid), const ['1111', '1111', '1111', '1111']);

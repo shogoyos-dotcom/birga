@@ -2,23 +2,40 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:color_land/game/logic/game_config.dart';
+import 'package:color_land/game/logic/match.dart';
 import 'package:color_land/game/render/color_land_game.dart';
 import 'package:color_land/game/render/grid_renderer.dart';
 import 'package:color_land/game/render/palette.dart';
+import 'package:color_land/i18n/app_language.dart';
+import 'package:color_land/i18n/l10n.dart';
+import 'package:color_land/storage/settings_store.dart';
 import 'package:color_land/ui/game_screen.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+ColorLandGame makeGame({int size = 64, int bots = 0, int seed = 1}) {
+  return ColorLandGame(
+    sim: createMatch(
+      config: GameConfig(gridWidth: size, gridHeight: size, botCount: bots),
+      playerColorIndex: 0,
+      playerName: 'Siz',
+      availableColors: Palette.colorCount,
+      random: math.Random(seed),
+    ),
+  );
+}
 
 void main() {
   group('GridRenderer keshi', () {
     test("faqat o'zgargan chunklar qayta chiziladi", () {
-      const config = GameConfig(gridWidth: 64, gridHeight: 64, botCount: 0);
-      final game = ColorLandGame(config: config, random: math.Random(1));
-      game.sim.addPlayer(name: 'Siz', colorIndex: 0, isBot: false);
-      game.sim.spawnAll();
-
-      final renderer = GridRenderer(game.sim.grid, kCellSize);
+      final game = makeGame();
+      final renderer = GridRenderer(
+        game.sim.grid,
+        kCellSize,
+        game.sim.colorIndexById,
+      );
       final visible = Rect.fromLTWH(0, 0, 64 * kCellSize, 64 * kCellSize);
 
       void draw() {
@@ -37,7 +54,7 @@ void main() {
       draw();
       expect(renderer.lastRebuildCount, 0);
 
-      // Bitta katak o'zgarsa — faqat bitta chunk qayta chiziladi.
+      // Ikki uzoq katak o'zgarsa — faqat ikki chunk qayta chiziladi.
       game.sim.grid.setOwner(3, 3, 1);
       game.sim.grid.setTrail(40, 40, 1);
       renderer.invalidateDirty();
@@ -48,13 +65,13 @@ void main() {
       expect(renderer.cachedChunks, 0);
     });
 
-    test('bo\'sh panjara chizishda xato bermaydi', () {
-      final game = ColorLandGame(
-        config: const GameConfig(gridWidth: 32, gridHeight: 32, botCount: 0),
-        random: math.Random(2),
+    test("bo'sh panjara chizishda xato bermaydi", () {
+      final game = makeGame(size: 32);
+      final renderer = GridRenderer(
+        game.sim.grid,
+        kCellSize,
+        game.sim.colorIndexById,
       );
-      game.sim.addPlayer(name: 'Siz', colorIndex: 0, isBot: false);
-      final renderer = GridRenderer(game.sim.grid, kCellSize);
       final visible = Rect.fromLTWH(-500, -500, 2000, 2000);
       final rec = ui.PictureRecorder();
       expect(
@@ -77,27 +94,40 @@ void main() {
     });
   });
 
-  testWidgets('o\'yin ekrani ishga tushadi va o\'yinchi harakatlanadi', (
+  testWidgets("o'yin ekrani ishga tushadi va o'yinchi harakatlanadi", (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final store = await SettingsStore.load();
+
     await tester.pumpWidget(
-      const MaterialApp(
-        home: GameScreen(
-          config: GameConfig(gridWidth: 64, gridHeight: 64, botCount: 0),
-          colorIndex: 0,
+      L10n(
+        controller: LanguageController(store, AppLanguage.uz),
+        child: MaterialApp(
+          home: GameScreen(
+            config: const GameConfig(
+              gridWidth: 64,
+              gridHeight: 64,
+              botCount: 4,
+            ),
+            colorIndex: 0,
+            store: store,
+          ),
         ),
       ),
     );
-    // Flame o'yinini yuklash uchun bir necha kadr.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(milliseconds: 16));
 
     final game = tester
-        .widget<GameWidget<ColorLandGame>>(find.byType(GameWidget<ColorLandGame>))
+        .widget<GameWidget<ColorLandGame>>(
+          find.byType(GameWidget<ColorLandGame>),
+        )
         .game!;
     final human = game.sim.human;
     expect(human.alive, isTrue);
+    expect(game.sim.players.length, 5, reason: "o'yinchi + 4 bot");
     final startX = human.x;
     final startY = human.y;
 

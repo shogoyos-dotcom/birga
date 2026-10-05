@@ -1,15 +1,27 @@
-// O'yinning haqiqiy kadrini PNG qilib saqlaydi — qo'lda ko'rib tekshirish uchun.
-// Ishga tushirish: flutter test tool/screenshot_test.dart
+// O'yinning haqiqiy kadrlarini PNG qilib saqlaydi — qo'lda ko'rib tekshirish
+// uchun. Ishga tushirish: flutter test tool/screenshot_test.dart
+//
+// `tool/` papkasi analyzer uchun test papkasi emas, shuning uchun
+// test-only a'zolar haqidagi ogohlantirishlarni o'chiramiz.
+// ignore_for_file: invalid_use_of_visible_for_testing_member
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:color_land/game/logic/difficulty.dart';
 import 'package:color_land/game/logic/game_config.dart';
+import 'package:color_land/game/logic/game_events.dart';
 import 'package:color_land/game/render/color_land_game.dart';
+import 'package:color_land/i18n/app_language.dart';
+import 'package:color_land/i18n/l10n.dart';
+import 'package:color_land/storage/settings_store.dart';
 import 'package:color_land/ui/game_screen.dart';
+import 'package:color_land/ui/menu_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final GlobalKey shotKey = GlobalKey();
 
@@ -25,48 +37,137 @@ Future<void> saveFrame(WidgetTester tester, String path) async {
   });
 }
 
+/// Widget testlarida haqiqiy shrift bo'lmaydi — matn kvadrat bo'lib
+/// chiqadi. Skrinshot o'qilishi uchun tizim shriftini yuklaymiz.
+Future<void> loadFonts() async {
+  const files = <String, List<String>>{
+    'Roboto': [
+      '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+      '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    ],
+  };
+  for (final entry in files.entries) {
+    final loader = FontLoader(entry.key);
+    for (final path in entry.value) {
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      loader.addFont(
+        Future<ByteData>.value(ByteData.view(file.readAsBytesSync().buffer)),
+      );
+    }
+    await loader.load();
+  }
+}
+
+Widget wrap(SettingsStore store, AppLanguage lang, Widget child) {
+  return L10n(
+    controller: LanguageController(store, lang),
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+      home: RepaintBoundary(key: shotKey, child: child),
+    ),
+  );
+}
+
 void main() {
-  testWidgets('skrinshot', (tester) async {
+  late SettingsStore store;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'best_percent': 18.42,
+      'best_kills': 7,
+    });
+    store = await SettingsStore.load();
+    await loadFonts();
+  });
+
+  void sizeView(WidgetTester tester) {
     tester.view
       ..physicalSize = const Size(720, 1280)
       ..devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
+  }
 
+  testWidgets('menyu', (tester) async {
+    sizeView(tester);
     await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: RepaintBoundary(
-          key: shotKey,
-          child: const GameScreen(
-            config: GameConfig(gridWidth: 80, gridHeight: 80, botCount: 0),
-            colorIndex: 0,
-          ),
+      wrap(store, AppLanguage.uz, MenuScreen(store: store)),
+    );
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_menu.png');
+  });
+
+  testWidgets('menyu — English', (tester) async {
+    sizeView(tester);
+    await tester.pumpWidget(
+      wrap(store, AppLanguage.en, MenuScreen(store: store)),
+    );
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_menu_en.png');
+  });
+
+  testWidgets("o'yin — botlar bilan", (tester) async {
+    sizeView(tester);
+    await tester.pumpWidget(
+      wrap(
+        store,
+        AppLanguage.uz,
+        GameScreen(
+          config: const GameConfig(botCount: 9, difficulty: Difficulty.easy),
+          colorIndex: 0,
+          store: store,
         ),
       ),
     );
     await tester.pump();
-    final game = tester.state<State>(find.byType(GameScreen));
-    // ignore: avoid_dynamic_calls
-    final ColorLandGame g = (game as dynamic).gameForTest as ColorLandGame;
+    final screen = tester.state<GameScreenState>(find.byType(GameScreen));
+    final game = screen.gameForTest;
 
-    // Katta to'rtburchak chizib hudud egallaydi.
     const frame = Duration(milliseconds: 16);
     Future<void> run(double angle, int frames) async {
-      g.setSteerAngle(angle);
+      game.setSteerAngle(angle);
       for (var i = 0; i < frames; i++) {
+        if (!game.sim.human.alive) return;
         await tester.pump(frame);
       }
     }
 
-    await run(-math.pi / 2, 70); // yuqoriga
-    await run(0, 70); // o'ngga
-    await run(math.pi / 2, 90); // pastga
-    await run(math.pi, 60); // chapga -> hududga qaytadi
-    await run(-math.pi / 2, 20);
+    // Botlar hududlarini kengaytirishi uchun 25 soniya beramiz.
+    game.sim.human.speed = 0;
+    for (var i = 0; i < 25 * 60; i++) {
+      await tester.pump(frame);
+    }
+    game.sim.human.speed = game.sim.config.playerSpeed;
 
-    await saveFrame(tester, 'build/screenshot.png');
-    expect(File('build/screenshot.png').existsSync(), isTrue);
+    // O'yinchi bir necha kichik tsikl chizib hudud egallaydi.
+    for (var loop = 0; loop < 4 && game.sim.human.alive; loop++) {
+      await run(-math.pi / 2, 45);
+      await run(0, 45);
+      await run(math.pi / 2, 58);
+      await run(math.pi, 52);
+    }
+
     // ignore: avoid_print
-    print('hudud foizi: ${g.sim.grid.percentOf(1).toStringAsFixed(2)}%');
+    print(
+      "o'yinchi: ${game.sim.grid.percentOf(1).toStringAsFixed(2)}%  "
+      'tirik: ${game.sim.players.where((p) => p.alive).length}/'
+      '${game.sim.players.length}  '
+      "o'ldirishlar: ${game.sim.human.kills}",
+    );
+    await saveFrame(tester, 'build/shot_game.png');
+
+    // Natija oynasi.
+    game.paused = false;
+    killHuman(game);
+    // Flame o'yini doim tiklanadi, shuning uchun pumpAndSettle ishlamaydi.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(frame);
+    }
+    await saveFrame(tester, 'build/shot_result.png');
   });
+}
+
+void killHuman(ColorLandGame game) {
+  game.sim.kill(game.sim.human, DeathCause.wall, null);
 }

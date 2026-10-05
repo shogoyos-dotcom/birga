@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'game_config.dart';
 import 'game_events.dart';
@@ -34,6 +35,10 @@ class GameWorld {
   /// ID bo'yicha tezkor kirish (ID 1..255).
   final List<PlayerState?> _byId = List<PlayerState?>.filled(256, null);
 
+  /// O'yinchi ID -> rang indeksi. Panjarada faqat ID saqlanadi, shuning uchun
+  /// rang chizishda shu jadval orqali topiladi.
+  final Uint8List colorIndexById = Uint8List(256);
+
   /// Rendering qatlami har kadrda bo'shatib oladigan hodisalar navbati.
   final List<GameEvent> events = <GameEvent>[];
 
@@ -49,7 +54,9 @@ class GameWorld {
   /// Egallangan maydon bo'yicha kamayish tartibida saralangan tirik o'yinchilar.
   List<PlayerState> leaderboard() {
     final list = players.where((p) => p.alive).toList()
-      ..sort((a, b) => grid.territoryOf(b.id).compareTo(grid.territoryOf(a.id)));
+      ..sort(
+        (a, b) => grid.territoryOf(b.id).compareTo(grid.territoryOf(a.id)),
+      );
     return list;
   }
 
@@ -72,6 +79,7 @@ class GameWorld {
     p.brain = brain;
     players.add(p);
     _byId[id] = p;
+    colorIndexById[id] = colorIndex;
     return p;
   }
 

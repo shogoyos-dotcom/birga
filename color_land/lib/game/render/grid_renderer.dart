@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
@@ -12,12 +13,15 @@ import 'palette.dart';
 /// chunklar qayta yoziladi. Shu bilan 150x150 = 22 500 katak har kadrda
 /// qayta chizilmaydi; ekranda ko'rinadigan ~12-20 chunk chiziladi.
 class GridRenderer {
-  GridRenderer(this.grid, this.cellSize) {
+  GridRenderer(this.grid, this.cellSize, this.colorIndexById) {
     _chunkWorld = grid.chunkCells * cellSize;
   }
 
   final GameGrid grid;
   final double cellSize;
+
+  /// O'yinchi ID -> rang indeksi (panjarada faqat ID saqlanadi).
+  final Uint8List colorIndexById;
   late final double _chunkWorld;
 
   final Map<int, ui.Picture> _cache = <int, ui.Picture>{};
@@ -49,7 +53,10 @@ class GridRenderer {
   void render(ui.Canvas canvas, Rect visible) {
     lastRebuildCount = 0;
     final cx0 = (visible.left / _chunkWorld).floor().clamp(0, grid.chunksX - 1);
-    final cx1 = (visible.right / _chunkWorld).floor().clamp(0, grid.chunksX - 1);
+    final cx1 = (visible.right / _chunkWorld).floor().clamp(
+      0,
+      grid.chunksX - 1,
+    );
     final cy0 = (visible.top / _chunkWorld).floor().clamp(0, grid.chunksY - 1);
     final cy1 = (visible.bottom / _chunkWorld).floor().clamp(
       0,
@@ -68,9 +75,13 @@ class GridRenderer {
   /// Katakning rangi (ARGB) yoki 0 — bo'sh.
   int _cellColor(int i) {
     final t = grid.trail[i];
-    if (t != 0) return Palette.trailValues[(t - 1) % Palette.colorCount];
+    if (t != 0) {
+      return Palette.trailValues[colorIndexById[t] % Palette.colorCount];
+    }
     final o = grid.owner[i];
-    if (o != 0) return Palette.territoryValues[(o - 1) % Palette.colorCount];
+    if (o != 0) {
+      return Palette.territoryValues[colorIndexById[o] % Palette.colorCount];
+    }
     return 0;
   }
 
@@ -119,7 +130,10 @@ class GridRenderer {
   }
 }
 
-/// O'yinchi kvadratini (boshini) chizadi.
+/// O'yinchi kvadratini va nomini chizadi.
+///
+/// Nom yozuvlari `ui.Paragraph` sifatida keshlanadi — har kadrda matn
+/// qayta joylashtirilmaydi.
 class HeadPainter {
   HeadPainter(this.cellSize);
 
@@ -129,6 +143,7 @@ class HeadPainter {
   final Paint _stroke = Paint()
     ..isAntiAlias = true
     ..style = PaintingStyle.stroke;
+  final Map<int, ui.Paragraph> _labels = <int, ui.Paragraph>{};
 
   void paint(ui.Canvas canvas, PlayerState p) {
     final size = cellSize * 1.9;
@@ -139,15 +154,54 @@ class HeadPainter {
       Radius.circular(cellSize * 0.45),
     );
 
-    _fill.color = const Color(0x33000000);
-    canvas.drawRRect(rrect.shift(Offset(0, cellSize * 0.18)), _fill);
+    // Yengil soya — kvadrat maydondan "ko'tarilib" turgandek ko'rinadi.
+    _fill.color = const Color(0x33101828);
+    canvas.drawRRect(rrect.shift(Offset(0, cellSize * 0.22)), _fill);
 
-    _fill.color = Palette.head(p.colorIndex);
+    _fill.color = Palette.territory(p.colorIndex);
     canvas.drawRRect(rrect, _fill);
 
+    _fill.color = Palette.head(p.colorIndex);
+    canvas.drawRRect(rrect.deflate(cellSize * 0.26), _fill);
+
     _stroke
-      ..color = Palette.territory(p.colorIndex)
-      ..strokeWidth = cellSize * 0.22;
-    canvas.drawRRect(rrect.deflate(cellSize * 0.11), _stroke);
+      ..color = const Color(0x40FFFFFF)
+      ..strokeWidth = cellSize * 0.14;
+    canvas.drawRRect(rrect.deflate(cellSize * 0.07), _stroke);
+
+    _drawLabel(canvas, p, center, size);
   }
+
+  void _drawLabel(ui.Canvas canvas, PlayerState p, Offset center, double size) {
+    final paragraph = _labels.putIfAbsent(p.id, () => _buildLabel(p));
+    canvas.drawParagraph(
+      paragraph,
+      Offset(
+        center.dx - paragraph.width / 2,
+        center.dy - size / 2 - cellSize * 1.5,
+      ),
+    );
+  }
+
+  ui.Paragraph _buildLabel(PlayerState p) {
+    final builder =
+        ui.ParagraphBuilder(
+            ui.ParagraphStyle(
+              textAlign: TextAlign.center,
+              fontSize: cellSize * 1.15,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+          ..pushStyle(
+            ui.TextStyle(
+              color: const Color(0xFF26314A),
+              shadows: const [Shadow(color: Color(0xCCFFFFFF), blurRadius: 3)],
+            ),
+          )
+          ..addText(p.name);
+    return builder.build()
+      ..layout(ui.ParagraphConstraints(width: cellSize * 12));
+  }
+
+  void dispose() => _labels.clear();
 }

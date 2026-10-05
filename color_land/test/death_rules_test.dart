@@ -178,7 +178,13 @@ void main() {
 
     test('reyting hudud bo\'yicha saralanadi', () {
       final world = makeWorld();
-      final small = placePlayer(world, left: 2, top: 2, size: 3, name: 'kichik');
+      final small = placePlayer(
+        world,
+        left: 2,
+        top: 2,
+        size: 3,
+        name: 'kichik',
+      );
       final big = placePlayer(
         world,
         left: 12,
