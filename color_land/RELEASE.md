@@ -107,8 +107,13 @@ flutter build appbundle --release
 Natija:
 
 ```
-build/app/outputs/bundle/release/app-release.aab
+build/app/outputs/bundle/release/app-release.aab   (~49 MB)
 ```
+
+Hajmdan cho'chimang: `.aab` ichida uchta protsessor arxitekturasi
+(arm64-v8a, armeabi-v7a, x86_64) birga turadi. Google Play har bir
+telefonga faqat o'ziga keragini yuboradi — haqiqiy yuklab olish hajmi
+ancha kichik (arm64 telefon uchun ~20 MB atrofida).
 
 Imzo to'g'ri qo'yilganini tekshirish:
 
@@ -124,8 +129,35 @@ fayl nomi va yo'lini tekshiring.
 Telefonda sinash uchun (`.aab` ni to'g'ridan-to'g'ri o'rnatib bo'lmaydi):
 
 ```bash
-flutter build apk --release
-flutter install --release
+flutter build apk --release          # build/app/outputs/flutter-apk/app-release.apk
+flutter install --release            # ulangan qurilmaga o'rnatadi
+```
+
+APK ni fayl sifatida telefonga tashlab ham o'rnatsa bo'ladi — bunda
+telefon sozlamalarida "noma'lum manbalardan o'rnatish" ruxsatini berish
+kerak bo'ladi.
+
+### Qurilgan ilovani tekshirish
+
+`.aab` yoki APK ichidagi narsani ko'rish uchun (Android SDK ning
+`build-tools` papkasidan):
+
+```bash
+aapt2 dump badging build/app/outputs/flutter-apk/app-release.apk | head
+```
+
+Kutilayotgan natija:
+
+```
+package: name='com.mening.colorland' versionCode='1' versionName='1.0.0'
+targetSdkVersion:'36'
+application-label:'Color Land'
+```
+
+APK ning imzosini `apksigner` osonroq ko'rsatadi:
+
+```bash
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
 ```
 
 ## 6. Play Console'ga yuklash
