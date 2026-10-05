@@ -146,7 +146,9 @@ void main() {
       game.setSteerAngle(-math.pi / 2 + t * 2 * math.pi);
       await tester.pump(frame);
     }
-    await run(math.pi / 2, 20);
+    // Hududdan uzoqroq chiqib to'xtaymiz — iz ham ko'rinsin.
+    await run(-math.pi / 2, 95);
+    await run(0.9, 60);
 
     // ignore: avoid_print
     print(

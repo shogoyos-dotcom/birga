@@ -9,7 +9,8 @@ import '../logic/game_config.dart';
 import '../logic/game_events.dart';
 import '../logic/game_world.dart';
 import '../logic/player_state.dart';
-import 'grid_renderer.dart';
+import 'head_painter.dart';
+import 'shape_painter.dart';
 import 'hud_snapshot.dart';
 import 'palette.dart';
 
@@ -33,7 +34,7 @@ class ColorLandGame extends FlameGame {
 
   GameConfig get config => sim.config;
 
-  late final GridRenderer gridRenderer;
+  late final TerritoryShapes territoryShapes;
   late final CaptureFlashLayer flashLayer;
 
   /// HUD uchun holat — sekundiga ~8 marta yangilanadi.
@@ -61,12 +62,12 @@ class ColorLandGame extends FlameGame {
 
   @override
   Future<void> onLoad() async {
-    gridRenderer = GridRenderer(sim.grid, kCellSize, sim.colorIndexById);
+    territoryShapes = TerritoryShapes(sim.grid, kCellSize);
     flashLayer = CaptureFlashLayer();
     camera.viewfinder.anchor = Anchor.center;
     await world.addAll([
       BoardBackground(),
-      GridLayer(),
+      TerritoryLayer(),
       flashLayer,
       PlayersLayer(),
     ]);
@@ -135,7 +136,6 @@ class ColorLandGame extends FlameGame {
       }
     }
 
-    gridRenderer.invalidateDirty();
     flashLayer.advance(dt);
 
     if (human.alive) {
@@ -184,7 +184,7 @@ class ColorLandGame extends FlameGame {
 
   @override
   void onRemove() {
-    gridRenderer.dispose();
+    territoryShapes.dispose();
     hud.dispose();
     super.onRemove();
   }
@@ -220,13 +220,17 @@ class BoardBackground extends Component with HasGameReference<ColorLandGame> {
   }
 }
 
-/// Egallangan hudud va izlar — keshlangan chunklar orqali.
-class GridLayer extends Component with HasGameReference<ColorLandGame> {
-  GridLayer() : super(priority: 10);
+/// Egallangan hududlar — har o'yinchi uchun yumaloq, silliq shakl.
+class TerritoryLayer extends Component with HasGameReference<ColorLandGame> {
+  TerritoryLayer() : super(priority: 10);
 
   @override
   void render(ui.Canvas canvas) {
-    game.gridRenderer.render(canvas, game.camera.visibleWorldRect);
+    game.territoryShapes.render(
+      canvas,
+      game.sim.players.where((p) => p.alive || p.finalTerritory > 0),
+      game.camera.visibleWorldRect,
+    );
   }
 }
 
@@ -250,7 +254,7 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
   static const int _maxRects = 1600;
 
   final List<_Flash> _flashes = <_Flash>[];
-  final Paint _paint = Paint()..isAntiAlias = false;
+  final Paint _paint = Paint()..isAntiAlias = true;
 
   int get activeCount => _flashes.length;
 
@@ -328,9 +332,18 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
       }
       if (alpha <= 0.01) continue;
       _paint.color = color.withValues(alpha: alpha);
+      // Hudud shakli bilan bir xil yumaloqlikda — aks holda silliq
+      // hududning ustida burchakli to'rtburchaklar porlab ketadi.
+      const grow = kCellSize * TerritoryShapes.growFactor;
+      final radius = Radius.circular(
+        kCellSize * TerritoryShapes.radiusFactor,
+      );
       for (final rect in flash.rects) {
         if (!rect.overlaps(visible)) continue;
-        canvas.drawRect(rect, _paint);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect.inflate(grow), radius),
+          _paint,
+        );
       }
     }
   }
@@ -350,10 +363,17 @@ class PlayersLayer extends Component with HasGameReference<ColorLandGame> {
   PlayersLayer() : super(priority: 30);
 
   late final HeadPainter _painter = HeadPainter(kCellSize);
+  late final TrailPainter _trails = TrailPainter(kCellSize);
 
   @override
   void render(ui.Canvas canvas) {
     final visible = game.camera.visibleWorldRect.inflate(kCellSize * 3);
+
+    // Avval izlar — boshlar ularning ustida turadi.
+    for (final PlayerState p in game.sim.players) {
+      if (!p.alive || p.trailPath.length < 2) continue;
+      _trails.paint(canvas, p);
+    }
     for (final PlayerState p in game.sim.players) {
       if (!p.alive) continue;
       if (!visible.contains(Offset(p.x * kCellSize, p.y * kCellSize))) continue;

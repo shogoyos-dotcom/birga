@@ -5,7 +5,7 @@ import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/game/logic/game_events.dart';
 import 'package:color_land/game/logic/match.dart';
 import 'package:color_land/game/render/color_land_game.dart';
-import 'package:color_land/game/render/grid_renderer.dart';
+import 'package:color_land/game/render/shape_painter.dart';
 import 'package:color_land/game/render/palette.dart';
 import 'package:color_land/i18n/app_language.dart';
 import 'package:color_land/i18n/l10n.dart';
@@ -29,99 +29,66 @@ ColorLandGame makeGame({int size = 64, int bots = 0, int seed = 1}) {
 }
 
 void main() {
-  group('GridRenderer keshi', () {
-    test("faqat o'zgargan chunklar qayta chiziladi", () {
+  group('Hudud shakli keshi', () {
+    test("hudud o'zgarmaguncha shakl qayta chizilmaydi", () {
       final game = makeGame();
-      final renderer = GridRenderer(
-        game.sim.grid,
-        kCellSize,
-        game.sim.colorIndexById,
-      );
+      final shapes = TerritoryShapes(game.sim.grid, kCellSize);
       final visible = Rect.fromLTWH(0, 0, 64 * kCellSize, 64 * kCellSize);
 
       void draw() {
         final rec = ui.PictureRecorder();
-        renderer.render(ui.Canvas(rec, visible), visible);
+        shapes.render(ui.Canvas(rec, visible), game.sim.players, visible);
         rec.endRecording().dispose();
       }
 
-      renderer.invalidateDirty();
       draw();
-      final total = renderer.cachedChunks;
-      expect(total, 4 * 4, reason: '64/16 = 4 chunk har tomonda');
-      expect(renderer.lastRebuildCount, total);
+      expect(shapes.cachedCount, 1, reason: 'bitta o\'yinchi');
+      expect(shapes.lastRebuildCount, 1);
 
-      // Hech narsa o'zgarmasa — bitta ham qayta chizilmaydi.
       draw();
-      expect(renderer.lastRebuildCount, 0);
+      expect(shapes.lastRebuildCount, 0, reason: "o'zgarish yo'q");
 
-      // Ikki uzoq katak o'zgarsa — faqat ikki chunk qayta chiziladi.
+      // Hudud o'zgarsa — shakl qayta yoziladi.
       game.sim.grid.setOwner(3, 3, 1);
-      game.sim.grid.setTrail(40, 40, 1);
-      renderer.invalidateDirty();
       draw();
-      expect(renderer.lastRebuildCount, 2);
+      expect(shapes.lastRebuildCount, 1);
 
-      renderer.dispose();
-      expect(renderer.cachedChunks, 0);
+      // Begona o'yinchining hududi o'zgarsa, bizniki tegilmaydi.
+      game.sim.grid.setOwner(40, 40, 2);
+      draw();
+      expect(shapes.lastRebuildCount, 0);
+
+      shapes.dispose();
+      expect(shapes.cachedCount, 0);
     });
 
-    test('bir kadrda byudjetdan ortiq chunk qayta yozilmaydi', () {
+    test("ko'rinmaydigan hudud chizilmaydi", () {
       final game = makeGame();
-      final renderer = GridRenderer(
-        game.sim.grid,
-        kCellSize,
-        game.sim.colorIndexById,
+      final shapes = TerritoryShapes(game.sim.grid, kCellSize);
+      // O'yinchidan juda uzoqdagi soha.
+      final far = Rect.fromLTWH(10000, 10000, 100, 100);
+      final rec = ui.PictureRecorder();
+      shapes.render(ui.Canvas(rec, far), game.sim.players, far);
+      rec.endRecording().dispose();
+      expect(
+        shapes.cachedCount,
+        0,
+        reason: 'ekrandan tashqaridagi o\'tkazib yuboriladi',
       );
-      final visible = Rect.fromLTWH(0, 0, 64 * kCellSize, 64 * kCellSize);
-
-      void draw() {
-        final rec = ui.PictureRecorder();
-        renderer.render(ui.Canvas(rec, visible), visible);
-        rec.endRecording().dispose();
-      }
-
-      renderer.invalidateDirty();
-      draw(); // keshni to'ldiramiz
-      expect(renderer.pendingChunks, 0);
-
-      // Hamma 16 chunkni o'zgartiramiz.
-      for (var y = 0; y < 64; y += 16) {
-        for (var x = 0; x < 64; x += 16) {
-          // 2-ID hech kimga tegishli emas — har bir katak albatta o'zgaradi.
-          game.sim.grid.setOwner(x + 1, y + 1, 2);
-        }
-      }
-      renderer.invalidateDirty();
-      expect(renderer.pendingChunks, 16);
-
-      draw();
-      expect(renderer.lastRebuildCount, GridRenderer.kRebuildBudget);
-      expect(renderer.pendingChunks, 16 - GridRenderer.kRebuildBudget);
-
-      // Bir necha kadrdan keyin hammasi yangilanadi.
-      for (var i = 0; i < 10; i++) {
-        draw();
-      }
-      expect(renderer.pendingChunks, 0);
-      renderer.dispose();
+      shapes.dispose();
     });
 
     test("bo'sh panjara chizishda xato bermaydi", () {
       final game = makeGame(size: 32);
-      final renderer = GridRenderer(
-        game.sim.grid,
-        kCellSize,
-        game.sim.colorIndexById,
-      );
+      final shapes = TerritoryShapes(game.sim.grid, kCellSize);
       final visible = Rect.fromLTWH(-500, -500, 2000, 2000);
       final rec = ui.PictureRecorder();
       expect(
-        () => renderer.render(ui.Canvas(rec, visible), visible),
+        () => shapes.render(ui.Canvas(rec, visible), game.sim.players, visible),
         returnsNormally,
       );
       rec.endRecording().dispose();
-      renderer.dispose();
+      shapes.dispose();
     });
   });
 

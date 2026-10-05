@@ -43,7 +43,26 @@ class PlayerState {
   int finalTerritory = 0;
 
   /// O'z hududidan tashqarida chizilgan iz kataklari (tartib bilan).
+  /// O'lim va hudud egallash qoidalari shu ro'yxat bo'yicha ishlaydi.
   final List<int> trail = <int>[];
+
+  /// Izning uzluksiz yo'li: x0, y0, x1, y1, ... katak birligida.
+  ///
+  /// Kataklardan farqli o'laroq bu haqiqiy, egri yo'l — iz shu bo'yicha
+  /// silliq chiziq sifatida chiziladi. Mantiqqa ta'sir qilmaydi.
+  final List<double> trailPath = <double>[];
+
+  /// Yo'lga yangi nuqta qo'shadi (juda yaqin bo'lsa qo'shmaydi).
+  void addPathPoint(double px, double py) {
+    if (trailPath.length >= 2) {
+      final dx = px - trailPath[trailPath.length - 2];
+      final dy = py - trailPath[trailPath.length - 1];
+      if (dx * dx + dy * dy < 0.09) return; // ~0.3 katak
+    }
+    trailPath
+      ..add(px)
+      ..add(py);
+  }
 
   DeathCause deathCause = DeathCause.none;
 
@@ -60,6 +79,7 @@ class PlayerState {
     angle = dir;
     targetAngle = dir;
     trail.clear();
+    trailPath.clear();
     alive = true;
     deathCause = DeathCause.none;
     respawnTimer = 0;

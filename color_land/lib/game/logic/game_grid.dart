@@ -15,6 +15,7 @@ class GameGrid {
       owner = Uint8List(width * height),
       trail = Uint8List(width * height),
       _territory = Int32List(256),
+      _version = Int32List(256),
       _minX = Int32List(256),
       _minY = Int32List(256),
       _maxX = Int32List(256),
@@ -50,6 +51,10 @@ class GameGrid {
   // kengayganda yangilanadi, qisqarganda esa qisqarmaydi — kattaroq
   // to'rtburchak ham to'g'ri natija beradi, shunchaki biroz ko'proq
   // katak tekshiriladi.
+  /// Har bir o'yinchi hududi o'zgarganda oshadi — chizish keshi shu
+  /// orqali qachon eskirganini biladi.
+  final Int32List _version;
+
   final Int32List _minX;
   final Int32List _minY;
   final Int32List _maxX;
@@ -92,6 +97,8 @@ class GameGrid {
     _territory[prev]--;
     _territory[id]++;
     owner[i] = id;
+    _version[prev]++;
+    _version[id]++;
     if (id != 0) {
       final x = i % width;
       final y = i ~/ width;
@@ -102,6 +109,9 @@ class GameGrid {
     }
     markDirtyIndex(i);
   }
+
+  /// `id` hududi necha marta o'zgargani. Faqat solishtirish uchun.
+  int versionOf(int id) => _version[id];
 
   /// `id` ning butun hududini o'rab turgan to'rtburchak:
   /// `(minX, minY, maxX, maxY)`. Hudud bo'sh bo'lsa `null`.
@@ -133,6 +143,8 @@ class GameGrid {
         _territory[id]--;
         _territory[0]++;
         owner[i] = 0;
+        _version[id]++;
+        _version[0]++;
         markDirtyIndex(i);
         cleared.add(i);
       }

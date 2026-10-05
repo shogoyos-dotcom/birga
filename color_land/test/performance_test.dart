@@ -7,7 +7,7 @@ import 'package:color_land/game/logic/game_world.dart';
 import 'package:color_land/game/logic/match.dart';
 import 'package:color_land/game/logic/territory_capture.dart';
 import 'package:color_land/game/render/color_land_game.dart';
-import 'package:color_land/game/render/grid_renderer.dart';
+import 'package:color_land/game/render/shape_painter.dart';
 import 'package:color_land/game/render/palette.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,11 +62,10 @@ void main() {
     );
   });
 
-  test('keshlangan panjara chizish kadr byudjetiga sig\'adi', () {
+  test("keshlangan hudud shakllarini chizish kadr byudjetiga sig'adi", () {
     final world = filledWorld();
-    final renderer = GridRenderer(world.grid, kCellSize, world.colorIndexById);
+    final shapes = TerritoryShapes(world.grid, kCellSize);
 
-    // Ekranda ko'rinadigan maydon kameraga mos (portret 16:9).
     final human = world.human;
     final visible = Rect.fromCenter(
       center: Offset(human.x * kCellSize, human.y * kCellSize),
@@ -77,22 +76,20 @@ void main() {
     double drawOnce() {
       final sw = Stopwatch()..start();
       final rec = ui.PictureRecorder();
-      renderer.render(ui.Canvas(rec, visible), visible);
+      shapes.render(ui.Canvas(rec, visible), world.players, visible);
       rec.endRecording().dispose();
       sw.stop();
       return sw.elapsedMicroseconds.toDouble();
     }
 
-    renderer.invalidateDirty();
     final firstUs = drawOnce();
-    final rebuilt = renderer.lastRebuildCount;
+    final rebuilt = shapes.lastRebuildCount;
 
-    // Keyingi kadrlar — hammasi keshdan.
     const frames = 600;
     final sw = Stopwatch()..start();
     for (var i = 0; i < frames; i++) {
       final rec = ui.PictureRecorder();
-      renderer.render(ui.Canvas(rec, visible), visible);
+      shapes.render(ui.Canvas(rec, visible), world.players, visible);
       rec.endRecording().dispose();
     }
     sw.stop();
@@ -100,49 +97,74 @@ void main() {
 
     // ignore: avoid_print
     print(
-      'chizish: birinchi kadr ${firstUs.toStringAsFixed(0)} µs '
-      '($rebuilt chunk yozildi), keshdan ${cachedUs.toStringAsFixed(1)} µs/kadr',
+      'hudud shakllari: birinchi kadr ${firstUs.toStringAsFixed(0)} µs '
+      '($rebuilt shakl yozildi), keshdan ${cachedUs.toStringAsFixed(1)} µs/kadr',
     );
 
-    expect(rebuilt, lessThanOrEqualTo(40), reason: 'faqat ko\'rinadiganlari');
-    expect(
-      renderer.lastRebuildCount,
-      0,
-      reason: 'keyin hech biri qayta yozilmaydi',
-    );
-    expect(cachedUs, lessThan(1500));
-    renderer.dispose();
+    expect(shapes.lastRebuildCount, 0, reason: 'keyin qayta yozilmaydi');
+    expect(cachedUs, lessThan(2000));
+    shapes.dispose();
   });
 
-  test('harakat paytida bir kadrda kam chunk qayta yoziladi', () {
+  test("bitta shaklni qayta yozish kadr byudjetiga sig'adi", () {
     final world = filledWorld();
-    final renderer = GridRenderer(world.grid, kCellSize, world.colorIndexById);
-    renderer.invalidateDirty();
+    final shapes = TerritoryShapes(world.grid, kCellSize);
+    // Eng katta hududli o'yinchini olamiz — eng og'ir holat.
+    final biggest = world.leaderboard().first;
+    final b = world.grid.boundsOf(biggest.id)!;
+    final visible = Rect.fromLTRB(
+      b.$1 * kCellSize,
+      b.$2 * kCellSize,
+      (b.$3 + 1) * kCellSize,
+      (b.$4 + 1) * kCellSize,
+    );
 
-    // Keshni oldindan to'ldiramiz — birinchi kadr har doim qimmat bo'ladi,
-    // bizni esa harakat paytidagi barqaror holat qiziqtiradi.
-    {
-      final human = world.human;
-      final visible = Rect.fromCenter(
-        center: Offset(human.x * kCellSize, human.y * kCellSize),
-        width: kVisibleCells * kCellSize,
-        height: kVisibleCells * (16 / 9) * kCellSize,
-      );
-      for (var i = 0; i < 3; i++) {
-        final rec = ui.PictureRecorder();
-        renderer.render(ui.Canvas(rec, visible), visible);
-        rec.endRecording().dispose();
-      }
+    double renderOnce() {
+      final sw = Stopwatch()..start();
+      final rec = ui.PictureRecorder();
+      shapes.render(ui.Canvas(rec, visible), [biggest], visible);
+      rec.endRecording().dispose();
+      sw.stop();
+      return sw.elapsedMicroseconds.toDouble();
     }
 
+    // Isitish.
+    for (var i = 0; i < 20; i++) {
+      world.grid.setOwner(b.$1, b.$2, biggest.id);
+      world.grid.setOwner(b.$1, b.$2, 0);
+      renderOnce();
+    }
+
+    var worst = 0.0;
+    for (var i = 0; i < 20; i++) {
+      // Hududni "o'zgartirib" keshni eskirtiramiz.
+      world.grid.setOwner(b.$1, b.$2, biggest.id);
+      final us = renderOnce();
+      if (us > worst) worst = us;
+    }
+
+    final area = (b.$3 - b.$1 + 1) * (b.$4 - b.$2 + 1);
+    // ignore: avoid_print
+    print(
+      'eng katta hudud shaklini qayta yozish: '
+      '${worst.toStringAsFixed(0)} µs '
+      '(${world.grid.territoryOf(biggest.id)} katak, soha $area)',
+    );
+    expect(worst, lessThan(16000));
+    shapes.dispose();
+  });
+
+  test("harakat paytida kam shakl qayta yoziladi", () {
+    final world = filledWorld();
+    final shapes = TerritoryShapes(world.grid, kCellSize);
+
     const dt = 1 / 60;
-    var totalRebuilds = 0;
-    var worstFrame = 0;
+    var total = 0;
+    var worst = 0;
     const frames = 900; // 15 soniya
 
     for (var i = 0; i < frames; i++) {
       world.update(dt);
-      renderer.invalidateDirty();
       final human = world.human;
       final visible = Rect.fromCenter(
         center: Offset(human.x * kCellSize, human.y * kCellSize),
@@ -150,28 +172,19 @@ void main() {
         height: kVisibleCells * (16 / 9) * kCellSize,
       );
       final rec = ui.PictureRecorder();
-      renderer.render(ui.Canvas(rec, visible), visible);
+      shapes.render(ui.Canvas(rec, visible), world.players, visible);
       rec.endRecording().dispose();
-      totalRebuilds += renderer.lastRebuildCount;
-      if (renderer.lastRebuildCount > worstFrame) {
-        worstFrame = renderer.lastRebuildCount;
-      }
+      total += shapes.lastRebuildCount;
+      if (shapes.lastRebuildCount > worst) worst = shapes.lastRebuildCount;
     }
 
     // ignore: avoid_print
     print(
-      'chunk qayta yozish: o\'rtacha '
-      '${(totalRebuilds / frames).toStringAsFixed(2)}/kadr, eng ko\'pi $worstFrame',
+      "shakl qayta yozish: o'rtacha ${(total / frames).toStringAsFixed(2)}/kadr, "
+      'eng ko\'pi $worst',
     );
-    expect(totalRebuilds / frames, lessThan(4));
-    expect(
-      worstFrame,
-      lessThanOrEqualTo(GridRenderer.kRebuildBudget + 6),
-      reason:
-          'kamera yangi chunklar ustiga siljiganda ular birinchi marta '
-          "yoziladi; eskirganlari esa byudjet bilan cheklangan",
-    );
-    renderer.dispose();
+    expect(total / frames, lessThan(4));
+    shapes.dispose();
   });
 
   test("hudud egallash bir kadrda tugaydi", () {

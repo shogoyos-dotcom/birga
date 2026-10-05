@@ -157,6 +157,10 @@ class GameWorld {
     p.x += math.cos(p.angle) * dist;
     p.y += math.sin(p.angle) * dist;
 
+    // Tashqarida bo'lsa haqiqiy yo'lni ham yozib boramiz — iz shu bo'yicha
+    // silliq chiziladi.
+    if (p.trail.isNotEmpty) p.addPathPoint(p.x, p.y);
+
     var tx = p.x.floor();
     var ty = p.y.floor();
 
@@ -212,6 +216,13 @@ class GameWorld {
       if (victim != null && victim.alive) kill(victim, DeathCause.trailHit, p);
     }
 
+    if (p.trail.isEmpty) {
+      // Hududdan endi chiqdi — yo'l shu nuqtadan boshlanadi.
+      p.trailPath
+        ..clear()
+        ..add(p.x)
+        ..add(p.y);
+    }
     grid.setTrailIndex(i, p.id);
     p.trail.add(i);
   }
@@ -228,6 +239,7 @@ class GameWorld {
   void _finishLoop(PlayerState p) {
     final result = _capturer.capture(p.id, p.trail);
     p.trail.clear();
+    p.trailPath.clear();
     if (result.isEmpty) return;
     events.add(CaptureEvent(p.id, result.cells));
 
@@ -247,6 +259,7 @@ class GameWorld {
     p.alive = false;
     p.deathCause = cause;
     p.trail.clear();
+    p.trailPath.clear();
     if (killer != null && killer.id != p.id) killer.kills++;
     p.finalTerritory = grid.territoryOf(p.id);
     final cleared = grid.clearPlayer(p.id);
