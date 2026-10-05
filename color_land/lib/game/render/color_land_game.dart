@@ -52,6 +52,10 @@ class ColorLandGame extends FlameGame {
   /// O'yinchi qancha vaqt tirik qolgani.
   double survivedSeconds = 0;
 
+  /// O'lgandan keyin reyting o'rni o'zgarmasin.
+  int _lastRank = 1;
+  int _lastAlive = 1;
+
   @override
   Color backgroundColor() => Palette.outside;
 
@@ -121,8 +125,13 @@ class ColorLandGame extends FlameGame {
     sim.update(dt);
 
     for (final event in sim.drainEvents()) {
-      if (event is CaptureEvent) {
-        flashLayer.addCapture(sim, event);
+      switch (event) {
+        case CaptureEvent(:final playerId, :final cells):
+          flashLayer.addFlash(sim, playerId, cells, FlashKind.capture);
+        case DeathEvent(:final playerId, :final clearedCells):
+          flashLayer.addFlash(sim, playerId, clearedCells, FlashKind.death);
+        case RespawnEvent():
+          break;
       }
     }
 
@@ -149,14 +158,17 @@ class ColorLandGame extends FlameGame {
   void _refreshHud() {
     final board = sim.leaderboard();
     final human = sim.human;
-    var rank = board.indexWhere((p) => p.id == human.id);
-    if (rank < 0) rank = board.length;
+    if (human.alive) {
+      final index = board.indexWhere((p) => p.id == human.id);
+      _lastRank = (index < 0 ? board.length : index) + 1;
+      _lastAlive = board.length;
+    }
     hud.value = HudSnapshot(
-      percent: sim.grid.percentOf(human.id),
+      percent: sim.percentOf(human),
       kills: human.kills,
-      elapsed: sim.elapsed,
-      rank: rank + 1,
-      alivePlayers: board.length,
+      elapsed: survivedSeconds,
+      rank: _lastRank,
+      alivePlayers: _lastAlive,
       top: [
         for (final p in board.take(5))
           ScoreRow(
@@ -235,11 +247,21 @@ class GridLayer extends Component with HasGameReference<ColorLandGame> {
   }
 }
 
-/// Hudud egallanganda qisqa oq yorug'lik — "egallandi" hissi uchun.
+/// Animatsiya turi.
+enum FlashKind {
+  /// Hudud egallandi — oqdan o'yinchi rangiga o'tadigan yorug'lik.
+  capture,
+
+  /// O'yinchi o'ldi — hududi o'z rangida so'nadi.
+  death,
+}
+
+/// Hudud egallanganda va o'yinchi o'lganda qisqa animatsiya.
 class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
   CaptureFlashLayer() : super(priority: 20);
 
-  static const double _duration = 0.45;
+  static const double _captureDuration = 0.45;
+  static const double _deathDuration = 0.7;
 
   /// Juda katta egallashda har bir katakni chizmaymiz — chegara qo'yamiz.
   static const int _maxRects = 1600;
@@ -249,10 +271,10 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
 
   int get activeCount => _flashes.length;
 
-  void addCapture(GameWorld sim, CaptureEvent event) {
-    final rects = _mergeRuns(sim, event.cells);
+  void addFlash(GameWorld sim, int playerId, List<int> cells, FlashKind kind) {
+    final rects = _mergeRuns(sim, cells);
     if (rects.isEmpty) return;
-    _flashes.add(_Flash(rects, Palette.head(_colorOf(sim, event.playerId))));
+    _flashes.add(_Flash(rects, Palette.head(_colorOf(sim, playerId)), kind));
   }
 
   int _colorOf(GameWorld sim, int playerId) =>
@@ -291,10 +313,16 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
     return rects;
   }
 
+  static double durationOf(FlashKind kind) => switch (kind) {
+    FlashKind.capture => _captureDuration,
+    FlashKind.death => _deathDuration,
+  };
+
   void advance(double dt) {
     for (var i = _flashes.length - 1; i >= 0; i--) {
-      _flashes[i].age += dt;
-      if (_flashes[i].age >= _duration) _flashes.removeAt(i);
+      final flash = _flashes[i];
+      flash.age += dt;
+      if (flash.age >= durationOf(flash.kind)) _flashes.removeAt(i);
     }
   }
 
@@ -303,15 +331,20 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
     if (_flashes.isEmpty) return;
     final visible = game.camera.visibleWorldRect;
     for (final flash in _flashes) {
-      final t = (flash.age / _duration).clamp(0.0, 1.0);
-      // Tez porlab, sekin so'nadi.
-      final alpha = (1 - t) * (1 - t) * 0.75;
+      final t = (flash.age / durationOf(flash.kind)).clamp(0.0, 1.0);
+      final Color color;
+      final double alpha;
+      if (flash.kind == FlashKind.capture) {
+        // Tez porlab, sekin so'nadi: oqdan o'yinchi rangiga.
+        alpha = (1 - t) * (1 - t) * 0.75;
+        color = Color.lerp(const Color(0xFFFFFFFF), flash.color, t)!;
+      } else {
+        // O'lim: hudud o'z rangida qolib, asta so'nadi.
+        alpha = (1 - t) * 0.85;
+        color = flash.color;
+      }
       if (alpha <= 0.01) continue;
-      _paint.color = Color.lerp(
-        const Color(0xFFFFFFFF),
-        flash.color,
-        t,
-      )!.withValues(alpha: alpha);
+      _paint.color = color.withValues(alpha: alpha);
       for (final rect in flash.rects) {
         if (!rect.overlaps(visible)) continue;
         canvas.drawRect(rect, _paint);
@@ -321,10 +354,11 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
 }
 
 class _Flash {
-  _Flash(this.rects, this.color);
+  _Flash(this.rects, this.color, this.kind);
 
   final List<Rect> rects;
   final Color color;
+  final FlashKind kind;
   double age = 0;
 }
 

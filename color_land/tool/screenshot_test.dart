@@ -10,8 +10,6 @@ import 'dart:ui' as ui;
 
 import 'package:color_land/game/logic/difficulty.dart';
 import 'package:color_land/game/logic/game_config.dart';
-import 'package:color_land/game/logic/game_events.dart';
-import 'package:color_land/game/render/color_land_game.dart';
 import 'package:color_land/i18n/app_language.dart';
 import 'package:color_land/i18n/l10n.dart';
 import 'package:color_land/storage/settings_store.dart';
@@ -157,17 +155,18 @@ void main() {
     );
     await saveFrame(tester, 'build/shot_game.png');
 
-    // Natija oynasi.
-    game.paused = false;
-    killHuman(game);
+    // Natija oynasi: o'lim o'yin tsikli ichida bo'lishi kerak, aks holda
+    // ekran o'lim haqida xabar olmaydi — shuning uchun devorga qarab
+    // yuramiz.
+    game.setSteerAngle(-math.pi / 2);
+    for (var i = 0; i < 1500 && game.sim.human.alive; i++) {
+      await tester.pump(frame);
+    }
     // Flame o'yini doim tiklanadi, shuning uchun pumpAndSettle ishlamaydi.
-    for (var i = 0; i < 6; i++) {
+    // Natija oynasi rekordni saqlashni kutadi — bir necha kadr kerak.
+    for (var i = 0; i < 40; i++) {
       await tester.pump(frame);
     }
     await saveFrame(tester, 'build/shot_result.png');
   });
-}
-
-void killHuman(ColorLandGame game) {
-  game.sim.kill(game.sim.human, DeathCause.wall, null);
 }

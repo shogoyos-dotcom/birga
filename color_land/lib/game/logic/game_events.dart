@@ -28,11 +28,14 @@ class CaptureEvent extends GameEvent {
 }
 
 class DeathEvent extends GameEvent {
-  const DeathEvent(this.playerId, this.cause, this.killerId);
+  const DeathEvent(this.playerId, this.cause, this.killerId, this.clearedCells);
 
   final int playerId;
   final DeathCause cause;
   final int? killerId;
+
+  /// Bo'shagan hudud kataklari — o'lim animatsiyasi uchun.
+  final List<int> clearedCells;
 }
 
 class RespawnEvent extends GameEvent {

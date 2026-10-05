@@ -24,7 +24,19 @@ class GridRenderer {
   final Uint8List colorIndexById;
   late final double _chunkWorld;
 
+  /// Bir kadrda nechta chunk qayta yozilishi mumkin.
+  ///
+  /// Katta hudud egallanganda o'nlab chunk birdan o'zgaradi; hammasini bitta
+  /// kadrda qayta yozish kuchsiz telefonda sakrashga olib keladi. Chegaradan
+  /// oshganlari eski (bir kadr eskirgan) ko'rinishi bilan chiziladi —
+  /// baribir o'sha joyda egallash animatsiyasi porlab turadi.
+  static const int kRebuildBudget = 3;
+
   final Map<int, ui.Picture> _cache = <int, ui.Picture>{};
+
+  /// Qayta yozilishi kutilayotgan chunklar.
+  final Set<int> _pending = <int>{};
+
   final Paint _paint = Paint()..isAntiAlias = false;
 
   /// Oxirgi kadrda nechta chunk qayta yozilgani (profil uchun).
@@ -33,12 +45,13 @@ class GridRenderer {
   /// Keshda saqlanayotgan chunklar soni.
   int get cachedChunks => _cache.length;
 
-  /// O'zgargan chunklarni keshdan chiqaradi. Har kadr boshida chaqiriladi.
+  /// Navbatda turgan (hali qayta yozilmagan) chunklar soni.
+  int get pendingChunks => _pending.length;
+
+  /// O'zgargan chunklarni navbatga qo'yadi. Har kadr boshida chaqiriladi.
   void invalidateDirty() {
     if (grid.dirtyChunks.isEmpty) return;
-    for (final key in grid.dirtyChunks) {
-      _cache.remove(key)?.dispose();
-    }
+    _pending.addAll(grid.dirtyChunks);
     grid.dirtyChunks.clear();
   }
 
@@ -47,6 +60,7 @@ class GridRenderer {
       p.dispose();
     }
     _cache.clear();
+    _pending.clear();
   }
 
   /// `visible` — dunyo koordinatalaridagi ko'rinadigan to'rtburchak.
@@ -63,10 +77,21 @@ class GridRenderer {
       grid.chunksY - 1,
     );
 
+    var budget = kRebuildBudget;
     for (var cy = cy0; cy <= cy1; cy++) {
       for (var cx = cx0; cx <= cx1; cx++) {
         final key = cy * grid.chunksX + cx;
-        final picture = _cache[key] ??= _record(cx, cy);
+        var picture = _cache[key];
+        final stale = _pending.contains(key);
+        if (picture == null || (stale && budget > 0)) {
+          if (stale) {
+            _pending.remove(key);
+            if (picture != null) budget--;
+          }
+          picture?.dispose();
+          picture = _record(cx, cy);
+          _cache[key] = picture;
+        }
         canvas.drawPicture(picture);
       }
     }
@@ -168,6 +193,20 @@ class HeadPainter {
       ..color = const Color(0x40FFFFFF)
       ..strokeWidth = cellSize * 0.14;
     canvas.drawRRect(rrect.deflate(cellSize * 0.07), _stroke);
+
+    // Odam o'yinchi botlar orasidan ajralib tursin.
+    if (!p.isBot) {
+      _stroke
+        ..color = const Color(0xF2FFFFFF)
+        ..strokeWidth = cellSize * 0.2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rect.inflate(cellSize * 0.3),
+          Radius.circular(cellSize * 0.6),
+        ),
+        _stroke,
+      );
+    }
 
     _drawLabel(canvas, p, center, size);
   }

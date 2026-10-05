@@ -235,10 +235,16 @@ class GameWorld {
     p.deathCause = cause;
     p.trail.clear();
     if (killer != null && killer.id != p.id) killer.kills++;
-    grid.clearPlayer(p.id);
+    p.finalTerritory = grid.territoryOf(p.id);
+    final cleared = grid.clearPlayer(p.id);
     p.respawnTimer = config.botRespawnDelay;
-    events.add(DeathEvent(p.id, cause, killer?.id));
+    events.add(DeathEvent(p.id, cause, killer?.id, cleared));
   }
+
+  /// O'yinchining hozirgi (yoki o'lgan bo'lsa — o'limdagi) maydon foizi.
+  double percentOf(PlayerState p) => p.alive
+      ? grid.percentOf(p.id)
+      : p.finalTerritory * 100.0 / grid.cellCount;
 
   /// Hodisalar navbatini bo'shatadi va nusxasini qaytaradi.
   List<GameEvent> drainEvents() {

@@ -85,20 +85,24 @@ class GameGrid {
   void setTrail(int x, int y, int id) => setTrailIndex(index(x, y), id);
 
   /// `id` ning butun hududi va izini bo'sh qiladi (o'lim paytida).
-  void clearPlayer(int id) {
-    if (id == 0) return;
+  /// Bo'shatilgan hudud kataklarini qaytaradi — o'lim animatsiyasi uchun.
+  List<int> clearPlayer(int id) {
+    final cleared = <int>[];
+    if (id == 0) return cleared;
     for (var i = 0; i < owner.length; i++) {
       if (owner[i] == id) {
         _territory[id]--;
         _territory[0]++;
         owner[i] = 0;
         markDirtyIndex(i);
+        cleared.add(i);
       }
       if (trail[i] == id) {
         trail[i] = 0;
         markDirtyIndex(i);
       }
     }
+    return cleared;
   }
 
   /// `id` ning izini tozalaydi, hududiga tegmaydi.

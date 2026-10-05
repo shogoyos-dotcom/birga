@@ -119,6 +119,42 @@ void main() {
       expect(p.trail, isEmpty);
     });
 
+    test('o\'lgandan keyin ham yakuniy hudud bilinadi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+      walk(world, p, kEast, 4);
+      final before = world.percentOf(p);
+      expect(before, greaterThan(0));
+
+      world.kill(p, DeathCause.wall, null);
+
+      expect(world.grid.percentOf(p.id), 0, reason: 'panjara tozalanadi');
+      expect(
+        world.percentOf(p),
+        closeTo(before, 1e-9),
+        reason: 'natija oynasi uchun o\'limdagi qiymat saqlanadi',
+      );
+      expect(p.finalTerritory, 25);
+    });
+
+    test('o\'lim hodisasi bo\'shagan kataklarni olib yuradi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+      world.events.clear();
+
+      world.kill(p, DeathCause.wall, null);
+
+      final death = world.events.whereType<DeathEvent>().single;
+      expect(
+        death.clearedCells.length,
+        25,
+        reason: 'animatsiya uchun 5x5 hudud qaytariladi',
+      );
+      for (final i in death.clearedCells) {
+        expect(world.grid.owner[i], 0);
+      }
+    });
+
     test('o\'lim ikki marta hisoblanmaydi', () {
       final world = makeWorld();
       final p = placePlayer(world, left: 8, top: 8);

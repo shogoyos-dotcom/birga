@@ -36,6 +36,11 @@ class GameHud extends StatelessWidget {
                 _Pill(icon: Icons.timer_outlined, text: snapshot.formattedTime),
                 const SizedBox(width: 8),
                 _Pill(icon: Icons.bolt_rounded, text: '${snapshot.kills}'),
+                const SizedBox(width: 8),
+                _Pill(
+                  icon: Icons.leaderboard_rounded,
+                  text: '${snapshot.rank}/${snapshot.alivePlayers}',
+                ),
                 const Spacer(),
                 _IconButtonSquare(icon: Icons.pause_rounded, onTap: onPause),
               ],

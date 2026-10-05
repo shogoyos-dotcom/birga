@@ -1,0 +1,189 @@
+# Color Land — Google Play'ga chiqarish
+
+Bu hujjat `.aab` fayl yasash va Google Play Console'ga yuklash tartibini
+bosqichma-bosqich tushuntiradi.
+
+## 0. Nima allaqachon tayyor
+
+| Narsa | Holati |
+|---|---|
+| Package name (`applicationId`) | `com.mening.colorland` |
+| Ilova nomi | `Color Land` |
+| Orientatsiya | faqat portret (manifestda qulflangan) |
+| Ikonka | klassik + adaptiv + monoxrom (Android 13 mavzuli ikonka) |
+| Ishga tushish ekrani | brend rangi + belgi, har bir zichlik uchun |
+| `minSdk` / `targetSdk` | 24 / 36 (Flutter 3.47 standarti, Play talabiga mos) |
+| Versiya | `pubspec.yaml` dagi `version:` dan olinadi |
+| Release imzolash | `android/key.properties` bo'lsa avtomatik ishlatiladi |
+
+> **Diqqat:** `applicationId` ni Play'ga birinchi yuklashdan keyin
+> **o'zgartirib bo'lmaydi**. `com.mening.colorland` sizga mos bo'lmasa,
+> hozir o'zgartiring: `android/app/build.gradle.kts` dagi `namespace` va
+> `applicationId`, hamda `android/app/src/main/kotlin/.../MainActivity.kt`
+> dagi `package` qatori.
+
+## 1. Kerakli dasturlar
+
+- Flutter SDK (barqaror kanal)
+- Android SDK (Android Studio bilan yoki `cmdline-tools` orqali)
+- JDK 17
+
+Tekshirish:
+
+```bash
+flutter doctor
+```
+
+`Android toolchain` qatori yashil bo'lishi kerak. Litsenziyalar so'ralsa:
+
+```bash
+flutter doctor --android-licenses
+```
+
+## 2. Imzolash kalitini (keystore) yaratish
+
+Kalit — ilovangizning "pasporti". **Uni yo'qotsangiz, ilovaga boshqa hech
+qachon yangilanish chiqara olmaysiz.** Shuning uchun:
+
+- kalit faylini va parollarni ishonchli joyda (parol menejeri, zahira disk)
+  saqlang;
+- git ga **hech qachon** qo'shmang (`android/.gitignore` buni bloklaydi).
+
+Kalit yaratish (bir marta):
+
+```bash
+keytool -genkey -v \
+  -keystore ~/color-land-upload.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -alias upload
+```
+
+`keytool` JDK bilan keladi. Buyruq ism, tashkilot, shahar va ikkita parol
+so'raydi (keystore paroli va kalit paroli — ikkalasini bir xil qilsangiz
+bo'ladi).
+
+`-validity 10000` — ~27 yil. Play 2033-yildan keyin tugaydigan kalitni qabul
+qilmaydi, shuning uchun uzoq muddat qo'ying.
+
+## 3. `key.properties` faylini yaratish
+
+`android/key.properties` fayli (git ga tushmaydi):
+
+```properties
+storePassword=YUQORIDA_KIRITGAN_KEYSTORE_PAROLI
+keyPassword=YUQORIDA_KIRITGAN_KALIT_PAROLI
+keyAlias=upload
+storeFile=/home/foydalanuvchi/color-land-upload.jks
+```
+
+`storeFile` — to'liq yo'l (Windows'da `C:\\Users\\...\\color-land-upload.jks`,
+ikkita teskari chiziq bilan).
+
+Bu fayl bo'lmasa loyiha baribir quriladi — faqat debug kalit bilan
+imzolanadi, ya'ni Play uchun yaramaydi. Buyruq oxirida buni tekshirasiz
+(5-bosqichga qarang).
+
+## 4. Versiyani qo'yish
+
+`pubspec.yaml`:
+
+```yaml
+version: 1.0.0+1
+```
+
+- `1.0.0` — foydalanuvchi ko'radigan versiya (`versionName`);
+- `+1` — `versionCode`. **Play'ga har safar yuklaganda bu raqam oldingisidan
+  katta bo'lishi shart.** Ikkinchi yuklashda `1.0.1+2`, keyin `1.0.2+3` va h.k.
+
+## 5. `.aab` yasash
+
+```bash
+cd color_land
+flutter clean
+flutter pub get
+flutter build appbundle --release
+```
+
+Natija:
+
+```
+build/app/outputs/bundle/release/app-release.aab
+```
+
+Imzo to'g'ri qo'yilganini tekshirish:
+
+```bash
+unzip -p build/app/outputs/bundle/release/app-release.aab \
+  META-INF/*.RSA | keytool -printcert
+```
+
+Chiqqan `Owner:` qatori siz 2-bosqichda kiritgan ma'lumotlarga mos kelsa —
+hammasi joyida. Agar `CN=Android Debug` chiqsa, `key.properties` topilmagan:
+fayl nomi va yo'lini tekshiring.
+
+Telefonda sinash uchun (`.aab` ni to'g'ridan-to'g'ri o'rnatib bo'lmaydi):
+
+```bash
+flutter build apk --release
+flutter install --release
+```
+
+## 6. Play Console'ga yuklash
+
+1. [Play Console](https://play.google.com/console) da dasturchi akkaunti
+   oching (bir martalik $25).
+2. **Create app** → nom `Color Land`, til, "Game", "Free".
+3. **Release → Production → Create new release** → `.aab` faylni yuklang.
+4. **Play App Signing** ni yoqing (standart bo'yicha yoqilgan). Sizning
+   kalitingiz "upload key" bo'lib qoladi, Google o'z kaliti bilan qayta
+   imzolaydi — kalitni yo'qotsangiz tiklash imkoni bo'ladi.
+
+### Kerakli materiallar
+
+`flutter test tool/icon_test.dart` buyrug'i quyidagilarni tayyorlaydi:
+
+| Fayl | Nima uchun |
+|---|---|
+| `build/play/icon_512.png` | do'kon ikonkasi (512×512 PNG) |
+| `build/play/feature_1024x500.png` | "Feature graphic" (1024×500) |
+
+Skrinshotlar (kamida 2 ta, telefon uchun):
+
+```bash
+flutter test tool/screenshot_test.dart
+# build/shot_menu.png, build/shot_game.png, build/shot_result.png
+```
+
+Yoki haqiqiy qurilmadan oling — Play uchun shunisi yaxshiroq.
+
+### To'ldiriladigan anketalar
+
+- **Data safety** — ilova hech qanday ma'lumot yig'maydi va yubormaydi.
+  Yagona saqlanadigan narsa — rekord, rang va til, ular `shared_preferences`
+  orqali **faqat telefonning o'zida** turadi. "No data collected" deb
+  belgilang.
+- **Content rating** — anketani to'ldiring; o'yinda zo'ravonlik, reklama va
+  xaridlar yo'q, odatda "Everyone / 3+" chiqadi.
+- **Target audience** — bolalar uchun mo'ljallangan bo'lsa, qo'shimcha
+  qoidalar (Families policy) qo'llanadi.
+- **Privacy policy** — hech narsa yig'ilmasa ham Play havola so'raydi.
+  Oddiy bir sahifali matn yetadi (GitHub Pages yoki shunga o'xshash joyda).
+
+## 7. Keyingi yangilanishlar
+
+```bash
+# pubspec.yaml dagi version ni oshiring, masalan 1.0.1+2
+flutter build appbundle --release
+```
+
+va Play Console'da yangi release yarating.
+
+## Tez-tez uchraydigan xatolar
+
+| Xato | Sababi va yechimi |
+|---|---|
+| `Keystore file not found` | `key.properties` dagi `storeFile` yo'li noto'g'ri. To'liq yo'l yozing. |
+| `Version code 1 has already been used` | `pubspec.yaml` dagi `+N` ni oshiring. |
+| `You uploaded an APK or Android App Bundle which is not signed` | `key.properties` topilmagan — `android/` papkasi ichida ekaniga ishonch hosil qiling. |
+| `SDK location not found` | `ANDROID_HOME` o'rnatilmagan yoki `android/local.properties` da `sdk.dir` yo'q. |
+| `Cannot run with sound null safety` | `flutter clean` qilib qayta quring. |

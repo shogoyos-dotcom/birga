@@ -38,6 +38,10 @@ class PlayerState {
   int kills = 0;
   double respawnTimer = 0;
 
+  /// O'lim paytidagi hudud hajmi (katak). O'lganda panjara tozalanadi,
+  /// shuning uchun natija oynasi uchun shu yerda saqlanadi.
+  int finalTerritory = 0;
+
   /// O'z hududidan tashqarida chizilgan iz kataklari (tartib bilan).
   final List<int> trail = <int>[];
 
@@ -59,6 +63,7 @@ class PlayerState {
     alive = true;
     deathCause = DeathCause.none;
     respawnTimer = 0;
+    finalTerritory = 0;
   }
 
   void steerTo(double dir) => targetAngle = normalizeAngle(dir);
