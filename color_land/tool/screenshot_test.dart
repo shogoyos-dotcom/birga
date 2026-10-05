@@ -138,13 +138,15 @@ void main() {
     }
     game.sim.human.speed = game.sim.config.playerSpeed;
 
-    // O'yinchi bir necha kichik tsikl chizib hudud egallaydi.
-    for (var loop = 0; loop < 4 && game.sim.human.alive; loop++) {
-      await run(-math.pi / 2, 45);
-      await run(0, 45);
-      await run(math.pi / 2, 58);
-      await run(math.pi, 52);
+    // O'yinchi erkin burchakda, egri yo'l bo'ylab yuradi — harakat
+    // to'rt tomonga cheklanmaganini ko'rsatish uchun.
+    const turnFrames = 300;
+    for (var i = 0; i < turnFrames && game.sim.human.alive; i++) {
+      final t = i / turnFrames;
+      game.setSteerAngle(-math.pi / 2 + t * 2 * math.pi);
+      await tester.pump(frame);
     }
+    await run(math.pi / 2, 20);
 
     // ignore: avoid_print
     print(

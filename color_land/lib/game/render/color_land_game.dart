@@ -195,10 +195,6 @@ class BoardBackground extends Component with HasGameReference<ColorLandGame> {
   BoardBackground() : super(priority: 0);
 
   final Paint _bg = Paint()..color = Palette.background;
-  final Paint _line = Paint()
-    ..color = Palette.gridLine
-    ..strokeWidth = 1.0
-    ..isAntiAlias = false;
   final Paint _border = Paint()
     ..color = Palette.mapBorder
     ..style = PaintingStyle.stroke
@@ -217,22 +213,9 @@ class BoardBackground extends Component with HasGameReference<ColorLandGame> {
     final area = visible.intersect(mapRect);
     if (area.isEmpty) return;
 
+    // Panjara chiziqlari ataylab chizilmaydi: maydon tekis ko'rinadi,
+    // hudud va izlar esa o'z ranglari bilan ajralib turadi.
     canvas.drawRect(area, _bg);
-
-    // Panjara chiziqlari — faqat ko'rinadigan oraliqda.
-    final x0 = (area.left / kCellSize).floor();
-    final x1 = (area.right / kCellSize).ceil();
-    final y0 = (area.top / kCellSize).floor();
-    final y1 = (area.bottom / kCellSize).ceil();
-    for (var x = x0; x <= x1; x++) {
-      final wx = x * kCellSize;
-      canvas.drawLine(Offset(wx, area.top), Offset(wx, area.bottom), _line);
-    }
-    for (var y = y0; y <= y1; y++) {
-      final wy = y * kCellSize;
-      canvas.drawLine(Offset(area.left, wy), Offset(area.right, wy), _line);
-    }
-
     canvas.drawRect(mapRect.deflate(_border.strokeWidth / 2), _border);
   }
 }

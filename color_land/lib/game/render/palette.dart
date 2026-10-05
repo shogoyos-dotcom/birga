@@ -10,7 +10,6 @@ class Palette {
   Palette._();
 
   static const Color background = Color(0xFFF2F4F8);
-  static const Color gridLine = Color(0x14202840);
   static const Color mapBorder = Color(0xFF3A4256);
   static const Color outside = Color(0xFFDFE4EC);
 

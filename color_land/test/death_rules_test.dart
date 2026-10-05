@@ -169,6 +169,61 @@ void main() {
   });
 
   group('iz va hudud egallash', () {
+    test('istalgan burchakda harakatlanadi — 4 tomonga cheklanmagan', () {
+      final world = makeWorld(width: 40, height: 40);
+      final p = placePlayer(world, left: 17, top: 17);
+      final startX = p.x;
+      final startY = p.y;
+
+      // 34 daraja — na gorizontal, na vertikal, na aniq diagonal.
+      const angle = 0.6;
+      walk(world, p, angle, 8);
+
+      expect(p.alive, isTrue);
+      expect(
+        p.x - startX,
+        closeTo(math.cos(angle) * 8, 0.15),
+        reason: 'x bo\'yicha siljish burchakka mos',
+      );
+      expect(
+        p.y - startY,
+        closeTo(math.sin(angle) * 8, 0.15),
+        reason: 'y bo\'yicha siljish burchakka mos',
+      );
+    });
+
+    test('burilish burchagi saqlanadi, tomonlarga tortilmaydi', () {
+      final world = makeWorld(width: 40, height: 40);
+      final p = placePlayer(world, left: 17, top: 17);
+
+      // Har xil burchaklar: hech biri 90 darajaga yaxlitlanmasligi kerak.
+      for (final angle in <double>[0.3, 1.1, 2.4, -0.9, -2.7]) {
+        p.steerTo(angle);
+        world.update(1 / 60);
+        expect(
+          p.angle,
+          closeTo(angle, 1e-9),
+          reason: '$angle radian saqlanishi kerak',
+        );
+      }
+    });
+
+    test('qiya yurganda iz zinapoya shaklida qoladi', () {
+      final world = makeWorld(width: 40, height: 40);
+      final p = placePlayer(world, left: 17, top: 17);
+
+      walk(world, p, 0.6, 10);
+
+      final xs = <int>{};
+      final ys = <int>{};
+      for (final i in p.trail) {
+        xs.add(i % world.grid.width);
+        ys.add(i ~/ world.grid.width);
+      }
+      expect(xs.length, greaterThan(1), reason: 'x bo\'yicha ham suriladi');
+      expect(ys.length, greaterThan(1), reason: 'y bo\'yicha ham suriladi');
+    });
+
     test('o\'z hududidan chiqqanda iz qoladi', () {
       final world = makeWorld();
       final p = placePlayer(world, left: 8, top: 8);
