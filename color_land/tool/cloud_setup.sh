@@ -24,11 +24,16 @@ ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
 PROFILE_FILE="${PROFILE_FILE:-/etc/profile.d/99-flutter-android.sh}"
 
 # Android SDK paketlari — Flutter 3.47 ning standart darajalariga mos.
-# NDK ataylab yo'q: sof Dart/Flutter ilovasiga kerak emas va ~1 GB joy oladi.
+#
+# NDK ilovada C/C++ kod bo'lmasa ham kerak: Android Gradle Plugin "cxx"
+# vazifalarini yaratishda uni talab qiladi. Bu yerda ochiq o'rnatamiz,
+# chunki Flutter ning avtomatik o'rnatishi yangi Android CLI da ishlamaydi
+# ("Android sdkmanager did not install NDK ...").
 ANDROID_PACKAGES=(
   "platform-tools"
   "platforms;android-36"
   "build-tools;36.0.0"
+  "ndk;28.2.13676358"
 )
 
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"

@@ -20,6 +20,11 @@ if (hasKeystore) {
 android {
     namespace = "com.mening.colorland"
     compileSdk = flutter.compileSdkVersion
+    // NDK ilovada C/C++ kod bo'lmasa ham kerak: AGP bu qatorni olib
+    // tashlasangiz ham o'z standart versiyasini qo'yadi va "cxx" vazifalarini
+    // yaratishda NDK ni talab qiladi (tekshirilgan: `printNdkVersion` baribir
+    // 28.2.13676358 ni qaytaradi). Shuning uchun versiyani ochiq yozamiz —
+    // o'rnatish kerak bo'lsa qaysi versiya ekani shu yerdan ko'rinadi.
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

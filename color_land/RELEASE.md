@@ -322,6 +322,31 @@ flutter build appbundle --release
 
 va Play Console'da yangi release yarating.
 
+### NDK ni o'rnatish
+
+Ilovada C/C++ kod bo'lmasa ham NDK kerak: Android Gradle Plugin uni
+`ndkVersion` bo'yicha talab qiladi (`android/app/build.gradle.kts` dagi
+`ndkVersion = flutter.ndkVersion`). Buyruq qatoridagi avtomatik o'rnatish
+yangi Android CLI da ishlamaydi, shuning uchun Android Studio orqali
+o'rnatiladi:
+
+> **Settings** → **Languages & Frameworks** → **Android SDK** →
+> **SDK Tools** yorlig'i → o'ng pastda **Show Package Details** katagini
+> belgilang → **NDK (Side by side)** ichidan **28.2.13676358** ni tanlang →
+> **Apply**
+
+~1 GB yuklanadi, bir marta.
+
+Kerakli versiyani loyihaning o'zidan ham bilsa bo'ladi:
+
+```bash
+cd color_land/android
+./gradlew -q :app:printNdkVersion
+```
+
+GitHub Actions da bu muammo yo'q: `ubuntu-latest` obrazida NDK
+28.2.13676358 oldindan o'rnatilgan.
+
 ## Tez-tez uchraydigan xatolar
 
 | Xato | Sababi va yechimi |
@@ -329,5 +354,6 @@ va Play Console'da yangi release yarating.
 | `Keystore file not found` | `key.properties` dagi `storeFile` yo'li noto'g'ri. To'liq yo'l yozing. |
 | `Version code 1 has already been used` | `pubspec.yaml` dagi `+N` ni oshiring. |
 | `You uploaded an APK or Android App Bundle which is not signed` | `key.properties` topilmagan — `android/` papkasi ichida ekaniga ishonch hosil qiling. |
+| `Android sdkmanager did not install NDK 28.2.13676358` | NDK o'rnatilmagan, Flutter esa uni avtomatik o'rnata olmayapti (yangi Android CLI da `sdkmanager` eskirgan). Android Studio orqali o'rnating — yuqoridagi "NDK ni o'rnatish" bo'limiga qarang. |
 | `SDK location not found` | `ANDROID_HOME` o'rnatilmagan yoki `android/local.properties` da `sdk.dir` yo'q. |
 | `Cannot run with sound null safety` | `flutter clean` qilib qayta quring. |
