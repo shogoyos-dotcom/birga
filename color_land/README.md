@@ -62,6 +62,29 @@ flutter test tool/icon_test.dart        # ikonkalar + Play materiallari
 flutter test tool/screenshot_test.dart  # build/shot_*.png skrinshotlar
 ```
 
+## Cloud sessiyalarda qurish
+
+Claude Code cloud sessiyalarida Flutter ham, Android SDK ham oldindan
+o'rnatilmagan (Java, Gradle va git bor). `tool/cloud_setup.sh` ikkalasini
+ham o'rnatadi.
+
+Qo'yish tartibi:
+
+1. Muhitning **Network access** sozlamasini **Full** qiling, yoki
+   **Custom** tanlab `dl.google.com` va `maven.google.com` ni qo'shing va
+   "Also include default list of common package managers" katagini
+   belgilang. Android SDK va Gradle plagini faqat shu hostlardan keladi.
+2. `tool/cloud_setup.sh` mazmunini muhit sozlamalaridagi **Setup script**
+   maydoniga nusxalang (environment selector -> Cloud -> muhit ustida ⚙).
+
+O'lchangan: toza muhitda **99 sekund** (Flutter 2.3 GB + Android SDK
+472 MB, ikkalasi parallel yuklanadi). Bu hujjatdagi ~5 daqiqalik
+chegaradan past, shuning uchun muhit keshlanadi va keyingi sessiyalar
+tayyor diskdan boshlanadi — skript qaytadan ishlamaydi.
+
+Skript idempotent: allaqachon o'rnatilgan bo'lsa o'tkazib yuboradi, va
+har doim 0 kodi bilan tugaydi (aks holda sessiya ishga tushmaydi).
+
 ## Google Play
 
 `RELEASE.md` ga qarang — keystore yaratishdan `.aab` yuklashgacha.
