@@ -31,6 +31,11 @@ class TerritoryShapes {
   /// Pog'onalarni to'g'ri chiziqqa aylantirish chegarasi (katak ulushi).
   static const double simplifyTolerance = 0.8;
 
+  /// Hudud "qalinligi" — shakl pastga shuncha surilib, to'q rangda
+  /// chiziladi. Shu tufayli maydon tekis emas, ko'tarilgan plita bo'lib
+  /// ko'rinadi.
+  static const double depthFactor = 0.55;
+
   final GameGrid grid;
   final double cellSize;
 
@@ -43,7 +48,15 @@ class TerritoryShapes {
 
   void render(ui.Canvas canvas, Iterable<PlayerState> players, Rect visible) {
     lastRebuildCount = 0;
-    for (final p in players) {
+    // Pastdagi hudud keyinroq chiziladi — uning yon devori yuqoridagini
+    // to'g'ri qoplaydi.
+    final ordered = players.toList()
+      ..sort((a, bPlayer) {
+        final ba = grid.boundsOf(a.id);
+        final bb = grid.boundsOf(bPlayer.id);
+        return (ba?.$4 ?? -1).compareTo(bb?.$4 ?? -1);
+      });
+    for (final p in ordered) {
       final bounds = grid.boundsOf(p.id);
       if (bounds == null) continue;
       final worldBounds = Rect.fromLTRB(
@@ -69,14 +82,34 @@ class TerritoryShapes {
   ui.Picture _record(int playerId, int colorIndex, (int, int, int, int) b) {
     final recorder = ui.PictureRecorder();
     final cull = Rect.fromLTRB(
-      b.$1 * cellSize,
-      b.$2 * cellSize,
-      (b.$3 + 1) * cellSize,
-      (b.$4 + 1) * cellSize,
+      b.$1 * cellSize - cellSize,
+      b.$2 * cellSize - cellSize,
+      (b.$3 + 1) * cellSize + cellSize,
+      (b.$4 + 1) * cellSize + cellSize * 3,
     );
     final canvas = ui.Canvas(recorder, cull);
+    final path = buildPath(grid, playerId, b, cellSize);
+    final depth = cellSize * depthFactor;
+
+    // 1. Yerga tushgan soya. Blur ataylab ishlatilmaydi — u GPU da
+    // qimmat va kuchsiz telefonda sezilarli sekinlashtiradi; o'rniga
+    // shaklning pastga surilgan shaffof nusxasi chiziladi.
     canvas.drawPath(
-      buildPath(grid, playerId, b, cellSize),
+      path.shift(Offset(0, depth * 1.9)),
+      Paint()
+        ..color = Palette.groundShadow
+        ..isAntiAlias = true,
+    );
+    // 2. Yon devor: shaklning pastga surilgan nusxasi.
+    canvas.drawPath(
+      path.shift(Offset(0, depth)),
+      Paint()
+        ..color = Palette.side(colorIndex)
+        ..isAntiAlias = true,
+    );
+    // 3. Ustki yuza.
+    canvas.drawPath(
+      path,
       Paint()
         ..color = Palette.territory(colorIndex)
         ..isAntiAlias = true,
@@ -157,9 +190,18 @@ class TrailPainter {
     // lenta boshdan bir oz orqada qolib ko'rinadi.
     path.lineTo(p.x * cellSize, p.y * cellSize);
 
+    final depth = cellSize * TerritoryShapes.depthFactor;
+    final width = cellSize * 1.15;
+
+    // Iz ham hudud kabi qalinlikka ega: pastga surilgan to'q nusxa.
+    _stroke
+      ..color = Palette.side(p.colorIndex)
+      ..strokeWidth = width;
+    canvas.drawPath(path.shift(Offset(0, depth)), _stroke);
+
     _stroke
       ..color = Palette.trail(p.colorIndex)
-      ..strokeWidth = cellSize * 1.15;
+      ..strokeWidth = width;
     canvas.drawPath(path, _stroke);
   }
 }

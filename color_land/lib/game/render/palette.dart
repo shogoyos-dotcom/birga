@@ -40,6 +40,16 @@ class Palette {
     heads.map((c) => _shade(c, 0.34)),
   );
 
+  /// Hududning yon devori — qalinlik hissi uchun to'qroq variant.
+  static final List<Color> _sides = List<Color>.unmodifiable(
+    heads.map((c) => _shade(c, -0.42)),
+  );
+
+  /// Kubning yon yuzalari.
+  static final List<Color> _headSides = List<Color>.unmodifiable(
+    heads.map((c) => _shade(c, -0.3)),
+  );
+
   /// ARGB butun sonlar — chizishda rang solishtirish arzon bo'lsin.
   static final List<int> territoryValues = List<int>.unmodifiable(
     _territories.map(_argb),
@@ -55,6 +65,15 @@ class Palette {
   static Color territory(int index) => _territories[index % heads.length];
 
   static Color trail(int index) => _trails[index % heads.length];
+
+  /// Hudud "qalinligi" (yon devor) rangi.
+  static Color side(int index) => _sides[index % heads.length];
+
+  /// O'yinchi kubining yon yuzasi.
+  static Color headSide(int index) => _headSides[index % heads.length];
+
+  /// Yerga tushadigan yumshoq soya.
+  static const Color groundShadow = Color(0x26101828);
 
   static int _argb(Color c) =>
       ((c.a * 255).round() << 24) |
