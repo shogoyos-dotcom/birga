@@ -1,0 +1,114 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:color_land/game/logic/game_config.dart';
+import 'package:color_land/game/render/color_land_game.dart';
+import 'package:color_land/game/render/grid_renderer.dart';
+import 'package:color_land/game/render/palette.dart';
+import 'package:color_land/ui/game_screen.dart';
+import 'package:flame/game.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('GridRenderer keshi', () {
+    test("faqat o'zgargan chunklar qayta chiziladi", () {
+      const config = GameConfig(gridWidth: 64, gridHeight: 64, botCount: 0);
+      final game = ColorLandGame(config: config, random: math.Random(1));
+      game.sim.addPlayer(name: 'Siz', colorIndex: 0, isBot: false);
+      game.sim.spawnAll();
+
+      final renderer = GridRenderer(game.sim.grid, kCellSize);
+      final visible = Rect.fromLTWH(0, 0, 64 * kCellSize, 64 * kCellSize);
+
+      void draw() {
+        final rec = ui.PictureRecorder();
+        renderer.render(ui.Canvas(rec, visible), visible);
+        rec.endRecording().dispose();
+      }
+
+      renderer.invalidateDirty();
+      draw();
+      final total = renderer.cachedChunks;
+      expect(total, 4 * 4, reason: '64/16 = 4 chunk har tomonda');
+      expect(renderer.lastRebuildCount, total);
+
+      // Hech narsa o'zgarmasa — bitta ham qayta chizilmaydi.
+      draw();
+      expect(renderer.lastRebuildCount, 0);
+
+      // Bitta katak o'zgarsa — faqat bitta chunk qayta chiziladi.
+      game.sim.grid.setOwner(3, 3, 1);
+      game.sim.grid.setTrail(40, 40, 1);
+      renderer.invalidateDirty();
+      draw();
+      expect(renderer.lastRebuildCount, 2);
+
+      renderer.dispose();
+      expect(renderer.cachedChunks, 0);
+    });
+
+    test('bo\'sh panjara chizishda xato bermaydi', () {
+      final game = ColorLandGame(
+        config: const GameConfig(gridWidth: 32, gridHeight: 32, botCount: 0),
+        random: math.Random(2),
+      );
+      game.sim.addPlayer(name: 'Siz', colorIndex: 0, isBot: false);
+      final renderer = GridRenderer(game.sim.grid, kCellSize);
+      final visible = Rect.fromLTWH(-500, -500, 2000, 2000);
+      final rec = ui.PictureRecorder();
+      expect(
+        () => renderer.render(ui.Canvas(rec, visible), visible),
+        returnsNormally,
+      );
+      rec.endRecording().dispose();
+      renderer.dispose();
+    });
+  });
+
+  group('Palette', () {
+    test('har rang uchun uch variant bor va bir-biridan farq qiladi', () {
+      for (var i = 0; i < Palette.colorCount; i++) {
+        expect(Palette.head(i), isNot(Palette.territory(i)));
+        expect(Palette.head(i), isNot(Palette.trail(i)));
+      }
+      expect(Palette.territoryValues.length, Palette.colorCount);
+      expect(Palette.trailValues.length, Palette.colorCount);
+    });
+  });
+
+  testWidgets('o\'yin ekrani ishga tushadi va o\'yinchi harakatlanadi', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: GameScreen(
+          config: GameConfig(gridWidth: 64, gridHeight: 64, botCount: 0),
+          colorIndex: 0,
+        ),
+      ),
+    );
+    // Flame o'yinini yuklash uchun bir necha kadr.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+
+    final game = tester
+        .widget<GameWidget<ColorLandGame>>(find.byType(GameWidget<ColorLandGame>))
+        .game!;
+    final human = game.sim.human;
+    expect(human.alive, isTrue);
+    final startX = human.x;
+    final startY = human.y;
+
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final moved = math.sqrt(
+      math.pow(human.x - startX, 2) + math.pow(human.y - startY, 2),
+    );
+    expect(moved, greaterThan(0.5), reason: 'doimiy tezlikda harakatlanadi');
+    expect(tester.takeException(), isNull);
+  });
+}

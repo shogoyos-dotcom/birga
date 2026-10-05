@@ -1,0 +1,196 @@
+import 'dart:math' as math;
+
+import 'package:color_land/game/logic/game_events.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers.dart';
+
+const double kEast = 0.0;
+const double kWest = math.pi;
+const double kSouth = math.pi / 2;
+const double kNorth = -math.pi / 2;
+
+void main() {
+  group("o'lim qoidalari", () {
+    test('xarita chegarasiga urilsa o\'ladi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      walk(world, p, kNorth, 14);
+
+      expect(p.alive, isFalse);
+      expect(p.deathCause, DeathCause.wall);
+    });
+
+    test('o\'z izini kesib o\'tsa o\'ladi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      walk(world, p, kEast, 6); // iz: y=10, x=13..16
+      walk(world, p, kSouth, 2); // iz: x=16, y=11..12
+      walk(world, p, kWest, 3); // iz: y=12, x=15..13
+      walk(world, p, kNorth, 2); // (13,11) -> (13,10) = o'z izi
+
+      expect(p.alive, isFalse);
+      expect(p.deathCause, DeathCause.selfCross);
+    });
+
+    test('raqib izga tegsa — izning egasi o\'ladi, tegganga +1 kill', () {
+      final world = makeWorld();
+      final victim = placePlayer(world, left: 4, top: 4, name: 'A');
+      final hunter = placePlayer(
+        world,
+        left: 14,
+        top: 14,
+        name: 'B',
+        colorIndex: 1,
+      );
+      hunter.speed = 0; // B kutib turadi
+
+      walk(world, victim, kEast, 6); // A ning izi: y=6, x=9..12
+      expect(world.grid.trailAt(10, 6), victim.id);
+
+      victim.speed = 0;
+      hunter.speed = 8;
+      hunter.placeAt(10.5, 4.5, kSouth);
+
+      walk(world, hunter, kSouth, 2); // (10,5) -> (10,6) = A ning izi
+
+      expect(victim.alive, isFalse);
+      expect(victim.deathCause, DeathCause.trailHit);
+      expect(hunter.kills, 1);
+      expect(hunter.alive, isTrue);
+      final death = world.events.whereType<DeathEvent>().last;
+      expect(death.playerId, victim.id);
+      expect(death.killerId, hunter.id);
+    });
+
+    test('o\'z iziga tegish raqibni o\'ldirmaydi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+      walk(world, p, kEast, 4);
+      expect(p.alive, isTrue);
+      expect(p.kills, 0);
+    });
+
+    test('butun hududi egallansa o\'ladi', () {
+      final world = makeWorld();
+      final victim = placePlayer(world, left: 10, top: 10, name: 'A');
+      final taker = world.addPlayer(name: 'B', colorIndex: 1, isBot: false);
+
+      // B ning hududi — A ning 5x5 ini o'rab turgan ramka (9..15).
+      final g = world.grid;
+      for (var x = 9; x <= 15; x++) {
+        g.setOwner(x, 9, taker.id);
+        g.setOwner(x, 15, taker.id);
+      }
+      for (var y = 9; y <= 15; y++) {
+        g.setOwner(9, y, taker.id);
+        g.setOwner(15, y, taker.id);
+      }
+      taker.placeAt(9.5, 9.5, kNorth);
+      expect(g.territoryOf(victim.id), 25);
+
+      // B kichik tsikl chizib o'z hududiga qaytadi -> flood fill ishga tushadi.
+      walk(world, taker, kNorth, 1);
+      walk(world, taker, kEast, 1);
+      walk(world, taker, kSouth, 1);
+
+      expect(victim.alive, isFalse, reason: dumpOwners(world));
+      expect(victim.deathCause, DeathCause.territoryLost);
+      expect(taker.kills, 1);
+      expect(g.territoryOf(victim.id), 0);
+    });
+
+    test('o\'lgan o\'yinchining hududi va izi bo\'sh bo\'ladi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+      walk(world, p, kEast, 4); // hudud + iz bor
+      expect(world.grid.territoryOf(p.id), 25);
+      expect(p.trail, isNotEmpty);
+
+      world.kill(p, DeathCause.wall, null);
+
+      expect(world.grid.territoryOf(p.id), 0);
+      for (var i = 0; i < world.grid.owner.length; i++) {
+        expect(world.grid.owner[i], isNot(p.id));
+        expect(world.grid.trail[i], isNot(p.id));
+      }
+      expect(p.trail, isEmpty);
+    });
+
+    test('o\'lim ikki marta hisoblanmaydi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+      final other = placePlayer(world, left: 2, top: 2, colorIndex: 1);
+      other.speed = 0;
+
+      world.kill(p, DeathCause.wall, other);
+      world.kill(p, DeathCause.wall, other);
+
+      expect(other.kills, 1);
+    });
+  });
+
+  group('iz va hudud egallash', () {
+    test('o\'z hududidan chiqqanda iz qoladi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      walk(world, p, kEast, 5);
+
+      expect(p.trail, isNotEmpty);
+      expect(world.grid.trailAt(13, 10), p.id);
+      expect(world.grid.ownerAt(13, 10), 0, reason: 'hali egallanmagan');
+    });
+
+    test('hududiga qaytganda iz va o\'ralgan kataklar egallanadi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+      final before = world.grid.territoryOf(p.id);
+
+      // Hududdan chiqib to'rtburchak chizib qaytadi.
+      walk(world, p, kNorth, 4); // y: 10.5 -> 6.5, iz (10,9)..(10,7)
+      walk(world, p, kEast, 3); // iz (11,6)..(13,6)
+      walk(world, p, kSouth, 5); // iz (13,7)..(13,11)
+      walk(world, p, kWest, 2); // (12,11) -> (11,11) o'z hududi
+
+      expect(p.alive, isTrue, reason: dumpOwners(world));
+      expect(p.trail, isEmpty, reason: 'qaytgach iz tozalanadi');
+      expect(
+        world.grid.territoryOf(p.id),
+        greaterThan(before),
+        reason: dumpOwners(world),
+      );
+      expect(world.grid.ownerAt(11, 8), p.id, reason: 'o\'ralgan katak');
+      expect(
+        world.events.whereType<CaptureEvent>(),
+        isNotEmpty,
+        reason: 'egallash hodisasi chiqadi',
+      );
+    });
+
+    test('hudud foizi hisoblanadi', () {
+      final world = makeWorld(width: 20, height: 20);
+      final p = placePlayer(world, left: 5, top: 5);
+      expect(world.grid.percentOf(p.id), closeTo(25 * 100 / 400, 1e-9));
+    });
+
+    test('reyting hudud bo\'yicha saralanadi', () {
+      final world = makeWorld();
+      final small = placePlayer(world, left: 2, top: 2, size: 3, name: 'kichik');
+      final big = placePlayer(
+        world,
+        left: 12,
+        top: 12,
+        size: 7,
+        name: 'katta',
+        colorIndex: 1,
+      );
+
+      final board = world.leaderboard();
+      expect(board.first.id, big.id);
+      expect(board.last.id, small.id);
+    });
+  });
+}

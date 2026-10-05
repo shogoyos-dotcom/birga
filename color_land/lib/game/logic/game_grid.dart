@@ -1,0 +1,143 @@
+import 'dart:typed_data';
+
+/// Mantiqiy panjara. Har bir katakda egasi (`owner`) va iz egasi (`trail`)
+/// saqlanadi; 0 — bo'sh, aks holda o'yinchi ID (1..255).
+///
+/// Rendering uchun o'zgargan "chunk"lar ro'yxati yuritiladi — shunda ekran
+/// har kadrda butunlay qayta chizilmaydi.
+class GameGrid {
+  GameGrid(int width, int height, {int chunkCells = 16})
+    : width = width,
+      height = height,
+      chunkCells = chunkCells,
+      chunksX = (width + chunkCells - 1) ~/ chunkCells,
+      chunksY = (height + chunkCells - 1) ~/ chunkCells,
+      owner = Uint8List(width * height),
+      trail = Uint8List(width * height),
+      _territory = Int32List(256) {
+    _territory[0] = width * height;
+  }
+
+  final int width;
+  final int height;
+
+  /// Bir chunk tomoni (katak hisobida).
+  final int chunkCells;
+  final int chunksX;
+  final int chunksY;
+
+  /// Katak egasi: 0 — bo'sh, aks holda o'yinchi ID.
+  final Uint8List owner;
+
+  /// Katakdagi iz egasi: 0 — iz yo'q, aks holda o'yinchi ID.
+  final Uint8List trail;
+
+  final Int32List _territory;
+
+  /// Oxirgi tozalashdan beri o'zgargan chunklar.
+  final Set<int> dirtyChunks = <int>{};
+
+  int get cellCount => width * height;
+
+  int index(int x, int y) => y * width + x;
+
+  bool contains(int x, int y) => x >= 0 && y >= 0 && x < width && y < height;
+
+  int ownerAt(int x, int y) => owner[y * width + x];
+
+  int trailAt(int x, int y) => trail[y * width + x];
+
+  /// `id` egallagan kataklar soni.
+  int territoryOf(int id) => _territory[id];
+
+  /// `id` egallagan maydon foizi (0..100).
+  double percentOf(int id) => _territory[id] * 100.0 / cellCount;
+
+  void markDirtyIndex(int i) {
+    final x = i % width;
+    final y = i ~/ width;
+    dirtyChunks.add((y ~/ chunkCells) * chunksX + (x ~/ chunkCells));
+  }
+
+  void markAllDirty() {
+    for (var i = 0; i < chunksX * chunksY; i++) {
+      dirtyChunks.add(i);
+    }
+  }
+
+  void setOwnerIndex(int i, int id) {
+    final prev = owner[i];
+    if (prev == id) return;
+    _territory[prev]--;
+    _territory[id]++;
+    owner[i] = id;
+    markDirtyIndex(i);
+  }
+
+  void setOwner(int x, int y, int id) => setOwnerIndex(index(x, y), id);
+
+  void setTrailIndex(int i, int id) {
+    if (trail[i] == id) return;
+    trail[i] = id;
+    markDirtyIndex(i);
+  }
+
+  void setTrail(int x, int y, int id) => setTrailIndex(index(x, y), id);
+
+  /// `id` ning butun hududi va izini bo'sh qiladi (o'lim paytida).
+  void clearPlayer(int id) {
+    if (id == 0) return;
+    for (var i = 0; i < owner.length; i++) {
+      if (owner[i] == id) {
+        _territory[id]--;
+        _territory[0]++;
+        owner[i] = 0;
+        markDirtyIndex(i);
+      }
+      if (trail[i] == id) {
+        trail[i] = 0;
+        markDirtyIndex(i);
+      }
+    }
+  }
+
+  /// `id` ning izini tozalaydi, hududiga tegmaydi.
+  void clearTrailOf(int id) {
+    if (id == 0) return;
+    for (var i = 0; i < trail.length; i++) {
+      if (trail[i] == id) {
+        trail[i] = 0;
+        markDirtyIndex(i);
+      }
+    }
+  }
+
+  /// `left,top` dan boshlab `size x size` kvadratni `id` ga beradi.
+  void fillBlock(int left, int top, int size, int id) {
+    for (var y = top; y < top + size; y++) {
+      for (var x = left; x < left + size; x++) {
+        if (contains(x, y)) setOwner(x, y, id);
+      }
+    }
+  }
+
+  /// `left,top` dan boshlangan kvadrat butunlay bo'sh (egasiz va izsiz) bo'lsa — true.
+  bool isBlockFree(int left, int top, int size) {
+    for (var y = top; y < top + size; y++) {
+      for (var x = left; x < left + size; x++) {
+        if (!contains(x, y)) return false;
+        final i = index(x, y);
+        if (owner[i] != 0 || trail[i] != 0) return false;
+      }
+    }
+    return true;
+  }
+
+  void reset() {
+    owner.fillRange(0, owner.length, 0);
+    trail.fillRange(0, trail.length, 0);
+    _territory.fillRange(0, _territory.length, 0);
+    _territory[0] = cellCount;
+    markAllDirty();
+  }
+}
