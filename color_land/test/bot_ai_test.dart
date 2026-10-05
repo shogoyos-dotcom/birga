@@ -70,7 +70,11 @@ void main() {
       );
       for (final p in world.players) {
         expect(p.alive, isTrue);
-        expect(world.grid.territoryOf(p.id), 25, reason: '5x5 boshlang\'ich');
+        expect(
+          world.grid.territoryOf(p.id),
+          21,
+          reason: 'radiusi 2.5 bo\'lgan doiraga shuncha katak sig\'adi',
+        );
       }
     });
 
@@ -123,7 +127,11 @@ void main() {
         world.update(dt);
       }
       expect(bot.alive, isTrue, reason: 'qayta paydo bo\'ldi');
-      expect(world.grid.territoryOf(bot.id), 25, reason: 'yangi 5x5 hudud');
+      expect(
+        world.grid.territoryOf(bot.id),
+        21,
+        reason: 'yangi boshlang\'ich doira',
+      );
     });
 
     test('botlar bir-birini ovlaydi', () {

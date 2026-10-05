@@ -3,26 +3,33 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import '../logic/game_grid.dart';
+import 'contour.dart';
 import '../logic/player_state.dart';
 import 'palette.dart';
 
-/// Hududni kataklar emas, yumaloq birlashgan shakl sifatida chizadi.
+/// Hududni kataklar emas, silliq shakl sifatida chizadi.
 ///
-/// Usul: har qatordagi ketma-ket kataklar bitta "yo'lak"ka birlashtiriladi,
-/// har yo'lak esa biroz kattalashtirilgan, burchaklari yumaloq
-/// to'rtburchak sifatida bitta `Path` ga qo'shiladi. Qo'shni qatorlar
-/// bir-birini qoplagani uchun ichkarida chok ko'rinmaydi, tashqi burchaklar
-/// esa yumaloq bo'lib chiqadi — pog'onali chekkalar yo'qoladi.
+/// Usul: hududning haqiqiy chegara chizig'i topiladi ([ContourBuilder]) va
+/// Chaikin usuli bilan silliqlanadi. Shuning uchun pog'onali chekkalar
+/// qolmaydi, teshiklar esa (ichkarida qolgan begona soha) o'z-o'zidan
+/// kesib tashlanadi.
 ///
 /// Har bir o'yinchi shakli `ui.Picture` sifatida keshlanadi va faqat
 /// o'sha o'yinchi hududi o'zgarganda qayta yoziladi.
 class TerritoryShapes {
   TerritoryShapes(this.grid, this.cellSize);
 
-  /// Yo'laklarni qanchaga kattalashtirish (katak ulushi). Animatsiyalar ham
-  /// shu qiymatlardan foydalanadi — shunda ko'rinish bir xil bo'ladi.
+  /// Animatsiyalar hudud bilan bir xil ko'rinishi uchun ishlatadigan
+  /// yumaloqlik qiymatlari.
   static const double growFactor = 0.3;
   static const double radiusFactor = 0.8;
+
+  /// Chegarani necha marta silliqlash. Ko'proq = yumaloqroq, lekin
+  /// nuqtalar soni har safar ikki barobar oshadi.
+  static const int smoothPasses = 2;
+
+  /// Pog'onalarni to'g'ri chiziqqa aylantirish chegarasi (katak ulushi).
+  static const double simplifyTolerance = 0.8;
 
   final GameGrid grid;
   final double cellSize;
@@ -33,12 +40,6 @@ class TerritoryShapes {
   int lastRebuildCount = 0;
 
   int get cachedCount => _cache.length;
-
-  /// Yo'laklarni qanchaga kattalashtirish — qatorlar o'zaro qoplanishi uchun.
-  double get _grow => cellSize * growFactor;
-
-  /// Burchak radiusi.
-  double get _radius => cellSize * radiusFactor;
 
   void render(ui.Canvas canvas, Iterable<PlayerState> players, Rect visible) {
     lastRebuildCount = 0;
@@ -68,46 +69,53 @@ class TerritoryShapes {
   ui.Picture _record(int playerId, int colorIndex, (int, int, int, int) b) {
     final recorder = ui.PictureRecorder();
     final cull = Rect.fromLTRB(
-      b.$1 * cellSize - _grow,
-      b.$2 * cellSize - _grow,
-      (b.$3 + 1) * cellSize + _grow,
-      (b.$4 + 1) * cellSize + _grow,
+      b.$1 * cellSize,
+      b.$2 * cellSize,
+      (b.$3 + 1) * cellSize,
+      (b.$4 + 1) * cellSize,
     );
     final canvas = ui.Canvas(recorder, cull);
-
-    final path = Path();
-    final radius = Radius.circular(_radius);
-    for (var y = b.$2; y <= b.$4; y++) {
-      final row = y * grid.width;
-      var runStart = -1;
-      for (var x = b.$1; x <= b.$3 + 1; x++) {
-        final mine = x <= b.$3 && grid.owner[row + x] == playerId;
-        if (mine && runStart < 0) {
-          runStart = x;
-        } else if (!mine && runStart >= 0) {
-          path.addRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                runStart * cellSize,
-                y * cellSize - _grow,
-                (x - runStart) * cellSize,
-                cellSize + _grow * 2,
-              ),
-              radius,
-            ),
-          );
-          runStart = -1;
-        }
-      }
-    }
-
     canvas.drawPath(
-      path,
+      buildPath(grid, playerId, b, cellSize),
       Paint()
         ..color = Palette.territory(colorIndex)
         ..isAntiAlias = true,
     );
     return recorder.endRecording();
+  }
+
+  /// Hudud chegarasidan silliq `Path` yasaydi (testlar ham shuni chaqiradi).
+  static Path buildPath(
+    GameGrid grid,
+    int playerId,
+    (int, int, int, int) b,
+    double cellSize,
+  ) {
+    final owner = grid.owner;
+    final w = grid.width;
+    bool inside(int x, int y) {
+      if (x < 0 || y < 0 || x >= w || y >= grid.height) return false;
+      return owner[y * w + x] == playerId;
+    }
+
+    final loops = ContourBuilder.trace(inside, b.$1, b.$2, b.$3, b.$4);
+    final path = Path()..fillType = PathFillType.nonZero;
+    for (final raw in loops) {
+      final pts = ContourBuilder.smooth(
+        ContourBuilder.simplify(
+          ContourBuilder.dropCollinear(raw),
+          simplifyTolerance,
+        ),
+        iterations: smoothPasses,
+      );
+      if (pts.length < 3) continue;
+      path.moveTo(pts[0].dx * cellSize, pts[0].dy * cellSize);
+      for (var i = 1; i < pts.length; i++) {
+        path.lineTo(pts[i].dx * cellSize, pts[i].dy * cellSize);
+      }
+      path.close();
+    }
+    return path;
   }
 
   void dispose() {

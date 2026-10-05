@@ -99,10 +99,12 @@ class GameWorld {
       final left = margin + rng.nextInt(grid.width - 2 * margin - size);
       final top = margin + rng.nextInt(grid.height - 2 * margin - size);
       if (!grid.isBlockFree(left, top, size)) continue;
-      grid.fillBlock(left, top, size, p.id);
+      final cx = left + size ~/ 2;
+      final cy = top + size ~/ 2;
+      grid.fillDisc(cx, cy, config.startRadius, p.id);
       p.placeAt(
-        left + size / 2,
-        top + size / 2,
+        cx + 0.5,
+        cy + 0.5,
         rng.nextDouble() * 2 * math.pi - math.pi,
       );
       if (p.brain case final PlayerBrain b) b.onRespawn(this, p);

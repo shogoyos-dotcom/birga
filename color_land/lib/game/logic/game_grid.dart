@@ -171,6 +171,26 @@ class GameGrid {
     }
   }
 
+  /// Markazi `(cx, cy)` bo'lgan doirani `id` ga beradi va katak sonini
+  /// qaytaradi. Boshlang'ich hudud kvadrat emas, doira bo'lsin uchun.
+  int fillDisc(int cx, int cy, double radius, int id) {
+    final r2 = radius * radius;
+    final from = (radius).ceil();
+    var count = 0;
+    for (var dy = -from; dy <= from; dy++) {
+      for (var dx = -from; dx <= from; dx++) {
+        // Katak markazigacha bo'lgan masofa bilan solishtiramiz.
+        if (dx * dx + dy * dy > r2) continue;
+        final x = cx + dx;
+        final y = cy + dy;
+        if (!contains(x, y)) continue;
+        setOwner(x, y, id);
+        count++;
+      }
+    }
+    return count;
+  }
+
   /// `left,top` dan boshlab `size x size` kvadratni `id` ga beradi.
   void fillBlock(int left, int top, int size, int id) {
     for (var y = top; y < top + size; y++) {

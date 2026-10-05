@@ -20,8 +20,11 @@ class GameConfig {
   final int gridWidth;
   final int gridHeight;
 
-  /// Boshlang'ich hudud tomoni (5 => 5x5).
+  /// Boshlang'ich hudud joylashadigan kvadrat tomoni (bo'sh joy izlashda).
   final int startBlock;
+
+  /// Boshlang'ich hudud doirasining radiusi (katak).
+  double get startRadius => startBlock / 2;
 
   final int botCount;
   final Difficulty difficulty;

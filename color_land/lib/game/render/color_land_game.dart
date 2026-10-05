@@ -335,9 +335,7 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
       // Hudud shakli bilan bir xil yumaloqlikda — aks holda silliq
       // hududning ustida burchakli to'rtburchaklar porlab ketadi.
       const grow = kCellSize * TerritoryShapes.growFactor;
-      final radius = Radius.circular(
-        kCellSize * TerritoryShapes.radiusFactor,
-      );
+      final radius = Radius.circular(kCellSize * TerritoryShapes.radiusFactor);
       for (final rect in flash.rects) {
         if (!rect.overlaps(visible)) continue;
         canvas.drawRRect(
