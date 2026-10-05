@@ -9,6 +9,7 @@ import '../logic/game_config.dart';
 import '../logic/game_events.dart';
 import '../logic/game_world.dart';
 import '../logic/player_state.dart';
+import 'contour.dart';
 import 'head_painter.dart';
 import 'shape_painter.dart';
 import 'hud_snapshot.dart';
@@ -42,8 +43,9 @@ class ColorLandGame extends FlameGame {
     const HudSnapshot.empty(),
   );
 
-  /// O'yinchi o'lganda chaqiriladi.
-  VoidCallback? onHumanDeath;
+  /// O'yinchi o'lganda chaqiriladi; argument — bo'shagan kataklar
+  /// (davom etilsa shular qaytariladi).
+  void Function(List<int> clearedCells)? onHumanDeath;
 
   /// Ekranni surish yo'nalishi (radian). `null` — surilmayapti.
   double? _steerAngle;
@@ -52,6 +54,9 @@ class ColorLandGame extends FlameGame {
 
   /// O'yinchi qancha vaqt tirik qolgani.
   double survivedSeconds = 0;
+
+  /// O'yinchi o'limida bo'shagan kataklar.
+  List<int> _humanCleared = const <int>[];
 
   /// O'lgandan keyin reyting o'rni o'zgarmasin.
   int _lastRank = 1;
@@ -131,6 +136,7 @@ class ColorLandGame extends FlameGame {
           flashLayer.addFlash(sim, playerId, cells, FlashKind.capture);
         case DeathEvent(:final playerId, :final clearedCells):
           flashLayer.addFlash(sim, playerId, clearedCells, FlashKind.death);
+          if (playerId == sim.human.id) _humanCleared = clearedCells;
         case RespawnEvent():
           break;
       }
@@ -151,8 +157,15 @@ class ColorLandGame extends FlameGame {
 
     if (wasAlive && !human.alive) {
       _refreshHud();
-      onHumanDeath?.call();
+      onHumanDeath?.call(_humanCleared);
     }
+  }
+
+  /// Davom etilgandan keyin o'yinni qaytadan yurgizadi.
+  void resumeAfterRevive() {
+    paused = false;
+    _humanCleared = const <int>[];
+    _refreshHud();
   }
 
   void _refreshHud() {
@@ -250,54 +263,63 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
   static const double _captureDuration = 0.45;
   static const double _deathDuration = 0.7;
 
-  /// Juda katta egallashda har bir katakni chizmaymiz — chegara qo'yamiz.
-  static const int _maxRects = 1600;
-
   final List<_Flash> _flashes = <_Flash>[];
   final Paint _paint = Paint()..isAntiAlias = true;
 
   int get activeCount => _flashes.length;
 
   void addFlash(GameWorld sim, int playerId, List<int> cells, FlashKind kind) {
-    final rects = _mergeRuns(sim, cells);
-    if (rects.isEmpty) return;
-    _flashes.add(_Flash(rects, Palette.head(_colorOf(sim, playerId)), kind));
+    if (cells.isEmpty) return;
+    final path = _buildPath(sim, cells);
+    if (path == null) return;
+    _flashes.add(_Flash(path, Palette.head(_colorOf(sim, playerId)), kind));
   }
 
   int _colorOf(GameWorld sim, int playerId) =>
       sim.playerById(playerId)?.colorIndex ?? 0;
 
-  /// Qatorlardagi ketma-ket kataklarni bitta to'rtburchakka birlashtiradi.
-  List<Rect> _mergeRuns(GameWorld sim, List<int> cells) {
-    if (cells.isEmpty) return const <Rect>[];
+  /// Kataklar to'plamidan hudud bilan bir xil uslubdagi silliq shakl.
+  Path? _buildPath(GameWorld sim, List<int> cells) {
     final w = sim.grid.width;
-    final sorted = List<int>.of(cells)..sort();
-    final rects = <Rect>[];
-    var runStart = sorted.first;
-    var prev = sorted.first;
-    for (var k = 1; k <= sorted.length; k++) {
-      final cur = k < sorted.length ? sorted[k] : -1;
-      final continues = cur == prev + 1 && cur % w != 0;
-      if (!continues) {
-        final x = runStart % w;
-        final y = runStart ~/ w;
-        rects.add(
-          Rect.fromLTWH(
-            x * kCellSize,
-            y * kCellSize,
-            (prev - runStart + 1) * kCellSize,
-            kCellSize,
-          ),
-        );
-        if (rects.length >= _maxRects) {
-          // Juda ko'p — bitta umumiy to'rtburchak bilan cheklanamiz.
-          return <Rect>[rects.reduce((a, b) => a.expandToInclude(b))];
-        }
-        runStart = cur;
-      }
-      prev = cur;
+    final set = cells.toSet();
+    var minX = w;
+    var minY = sim.grid.height;
+    var maxX = -1;
+    var maxY = -1;
+    for (final i in cells) {
+      final x = i % w;
+      final y = i ~/ w;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
     }
-    return rects;
+    if (maxX < 0) return null;
+
+    final loops = ContourBuilder.trace(
+      (x, y) => set.contains(y * w + x),
+      minX,
+      minY,
+      maxX,
+      maxY,
+    );
+    final path = Path()..fillType = PathFillType.nonZero;
+    for (final raw in loops) {
+      final pts = ContourBuilder.smooth(
+        ContourBuilder.simplify(
+          ContourBuilder.dropCollinear(raw),
+          TerritoryShapes.simplifyTolerance,
+        ),
+        iterations: TerritoryShapes.smoothPasses,
+      );
+      if (pts.length < 3) continue;
+      path.moveTo(pts[0].dx * kCellSize, pts[0].dy * kCellSize);
+      for (var i = 1; i < pts.length; i++) {
+        path.lineTo(pts[i].dx * kCellSize, pts[i].dy * kCellSize);
+      }
+      path.close();
+    }
+    return path;
   }
 
   static double durationOf(FlashKind kind) => switch (kind) {
@@ -331,26 +353,17 @@ class CaptureFlashLayer extends Component with HasGameReference<ColorLandGame> {
         color = flash.color;
       }
       if (alpha <= 0.01) continue;
+      if (!flash.path.getBounds().overlaps(visible)) continue;
       _paint.color = color.withValues(alpha: alpha);
-      // Hudud shakli bilan bir xil yumaloqlikda — aks holda silliq
-      // hududning ustida burchakli to'rtburchaklar porlab ketadi.
-      const grow = kCellSize * TerritoryShapes.growFactor;
-      final radius = Radius.circular(kCellSize * TerritoryShapes.radiusFactor);
-      for (final rect in flash.rects) {
-        if (!rect.overlaps(visible)) continue;
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect.inflate(grow), radius),
-          _paint,
-        );
-      }
+      canvas.drawPath(flash.path, _paint);
     }
   }
 }
 
 class _Flash {
-  _Flash(this.rects, this.color, this.kind);
+  _Flash(this.path, this.color, this.kind);
 
-  final List<Rect> rects;
+  final Path path;
   final Color color;
   final FlashKind kind;
   double age = 0;

@@ -32,6 +32,21 @@ class AppStrings {
     required this.diedTerritoryLost,
     required this.settings,
     required this.back,
+    required this.continueGame,
+    required this.withTicket,
+    required this.watchAd,
+    required this.tickets,
+    required this.shop,
+    required this.buyTickets,
+    required this.noTickets,
+    required this.adNotReady,
+    required this.purchaseFailed,
+    required this.ticketsAdded,
+    required this.ticketPack,
+    required this.demoPurchaseNote,
+    required this.close,
+    required this.giveUp,
+    required this.noRoomToContinue,
   });
 
   final String play;
@@ -60,6 +75,21 @@ class AppStrings {
   final String diedTerritoryLost;
   final String settings;
   final String back;
+  final String continueGame;
+  final String withTicket;
+  final String watchAd;
+  final String tickets;
+  final String shop;
+  final String buyTickets;
+  final String noTickets;
+  final String adNotReady;
+  final String purchaseFailed;
+  final String ticketsAdded;
+  final String ticketPack;
+  final String demoPurchaseNote;
+  final String close;
+  final String giveUp;
+  final String noRoomToContinue;
 
   String difficultyName(Difficulty d) => switch (d) {
     Difficulty.easy => easy,
@@ -102,6 +132,21 @@ class AppStrings {
     diedTerritoryLost: 'Butun hududingiz egallandi',
     settings: 'Sozlamalar',
     back: 'Orqaga',
+    continueGame: 'Davom etasizmi?',
+    withTicket: 'Belet bilan',
+    watchAd: "Reklama ko'rish",
+    tickets: 'Beletlar',
+    shop: "Do'kon",
+    buyTickets: 'Belet sotib olish',
+    noTickets: 'Beletingiz qolmadi',
+    adNotReady: 'Reklama hali tayyor emas',
+    purchaseFailed: 'Xarid amalga oshmadi',
+    ticketsAdded: "Beletlar qo'shildi",
+    ticketPack: 'ta belet',
+    demoPurchaseNote: 'Sinov rejimi: pul olinmaydi',
+    close: 'Yopish',
+    giveUp: 'Tugatish',
+    noRoomToContinue: 'Davom etish uchun joy qolmadi',
   );
 
   static const AppStrings en = AppStrings(
@@ -131,6 +176,21 @@ class AppStrings {
     diedTerritoryLost: 'You lost all your land',
     settings: 'Settings',
     back: 'Back',
+    continueGame: 'Continue?',
+    withTicket: 'Use a ticket',
+    watchAd: 'Watch an ad',
+    tickets: 'Tickets',
+    shop: 'Shop',
+    buyTickets: 'Buy tickets',
+    noTickets: 'You have no tickets',
+    adNotReady: 'Ad is not ready yet',
+    purchaseFailed: 'Purchase failed',
+    ticketsAdded: 'Tickets added',
+    ticketPack: 'tickets',
+    demoPurchaseNote: 'Test mode: you are not charged',
+    close: 'Close',
+    giveUp: 'End run',
+    noRoomToContinue: 'No room left to continue',
   );
 
   static const AppStrings ru = AppStrings(
@@ -160,6 +220,21 @@ class AppStrings {
     diedTerritoryLost: 'Вы потеряли всю территорию',
     settings: 'Настройки',
     back: 'Назад',
+    continueGame: 'Продолжить?',
+    withTicket: 'Билетом',
+    watchAd: 'Посмотреть рекламу',
+    tickets: 'Билеты',
+    shop: 'Магазин',
+    buyTickets: 'Купить билеты',
+    noTickets: 'Билетов не осталось',
+    adNotReady: 'Реклама ещё не готова',
+    purchaseFailed: 'Покупка не удалась',
+    ticketsAdded: 'Билеты добавлены',
+    ticketPack: 'билетов',
+    demoPurchaseNote: 'Тестовый режим: оплата не списывается',
+    close: 'Закрыть',
+    giveUp: 'Завершить',
+    noRoomToContinue: 'Нет места, чтобы продолжить',
   );
 
   static const AppStrings tr = AppStrings(
@@ -189,6 +264,21 @@ class AppStrings {
     diedTerritoryLost: 'Tüm bölgeni kaybettin',
     settings: 'Ayarlar',
     back: 'Geri',
+    continueGame: 'Devam?',
+    withTicket: 'Bilet ile',
+    watchAd: 'Reklam izle',
+    tickets: 'Biletler',
+    shop: 'Mağaza',
+    buyTickets: 'Bilet al',
+    noTickets: 'Biletin kalmadı',
+    adNotReady: 'Reklam henüz hazır değil',
+    purchaseFailed: 'Satın alma başarısız',
+    ticketsAdded: 'Biletler eklendi',
+    ticketPack: 'bilet',
+    demoPurchaseNote: 'Test modu: ücret alınmaz',
+    close: 'Kapat',
+    giveUp: 'Bitir',
+    noRoomToContinue: 'Devam için yer kalmadı',
   );
 
   static const AppStrings kk = AppStrings(
@@ -218,6 +308,21 @@ class AppStrings {
     diedTerritoryLost: 'Бүкіл аумағыңыз алынды',
     settings: 'Баптаулар',
     back: 'Артқа',
+    continueGame: 'Жалғастырасыз ба?',
+    withTicket: 'Билетпен',
+    watchAd: 'Жарнама көру',
+    tickets: 'Билеттер',
+    shop: 'Дүкен',
+    buyTickets: 'Билет сатып алу',
+    noTickets: 'Билет қалмады',
+    adNotReady: 'Жарнама әлі дайын емес',
+    purchaseFailed: 'Сатып алу сәтсіз',
+    ticketsAdded: 'Билеттер қосылды',
+    ticketPack: 'билет',
+    demoPurchaseNote: 'Сынақ режимі: ақы алынбайды',
+    close: 'Жабу',
+    giveUp: 'Аяқтау',
+    noRoomToContinue: 'Жалғастыруға орын қалмады',
   );
 
   static AppStrings of(AppLanguage language) => switch (language) {

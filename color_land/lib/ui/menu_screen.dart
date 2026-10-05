@@ -6,7 +6,9 @@ import '../game/render/palette.dart';
 import '../i18n/app_language.dart';
 import '../i18n/l10n.dart';
 import '../storage/settings_store.dart';
+import '../services/continue_services.dart';
 import 'game_screen.dart';
+import 'widgets/shop_sheet.dart';
 import 'widgets/ui_kit.dart';
 
 /// Bosh menyu: o'ynash, rang tanlash, qiyinlik, til va rekord.
@@ -22,6 +24,27 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   late int _colorIndex = widget.store.colorIndex;
   late Difficulty _difficulty = widget.store.difficulty;
+  final StoreService _shop = DemoStoreService();
+
+  void _openShop() {
+    showDialog<void>(
+      context: context,
+      barrierColor: const Color(0x8C101828),
+      builder: (_) => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: ShopSheet(
+            store: _shop,
+            colorIndex: _colorIndex,
+            onPurchased: (count) async {
+              await widget.store.addTickets(count);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _play() async {
     await Navigator.of(context).push(
@@ -55,9 +78,17 @@ class _MenuScreenState extends State<MenuScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _LanguageMenu(store: widget.store),
+                  Row(
+                    children: [
+                      _TicketChip(
+                        count: widget.store.tickets,
+                        label: t.tickets,
+                        accent: accent,
+                        onTap: _openShop,
+                      ),
+                      const Spacer(),
+                      _LanguageMenu(store: widget.store),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   _Logo(colorIndex: _colorIndex),
@@ -288,6 +319,61 @@ class _ChoiceButton extends StatelessWidget {
               fontWeight: FontWeight.w800,
               color: selected ? Colors.white : const Color(0xFF6B7280),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Beletlar soni va do'konga kirish.
+class _TicketChip extends StatelessWidget {
+  const _TicketChip({
+    required this.count,
+    required this.label,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final int count;
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.confirmation_number_rounded, size: 18, color: accent),
+              const SizedBox(width: 6),
+              Text(
+                '\$count',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF9AA3B2),
+                ),
+              ),
+              const Icon(Icons.add_rounded, size: 16, color: Color(0xFF9AA3B2)),
+            ],
           ),
         ),
       ),

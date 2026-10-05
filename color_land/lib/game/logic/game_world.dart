@@ -102,11 +102,7 @@ class GameWorld {
       final cx = left + size ~/ 2;
       final cy = top + size ~/ 2;
       grid.fillDisc(cx, cy, config.startRadius, p.id);
-      p.placeAt(
-        cx + 0.5,
-        cy + 0.5,
-        rng.nextDouble() * 2 * math.pi - math.pi,
-      );
+      p.placeAt(cx + 0.5, cy + 0.5, rng.nextDouble() * 2 * math.pi - math.pi);
       if (p.brain case final PlayerBrain b) b.onRespawn(this, p);
       events.add(RespawnEvent(p.id));
       return true;
@@ -273,6 +269,63 @@ class GameWorld {
   double percentOf(PlayerState p) => p.alive
       ? grid.percentOf(p.id)
       : p.finalTerritory * 100.0 / grid.cellCount;
+
+  /// O'lgan o'yinchini qaytaradi: o'limda bo'shagan kataklaridan hali
+  /// bo'sh turganlari unga qaytariladi va o'yinchi o'sha hududning
+  /// o'rtasiga qo'yiladi.
+  ///
+  /// Agar qaytariladigan katak juda kam qolgan bo'lsa (hududni boshqalar
+  /// egallab bo'lgan), oddiy qoida bo'yicha yangi joyga joylashtiriladi.
+  /// Hech qanday joy topilmasa `false` qaytaradi.
+  bool revive(PlayerState p, List<int> cells) {
+    if (p.alive) return true;
+
+    final restored = <int>[];
+    for (final i in cells) {
+      if (grid.owner[i] == 0 && grid.trail[i] == 0) {
+        grid.setOwnerIndex(i, p.id);
+        restored.add(i);
+      }
+    }
+    if (restored.length < config.minReviveCells) {
+      // Qaytargan ozgina katakni tozalab, yangi joydan boshlaymiz.
+      for (final i in restored) {
+        grid.setOwnerIndex(i, 0);
+      }
+      return spawn(p);
+    }
+
+    var sumX = 0;
+    var sumY = 0;
+    for (final i in restored) {
+      sumX += i % grid.width;
+      sumY += i ~/ grid.width;
+    }
+    final cx = sumX ~/ restored.length;
+    final cy = sumY ~/ restored.length;
+
+    // Markaz boshqa o'yinchiga o'tib ketgan bo'lishi mumkin — eng yaqin
+    // o'z katagimizni topamiz.
+    var bestIndex = restored.first;
+    var bestDist = 1 << 30;
+    for (final i in restored) {
+      final dx = i % grid.width - cx;
+      final dy = i ~/ grid.width - cy;
+      final d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+
+    p.placeAt(
+      bestIndex % grid.width + 0.5,
+      bestIndex ~/ grid.width + 0.5,
+      rng.nextDouble() * 2 * math.pi - math.pi,
+    );
+    events.add(RespawnEvent(p.id));
+    return true;
+  }
 
   /// Hodisalar navbatini bo'shatadi va nusxasini qaytaradi.
   List<GameEvent> drainEvents() {

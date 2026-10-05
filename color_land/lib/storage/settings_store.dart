@@ -12,6 +12,10 @@ class SettingsStore {
   static const _kColor = 'player_color';
   static const _kDifficulty = 'difficulty';
   static const _kLanguage = 'language';
+  static const _kTickets = 'tickets';
+
+  /// Ilova birinchi marta ochilganda beriladigan beletlar.
+  static const int welcomeTickets = 3;
 
   final SharedPreferences _prefs;
 
@@ -25,6 +29,20 @@ class SettingsStore {
   int get bestKills => _prefs.getInt(_kKills) ?? 0;
 
   int get colorIndex => _prefs.getInt(_kColor) ?? 0;
+
+  /// O'limdan keyin davom etish uchun ishlatiladigan beletlar soni.
+  int get tickets => _prefs.getInt(_kTickets) ?? welcomeTickets;
+
+  /// Bitta belet sarflaydi. Belet qolmagan bo'lsa `false` qaytaradi.
+  Future<bool> spendTicket() async {
+    final left = tickets;
+    if (left <= 0) return false;
+    await _prefs.setInt(_kTickets, left - 1);
+    return true;
+  }
+
+  Future<void> addTickets(int count) =>
+      _prefs.setInt(_kTickets, tickets + count);
 
   Difficulty get difficulty =>
       Difficulty.fromName(_prefs.getString(_kDifficulty));

@@ -62,6 +62,28 @@ flutter test tool/icon_test.dart        # ikonkalar + Play materiallari
 flutter test tool/screenshot_test.dart  # build/shot_*.png skrinshotlar
 ```
 
+## Reklama va xaridlar
+
+O'lgandan keyin o'yinchi ikki yo'l bilan davom etishi mumkin: **belet
+sarflash** yoki **reklama ko'rish**. Beletlar do'kondan olinadi va
+`shared_preferences` da saqlanadi.
+
+Hozir ikkalasi ham **namuna** holatda ishlaydi
+(`lib/services/continue_services.dart`): reklama o'rniga qisqa kutish,
+xarid esa pulsiz. Shunda mexanikani hoziroq sinab ko'rish mumkin.
+
+Haqiqiysiga o'tish uchun o'sha fayldagi ikki interfeysning yangi
+amalga oshirishini yozib, `GameScreen` ga uzatish kifoya — o'yin kodi
+o'zgarmaydi:
+
+| Interfeys | Nima kerak |
+|---|---|
+| `RewardedAdService` | Google AdMob akkaunti, ilova ID si va "rewarded" reklama bloki; `google_mobile_ads` paketi; AndroidManifest ga AdMob ID |
+| `StoreService` | Play Console da "Managed product" lar (`tickets_1`, `tickets_5`, `tickets_15`); `in_app_purchase` paketi |
+
+Ikkalasi ham sizning akkauntingizni talab qiladi, shuning uchun ularni
+men ulay olmayman.
+
 ## Cloud sessiyalarda qurish
 
 Claude Code cloud sessiyalarida Flutter ham, Android SDK ham oldindan

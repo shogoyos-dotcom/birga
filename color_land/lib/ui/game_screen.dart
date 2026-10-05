@@ -9,9 +9,11 @@ import '../game/render/color_land_game.dart';
 import '../game/render/hud_snapshot.dart';
 import '../game/render/palette.dart';
 import '../i18n/l10n.dart';
+import '../services/continue_services.dart';
 import '../storage/settings_store.dart';
 import 'widgets/game_hud.dart';
 import 'widgets/result_sheet.dart';
+import 'widgets/shop_sheet.dart';
 import 'widgets/ui_kit.dart';
 
 /// O'yin ekrani: Flame tuvali + ustidan Flutter UI.
@@ -21,11 +23,17 @@ class GameScreen extends StatefulWidget {
     required this.config,
     required this.colorIndex,
     required this.store,
+    this.ads,
+    this.shop,
   });
 
   final GameConfig config;
   final int colorIndex;
   final SettingsStore store;
+
+  /// Reklama va do'kon xizmatlari. Berilmasa namuna variantlar ishlatiladi.
+  final RewardedAdService? ads;
+  final StoreService? shop;
 
   @override
   State<GameScreen> createState() => GameScreenState();
@@ -38,6 +46,13 @@ class GameScreenState extends State<GameScreen> {
   /// Barmoq qo'yilgan nuqta — yo'nalish shu nuqtaga nisbatan hisoblanadi.
   Offset? _dragOrigin;
 
+  late final RewardedAdService _ads = widget.ads ?? DemoRewardedAdService();
+  late final StoreService _shop = widget.shop ?? DemoStoreService();
+
+  /// O'limda bo'shagan kataklar — davom etilsa shular qaytariladi.
+  List<int> _clearedOnDeath = const <int>[];
+
+  bool _busy = false;
   bool _showResult = false;
   bool _isRecord = false;
   bool _showPause = false;
@@ -71,7 +86,8 @@ class GameScreenState extends State<GameScreen> {
   String get _playerName => _cachedName ?? 'You';
   String? _cachedName;
 
-  Future<void> _onDeath() async {
+  Future<void> _onDeath(List<int> clearedCells) async {
+    _clearedOnDeath = clearedCells;
     final hud = _game.hud.value;
     final isRecord = await widget.store.submitResult(
       percent: hud.percent,
@@ -85,11 +101,78 @@ class GameScreenState extends State<GameScreen> {
     });
   }
 
+  /// Davom etish: o'yinchini tiklaydi va natija oynasini yopadi.
+  Future<void> _resume() async {
+    final ok = _game.sim.revive(_game.sim.human, _clearedOnDeath);
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(L10n.of(context).noRoomToContinue)),
+      );
+      return;
+    }
+    setState(() {
+      _showResult = false;
+      _clearedOnDeath = const <int>[];
+      _game.resumeAfterRevive();
+    });
+  }
+
+  Future<void> _continueWithTicket() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final spent = await widget.store.spendTicket();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!spent) {
+      _openShop();
+      return;
+    }
+    await _resume();
+  }
+
+  Future<void> _continueWithAd() async {
+    if (_busy) return;
+    final t = L10n.of(context);
+    if (!_ads.isReady) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(t.adNotReady)));
+      return;
+    }
+    setState(() => _busy = true);
+    final watched = await _ads.showRewarded();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!watched) return;
+    await _resume();
+  }
+
+  void _openShop() {
+    showDialog<void>(
+      context: context,
+      barrierColor: const Color(0x8C101828),
+      builder: (dialogContext) => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: ShopSheet(
+            store: _shop,
+            colorIndex: widget.colorIndex,
+            onPurchased: (count) async {
+              await widget.store.addTickets(count);
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   void _restart() {
     setState(() {
       _showResult = false;
       _showPause = false;
       _showHint = true;
+      _clearedOnDeath = const <int>[];
       _game = _createGame();
     });
   }
@@ -217,6 +300,11 @@ class GameScreenState extends State<GameScreen> {
                 colorIndex: widget.colorIndex,
                 isRecord: _isRecord,
                 bestPercent: widget.store.bestPercent,
+                tickets: widget.store.tickets,
+                adReady: _ads.isReady,
+                onContinueWithTicket: _continueWithTicket,
+                onContinueWithAd: _continueWithAd,
+                onOpenShop: _openShop,
                 onPlayAgain: _restart,
                 onMenu: () => Navigator.of(context).pop(),
               ),

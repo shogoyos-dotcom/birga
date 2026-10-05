@@ -14,6 +14,7 @@ class GameConfig {
     this.botRespawnDelay = 3.0,
     this.maxStepDt = 1 / 30,
     this.selfHitGrace = 3,
+    this.minReviveCells = 10,
   });
 
   /// Panjara o'lchami (katak).
@@ -51,6 +52,10 @@ class GameConfig {
   /// tegish esa haqiqiy kesishish va o'limga olib keladi.
   final int selfHitGrace;
 
+  /// O'limdan keyin davom etishda kamida shuncha katak qaytarilsa, o'yinchi
+  /// o'sha joyida tiklanadi; aks holda yangi joydan boshlaydi.
+  final int minReviveCells;
+
   int get cellCount => gridWidth * gridHeight;
 
   double get botSpeed => playerSpeed * difficulty.botSpeedFactor;
@@ -67,5 +72,6 @@ class GameConfig {
     botRespawnDelay: botRespawnDelay,
     maxStepDt: maxStepDt,
     selfHitGrace: selfHitGrace,
+    minReviveCells: minReviveCells,
   );
 }
