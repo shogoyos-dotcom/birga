@@ -24,9 +24,85 @@ bosqichma-bosqich tushuntiradi.
 
 ## 1. Kerakli dasturlar
 
-- Flutter SDK (barqaror kanal)
+### Windows'da noldan sozlash
+
+Jami ~12 GB joy va 30–60 daqiqa vaqt ketadi. Har bosqichdan keyin
+tekshiruv buyrug'i berilgan — biror joyda to'xtasa, o'sha yerni hal
+qilib keyingisiga o'ting.
+
+**1-qadam. Git va Android Studio.** PowerShell'da:
+
+```powershell
+winget install --id Git.Git -e
+winget install --id Google.AndroidStudio -e
+```
+
+**2-qadam. Android Studio'ni bir marta oching.** U ishga tushganda sozlash
+ustasi (Setup Wizard) Android SDK ni yuklaydi — oxirigacha kuting.
+
+So'ng SDK ning buyruq qatori vositalarini yoqing (busiz litsenziyalarni
+qabul qilib bo'lmaydi):
+
+> **Settings** → **Languages & Frameworks** → **Android SDK** →
+> **SDK Tools** yorlig'i → **Android SDK Command-line Tools (latest)**
+> katagiga belgi qo'ying → **Apply**.
+
+**3-qadam. Flutter.** Yangi PowerShell oynasida:
+
+```powershell
+$zip = "$env:TEMP\flutter.zip"
+curl.exe -L -o $zip "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.47.6-stable.zip"
+New-Item -ItemType Directory -Force -Path C:\src | Out-Null
+tar.exe -xf $zip -C C:\src
+Remove-Item $zip
+
+$old = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($old -notlike "*C:\src\flutter\bin*") {
+  [Environment]::SetEnvironmentVariable("Path", "$old;C:\src\flutter\bin", "User")
+}
+```
+
+`C:\src\flutter` ga ochish muhim: `C:\Program Files` ichiga qo'ysangiz
+Flutter ruxsat xatolari beradi.
+
+**4-qadam. PowerShell'ni yopib qaytadan oching** (PATH yangilanishi uchun):
+
+```powershell
+flutter --version
+flutter doctor
+```
+
+**5-qadam. Android litsenziyalarini qabul qiling:**
+
+```powershell
+flutter doctor --android-licenses
+```
+
+Har bir savolga `y` deb javob bering. So'ng `flutter doctor` da
+`[✓] Android toolchain` chiqishi kerak.
+
+`cmdline-tools component is missing` degan xato chiqsa — 2-qadamdagi
+"Android SDK Command-line Tools" katagi belgilanmagan.
+
+**6-qadam. Loyihani oling:**
+
+```powershell
+cd $env:USERPROFILE
+git clone https://github.com/shogoyos-dotcom/birga.git
+cd birga
+git checkout claude/dazzling-turing-2248jt
+cd color_land
+flutter pub get
+flutter test
+```
+
+Testlar o'tsa — hammasi tayyor, 2-bo'limdan davom eting.
+
+### Boshqa tizimlar
+
+- Flutter SDK (barqaror kanal, 3.47.6 yoki undan yangi)
 - Android SDK (Android Studio bilan yoki `cmdline-tools` orqali)
-- JDK 17
+- JDK 17 yoki 21
 
 Tekshirish:
 
