@@ -65,6 +65,14 @@ android {
     }
 }
 
+// Kotlin ham Java bilan bir xil JVM maqsadida kompilyatsiya qilinishi kerak,
+// aks holda Gradle "Inconsistent JVM-target compatibility" bilan to'xtaydi.
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 flutter {
     source = "../.."
 }
