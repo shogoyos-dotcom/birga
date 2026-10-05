@@ -12,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Kotlin Gradle plagini yaratadigan papka (build artefakti).
+.kotlin/
