@@ -1,0 +1,153 @@
+# Color Land uchun Android release qurish.
+#
+# Qo'lda ishga tushiriladi: GitHub -> Actions -> "Android release" -> Run workflow.
+# Natija: app-release.aab (Play uchun) va app-release.apk (telefonda sinash uchun)
+# "Artifacts" bo'limidan yuklab olinadi.
+#
+# Kerakli secret'lar (Settings -> Secrets and variables -> Actions):
+#   ANDROID_KEYSTORE_BASE64   - .jks fayl base64 ko'rinishida
+#   ANDROID_KEYSTORE_PASSWORD - keystore paroli
+#   ANDROID_KEY_PASSWORD      - kalit paroli (odatda yuqoridagi bilan bir xil)
+#   ANDROID_KEY_ALIAS         - kalit nomi, bizda: upload
+#
+# Secret'lar qo'yilmagan bo'lsa ham workflow ishlaydi — faqat .aab debug
+# kalit bilan imzolanadi va Play uchun yaramaydi. Bu qurish yo'lini
+# secret'larsiz sinab ko'rish uchun qulay.
+
+name: Android release
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: "Sinash uchun APK ham qurilsinmi?"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.6"
+  PROJECT_DIR: color_land
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Repo'ni olish
+        uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Android SDK ni o'rnatish shart emas: ubuntu-latest obrazida u
+      # allaqachon bor (/usr/local/lib/android/sdk, build-tools 36.0.0,
+      # platform 36). Faqat Flutter ni keltiramiz.
+      - name: Flutter keshi
+        id: flutter-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/flutter
+          key: flutter-${{ env.FLUTTER_VERSION }}-linux
+
+      - name: Flutter o'rnatish
+        if: steps.flutter-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          url="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          curl -fsSL -o /tmp/flutter.tar.xz "$url"
+          tar -xf /tmp/flutter.tar.xz -C "$HOME"
+          rm -f /tmp/flutter.tar.xz
+
+      - name: Flutter'ni PATH ga qo'shish
+        run: |
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+          git config --global --add safe.directory "$HOME/flutter"
+
+      - name: Versiyalarni ko'rsatish
+        run: |
+          flutter --version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+      - name: Bog'liqliklar
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Analiz
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter analyze
+
+      - name: Testlar
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter test
+
+      # Keystore secret'lardan tiklanadi. Fayl ishchi papkadan tashqarida
+      # yaratiladi, shunda u tasodifan artefaktga tushib qolmaydi.
+      - name: Imzolash kalitini tayyorlash
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64:-}" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret yo'q — .aab debug kalit bilan imzolanadi va Google Play uni qabul qilmaydi."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          keystore="$RUNNER_TEMP/upload-keystore.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$keystore"
+          cat > "$PROJECT_DIR/android/key.properties" <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$keystore
+          EOF
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: App bundle (.aab)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build appbundle --release
+
+      - name: APK (sinash uchun)
+        if: inputs.build_apk
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build apk --release
+
+      # Imzo haqiqatan kutilgan kalit bilan qo'yilganini tekshiramiz.
+      - name: Imzoni tekshirish
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          owner=$(unzip -p build/app/outputs/bundle/release/app-release.aab \
+            'META-INF/*.RSA' | keytool -printcert | grep -m1 "Owner:")
+          echo "$owner"
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            if echo "$owner" | grep -q "Android Debug"; then
+              echo "::error::.aab debug kalit bilan imzolangan — secret'lar to'g'ri o'qilmadi."
+              exit 1
+            fi
+            echo "✓ Release kaliti bilan imzolangan."
+          fi
+
+      - name: key.properties ni o'chirish
+        if: always()
+        run: rm -f "$PROJECT_DIR/android/key.properties"
+
+      - name: Natijalarni yuklash
+        uses: actions/upload-artifact@v4
+        with:
+          name: color-land-release
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ env.PROJECT_DIR }}/build/app/outputs/bundle/release/app-release.aab
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
