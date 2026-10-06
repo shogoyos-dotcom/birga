@@ -195,6 +195,37 @@ void main() {
     });
   });
 
+  group('avatar naqshi', () {
+    // Hududning hamma yerini qoplashi kerak, shuning uchun bitta emas,
+    // takrorlanuvchi belgilar chiziladi.
+    const cell = 10.0;
+
+    test('katta hududga ko\'p belgi tushadi', () {
+      final big = TerritoryShapes.patternLayout(40 * cell, 40 * cell, cell)!;
+      expect(big.tiles, greaterThan(4));
+    });
+
+    test('kichik hududga ham kamida bitta belgi tushadi', () {
+      final small = TerritoryShapes.patternLayout(4 * cell, 4 * cell, cell)!;
+      expect(small.tiles, greaterThanOrEqualTo(1));
+      // Qadam juda maydalashib ketmasin.
+      expect(
+        small.step,
+        greaterThanOrEqualTo(TerritoryShapes.patternMinCells * cell - 0.01),
+      );
+    });
+
+    test('juda katta hududda ham belgilar soni cheklangan', () {
+      final huge = TerritoryShapes.patternLayout(250 * cell, 250 * cell, cell)!;
+      expect(huge.tiles, lessThanOrEqualTo(TerritoryShapes.maxPatternTiles));
+      expect(huge.tiles, greaterThan(10), reason: 'baribir qoplansin');
+    });
+
+    test('bo\'sh hududda naqsh yo\'q', () {
+      expect(TerritoryShapes.patternLayout(0, 10, cell), isNull);
+    });
+  });
+
   group('o\'yin boshlanishi', () {
     test('o\'yinchi profildagi avatarni oladi, botlar tasodifiy', () {
       final sim = createMatch(

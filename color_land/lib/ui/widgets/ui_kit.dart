@@ -524,3 +524,56 @@ class ScreenHeader extends StatelessWidget {
     );
   }
 }
+
+/// Kvadrat yoqish/o'chirish tugmasi — pauza oynasidagi ovoz sozlamalari
+/// uchun. O'chirilganda belgi ustidan chiziq o'tadi.
+class IconToggle extends StatelessWidget {
+  const IconToggle({
+    super.key,
+    required this.icon,
+    required this.iconOff,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.accent,
+  });
+
+  final IconData icon;
+  final IconData iconOff;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ?? Arcade.blue;
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: value ? color.withValues(alpha: 0.18) : Arcade.surface,
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+          onTap: () => onChanged(!value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+              border: Border.all(
+                color: value ? color.withValues(alpha: 0.65) : Arcade.stroke,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              value ? icon : iconOff,
+              size: 22,
+              color: value ? color : Arcade.textFaint,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

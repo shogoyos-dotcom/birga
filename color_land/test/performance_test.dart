@@ -6,7 +6,6 @@ import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/game/logic/game_world.dart';
 import 'package:color_land/game/logic/match.dart';
 import 'package:color_land/game/logic/territory_capture.dart';
-import 'package:color_land/game/render/avatar_painter.dart';
 import 'package:color_land/game/render/color_land_game.dart';
 import 'package:color_land/game/render/shape_painter.dart';
 import 'package:color_land/ui/widgets/mini_map.dart';
@@ -169,61 +168,6 @@ void main() {
     print('arena panjarasi: $lines chiziq, ${us.toStringAsFixed(1)} µs/kadr');
     expect(us, lessThan(2000));
   });
-
-  test('avatarlarni chizish kadr byudjetiga sig\'adi', () {
-    final world = filledWorld();
-    final shapes = TerritoryShapes(world.grid, kCellSize);
-    final painter = AvatarPainter();
-
-    // Eng yomon holat o'lchanadi: hamma o'yinchining avatari bir kadrda.
-    // Haqiqiy o'yinda ekranga 2-3 ta hudud sig'adi, shuning uchun bu
-    // yuqori chegara.
-    final everything = Rect.fromLTWH(
-      0,
-      0,
-      world.grid.width * kCellSize,
-      world.grid.height * kCellSize,
-    );
-    final rec0 = ui.PictureRecorder();
-    shapes.render(ui.Canvas(rec0, everything), world.players, everything);
-    rec0.endRecording().dispose();
-
-    final slots = <int, AvatarSlot>{
-      for (final p in world.players)
-        if (shapes.slotOf(p.id) != null) p.id: shapes.slotOf(p.id)!,
-    };
-    expect(
-      slots.length,
-      greaterThan(10),
-      reason: 'tirik o\'yinchilarning hammasida avatar bo\'lishi kerak',
-    );
-
-    void frame() {
-      final rec = ui.PictureRecorder();
-      final canvas = ui.Canvas(rec, everything);
-      for (final p in world.players) {
-        final slot = slots[p.id];
-        if (slot == null) continue;
-        painter.paint(canvas, p.avatar, slot.center, slot.size);
-      }
-      rec.endRecording().dispose();
-    }
-
-    frame(); // birinchi kadrda paragraflar keshlanadi
-
-    const frames = 600;
-    final sw = Stopwatch()..start();
-    for (var i = 0; i < frames; i++) {
-      frame();
-    }
-    sw.stop();
-    final us = sw.elapsedMicroseconds / frames;
-
-    // ignore: avoid_print
-    print('avatarlar: ${slots.length} dona, ${us.toStringAsFixed(1)} µs/kadr');
-    expect(us, lessThan(2000));
-  });
-
   test("keshlangan hudud shakllarini chizish kadr byudjetiga sig'adi", () {
     final world = filledWorld();
     final shapes = TerritoryShapes(world.grid, kCellSize);

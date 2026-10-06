@@ -323,7 +323,15 @@ class GameScreenState extends State<GameScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
+                    // Ovoz sozlamalari — o'yindan chiqmasdan o'zgartiriladi.
+                    _AudioToggles(
+                      store: widget.store,
+                      audio: widget.audio,
+                      accent: Palette.head(widget.colorIndex),
+                      onChanged: () => setState(() {}),
+                    ),
+                    const SizedBox(height: 18),
                     GameButton(
                       label: t.resume,
                       icon: Icons.play_arrow_rounded,
@@ -381,6 +389,74 @@ class _Overlay extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Pauza oynasidagi uchta ovoz tugmasi: musiqa, ovoz, vibratsiya.
+///
+/// Sozlamalar ekranidagi kalitlar bilan bir xil joyga yoziladi, shuning
+/// uchun o'yindan chiqqanda ham saqlanib qoladi.
+class _AudioToggles extends StatelessWidget {
+  const _AudioToggles({
+    required this.store,
+    required this.audio,
+    required this.accent,
+    required this.onChanged,
+  });
+
+  final SettingsStore store;
+  final AudioService? audio;
+  final Color accent;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = L10n.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconToggle(
+          icon: Icons.music_note_rounded,
+          iconOff: Icons.music_off_rounded,
+          label: t.music,
+          value: store.musicEnabled,
+          accent: accent,
+          onChanged: (v) async {
+            await store.setMusicEnabled(v);
+            await audio?.setMusicEnabled(v);
+            onChanged();
+          },
+        ),
+        const SizedBox(width: 10),
+        IconToggle(
+          icon: Icons.volume_up_rounded,
+          iconOff: Icons.volume_off_rounded,
+          label: t.sound,
+          value: store.soundEnabled,
+          accent: accent,
+          onChanged: (v) async {
+            await store.setSoundEnabled(v);
+            await audio?.setSoundEnabled(v);
+            audio?.tap();
+            onChanged();
+          },
+        ),
+        const SizedBox(width: 10),
+        IconToggle(
+          icon: Icons.vibration_rounded,
+          iconOff: Icons.phonelink_erase_rounded,
+          label: t.vibration,
+          value: store.vibrationEnabled,
+          accent: accent,
+          onChanged: (v) async {
+            await store.setVibrationEnabled(v);
+            audio?.setVibrationEnabled(v);
+            audio?.tap();
+            onChanged();
+          },
+        ),
+      ],
     );
   }
 }

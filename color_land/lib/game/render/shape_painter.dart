@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import '../logic/game_grid.dart';
+import '../logic/player_profile.dart';
+import 'avatar_painter.dart';
 import 'contour.dart';
 import '../logic/player_state.dart';
 import 'palette.dart';
@@ -19,6 +21,10 @@ import 'palette.dart';
 /// o'sha o'yinchi hududi o'zgarganda qayta yoziladi.
 class TerritoryShapes {
   TerritoryShapes(this.grid, this.cellSize);
+
+  /// Avatar naqshini chizuvchi — hudud keshi bilan birga yoziladi,
+  /// shuning uchun har kadrda emas, faqat hudud o'zgarganda ishlaydi.
+  final AvatarPainter _avatars = AvatarPainter();
 
   /// Chegarani necha marta silliqlash. Ko'proq = yumaloqroq, lekin
   /// nuqtalar soni har safar ikki barobar oshadi.
@@ -72,7 +78,7 @@ class TerritoryShapes {
         cached?.picture.dispose();
         cached = _Cached(
           version,
-          _record(p.id, p.colorIndex, bounds),
+          _record(p.id, p.colorIndex, bounds, p.avatar),
           _avatarSlot(p.id, bounds),
         );
         _cache[p.id] = cached;
@@ -82,7 +88,12 @@ class TerritoryShapes {
     }
   }
 
-  ui.Picture _record(int playerId, int colorIndex, (int, int, int, int) b) {
+  ui.Picture _record(
+    int playerId,
+    int colorIndex,
+    (int, int, int, int) b,
+    Avatar avatar,
+  ) {
     final recorder = ui.PictureRecorder();
     final cull = Rect.fromLTRB(
       b.$1 * cellSize - cellSize,
@@ -117,8 +128,85 @@ class TerritoryShapes {
         ..color = Palette.territory(colorIndex)
         ..isAntiAlias = true,
     );
+    // 4. Avatar naqshi — butun hudud bo'ylab, shakl ichiga kesilgan.
+    _paintAvatarPattern(canvas, path, b, avatar);
     return recorder.endRecording();
   }
+
+  /// Avatarni hududning hamma yeriga takrorlab chizadi.
+  ///
+  /// Naqsh hudud shakliga kesiladi, shuning uchun chetidan chiqmaydi.
+  /// Katak o'lchami hudud kattaligiga qarab tanlanadi — kichik hududda
+  /// bir-ikkita, kattasida ko'proq belgi tushadi, lekin soni
+  /// [maxPatternTiles] dan oshmaydi.
+  void _paintAvatarPattern(
+    ui.Canvas canvas,
+    Path shape,
+    (int, int, int, int) b,
+    Avatar avatar,
+  ) {
+    final layout = patternLayout(
+      (b.$3 - b.$1 + 1) * cellSize,
+      (b.$4 - b.$2 + 1) * cellSize,
+      cellSize,
+    );
+    if (layout == null) return;
+    final step = layout.step;
+
+    canvas.save();
+    canvas.clipPath(shape);
+    canvas.saveLayer(shape.getBounds(), Paint()..color = patternColor);
+    final left = b.$1 * cellSize;
+    final top = b.$2 * cellSize;
+    for (var row = 0; row < layout.rows; row++) {
+      // Toq qatorlar yarim qadamga suriladi — naqsh jonliroq ko'rinadi.
+      final dx = row.isOdd ? step / 2 : 0.0;
+      for (var col = 0; col < layout.cols; col++) {
+        _avatars.paint(
+          canvas,
+          avatar,
+          Offset(left + col * step + dx, top + row * step),
+          step * 0.82,
+        );
+      }
+    }
+    canvas.restore();
+    canvas.restore();
+  }
+
+  /// Naqsh qadami va belgilar sonini hisoblaydi (testlar ham chaqiradi).
+  ///
+  /// Qadam hudud kattaligidan kelib chiqadi, lekin ikki tomondan
+  /// cheklanadi: belgi juda mayda yoki juda yirik bo'lmasin, va umumiy
+  /// soni [maxPatternTiles] dan oshmasin.
+  static PatternLayout? patternLayout(double w, double h, double cellSize) {
+    if (w <= 0 || h <= 0) return null;
+    var step = (w < h ? w : h) / 2.4;
+    final minStep = cellSize * patternMinCells;
+    final maxStep = cellSize * patternMaxCells;
+    if (step < minStep) step = minStep;
+    if (step > maxStep) step = maxStep;
+
+    var cols = (w / step).ceil() + 1;
+    var rows = (h / step).ceil() + 1;
+    while (cols * rows > maxPatternTiles) {
+      step *= 1.3;
+      cols = (w / step).ceil() + 1;
+      rows = (h / step).ceil() + 1;
+    }
+    return PatternLayout(step, cols, rows);
+  }
+
+  /// Naqsh belgisi hudud rangini bosib ketmasligi uchun shaffoflik.
+  static const Color patternColor = Color(0xBFFFFFFF);
+
+  /// Naqsh qadami chegaralari (katak hisobida).
+  static const double patternMinCells = 2.6;
+  static const double patternMaxCells = 9.0;
+
+  /// Bitta hududga tushadigan belgilar soni chegarasi — juda katta
+  /// hududda ham shakl yozish narxi nazoratda qolsin.
+  static const int maxPatternTiles = 400;
 
   /// Hudud ichidan avatar uchun joy topadi.
   AvatarSlot? _avatarSlot(int playerId, (int, int, int, int) b) =>
@@ -263,6 +351,7 @@ class TerritoryShapes {
       c.picture.dispose();
     }
     _cache.clear();
+    _avatars.dispose();
   }
 }
 
@@ -272,6 +361,18 @@ class _Cached {
   final int version;
   final ui.Picture picture;
   final AvatarSlot? slot;
+}
+
+/// Avatar naqshining joylashuvi.
+class PatternLayout {
+  const PatternLayout(this.step, this.cols, this.rows);
+
+  /// Belgilar orasidagi masofa (dunyo birligida).
+  final double step;
+  final int cols;
+  final int rows;
+
+  int get tiles => cols * rows;
 }
 
 /// Hudud ichida avatar chiziladigan joy (dunyo koordinatalarida).

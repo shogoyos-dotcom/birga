@@ -10,7 +10,6 @@ import '../logic/game_config.dart';
 import '../logic/game_events.dart';
 import '../logic/game_world.dart';
 import '../logic/player_state.dart';
-import 'avatar_painter.dart';
 import 'contour.dart';
 import 'head_painter.dart';
 import 'shape_painter.dart';
@@ -78,7 +77,6 @@ class ColorLandGame extends FlameGame {
     await world.addAll([
       BoardBackground(),
       TerritoryLayer(),
-      AvatarLayer(),
       flashLayer,
       PlayersLayer(),
     ]);
@@ -320,34 +318,6 @@ class TerritoryLayer extends Component with HasGameReference<ColorLandGame> {
       game.sim.players.where((p) => p.alive || p.finalTerritory > 0),
       game.camera.visibleWorldRect,
     );
-  }
-}
-
-/// Hudud ustida o'yinchi avatarini chizadi.
-///
-/// Joy (markaz va o'lcham) [TerritoryShapes] keshida hudud bilan birga
-/// hisoblangan — bu yerda faqat chizish qoladi.
-class AvatarLayer extends Component with HasGameReference<ColorLandGame> {
-  AvatarLayer() : super(priority: 15);
-
-  final AvatarPainter _painter = AvatarPainter();
-
-  @override
-  void render(ui.Canvas canvas) {
-    final visible = game.camera.visibleWorldRect;
-    for (final PlayerState p in game.sim.players) {
-      if (!p.alive) continue;
-      final slot = game.territoryShapes.slotOf(p.id);
-      if (slot == null) continue;
-      if (!visible.inflate(slot.size).contains(slot.center)) continue;
-      _painter.paint(canvas, p.avatar, slot.center, slot.size);
-    }
-  }
-
-  @override
-  void onRemove() {
-    _painter.dispose();
-    super.onRemove();
   }
 }
 
