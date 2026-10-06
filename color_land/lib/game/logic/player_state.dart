@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'game_events.dart';
+import 'player_profile.dart';
 
 /// Bitta o'yinchining (odam yoki bot) holati. Rendering'dan mustaqil.
 class PlayerState {
@@ -11,6 +12,7 @@ class PlayerState {
     required this.isBot,
     required this.speed,
     required this.turnRate,
+    this.avatar = Avatar.defaultAvatar,
   });
 
   /// 1..255. 0 — "bo'sh katak" ma'nosini bildiradi, shuning uchun ishlatilmaydi.
@@ -18,6 +20,9 @@ class PlayerState {
   final String name;
   final int colorIndex;
   final bool isBot;
+
+  /// O'yinchining avatari — hududi ustida chiziladi.
+  final Avatar avatar;
 
   double speed;
   double turnRate;

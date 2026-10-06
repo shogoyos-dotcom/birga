@@ -34,13 +34,18 @@ lib/
       territory_capture.dart  flood fill orqali hudud egallash
       game_world.dart         harakat, o'lim qoidalari, hodisalar
       bot_ai.dart             botlar xulq-atvori
+      player_profile.dart     taxallus va avatar (emoji / odam / bayroq)
       match.dart              o'yinchi + botlardan o'yin yig'ish
     render/       # Flame komponentlari, keshlangan chizish
-      grid_renderer.dart      chunk'larga bo'lingan ui.Picture keshi
+      shape_painter.dart      hudud konturi + ui.Picture keshi
+      contour.dart            chegarani topish, soddalashtirish, silliqlash
+      avatar_painter.dart     avatarni tuvalga chizish
       color_land_game.dart    kamera, animatsiyalar, HUD manbasi
+  data/
+    countries.dart            ISO 3166-1: 249 davlat va bayrog'i
   i18n/           # 5 til: uz, en, ru, tr, kk
-  storage/        # shared_preferences (rekord, rang, qiyinlik, til)
-  ui/             # menyu, o'yin ekrani, HUD, natija oynasi
+  storage/        # shared_preferences (rekord, rang, qiyinlik, til, profil)
+  ui/             # menyu, profil, o'yin ekrani, HUD, natija oynasi
 test/             # flood fill, o'lim qoidalari, bot AI, rendering, tezlik
 tool/             # skrinshot va ikonka generatorlari (test sifatida ishlaydi)
 ```
@@ -48,12 +53,33 @@ tool/             # skrinshot va ikonka generatorlari (test sifatida ishlaydi)
 Mantiq rendering'dan to'liq ajratilgan: `lib/game/logic/` ichidagi hech bir
 fayl Flutter yoki Flame'ni import qilmaydi.
 
+## Profil
+
+Bosh menyudagi profil kartasidan taxallus va avatar tanlanadi. Avatar uch
+xil bo'ladi:
+
+- **Emoji** — 40 ta belgi;
+- **Odam** — 12 ta tasvir, kod bilan chiziladi (teri, soch va kiyim rangi
+  har xil);
+- **Bayroq** — ISO 3166-1 bo'yicha 249 ta davlat, izlash maydoni bilan.
+
+Hech qanday rasm fayli saqlanmaydi: emoji va bayroqlar tizim shriftidan
+chiziladi (bayroq kodi ikki "regional indicator" belgisiga aylantiriladi),
+odam tasvirlari esa shakllardan yig'iladi — shuning uchun ilova hajmi
+oshmaydi.
+
+Tanlangan avatar o'yin ichida o'yinchining hududi ustida va reytingda
+ko'rinadi. Avatar hududning eng "qalin" nuqtasiga qo'yiladi (masofa
+transformatsiyasi), shuning uchun yarim oysimon yoki teshikli hududda ham
+chetga tushib qolmaydi; joyi hudud shakli bilan birga keshlanadi.
+
 ## Tezlik
 
 `flutter test test/performance_test.dart` o'lchaydi va chegaralarni
-tekshiradi. Asosiy yechim — panjara 16×16 katakli "chunk"larga bo'lingan,
-har biri `ui.Picture` sifatida keshlanadi va faqat o'zgargani qayta
-yoziladi; bir kadrda qayta yoziladigan chunklar soni ham cheklangan.
+tekshiradi. Asosiy yechim — har bir o'yinchining hududi silliq shakl
+sifatida bir marta `ui.Picture` ga yoziladi va faqat o'sha hudud
+o'zgarganda qayta yoziladi; ekranga tushmagan hududlar umuman
+chizilmaydi.
 
 ## Yordamchi vositalar
 

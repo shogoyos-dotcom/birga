@@ -9,12 +9,14 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:color_land/game/logic/difficulty.dart';
+import 'package:color_land/game/render/avatar_painter.dart';
 import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/i18n/app_language.dart';
 import 'package:color_land/i18n/l10n.dart';
 import 'package:color_land/storage/settings_store.dart';
 import 'package:color_land/ui/game_screen.dart';
 import 'package:color_land/ui/menu_screen.dart';
+import 'package:color_land/ui/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +45,9 @@ Future<void> loadFonts() async {
       '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
       '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     ],
+    // Emoji va bayroqlar uchun alohida familiya: qurilmada buni tizim
+    // beradi, test muhitida esa o'zimiz yuklaymiz.
+    'NotoColorEmoji': ['/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'],
   };
   for (final entry in files.entries) {
     final loader = FontLoader(entry.key);
@@ -55,6 +60,8 @@ Future<void> loadFonts() async {
     }
     await loader.load();
   }
+  avatarFontFallback = const <String>['NotoColorEmoji'];
+  addTearDown(() => avatarFontFallback = null);
 }
 
 Widget wrap(SettingsStore store, AppLanguage lang, Widget child) {
@@ -75,6 +82,8 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'best_percent': 18.42,
       'best_kills': 7,
+      'nickname': 'Alisher',
+      'avatar': 'flag:UZ',
     });
     store = await SettingsStore.load();
     await loadFonts();
@@ -105,6 +114,30 @@ void main() {
     await saveFrame(tester, 'build/shot_menu_en.png');
   });
 
+  testWidgets('profil', (tester) async {
+    sizeView(tester);
+    await tester.pumpWidget(
+      wrap(store, AppLanguage.uz, ProfileScreen(store: store, colorIndex: 0)),
+    );
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_profile.png');
+
+    // Bayroqlar varag'i.
+    await tester.tap(find.text('Bayroq'));
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_profile_flags.png');
+
+    // Odam tasvirlari varag'i.
+    await tester.tap(find.text('Odam'));
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_profile_figures.png');
+
+    // Emoji varag'i.
+    await tester.tap(find.text('Emoji'));
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_profile_emoji.png');
+  });
+
   testWidgets("o'yin — botlar bilan", (tester) async {
     sizeView(tester);
     await tester.pumpWidget(
@@ -115,6 +148,8 @@ void main() {
           config: const GameConfig(botCount: 9, difficulty: Difficulty.easy),
           colorIndex: 0,
           store: store,
+          // Skrinshot har safar bir xil chiqsin.
+          random: math.Random(11),
         ),
       ),
     );

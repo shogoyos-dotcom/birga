@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'game_config.dart';
 import 'game_events.dart';
 import 'game_grid.dart';
+import 'player_profile.dart';
 import 'player_state.dart';
 import 'territory_capture.dart';
 
@@ -64,6 +65,7 @@ class GameWorld {
     required String name,
     required int colorIndex,
     required bool isBot,
+    Avatar avatar = Avatar.defaultAvatar,
     PlayerBrain? brain,
   }) {
     final id = players.length + 1;
@@ -73,6 +75,7 @@ class GameWorld {
       name: name,
       colorIndex: colorIndex,
       isBot: isBot,
+      avatar: avatar,
       speed: isBot ? config.botSpeed : config.playerSpeed,
       turnRate: isBot ? config.botTurnRate : config.playerTurnRate,
     );

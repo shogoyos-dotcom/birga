@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../game/render/hud_snapshot.dart';
 import '../../game/render/palette.dart';
+import 'avatar_view.dart';
 import '../../i18n/l10n.dart';
 
 /// O'yin ustidagi ma'lumot paneli: foiz, vaqt va top-5 reyting.
@@ -256,7 +257,9 @@ class _Leaderboard extends StatelessWidget {
               borderRadius: BorderRadius.circular(2.5),
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
+          AvatarView(avatar: r.avatar, size: 14),
+          const SizedBox(width: 3),
           Expanded(
             child: Text(
               r.name,

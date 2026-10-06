@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../game/logic/difficulty.dart';
+import '../game/logic/player_profile.dart';
 import '../game/render/game_theme.dart';
 import '../i18n/app_language.dart';
 
@@ -15,6 +16,8 @@ class SettingsStore {
   static const _kLanguage = 'language';
   static const _kTickets = 'tickets';
   static const _kTheme = 'theme';
+  static const _kNickname = 'nickname';
+  static const _kAvatar = 'avatar';
 
   /// Ilova birinchi marta ochilganda beriladigan beletlar.
   static const int welcomeTickets = 3;
@@ -31,6 +34,25 @@ class SettingsStore {
   int get bestKills => _prefs.getInt(_kKills) ?? 0;
 
   int get colorIndex => _prefs.getInt(_kColor) ?? 0;
+
+  /// Saqlangan taxallus; hali kiritilmagan bo'lsa `null` (u holda
+  /// interfeys tilidagi "Siz" ishlatiladi).
+  String? get nickname {
+    final raw = _prefs.getString(_kNickname);
+    return (raw == null || raw.trim().isEmpty) ? null : raw;
+  }
+
+  Future<void> setNickname(String value) => _prefs.setString(_kNickname, value);
+
+  /// Tanlangan avatar.
+  Avatar get avatar => Avatar.decode(_prefs.getString(_kAvatar));
+
+  Future<void> setAvatar(Avatar value) =>
+      _prefs.setString(_kAvatar, value.encode());
+
+  /// Profil — taxallus (bo'sh bo'lsa `fallback`) va avatar.
+  PlayerProfile profile(String fallback) =>
+      PlayerProfile(nickname: nickname ?? fallback, avatar: avatar);
 
   /// Tanlangan vizual uslub.
   GameTheme get theme => GameTheme.byId(_prefs.getString(_kTheme));

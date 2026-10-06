@@ -25,11 +25,15 @@ class GameScreen extends StatefulWidget {
     required this.store,
     this.ads,
     this.shop,
+    this.random,
   });
 
   final GameConfig config;
   final int colorIndex;
   final SettingsStore store;
+
+  /// Skrinshot va testlar uchun qat'iy tasodif manbai; odatda `null`.
+  final math.Random? random;
 
   /// Reklama va do'kon xizmatlari. Berilmasa namuna variantlar ishlatiladi.
   final RewardedAdService? ads;
@@ -66,7 +70,9 @@ class GameScreenState extends State<GameScreen> {
     // Nom `L10n` dan olinadi, u esa initState'da hali mavjud emas.
     if (_started) return;
     _started = true;
-    _cachedName = L10n.of(context).you;
+    // Taxallus profildan olinadi; kiritilmagan bo'lsa interfeys
+    // tilidagi "Siz".
+    _cachedName = widget.store.nickname ?? L10n.of(context).you;
     _game = _createGame();
   }
 
@@ -76,6 +82,8 @@ class GameScreenState extends State<GameScreen> {
       playerColorIndex: widget.colorIndex,
       playerName: _playerName,
       availableColors: Palette.colorCount,
+      playerAvatar: widget.store.avatar,
+      random: widget.random,
     );
     final game = ColorLandGame(sim: sim)..onHumanDeath = _onDeath;
     return game;

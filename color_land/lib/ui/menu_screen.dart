@@ -6,9 +6,12 @@ import '../game/render/game_theme.dart';
 import '../game/render/palette.dart';
 import '../i18n/app_language.dart';
 import '../i18n/l10n.dart';
+import '../game/logic/player_profile.dart';
 import '../storage/settings_store.dart';
 import '../services/continue_services.dart';
 import 'game_screen.dart';
+import 'profile_screen.dart';
+import 'widgets/avatar_view.dart';
 import 'widgets/shop_sheet.dart';
 import 'widgets/ui_kit.dart';
 
@@ -46,6 +49,16 @@ class _MenuScreenState extends State<MenuScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ProfileScreen(store: widget.store, colorIndex: _colorIndex),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _play() async {
@@ -94,7 +107,15 @@ class _MenuScreenState extends State<MenuScreen> {
                   ),
                   const SizedBox(height: 4),
                   _Logo(colorIndex: _colorIndex),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 18),
+                  _ProfileCard(
+                    nickname: widget.store.nickname ?? t.you,
+                    avatar: widget.store.avatar,
+                    label: t.profile,
+                    colorIndex: _colorIndex,
+                    onTap: _openProfile,
+                  ),
+                  const SizedBox(height: 14),
                   _RecordCard(
                     label: t.record,
                     percent: widget.store.bestPercent,
@@ -484,6 +505,80 @@ class _LanguageMenu extends StatelessWidget {
             ),
             const Icon(Icons.expand_more_rounded, size: 18),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bosh menyudagi profil kartasi: avatar + taxallus, bosilsa profil ochiladi.
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.nickname,
+    required this.avatar,
+    required this.label,
+    required this.colorIndex,
+    required this.onTap,
+  });
+
+  final String nickname;
+  final Avatar avatar;
+  final String label;
+  final int colorIndex;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Palette.head(colorIndex);
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Palette.territory(colorIndex),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: accent, width: 2.5),
+                ),
+                child: AvatarView(avatar: avatar, size: 40),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                    Text(
+                      nickname,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.edit_rounded, color: accent, size: 20),
+            ],
+          ),
         ),
       ),
     );

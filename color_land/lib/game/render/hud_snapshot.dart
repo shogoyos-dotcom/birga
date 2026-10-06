@@ -1,8 +1,11 @@
+import '../logic/player_profile.dart';
+
 /// Reyting qatori.
 class ScoreRow {
   const ScoreRow({
     required this.id,
     required this.name,
+    required this.avatar,
     required this.colorIndex,
     required this.percent,
     required this.isHuman,
@@ -10,6 +13,7 @@ class ScoreRow {
 
   final int id;
   final String name;
+  final Avatar avatar;
   final int colorIndex;
   final double percent;
   final bool isHuman;

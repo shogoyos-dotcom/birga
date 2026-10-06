@@ -46,6 +46,16 @@ class AppStrings {
     required this.demoPurchaseNote,
     required this.close,
     required this.giveUp,
+    required this.profile,
+    required this.nickname,
+    required this.nicknameHint,
+    required this.avatarLabel,
+    required this.tabEmoji,
+    required this.tabFigure,
+    required this.tabFlag,
+    required this.searchCountry,
+    required this.save,
+    required this.profileSaved,
     required this.noRoomToContinue,
   });
 
@@ -89,6 +99,16 @@ class AppStrings {
   final String demoPurchaseNote;
   final String close;
   final String giveUp;
+  final String profile;
+  final String nickname;
+  final String nicknameHint;
+  final String avatarLabel;
+  final String tabEmoji;
+  final String tabFigure;
+  final String tabFlag;
+  final String searchCountry;
+  final String save;
+  final String profileSaved;
   final String noRoomToContinue;
 
   String difficultyName(Difficulty d) => switch (d) {
@@ -105,6 +125,16 @@ class AppStrings {
   };
 
   static const AppStrings uz = AppStrings(
+    profile: 'Profil',
+    nickname: 'Taxallus',
+    nicknameHint: 'Ismingizni kiriting',
+    avatarLabel: 'Avatar',
+    tabEmoji: 'Emoji',
+    tabFigure: 'Odam',
+    tabFlag: 'Bayroq',
+    searchCountry: 'Davlatni izlash',
+    save: 'Saqlash',
+    profileSaved: 'Profil saqlandi',
     play: "O'ynash",
     chooseColor: 'Rang tanlang',
     record: 'Rekord',
@@ -149,6 +179,16 @@ class AppStrings {
   );
 
   static const AppStrings en = AppStrings(
+    profile: 'Profile',
+    nickname: 'Nickname',
+    nicknameHint: 'Enter your name',
+    avatarLabel: 'Avatar',
+    tabEmoji: 'Emoji',
+    tabFigure: 'Person',
+    tabFlag: 'Flag',
+    searchCountry: 'Search country',
+    save: 'Save',
+    profileSaved: 'Profile saved',
     play: 'Play',
     chooseColor: 'Choose a colour',
     record: 'Best',
@@ -193,6 +233,16 @@ class AppStrings {
   );
 
   static const AppStrings ru = AppStrings(
+    profile: 'Профиль',
+    nickname: 'Никнейм',
+    nicknameHint: 'Введите имя',
+    avatarLabel: 'Аватар',
+    tabEmoji: 'Эмодзи',
+    tabFigure: 'Человек',
+    tabFlag: 'Флаг',
+    searchCountry: 'Поиск страны',
+    save: 'Сохранить',
+    profileSaved: 'Профиль сохранён',
     play: 'Играть',
     chooseColor: 'Выберите цвет',
     record: 'Рекорд',
@@ -237,6 +287,16 @@ class AppStrings {
   );
 
   static const AppStrings tr = AppStrings(
+    profile: 'Profil',
+    nickname: 'Takma ad',
+    nicknameHint: 'Adınızı girin',
+    avatarLabel: 'Avatar',
+    tabEmoji: 'Emoji',
+    tabFigure: 'Kişi',
+    tabFlag: 'Bayrak',
+    searchCountry: 'Ülke ara',
+    save: 'Kaydet',
+    profileSaved: 'Profil kaydedildi',
     play: 'Oyna',
     chooseColor: 'Renk seç',
     record: 'Rekor',
@@ -281,6 +341,16 @@ class AppStrings {
   );
 
   static const AppStrings kk = AppStrings(
+    profile: 'Профиль',
+    nickname: 'Лақап ат',
+    nicknameHint: 'Атыңызды енгізіңіз',
+    avatarLabel: 'Аватар',
+    tabEmoji: 'Эмодзи',
+    tabFigure: 'Адам',
+    tabFlag: 'Жалау',
+    searchCountry: 'Елді іздеу',
+    save: 'Сақтау',
+    profileSaved: 'Профиль сақталды',
     play: 'Ойнау',
     chooseColor: 'Түс таңдаңыз',
     record: 'Рекорд',
