@@ -423,3 +423,104 @@ class _Chip extends StatelessWidget {
     );
   }
 }
+
+/// Yoqish/o'chirish qatori: belgi, nom va kalit.
+class SwitchTile extends StatelessWidget {
+  const SwitchTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ?? Arcade.blue;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: value ? color.withValues(alpha: 0.18) : Arcade.surface,
+                  borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+                  border: Border.all(
+                    color: value ? color.withValues(alpha: 0.6) : Arcade.stroke,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: value ? color : Arcade.textFaint,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: value ? Arcade.text : Arcade.textDim,
+                  ),
+                ),
+              ),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeThumbColor: Colors.white,
+                activeTrackColor: color,
+                inactiveThumbColor: Arcade.textFaint,
+                inactiveTrackColor: Arcade.surface,
+                trackOutlineColor: WidgetStatePropertyAll<Color>(
+                  value ? color : Arcade.stroke,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ekran sarlavhasi: orqaga tugmasi + nom.
+class ScreenHeader extends StatelessWidget {
+  const ScreenHeader({super.key, required this.title, required this.onBack});
+
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 18, 0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_rounded),
+            color: Arcade.text,
+            tooltip: title,
+          ),
+          Expanded(child: Text(title.toUpperCase(), style: Arcade.title)),
+        ],
+      ),
+    );
+  }
+}

@@ -56,6 +56,12 @@ class AppStrings {
     required this.searchCountry,
     required this.save,
     required this.profileSaved,
+    required this.music,
+    required this.sound,
+    required this.vibration,
+    required this.sectionAppearance,
+    required this.sectionAudio,
+    required this.sectionGame,
     required this.rulesShort,
     required this.noRoomToContinue,
   });
@@ -110,6 +116,12 @@ class AppStrings {
   final String searchCountry;
   final String save;
   final String profileSaved;
+  final String music;
+  final String sound;
+  final String vibration;
+  final String sectionAppearance;
+  final String sectionAudio;
+  final String sectionGame;
   final String rulesShort;
   final String noRoomToContinue;
 
@@ -127,6 +139,12 @@ class AppStrings {
   };
 
   static const AppStrings uz = AppStrings(
+    music: 'Musiqa',
+    sound: 'Ovoz effektlari',
+    vibration: 'Vibratsiya',
+    sectionAppearance: "Ko'rinish",
+    sectionAudio: 'Ovoz va titrash',
+    sectionGame: "O'yin",
     rulesShort: "Hududingizdan chiqing, halqa chizing va qaytib keling — ichidagi hamma narsa sizniki bo'ladi.",
     profile: 'Profil',
     nickname: 'Taxallus',
@@ -182,6 +200,12 @@ class AppStrings {
   );
 
   static const AppStrings en = AppStrings(
+    music: 'Music',
+    sound: 'Sound effects',
+    vibration: 'Vibration',
+    sectionAppearance: 'Appearance',
+    sectionAudio: 'Sound & haptics',
+    sectionGame: 'Gameplay',
     rulesShort: 'Leave your zone, draw a loop and come back — everything inside becomes yours.',
     profile: 'Profile',
     nickname: 'Nickname',
@@ -237,6 +261,12 @@ class AppStrings {
   );
 
   static const AppStrings ru = AppStrings(
+    music: 'Музыка',
+    sound: 'Звуковые эффекты',
+    vibration: 'Вибрация',
+    sectionAppearance: 'Оформление',
+    sectionAudio: 'Звук и вибрация',
+    sectionGame: 'Игра',
     rulesShort: 'Выйдите из своей зоны, очертите петлю и вернитесь — всё внутри станет вашим.',
     profile: 'Профиль',
     nickname: 'Никнейм',
@@ -292,6 +322,12 @@ class AppStrings {
   );
 
   static const AppStrings tr = AppStrings(
+    music: 'Müzik',
+    sound: 'Ses efektleri',
+    vibration: 'Titreşim',
+    sectionAppearance: 'Görünüm',
+    sectionAudio: 'Ses ve titreşim',
+    sectionGame: 'Oyun',
     rulesShort: 'Bölgenden çık, bir halka çiz ve geri dön — içindeki her şey senin olur.',
     profile: 'Profil',
     nickname: 'Takma ad',
@@ -347,6 +383,12 @@ class AppStrings {
   );
 
   static const AppStrings kk = AppStrings(
+    music: 'Музыка',
+    sound: 'Дыбыс эффектілері',
+    vibration: 'Діріл',
+    sectionAppearance: 'Көрініс',
+    sectionAudio: 'Дыбыс және діріл',
+    sectionGame: 'Ойын',
     rulesShort: 'Аймағыңнан шығып, ілмек сызып қайтыңыз — ішіндегінің бәрі сіздікі болады.',
     profile: 'Профиль',
     nickname: 'Лақап ат',

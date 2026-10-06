@@ -20,7 +20,7 @@ Hamma narsa kod bilan chiziladi, tashqi rasm fayllari ishlatilmaydi.
 ```bash
 flutter pub get
 flutter run              # qurilma yoki emulyatorda
-flutter test             # 102 ta test
+flutter test             # 113 ta test
 flutter analyze
 ```
 
@@ -44,6 +44,8 @@ lib/
       color_land_game.dart    kamera, animatsiyalar, HUD manbasi
   data/
     countries.dart            ISO 3166-1: 249 davlat va bayrog'i
+  services/
+    audio_service.dart        ovoz effektlari, musiqa, vibratsiya
   i18n/           # 5 til: uz, en, ru, tr, kk
   storage/        # shared_preferences (rekord, rang, qiyinlik, til, profil)
   ui/
@@ -52,6 +54,7 @@ lib/
     widgets/mini_map.dart     butun xaritaning kichik ko'rinishi
     widgets/game_hud.dart     foiz, vaqt, reyting, pauza
     menu_screen.dart          bosh menyu
+    settings_screen.dart      rang, uslub, qiyinlik, til, ovoz
     profile_screen.dart       taxallus va avatar
     game_screen.dart          o'yin, pauza va natija oynalari
 test/             # flood fill, o'lim qoidalari, bot AI, rendering, tezlik
@@ -83,6 +86,31 @@ Interfeys ranglari uslub tanlashga bog'liq emas — menyu, profil va HUD
 hamma uslubda bir xil to'q ko'rinishda. Uslub tanlash faqat **arena**
 ko'rinishini o'zgartiradi (fon, panjara, o'yinchi ranglari, qalinlik):
 Arcade (standart), Neon, Tungi, Yorqin, Pastel.
+
+## Sozlamalar va ovoz
+
+Bosh menyuda faqat o'ynash qoladi; barcha tanlovlar sozlamalar ekranida
+(yuqori o'ngdagi tishli g'ildirak) uch bo'limga ajratilgan:
+
+- **Ko'rinish** — o'yinchi rangi, vizual uslub;
+- **O'yin** — qiyinlik, interfeys tili;
+- **Ovoz va titrash** — musiqa, ovoz effektlari, vibratsiya (uchalasi
+  alohida yoqiladi va `shared_preferences` da saqlanadi).
+
+Ovoz fayllari ham kod bilan yaratilgan — tayyor audio yuklanmagan.
+`tool/make_audio.py` sodda to'lqinlardan (kvadrat, uchburchak, shovqin)
+to'rtta effekt va takrorlanadigan 15 soniyalik kuy yig'adi, keyin ffmpeg
+bilan OGG ga siqadi:
+
+```bash
+python3 tool/make_audio.py     # assets/audio/*.ogg qayta yaratiladi
+```
+
+Hammasi birga 191 KB. Effektlar faqat o'yinchining o'z hodisalarida
+chalinadi (hudud egallash, raqibni yiqitish, o'lim) — 15 ta bot bir
+vaqtda shovqin qilmaydi. Vibratsiya `HapticFeedback` orqali, qo'shimcha
+kutubxonasiz. Musiqa `mixWithOthers` rejimida chalinadi, shuning uchun
+telefonda boshqa musiqa ketayotgan bo'lsa to'xtab qolmaydi.
 
 ## Profil
 

@@ -13,11 +13,13 @@ import 'package:color_land/game/render/avatar_painter.dart';
 import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/i18n/app_language.dart';
 import 'package:color_land/i18n/l10n.dart';
+import 'package:color_land/services/audio_service.dart';
 import 'package:color_land/storage/settings_store.dart';
 import 'package:color_land/ui/game_screen.dart';
 import 'package:color_land/ui/menu_screen.dart';
 import 'package:color_land/ui/theme/arcade.dart';
 import 'package:color_land/ui/profile_screen.dart';
+import 'package:color_land/ui/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -84,6 +86,8 @@ void main() {
   late SettingsStore store;
 
   setUp(() async {
+    // Test muhitida haqiqiy audio qurilmasi yo'q.
+    AudioService.disabled = true;
     SharedPreferences.setMockInitialValues(<String, Object>{
       'best_percent': 18.42,
       'best_kills': 7,
@@ -129,6 +133,31 @@ void main() {
     );
     await tester.pumpAndSettle();
     await saveFrame(tester, 'build/shot_menu_wide.png');
+  });
+
+  testWidgets('sozlamalar', (tester) async {
+    sizeView(tester);
+    await tester.pumpWidget(
+      wrap(
+        store,
+        AppLanguage.uz,
+        SettingsScreen(
+          store: store,
+          audio: AudioService(
+            musicEnabled: true,
+            soundEnabled: true,
+            vibrationEnabled: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_settings.png');
+
+    // Pastki qism — ovoz sozlamalari.
+    await tester.drag(find.byType(ListView), const Offset(0, -320));
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_settings_audio.png');
   });
 
   testWidgets('profil', (tester) async {

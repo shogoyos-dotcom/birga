@@ -9,6 +9,7 @@ import '../game/render/color_land_game.dart';
 import '../game/render/hud_snapshot.dart';
 import '../game/render/palette.dart';
 import '../i18n/l10n.dart';
+import '../services/audio_service.dart';
 import '../services/continue_services.dart';
 import '../storage/settings_store.dart';
 import 'widgets/game_hud.dart';
@@ -27,11 +28,15 @@ class GameScreen extends StatefulWidget {
     this.ads,
     this.shop,
     this.random,
+    this.audio,
   });
 
   final GameConfig config;
   final int colorIndex;
   final SettingsStore store;
+
+  /// Ovoz va vibratsiya. Berilmasa jim o'ynaydi.
+  final AudioService? audio;
 
   /// Skrinshot va testlar uchun qat'iy tasodif manbai; odatda `null`.
   final math.Random? random;
@@ -86,7 +91,8 @@ class GameScreenState extends State<GameScreen> {
       playerAvatar: widget.store.avatar,
       random: widget.random,
     );
-    final game = ColorLandGame(sim: sim)..onHumanDeath = _onDeath;
+    final game = ColorLandGame(sim: sim, audio: widget.audio)
+      ..onHumanDeath = _onDeath;
     return game;
   }
 
@@ -187,6 +193,7 @@ class GameScreenState extends State<GameScreen> {
   }
 
   void _togglePause() {
+    widget.audio?.tap();
     setState(() {
       _showPause = !_showPause;
       _game.paused = _showPause;

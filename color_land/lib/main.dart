@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'game/render/palette.dart';
+import 'services/audio_service.dart';
 import 'i18n/app_language.dart';
 import 'i18n/l10n.dart';
 import 'storage/settings_store.dart';
@@ -22,7 +23,15 @@ Future<void> main() async {
         WidgetsBinding.instance.platformDispatcher.locales,
       );
 
-  runApp(ColorLandApp(store: store, initialLanguage: language));
+  final audio = AudioService(
+    musicEnabled: store.musicEnabled,
+    soundEnabled: store.soundEnabled,
+    vibrationEnabled: store.vibrationEnabled,
+  );
+  await audio.preload();
+  await audio.startMusic();
+
+  runApp(ColorLandApp(store: store, initialLanguage: language, audio: audio));
 }
 
 class ColorLandApp extends StatefulWidget {
@@ -30,10 +39,12 @@ class ColorLandApp extends StatefulWidget {
     super.key,
     required this.store,
     required this.initialLanguage,
+    required this.audio,
   });
 
   final SettingsStore store;
   final AppLanguage initialLanguage;
+  final AudioService audio;
 
   @override
   State<ColorLandApp> createState() => _ColorLandAppState();
@@ -47,6 +58,7 @@ class _ColorLandAppState extends State<ColorLandApp> {
 
   @override
   void dispose() {
+    widget.audio.dispose();
     _language.dispose();
     super.dispose();
   }
@@ -62,7 +74,7 @@ class _ColorLandAppState extends State<ColorLandApp> {
           debugShowCheckedModeBanner: false,
           locale: _language.language.locale,
           theme: Arcade.themeData(),
-          home: MenuScreen(store: widget.store),
+          home: MenuScreen(store: widget.store, audio: widget.audio),
         ),
       ),
     );

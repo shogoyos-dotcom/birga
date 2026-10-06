@@ -5,6 +5,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import '../../services/audio_service.dart';
 import '../logic/game_config.dart';
 import '../logic/game_events.dart';
 import '../logic/game_world.dart';
@@ -28,7 +29,10 @@ const double _kHudInterval = 0.12;
 /// Flame o'yini — faqat rendering va kiritish bilan shug'ullanadi,
 /// butun mantiq [GameWorld] (`sim`) ichida.
 class ColorLandGame extends FlameGame {
-  ColorLandGame({required this.sim});
+  ColorLandGame({required this.sim, this.audio});
+
+  /// Ovoz va vibratsiya. Berilmasa — jim o'ynaydi (testlarda shunday).
+  final AudioService? audio;
 
   /// O'yin mantiqi (Flame'ning `world` komponenti bilan aralashmasligi uchun
   /// `sim` deb nomlangan).
@@ -134,11 +138,19 @@ class ColorLandGame extends FlameGame {
 
     for (final event in sim.drainEvents()) {
       switch (event) {
+        // Ovoz faqat o'yinchining o'ziga tegishli hodisalarda chalinadi —
+        // 15 ta bot bir vaqtda shovqin qilmasin.
         case CaptureEvent(:final playerId, :final cells):
           flashLayer.addFlash(sim, playerId, cells, FlashKind.capture);
-        case DeathEvent(:final playerId, :final clearedCells):
+          if (playerId == sim.human.id) audio?.capture();
+        case DeathEvent(:final playerId, :final clearedCells, :final killerId):
           flashLayer.addFlash(sim, playerId, clearedCells, FlashKind.death);
-          if (playerId == sim.human.id) _humanCleared = clearedCells;
+          if (playerId == sim.human.id) {
+            _humanCleared = clearedCells;
+            audio?.death();
+          } else if (killerId == sim.human.id) {
+            audio?.kill();
+          }
         case RespawnEvent():
           break;
       }

@@ -18,6 +18,9 @@ class SettingsStore {
   static const _kTheme = 'theme';
   static const _kNickname = 'nickname';
   static const _kAvatar = 'avatar';
+  static const _kMusic = 'music';
+  static const _kSound = 'sound';
+  static const _kVibration = 'vibration';
 
   /// Ilova birinchi marta ochilganda beriladigan beletlar.
   static const int welcomeTickets = 3;
@@ -53,6 +56,22 @@ class SettingsStore {
   /// Profil — taxallus (bo'sh bo'lsa `fallback`) va avatar.
   PlayerProfile profile(String fallback) =>
       PlayerProfile(nickname: nickname ?? fallback, avatar: avatar);
+
+  /// Fon musiqasi yoqilganmi (standart — ha).
+  bool get musicEnabled => _prefs.getBool(_kMusic) ?? true;
+
+  Future<void> setMusicEnabled(bool value) => _prefs.setBool(_kMusic, value);
+
+  /// Ovoz effektlari yoqilganmi (standart — ha).
+  bool get soundEnabled => _prefs.getBool(_kSound) ?? true;
+
+  Future<void> setSoundEnabled(bool value) => _prefs.setBool(_kSound, value);
+
+  /// Vibratsiya yoqilganmi (standart — ha).
+  bool get vibrationEnabled => _prefs.getBool(_kVibration) ?? true;
+
+  Future<void> setVibrationEnabled(bool value) =>
+      _prefs.setBool(_kVibration, value);
 
   /// Tanlangan vizual uslub.
   GameTheme get theme => GameTheme.byId(_prefs.getString(_kTheme));

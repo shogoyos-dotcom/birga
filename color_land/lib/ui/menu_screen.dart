@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../game/logic/difficulty.dart';
 import '../game/logic/game_config.dart';
 import '../game/logic/player_profile.dart';
-import '../game/render/game_theme.dart';
 import '../game/render/palette.dart';
-import '../i18n/app_language.dart';
 import '../i18n/l10n.dart';
+import '../services/audio_service.dart';
 import '../services/continue_services.dart';
 import '../storage/settings_store.dart';
 import 'game_screen.dart';
 import 'profile_screen.dart';
+import 'settings_screen.dart';
 import 'theme/arcade.dart';
 import 'widgets/avatar_view.dart';
 import 'widgets/shop_sheet.dart';
@@ -23,21 +22,44 @@ import 'widgets/ui_kit.dart';
 /// sozlamalar (rang, uslub, qiyinlik) alohida panelda. Shunda birinchi
 /// ko'rinadigan narsa — o'yinni boshlash.
 class MenuScreen extends StatefulWidget {
-  const MenuScreen({super.key, required this.store});
+  const MenuScreen({super.key, required this.store, this.audio});
 
   final SettingsStore store;
+
+  /// Ovoz va vibratsiya. Berilmasa jim ishlaydi (testlarda shunday).
+  final AudioService? audio;
 
   @override
   State<MenuScreen> createState() => _MenuScreenState();
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  late int _colorIndex = widget.store.colorIndex;
-  late Difficulty _difficulty = widget.store.difficulty;
-  late GameTheme _theme = widget.store.theme;
   final StoreService _shop = DemoStoreService();
 
+  /// Tanlovlar sozlamalar ekranida o'zgaradi — bu yerda faqat
+  /// ko'rsatish uchun o'qiladi.
+  int get _colorIndex => widget.store.colorIndex;
+
+  late final AudioService _audio =
+      widget.audio ??
+      AudioService(
+        musicEnabled: widget.store.musicEnabled,
+        soundEnabled: widget.store.soundEnabled,
+        vibrationEnabled: widget.store.vibrationEnabled,
+      );
+
+  Future<void> _openSettings() async {
+    _audio.tap();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SettingsScreen(store: widget.store, audio: _audio),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   void _openShop() {
+    _audio.tap();
     showDialog<void>(
       context: context,
       barrierColor: Arcade.scrim,
@@ -58,6 +80,7 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   Future<void> _openProfile() async {
+    _audio.tap();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
@@ -68,12 +91,14 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   Future<void> _play() async {
+    _audio.tap();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => GameScreen(
-          config: GameConfig(difficulty: _difficulty),
+          config: GameConfig(difficulty: widget.store.difficulty),
           colorIndex: _colorIndex,
           store: widget.store,
+          audio: _audio,
         ),
       ),
     );
@@ -121,7 +146,11 @@ class _MenuScreenState extends State<MenuScreen> {
                               onTap: _openShop,
                             ),
                             const Spacer(),
-                            _LanguageMenu(store: widget.store),
+                            _IconChip(
+                              icon: Icons.settings_rounded,
+                              tooltip: t.settings,
+                              onTap: _openSettings,
+                            ),
                           ],
                         ),
                         SizedBox(height: wide ? 28 : 20),
@@ -158,57 +187,6 @@ class _MenuScreenState extends State<MenuScreen> {
                           killsLabel: t.kills,
                         ),
                         const SizedBox(height: 22),
-
-                        // ——— Sozlamalar ———
-                        GamePanel(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              SectionLabel(t.chooseColor),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (var i = 0; i < Palette.colorCount; i++)
-                                    ColorChip(
-                                      index: i,
-                                      selected: i == _colorIndex,
-                                      onTap: () async {
-                                        setState(() => _colorIndex = i);
-                                        await widget.store.setColorIndex(i);
-                                      },
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              SectionLabel(t.themeLabel),
-                              ChoiceChips<GameTheme>(
-                                values: GameTheme.all,
-                                selected: _theme,
-                                labelOf: (th) => th.name,
-                                onSelected: (th) async {
-                                  setState(() {
-                                    _theme = th;
-                                    Palette.theme = th;
-                                  });
-                                  await widget.store.setTheme(th);
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              SectionLabel(t.difficulty),
-                              ChoiceChips<Difficulty>(
-                                values: Difficulty.values,
-                                selected: _difficulty,
-                                labelOf: t.difficultyName,
-                                onSelected: (d) async {
-                                  setState(() => _difficulty = d);
-                                  await widget.store.setDifficulty(d);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -401,91 +379,36 @@ class _TicketChip extends StatelessWidget {
   }
 }
 
-class _LangBadge extends StatelessWidget {
-  const _LangBadge({required this.text});
+/// Kichik kvadrat tugma (sozlamalar).
+class _IconChip extends StatelessWidget {
+  const _IconChip({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
 
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: Arcade.surface,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
-          color: Arcade.textDim,
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageMenu extends StatelessWidget {
-  const _LanguageMenu({required this.store});
-
-  final SettingsStore store;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final controller = L10n.controllerOf(context);
-    return PopupMenuButton<AppLanguage>(
-      initialValue: controller.language,
-      onSelected: controller.setLanguage,
-      tooltip: L10n.of(context).language,
-      position: PopupMenuPosition.under,
-      color: Arcade.panel,
-      itemBuilder: (context) => [
-        for (final l in AppLanguage.values)
-          PopupMenuItem<AppLanguage>(
-            value: l,
-            child: Row(
-              children: [
-                _LangBadge(text: l.badge),
-                const SizedBox(width: 10),
-                Text(
-                  l.nativeName,
-                  style: const TextStyle(
-                    color: Arcade.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: Arcade.panel,
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Arcade.panel,
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+        child: InkWell(
           borderRadius: BorderRadius.circular(Arcade.radiusSmall),
-          border: Border.all(color: Arcade.stroke),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _LangBadge(text: controller.language.badge),
-            const SizedBox(width: 8),
-            Text(
-              controller.language.nativeName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: Arcade.text,
-              ),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+              border: Border.all(color: Arcade.stroke),
             ),
-            const Icon(
-              Icons.expand_more_rounded,
-              size: 17,
-              color: Arcade.textFaint,
-            ),
-          ],
+            child: Icon(icon, size: 20, color: Arcade.text),
+          ),
         ),
       ),
     );
