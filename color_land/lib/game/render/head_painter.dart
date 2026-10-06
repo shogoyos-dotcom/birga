@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import '../logic/player_state.dart';
+import 'canvas_text.dart';
 import 'palette.dart';
 
 /// O'yinchini kub ko'rinishida chizadi: yerdagi soya, yon yuza va ustki
@@ -99,6 +100,7 @@ class HeadPainter {
     final builder =
         ui.ParagraphBuilder(
             ui.ParagraphStyle(
+              fontFamily: canvasFontFamily,
               textAlign: TextAlign.center,
               fontSize: cellSize * 1.15,
               fontWeight: FontWeight.w700,
@@ -106,6 +108,8 @@ class HeadPainter {
           )
           ..pushStyle(
             ui.TextStyle(
+              fontFamily: canvasFontFamily,
+              fontFamilyFallback: canvasFontFallback,
               color: const Color(0xFF26314A),
               shadows: const [Shadow(color: Color(0xCCFFFFFF), blurRadius: 3)],
             ),

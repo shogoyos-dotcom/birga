@@ -9,7 +9,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:color_land/game/logic/difficulty.dart';
-import 'package:color_land/game/render/avatar_painter.dart';
+import 'package:color_land/game/render/canvas_text.dart';
 import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/i18n/app_language.dart';
 import 'package:color_land/i18n/l10n.dart';
@@ -65,8 +65,12 @@ Future<void> loadFonts() async {
     }
     await loader.load();
   }
-  avatarFontFallback = const <String>['NotoColorEmoji'];
-  addTearDown(() => avatarFontFallback = null);
+  canvasFontFamily = 'Roboto';
+  canvasFontFallback = const <String>['NotoColorEmoji'];
+  addTearDown(() {
+    canvasFontFallback = null;
+    canvasFontFamily = null;
+  });
 }
 
 Widget wrap(SettingsStore store, AppLanguage lang, Widget child) {
@@ -195,7 +199,7 @@ void main() {
           colorIndex: 0,
           store: store,
           // Skrinshot har safar bir xil chiqsin.
-          random: math.Random(11),
+          random: math.Random(3),
         ),
       ),
     );

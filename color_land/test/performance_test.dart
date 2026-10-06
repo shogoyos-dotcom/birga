@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:color_land/data/world_map.dart';
 import 'package:color_land/game/logic/difficulty.dart';
 import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/game/logic/game_world.dart';
@@ -8,6 +9,7 @@ import 'package:color_land/game/logic/match.dart';
 import 'package:color_land/game/logic/territory_capture.dart';
 import 'package:color_land/game/render/color_land_game.dart';
 import 'package:color_land/game/render/shape_painter.dart';
+import 'package:color_land/game/render/world_map_painter.dart';
 import 'package:color_land/ui/widgets/mini_map.dart';
 import 'package:color_land/game/render/palette.dart';
 import 'package:flutter/painting.dart';
@@ -27,6 +29,16 @@ GameWorld filledWorld({double seconds = 120, int seed = 4}) {
     world.update(dt);
   }
   return world;
+}
+
+/// Hali hech kim egallamagan quruqlik kataklari.
+int _freeLand(GameWorld world) {
+  final grid = world.grid;
+  var free = 0;
+  for (var i = 0; i < grid.owner.length; i++) {
+    if (grid.owner[i] == 0 && grid.isLandIndex(i)) free++;
+  }
+  return free;
 }
 
 /// Kameraning eng to'la joyi: hududi eng katta o'yinchi atrofi.
@@ -57,8 +69,9 @@ Rect busiestView(GameWorld world) {
 void main() {
   test('o\'yin o\'rtasida panjara haqiqatan to\'ladi', () {
     final world = filledWorld();
-    final filled = world.config.cellCount - world.grid.territoryOf(0);
-    final percent = filled * 100 / world.config.cellCount;
+    // Foiz quruqlikka nisbatan — okean o'ynalmaydi.
+    final filled = world.grid.landCells - _freeLand(world);
+    final percent = filled * 100 / world.grid.landCells;
     // ignore: avoid_print
     print('to\'ldirilgan maydon: ${percent.toStringAsFixed(1)}%');
     expect(percent, greaterThan(12), reason: 'test haqiqiy yukni o\'lchasin');
@@ -123,6 +136,57 @@ void main() {
       '(sekundiga ~8 marta)',
     );
     expect(us, lessThan(4000));
+  });
+
+  test('dunyo xaritasini chizish kadr byudjetiga sig\'adi', () {
+    final painter = WorldMapPainter(kCellSize);
+    final visible = Rect.fromLTWH(
+      0,
+      0,
+      kWorldWidth * kCellSize,
+      kWorldHeight * kCellSize,
+    );
+
+    // Ekranda xaritaning kichik qismi ko'rinadi — o'lchov ham shunga
+    // mos bo'lsin.
+    final camera = Rect.fromLTWH(
+      120 * kCellSize,
+      60 * kCellSize,
+      kVisibleCells * kCellSize,
+      kVisibleCells * (16 / 9) * kCellSize,
+    );
+
+    // Birinchi marta kontur hisoblanadi va plitkalar yoziladi — bu
+    // o'yin boshlanishida bir marta bo'ladi.
+    final build = Stopwatch()..start();
+    final rec0 = ui.PictureRecorder();
+    painter.render(ui.Canvas(rec0, visible), camera);
+    rec0.endRecording().dispose();
+    build.stop();
+
+    void frame() {
+      final rec = ui.PictureRecorder();
+      painter.render(ui.Canvas(rec, visible), camera);
+      rec.endRecording().dispose();
+    }
+
+    frame();
+    const frames = 600;
+    final sw = Stopwatch()..start();
+    for (var i = 0; i < frames; i++) {
+      frame();
+    }
+    sw.stop();
+    final us = sw.elapsedMicroseconds / frames;
+
+    // ignore: avoid_print
+    print(
+      'dunyo xaritasi: birinchi plitkalar ${build.elapsedMilliseconds} ms, '
+      'chizish ${us.toStringAsFixed(1)} µs/kadr',
+    );
+    expect(us, lessThan(2000));
+    expect(build.elapsedMilliseconds, lessThan(600), reason: 'ishga tushish');
+    painter.dispose();
   });
 
   test("arena panjarasini chizish kadr byudjetiga sig'adi", () {

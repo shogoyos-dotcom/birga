@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:color_land/game/logic/difficulty.dart';
 import 'package:color_land/game/logic/game_config.dart';
 import 'package:color_land/game/render/game_theme.dart';
+import 'package:color_land/game/render/canvas_text.dart';
 import 'package:color_land/game/render/palette.dart';
 import 'package:color_land/i18n/app_language.dart';
 import 'package:color_land/i18n/l10n.dart';
@@ -35,6 +36,8 @@ Future<void> loadFonts() async {
     );
   }
   await loader.load();
+  canvasFontFamily = 'Roboto';
+  addTearDown(() => canvasFontFamily = null);
 }
 
 Future<void> saveFrame(WidgetTester tester, String path) async {

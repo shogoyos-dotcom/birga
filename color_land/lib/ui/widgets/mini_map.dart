@@ -16,10 +16,12 @@ import '../theme/arcade.dart';
 /// shuning uchun 250x250 xarita ham bir necha yuz chizish amaliga
 /// tushadi. Qayta chizish HUD bilan bir xil tezlikda (~8/s) bo'ladi.
 class MiniMap extends StatelessWidget {
-  const MiniMap({super.key, required this.game, this.size = 96});
+  const MiniMap({super.key, required this.game, this.width = 118});
 
   final ColorLandGame game;
-  final double size;
+
+  /// Panel kengligi; balandligi xarita nisbatidan kelib chiqadi.
+  final double width;
 
   /// Har nechanchi katak o'qiladi. 2 — xarita aniq, lekin ish hajmi
   /// to'rt barobar kam.
@@ -27,6 +29,39 @@ class MiniMap extends StatelessWidget {
 
   /// Egallangan hududlar — qator bo'ylab bir xil kataklarni birlashtirib
   /// chiziladi. Testlar tezligini shu yerda o'lchaydi.
+  /// Egallanmagan quruqlikni chizadi — xaritaning shakli ko'rinib tursin.
+  static void paintLand(Canvas canvas, GameGrid grid, Size size) {
+    final mask = grid.land;
+    if (mask == null) {
+      canvas.drawRect(Offset.zero & size, Paint()..color = Palette.background);
+      return;
+    }
+    final sx = size.width / grid.width;
+    final sy = size.height / grid.height;
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color = Palette.background;
+    for (var y = 0; y < grid.height; y += stride) {
+      final row = y * grid.width;
+      var x = 0;
+      while (x < grid.width) {
+        if (mask[row + x] == 0) {
+          x += stride;
+          continue;
+        }
+        var end = x + stride;
+        while (end < grid.width && mask[row + end] == 1) {
+          end += stride;
+        }
+        canvas.drawRect(
+          Rect.fromLTRB(x * sx, y * sy, end * sx, (y + stride) * sy),
+          paint,
+        );
+        x = end;
+      }
+    }
+  }
+
   /// Chizilgan to'rtburchaklar sonini qaytaradi (o'lchov uchun).
   static int paintTerritories(
     Canvas canvas,
@@ -76,8 +111,9 @@ class MiniMap extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(Arcade.radiusSmall - 2),
-        child: SizedBox.square(
-          dimension: size,
+        child: SizedBox(
+          width: width,
+          height: width * game.sim.grid.height / game.sim.grid.width,
           child: CustomPaint(
             painter: _MiniMapPainter(game: game, repaint: game.hud),
           ),
@@ -101,10 +137,12 @@ class _MiniMapPainter extends CustomPainter {
     final sx = size.width / grid.width;
     final sy = size.height / grid.height;
 
+    // Okean, keyin quruqlik — hudud egallanmagan joylar ham ko'rinsin.
     canvas.drawRect(
       Offset.zero & size,
-      _fill..color = Palette.outside.withValues(alpha: 0.85),
+      _fill..color = Palette.outside.withValues(alpha: 0.9),
     );
+    MiniMap.paintLand(canvas, grid, size);
 
     MiniMap.paintTerritories(
       canvas,

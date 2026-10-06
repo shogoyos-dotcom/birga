@@ -21,7 +21,12 @@ import 'widget_helpers.dart';
 ColorLandGame makeGame({int size = 64, int bots = 0, int seed = 1}) {
   return ColorLandGame(
     sim: createMatch(
-      config: GameConfig(gridWidth: size, gridHeight: size, botCount: bots),
+      config: GameConfig(
+        worldMap: false,
+        gridWidth: size,
+        gridHeight: size,
+        botCount: bots,
+      ),
       playerColorIndex: 0,
       playerName: 'Siz',
       availableColors: Palette.colorCount,
@@ -117,6 +122,7 @@ void main() {
         child: MaterialApp(
           home: GameScreen(
             config: const GameConfig(
+              worldMap: false,
               gridWidth: 64,
               gridHeight: 64,
               botCount: 4,
@@ -165,6 +171,7 @@ void main() {
         child: MaterialApp(
           home: GameScreen(
             config: const GameConfig(
+              worldMap: false,
               gridWidth: 64,
               gridHeight: 64,
               botCount: 0,

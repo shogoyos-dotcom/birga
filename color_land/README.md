@@ -20,7 +20,7 @@ Hamma narsa kod bilan chiziladi, tashqi rasm fayllari ishlatilmaydi.
 ```bash
 flutter pub get
 flutter run              # qurilma yoki emulyatorda
-flutter test             # 113 ta test
+flutter test             # 129 ta test
 flutter analyze
 ```
 
@@ -38,12 +38,15 @@ lib/
       match.dart              o'yinchi + botlardan o'yin yig'ish
     render/       # Flame komponentlari, keshlangan chizish
       game_theme.dart         arena uslublari (fon, panjara, ranglar)
+      world_map_painter.dart  quruqlik, qirg'oq va poytaxtlar (plitkalab)
       shape_painter.dart      hudud konturi + ui.Picture keshi
       contour.dart            chegarani topish, soddalashtirish, silliqlash
       avatar_painter.dart     avatarni tuvalga chizish
       color_land_game.dart    kamera, animatsiyalar, HUD manbasi
   data/
     countries.dart            ISO 3166-1: 249 davlat va bayrog'i
+    world_map.dart            dunyo quruqligi niqobi (generatsiya)
+    capitals.dart             236 poytaxt va koordinatasi (generatsiya)
   services/
     audio_service.dart        ovoz effektlari, musiqa, vibratsiya
   i18n/           # 5 til: uz, en, ru, tr, kk
@@ -63,6 +66,40 @@ tool/             # skrinshot va ikonka generatorlari (test sifatida ishlaydi)
 
 Mantiq rendering'dan to'liq ajratilgan: `lib/game/logic/` ichidagi hech bir
 fayl Flutter yoki Flame'ni import qilmaydi.
+
+## Maydon — dunyo xaritasi
+
+Arena 520x205 katak: ekvatorial proyeksiyadagi dunyo xaritasi
+(Antarktidasiz, 83°N dan 58°S gacha). Kataklarning 30.5% i quruqlik —
+o'ynaladigan joy; okean esa to'siq, xuddi xarita cheti kabi: unga
+kirilmaydi, lekin o'ldirmaydi ham, o'yinchi qirg'oq bo'ylab sirpanadi.
+
+Shu bilan birga:
+
+- foizlar quruqlikka nisbatan hisoblanadi, okean hisobga olinmaydi;
+- suv hech qachon egallanmaydi — halqa ichida qolgan ko'l ko'l bo'lib
+  qoladi, okeanga ulangan qo'ltiq ham egallanmaydi;
+- o'yinchilar faqat atrofida yetarli quruqlik bor joyda tug'iladi, kichik
+  orolda qamalib qolmaydi;
+- botlar suvni devor deb biladi va qirg'oqdan chetlanadi.
+
+Xaritada **236 ta poytaxt** belgilangan. Yozuvlar zich joyda (Yevropa,
+Janubiy Afrika) bir-birini bosmasligi uchun aholisi ko'proq shahar
+ustunlik qiladi.
+
+Ma'lumot manbai — [Natural Earth](https://www.naturalearthdata.com/)
+1:110m (public domain). Fayllar repozitoriyda emas, generator ularni
+o'zi yuklab oladi:
+
+```bash
+python3 tool/make_world_map.py        # lib/data/world_map.dart + capitals.dart
+python3 tool/make_world_map.py 640 250  # boshqa o'lchamda
+```
+
+Quruqlik niqobi har katak uchun bitta bit, base64 da (17 KB) — alohida
+asset fayli yo'q. Qirg'oq chizig'i hududlar bilan bir xil usulda
+silliqlanadi, shuning uchun pog'onali bo'lmaydi; xarita plitkalarga
+bo'lib keshlanadi va faqat ekranga tushgani chiziladi.
 
 ## Dizayn: "Arcade Grid"
 
@@ -140,17 +177,18 @@ sifatida bir marta `ui.Picture` ga yoziladi va faqat o'sha hudud
 o'zgarganda qayta yoziladi; ekranga tushmagan hududlar umuman
 chizilmaydi.
 
-Kadr byudjeti 60 FPS da 16 600 µs. Oxirgi o'lchov (250x250 xarita,
-15 ta o'yinchi, maydonning 30% i egallangan):
+Kadr byudjeti 60 FPS da 16 600 µs. Oxirgi o'lchov (dunyo xaritasi,
+15 ta bot, quruqlikning 39% i egallangan):
 
 | Ish | Narxi |
 | --- | --- |
-| Mantiq (10 o'yinchi) | 7 µs/kadr |
-| Keshlangan hududlarni chizish | 19 µs/kadr |
-| Arena panjarasi (121 chiziq) | 35 µs/kadr |
-| Avatarlar (15 ta, eng yomon holat) | 84 µs/kadr |
-| Mini-xarita (441 to'rtburchak) | 289 µs, sekundiga ~8 marta |
-| Bitta hudud shaklini qayta yozish | 491 µs, kadrda ~0.01 marta |
+| Mantiq (10 o'yinchi) | 6 µs/kadr |
+| Keshlangan hududlarni chizish | 24 µs/kadr |
+| Dunyo xaritasi (ko'rinadigan plitkalar) | 29 µs/kadr |
+| Arena panjarasi (136 chiziq) | 21 µs/kadr |
+| Mini-xarita (336 to'rtburchak) | 225 µs, sekundiga ~8 marta |
+| Bitta hudud shaklini qayta yozish | 596 µs, kadrda ~0.01 marta |
+| Xarita plitkalarini tayyorlash | 52 ms, o'yin boshida bir marta |
 
 ## Yordamchi vositalar
 

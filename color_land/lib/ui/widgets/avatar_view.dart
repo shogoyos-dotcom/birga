@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../game/logic/player_profile.dart';
 import '../../game/render/avatar_painter.dart';
+import '../../game/render/canvas_text.dart';
 import '../theme/arcade.dart';
 
 /// Avatarni interfeysda ko'rsatadi.
@@ -30,7 +31,7 @@ class AvatarView extends StatelessWidget {
           avatar.glyph,
           style: TextStyle(
             fontSize: size * 0.72,
-            fontFamilyFallback: avatarFontFallback,
+            fontFamilyFallback: canvasFontFallback,
           ),
           textAlign: TextAlign.center,
         ),

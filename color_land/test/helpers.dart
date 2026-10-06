@@ -13,6 +13,7 @@ GameWorld makeWorld({
 }) {
   return GameWorld(
     config: GameConfig(
+      worldMap: false,
       gridWidth: width,
       gridHeight: height,
       botCount: 0,

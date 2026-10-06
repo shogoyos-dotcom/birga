@@ -115,7 +115,12 @@ class TerritoryCapturer {
       final row = y * w;
       for (var x = x0; x <= x1; x++) {
         final i = row + x;
-        if (_reached[i] == 0 && owner[i] != playerId) claim(i);
+        // Suv hech qachon egallanmaydi: o'ralib qolgan ko'l ham ko'l
+        // bo'lib qoladi. BFS esa suv ustidan erkin yuradi, shuning
+        // uchun okeanga ulangan qo'ltiq ham egallanmaydi.
+        if (_reached[i] == 0 && owner[i] != playerId && grid.isLandIndex(i)) {
+          claim(i);
+        }
       }
     }
 

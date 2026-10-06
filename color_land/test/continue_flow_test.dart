@@ -41,7 +41,12 @@ Future<GameScreenState> startGame(
       controller: LanguageController(store, AppLanguage.uz),
       child: MaterialApp(
         home: GameScreen(
-          config: const GameConfig(gridWidth: 64, gridHeight: 64, botCount: 0),
+          config: const GameConfig(
+            worldMap: false,
+            gridWidth: 64,
+            gridHeight: 64,
+            botCount: 0,
+          ),
           colorIndex: 0,
           store: store,
           ads: ads,

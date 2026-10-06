@@ -25,7 +25,7 @@ enum BotPhase {
 ///  * o'z hududidan chiqib to'rtburchak tsikl chizadi va qaytadi;
 ///  * raqib yaqinlashsa darhol uyiga qaytadi;
 ///  * yaqinda himoyasiz iz ko'rsa — unga hujum qiladi;
-///  * oldidagi katakda o'z izi yoki devor bo'lsa — chetlab o'tadi.
+///  * oldidagi katakda o'z izi, suv yoki devor bo'lsa — chetlab o'tadi.
 ///
 /// Yo'nalishlar faqat to'rt tomonga — shunda tsikllar toza to'rtburchak
 /// bo'ladi va bot o'z izini tasodifan kesib o'tmaydi.
@@ -165,7 +165,8 @@ class BotBrain implements PlayerBrain {
       for (var step = 1; step <= 8; step++) {
         final x = (self.x + math.cos(d) * step).floor();
         final y = (self.y + math.sin(d) * step).floor();
-        if (!grid.contains(x, y)) {
+        // Suv ham, xarita cheti ham yurib bo'lmaydigan joy.
+        if (!grid.playable(x, y)) {
           score -= 6;
           break;
         }
@@ -263,7 +264,7 @@ class BotBrain implements PlayerBrain {
     for (var step = 1; step <= steps; step++) {
       final x = (self.x + math.cos(angle) * step).floor();
       final y = (self.y + math.sin(angle) * step).floor();
-      if (!grid.contains(x, y)) return true;
+      if (!grid.playable(x, y)) return true;
       if (grid.trailAt(x, y) == self.id) return true;
     }
     return false;

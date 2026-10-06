@@ -3,13 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import '../logic/player_profile.dart';
-
-/// Emoji va bayroqlar uchun zaxira shriftlar ro'yxati.
-///
-/// Qurilmada `null` — Android o'zining emoji shriftini ishlatadi.
-/// Widget testlarida esa tizim shriftlari yo'q, shuning uchun skrinshot
-/// vositasi shu yerga yuklagan shrift nomini yozadi.
-List<String>? avatarFontFallback;
+import 'canvas_text.dart';
 
 /// Avatarni tuvalga chizadi.
 ///
@@ -79,6 +73,7 @@ class AvatarPainter {
     final builder =
         ui.ParagraphBuilder(
             ui.ParagraphStyle(
+              fontFamily: canvasFontFamily,
               textAlign: TextAlign.center,
               fontSize: size * glyphScale,
             ),
@@ -86,7 +81,8 @@ class AvatarPainter {
           ..pushStyle(
             ui.TextStyle(
               color: const Color(0xFF000000),
-              fontFamilyFallback: avatarFontFallback,
+              fontFamily: canvasFontFamily,
+              fontFamilyFallback: canvasFontFallback,
             ),
           )
           ..addText(glyph);

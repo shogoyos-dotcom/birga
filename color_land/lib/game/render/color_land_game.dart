@@ -13,6 +13,7 @@ import '../logic/player_state.dart';
 import 'contour.dart';
 import 'head_painter.dart';
 import 'shape_painter.dart';
+import 'world_map_painter.dart';
 import 'hud_snapshot.dart';
 import 'palette.dart';
 
@@ -223,10 +224,18 @@ class ColorLandGame extends FlameGame {
 class BoardBackground extends Component with HasGameReference<ColorLandGame> {
   BoardBackground() : super(priority: 0);
 
+  @override
+  void onRemove() {
+    _map?.dispose();
+    super.onRemove();
+  }
+
   /// Har nechanchi katakda yo'g'onroq chiziq chiziladi.
   static const int majorEvery = 5;
 
   final Paint _bg = Paint();
+  final Paint _ocean = Paint();
+  WorldMapPainter? _map;
   final Paint _minor = Paint()
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.0;
@@ -256,8 +265,15 @@ class BoardBackground extends Component with HasGameReference<ColorLandGame> {
     final area = visible.intersect(mapRect);
     if (area.isEmpty) return;
 
-    _bg.color = Palette.background;
-    canvas.drawRect(area, _bg);
+    final world = grid.land != null;
+    if (world) {
+      // Okean — butun maydon foni; quruqlik ustidan chiziladi.
+      _ocean.color = Palette.outside;
+      canvas.drawRect(area, _ocean);
+    } else {
+      _bg.color = Palette.background;
+      canvas.drawRect(area, _bg);
+    }
 
     final (minor, major) = buildGridPoints(area, mapRect);
     _minorPoints = minor;
@@ -269,6 +285,12 @@ class BoardBackground extends Component with HasGameReference<ColorLandGame> {
     }
     if (_majorPoints.isNotEmpty) {
       canvas.drawRawPoints(ui.PointMode.lines, _majorPoints, _major);
+    }
+
+    if (world) {
+      // Quruqlik, qirg'oq va poytaxtlar — oldindan yozilgan plitkalar;
+      // faqat ko'rinadiganlari chiziladi.
+      (_map ??= WorldMapPainter(kCellSize)).render(canvas, area);
     }
 
     // Chegara: ichkarida yo'g'on, shaffof yorug'lik + ustidan aniq chiziq.

@@ -1,10 +1,14 @@
+import 'dart:typed_data';
+
+import '../../data/world_map.dart';
 import 'difficulty.dart';
 
 /// O'yinning barcha sozlamalari bir joyda. Mantiq qatlami faqat shuni biladi.
 class GameConfig {
   const GameConfig({
-    this.gridWidth = 250,
-    this.gridHeight = 250,
+    this.gridWidth = kWorldWidth,
+    this.gridHeight = kWorldHeight,
+    this.worldMap = true,
     this.startBlock = 5,
     this.botCount = 15,
     this.difficulty = Difficulty.normal,
@@ -20,6 +24,25 @@ class GameConfig {
   /// Panjara o'lchami (katak).
   final int gridWidth;
   final int gridHeight;
+
+  /// Maydon dunyo xaritasidan yaratiladimi. `false` bo'lsa butun
+  /// to'rtburchak o'ynaladi (testlar va o'lchovlar uchun qulay).
+  final bool worldMap;
+
+  /// Quruqlik niqobi — `worldMap` yoqilgan bo'lsa.
+  ///
+  /// Niqob aniq [kWorldWidth] x [kWorldHeight] uchun yaratilgan, shuning
+  /// uchun boshqa o'lchamdagi panjara dunyo xaritasini ishlata olmaydi:
+  /// bunday holda `worldMap: false` berilishi kerak.
+  Uint8List? buildLand() {
+    if (!worldMap) return null;
+    assert(
+      gridWidth == kWorldWidth && gridHeight == kWorldHeight,
+      'Dunyo xaritasi ${kWorldWidth}x$kWorldHeight uchun; '
+      'boshqa o\'lchamda worldMap: false bering',
+    );
+    return decodeWorldLand();
+  }
 
   /// Boshlang'ich hudud joylashadigan kvadrat tomoni (bo'sh joy izlashda).
   final int startBlock;
@@ -63,6 +86,7 @@ class GameConfig {
   GameConfig copyWith({Difficulty? difficulty, int? botCount}) => GameConfig(
     gridWidth: gridWidth,
     gridHeight: gridHeight,
+    worldMap: worldMap,
     startBlock: startBlock,
     botCount: botCount ?? this.botCount,
     difficulty: difficulty ?? this.difficulty,

@@ -21,7 +21,11 @@ abstract class PlayerBrain {
 /// Flutter yoki Flame'ga bog'liq emas — shuning uchun to'liq test qilinadi.
 class GameWorld {
   GameWorld({required this.config, math.Random? random})
-    : grid = GameGrid(config.gridWidth, config.gridHeight),
+    : grid = GameGrid(
+        config.gridWidth,
+        config.gridHeight,
+        land: config.buildLand(),
+      ),
       rng = random ?? math.Random() {
     _capturer = TerritoryCapturer(grid);
   }
@@ -102,6 +106,9 @@ class GameWorld {
       final left = margin + rng.nextInt(grid.width - 2 * margin - size);
       final top = margin + rng.nextInt(grid.height - 2 * margin - size);
       if (!grid.isBlockFree(left, top, size)) continue;
+      // Kichik orolga tushib qolmaslik uchun atrofda yetarli quruqlik
+      // borligini tekshiramiz.
+      if (!_hasRoom(left + size ~/ 2, top + size ~/ 2)) continue;
       final cx = left + size ~/ 2;
       final cy = top + size ~/ 2;
       grid.fillDisc(cx, cy, config.startRadius, p.id);
@@ -111,6 +118,23 @@ class GameWorld {
       return true;
     }
     return false;
+  }
+
+  /// Tug'ilish joyi atrofida yetarli quruqlik bormi.
+  ///
+  /// Dunyo xaritasida kichik orollar bor — ularda o'yinchining joyi ham,
+  /// qochadigan yo'li ham bo'lmaydi.
+  bool _hasRoom(int cx, int cy) {
+    if (grid.land == null) return true;
+    const radius = 8;
+    var land = 0;
+    for (var y = cy - radius; y <= cy + radius; y++) {
+      for (var x = cx - radius; x <= cx + radius; x++) {
+        if (grid.playable(x, y)) land++;
+      }
+    }
+    // (2*8+1)^2 = 289 katakdan kamida yarmi quruqlik bo'lsin.
+    return land >= 145;
   }
 
   /// Bir kadrni hisoblaydi. `dt` juda katta bo'lsa bo'laklarga bo'linadi.
@@ -155,15 +179,24 @@ class GameWorld {
 
   void _move(PlayerState p, double dt) {
     final dist = p.speed * dt;
-    p.x += math.cos(p.angle) * dist;
-    p.y += math.sin(p.angle) * dist;
+    final nx = p.x + math.cos(p.angle) * dist;
+    final ny = p.y + math.sin(p.angle) * dist;
 
-    // Xarita cheti — to'siq, o'lim emas. Pozitsiyani maydon ichida
-    // ushlab turamiz: devorga qaragan tezlik yo'qoladi va o'yinchi
-    // chet bo'ylab sirpanib boraveradi.
+    // Xarita cheti va suv — to'siq, o'lim emas. O'qlar alohida
+    // tekshiriladi: faqat suvga qaragan tezlik yo'qoladi, shuning uchun
+    // o'yinchi qirg'oq bo'ylab sirpanib boraveradi.
     const edge = 1e-4;
-    p.x = p.x.clamp(edge, grid.width - edge);
-    p.y = p.y.clamp(edge, grid.height - edge);
+    final clampedX = nx.clamp(edge, grid.width - edge);
+    final clampedY = ny.clamp(edge, grid.height - edge);
+
+    if (grid.land == null) {
+      p.x = clampedX;
+      p.y = clampedY;
+    } else {
+      final cy = p.y.floor();
+      if (grid.playable(clampedX.floor(), cy)) p.x = clampedX;
+      if (grid.playable(p.x.floor(), clampedY.floor())) p.y = clampedY;
+    }
 
     // Tashqarida bo'lsa haqiqiy yo'lni ham yozib boramiz — iz shu bo'yicha
     // silliq chiziladi.
@@ -194,7 +227,9 @@ class GameWorld {
   void _enterCell(PlayerState p, int nx, int ny) {
     // Pozitsiya maydon ichida ushlab turilgani uchun bu yerga chiqib
     // ketgan katak kelmasligi kerak; har ehtimolga qarshi tekshiramiz.
-    if (!grid.contains(nx, ny)) return;
+    // Suv va xarita cheti — to'siq. Harakat allaqachon to'xtatadi,
+    // bu esa katakdan katakka yurishdagi himoya.
+    if (!grid.playable(nx, ny)) return;
     p.cx = nx;
     p.cy = ny;
     final i = grid.index(nx, ny);

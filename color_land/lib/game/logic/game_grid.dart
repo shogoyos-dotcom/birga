@@ -6,9 +6,17 @@ import 'dart:typed_data';
 /// Rendering uchun o'zgargan "chunk"lar ro'yxati yuritiladi — shunda ekran
 /// har kadrda butunlay qayta chizilmaydi.
 class GameGrid {
-  GameGrid(int width, int height, {int chunkCells = 16})
-    : width = width,
+  GameGrid(int width, int height, {int chunkCells = 16, Uint8List? land})
+    : assert(
+        land == null || land.length == width * height,
+        'Quruqlik niqobi panjara o\'lchamiga mos kelmadi',
+      ),
+      width = width,
       height = height,
+      land = land,
+      landCells = land == null
+          ? width * height
+          : land.fold<int>(0, (sum, v) => sum + v),
       chunkCells = chunkCells,
       chunksX = (width + chunkCells - 1) ~/ chunkCells,
       chunksY = (height + chunkCells - 1) ~/ chunkCells,
@@ -33,6 +41,16 @@ class GameGrid {
 
   final int width;
   final int height;
+
+  /// Quruqlik niqobi: 1 — quruqlik, 0 — suv. `null` bo'lsa butun
+  /// panjara o'ynaladi (oddiy to'rtburchak maydon).
+  ///
+  /// Suv kataklari hech qachon egallanmaydi va harakatga to'siq bo'ladi.
+  final Uint8List? land;
+
+  /// O'ynaladigan (quruqlik) kataklar soni. Foizlar shunga nisbatan
+  /// hisoblanadi — okean hisobga olinmaydi.
+  final int landCells;
 
   /// Bir chunk tomoni (katak hisobida).
   final int chunkCells;
@@ -65,6 +83,18 @@ class GameGrid {
 
   int get cellCount => width * height;
 
+  /// Katak quruqlikmi.
+  bool isLand(int x, int y) {
+    final mask = land;
+    if (mask == null) return true;
+    return mask[y * width + x] == 1;
+  }
+
+  bool isLandIndex(int i) => land == null || land![i] == 1;
+
+  /// Katak o'ynaladigan joyda — panjara ichida va quruqlikda.
+  bool playable(int x, int y) => contains(x, y) && isLand(x, y);
+
   int index(int x, int y) => y * width + x;
 
   bool contains(int x, int y) => x >= 0 && y >= 0 && x < width && y < height;
@@ -77,7 +107,7 @@ class GameGrid {
   int territoryOf(int id) => _territory[id];
 
   /// `id` egallagan maydon foizi (0..100).
-  double percentOf(int id) => _territory[id] * 100.0 / cellCount;
+  double percentOf(int id) => _territory[id] * 100.0 / landCells;
 
   void markDirtyIndex(int i) {
     final x = i % width;
@@ -183,7 +213,7 @@ class GameGrid {
         if (dx * dx + dy * dy > r2) continue;
         final x = cx + dx;
         final y = cy + dy;
-        if (!contains(x, y)) continue;
+        if (!playable(x, y)) continue;
         setOwner(x, y, id);
         count++;
       }
@@ -204,7 +234,7 @@ class GameGrid {
   bool isBlockFree(int left, int top, int size) {
     for (var y = top; y < top + size; y++) {
       for (var x = left; x < left + size; x++) {
-        if (!contains(x, y)) return false;
+        if (!playable(x, y)) return false;
         final i = index(x, y);
         if (owner[i] != 0 || trail[i] != 0) return false;
       }
