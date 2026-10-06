@@ -23,30 +23,45 @@ class GameHud extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        // Reyting maydonni to'smasligi uchun o'ng burchakka, tor ustunga
+        // joylashtirilgan; chap tomonda esa o'yinchining o'z raqamlari.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _PercentBadge(
                   percent: snapshot.percent,
                   colorIndex: colorIndex,
                 ),
-                const SizedBox(width: 10),
-                _Pill(icon: Icons.timer_outlined, text: snapshot.formattedTime),
-                const SizedBox(width: 8),
-                _Pill(icon: Icons.bolt_rounded, text: '${snapshot.kills}'),
-                const SizedBox(width: 8),
-                _Pill(
-                  icon: Icons.leaderboard_rounded,
-                  text: '${snapshot.rank}/${snapshot.alivePlayers}',
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _Pill(
+                      icon: Icons.timer_outlined,
+                      text: snapshot.formattedTime,
+                    ),
+                    const SizedBox(width: 6),
+                    _Pill(icon: Icons.bolt_rounded, text: '${snapshot.kills}'),
+                  ],
                 ),
-                const Spacer(),
-                _IconButtonSquare(icon: Icons.pause_rounded, onTap: onPause),
               ],
             ),
-            const SizedBox(height: 10),
-            _Leaderboard(title: t.leaderboard, rows: snapshot.top),
+            const Spacer(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _IconButtonSquare(icon: Icons.pause_rounded, onTap: onPause),
+                const SizedBox(height: 8),
+                _Leaderboard(
+                  title: t.leaderboard,
+                  rows: snapshot.top,
+                  rank: snapshot.rank,
+                  alive: snapshot.alivePlayers,
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -97,20 +112,30 @@ class _Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
+        color: Palette.isDark
+            ? const Color(0xD91B2133)
+            : Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF4B5563)),
+          Icon(
+            icon,
+            size: 16,
+            color: Palette.isDark
+                ? const Color(0xFFB4BCC9)
+                : const Color(0xFF4B5563),
+          ),
           const SizedBox(width: 4),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1F2937),
+              color: Palette.isDark
+                  ? const Color(0xFFF2F4F8)
+                  : const Color(0xFF1F2937),
             ),
           ),
         ],
@@ -128,7 +153,9 @@ class _IconButtonSquare extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.94),
+      color: Palette.isDark
+          ? const Color(0xD91B2133)
+          : Colors.white.withValues(alpha: 0.94),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -143,83 +170,118 @@ class _IconButtonSquare extends StatelessWidget {
 }
 
 class _Leaderboard extends StatelessWidget {
-  const _Leaderboard({required this.title, required this.rows});
+  const _Leaderboard({
+    required this.title,
+    required this.rows,
+    required this.rank,
+    required this.alive,
+  });
 
   final String title;
   final List<ScoreRow> rows;
+  final int rank;
+  final int alive;
+
+  /// Tor ustun — maydonning ko'p qismi ochiq qoladi.
+  static const double width = 150;
 
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10,
-              letterSpacing: 1.1,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF9AA3B2),
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        decoration: BoxDecoration(
+          color: Palette.isDark
+              ? const Color(0xD91B2133)
+              : Colors.white.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF9AA3B2),
+                    ),
+                  ),
+                ),
+                Text(
+                  '$rank/$alive',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          for (var i = 0; i < rows.length; i++) _row(i + 1, rows[i]),
-        ],
+            const SizedBox(height: 3),
+            for (var i = 0; i < rows.length; i++) _row(i + 1, rows[i]),
+          ],
+        ),
       ),
     );
   }
 
   Widget _row(int place, ScoreRow r) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 1.5),
       child: Row(
         children: [
           SizedBox(
-            width: 16,
+            width: 11,
             child: Text(
               '$place',
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF9AA3B2),
+                color: Color(0xFFB4BCC9),
               ),
             ),
           ),
           Container(
-            width: 12,
-            height: 12,
+            width: 9,
+            height: 9,
             decoration: BoxDecoration(
               color: Palette.head(r.colorIndex),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(2.5),
             ),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 5),
           Expanded(
             child: Text(
               r.name,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: r.isHuman ? FontWeight.w900 : FontWeight.w600,
-                color: r.isHuman
-                    ? const Color(0xFF111827)
-                    : const Color(0xFF4B5563),
+                color: Palette.isDark
+                    ? (r.isHuman
+                          ? const Color(0xFFFFFFFF)
+                          : const Color(0xFFC3CAD6))
+                    : (r.isHuman
+                          ? const Color(0xFF111827)
+                          : const Color(0xFF4B5563)),
               ),
             ),
           ),
           Text(
-            '${r.percent.toStringAsFixed(2)}%',
-            style: const TextStyle(
-              fontSize: 13,
+            '${r.percent.toStringAsFixed(1)}%',
+            style: TextStyle(
+              fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF374151),
+              color: Palette.isDark
+                  ? const Color(0xFFE4E8EF)
+                  : const Color(0xFF374151),
             ),
           ),
         ],

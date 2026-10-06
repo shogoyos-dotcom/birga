@@ -26,12 +26,12 @@ class AppStrings {
     required this.pause,
     required this.resume,
     required this.leaderboard,
-    required this.diedWall,
     required this.diedSelfCross,
     required this.diedTrailHit,
     required this.diedTerritoryLost,
     required this.settings,
     required this.back,
+    required this.themeLabel,
     required this.continueGame,
     required this.withTicket,
     required this.watchAd,
@@ -69,12 +69,12 @@ class AppStrings {
   final String pause;
   final String resume;
   final String leaderboard;
-  final String diedWall;
   final String diedSelfCross;
   final String diedTrailHit;
   final String diedTerritoryLost;
   final String settings;
   final String back;
+  final String themeLabel;
   final String continueGame;
   final String withTicket;
   final String watchAd;
@@ -98,7 +98,6 @@ class AppStrings {
   };
 
   String deathReason(DeathCause cause) => switch (cause) {
-    DeathCause.wall => diedWall,
     DeathCause.selfCross => diedSelfCross,
     DeathCause.trailHit => diedTrailHit,
     DeathCause.territoryLost => diedTerritoryLost,
@@ -126,7 +125,6 @@ class AppStrings {
     pause: 'Pauza',
     resume: 'Davom etish',
     leaderboard: 'Reyting',
-    diedWall: 'Chegaraga urildingiz',
     diedSelfCross: "O'z izingizni kesib o'tdingiz",
     diedTrailHit: 'Izingizga tegib ketishdi',
     diedTerritoryLost: 'Butun hududingiz egallandi',
@@ -147,6 +145,7 @@ class AppStrings {
     close: 'Yopish',
     giveUp: 'Tugatish',
     noRoomToContinue: 'Davom etish uchun joy qolmadi',
+    themeLabel: 'Uslub',
   );
 
   static const AppStrings en = AppStrings(
@@ -170,7 +169,6 @@ class AppStrings {
     pause: 'Pause',
     resume: 'Resume',
     leaderboard: 'Leaderboard',
-    diedWall: 'You hit the wall',
     diedSelfCross: 'You crossed your own trail',
     diedTrailHit: 'Someone cut your trail',
     diedTerritoryLost: 'You lost all your land',
@@ -191,6 +189,7 @@ class AppStrings {
     close: 'Close',
     giveUp: 'End run',
     noRoomToContinue: 'No room left to continue',
+    themeLabel: 'Style',
   );
 
   static const AppStrings ru = AppStrings(
@@ -214,7 +213,6 @@ class AppStrings {
     pause: 'Пауза',
     resume: 'Продолжить',
     leaderboard: 'Рейтинг',
-    diedWall: 'Вы врезались в границу',
     diedSelfCross: 'Вы пересекли свой след',
     diedTrailHit: 'Ваш след перерезали',
     diedTerritoryLost: 'Вы потеряли всю территорию',
@@ -235,6 +233,7 @@ class AppStrings {
     close: 'Закрыть',
     giveUp: 'Завершить',
     noRoomToContinue: 'Нет места, чтобы продолжить',
+    themeLabel: 'Стиль',
   );
 
   static const AppStrings tr = AppStrings(
@@ -258,7 +257,6 @@ class AppStrings {
     pause: 'Duraklat',
     resume: 'Devam et',
     leaderboard: 'Sıralama',
-    diedWall: 'Sınıra çarptın',
     diedSelfCross: 'Kendi izini kestin',
     diedTrailHit: 'İzini kestiler',
     diedTerritoryLost: 'Tüm bölgeni kaybettin',
@@ -279,6 +277,7 @@ class AppStrings {
     close: 'Kapat',
     giveUp: 'Bitir',
     noRoomToContinue: 'Devam için yer kalmadı',
+    themeLabel: 'Stil',
   );
 
   static const AppStrings kk = AppStrings(
@@ -302,7 +301,6 @@ class AppStrings {
     pause: 'Кідіріс',
     resume: 'Жалғастыру',
     leaderboard: 'Рейтинг',
-    diedWall: 'Шекараға соғылдыңыз',
     diedSelfCross: 'Өз ізіңізді кесіп өттіңіз',
     diedTrailHit: 'Ізіңізді кесіп кетті',
     diedTerritoryLost: 'Бүкіл аумағыңыз алынды',
@@ -323,6 +321,7 @@ class AppStrings {
     close: 'Жабу',
     giveUp: 'Аяқтау',
     noRoomToContinue: 'Жалғастыруға орын қалмады',
+    themeLabel: 'Стиль',
   );
 
   static AppStrings of(AppLanguage language) => switch (language) {

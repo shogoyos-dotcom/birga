@@ -155,6 +155,13 @@ class GameWorld {
     p.x += math.cos(p.angle) * dist;
     p.y += math.sin(p.angle) * dist;
 
+    // Xarita cheti — to'siq, o'lim emas. Pozitsiyani maydon ichida
+    // ushlab turamiz: devorga qaragan tezlik yo'qoladi va o'yinchi
+    // chet bo'ylab sirpanib boraveradi.
+    const edge = 1e-4;
+    p.x = p.x.clamp(edge, grid.width - edge);
+    p.y = p.y.clamp(edge, grid.height - edge);
+
     // Tashqarida bo'lsa haqiqiy yo'lni ham yozib boramiz — iz shu bo'yicha
     // silliq chiziladi.
     if (p.trail.isNotEmpty) p.addPathPoint(p.x, p.y);
@@ -182,11 +189,9 @@ class GameWorld {
   }
 
   void _enterCell(PlayerState p, int nx, int ny) {
-    // Qoida: xarita chegarasiga urilsang — o'lasan.
-    if (!grid.contains(nx, ny)) {
-      kill(p, DeathCause.wall, null);
-      return;
-    }
+    // Pozitsiya maydon ichida ushlab turilgani uchun bu yerga chiqib
+    // ketgan katak kelmasligi kerak; har ehtimolga qarshi tekshiramiz.
+    if (!grid.contains(nx, ny)) return;
     p.cx = nx;
     p.cy = ny;
     final i = grid.index(nx, ny);

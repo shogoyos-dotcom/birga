@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../game/logic/difficulty.dart';
 import '../game/logic/game_config.dart';
+import '../game/render/game_theme.dart';
 import '../game/render/palette.dart';
 import '../i18n/app_language.dart';
 import '../i18n/l10n.dart';
@@ -24,6 +25,7 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   late int _colorIndex = widget.store.colorIndex;
   late Difficulty _difficulty = widget.store.difficulty;
+  late GameTheme _theme = widget.store.theme;
   final StoreService _shop = DemoStoreService();
 
   void _openShop() {
@@ -123,6 +125,30 @@ class _MenuScreenState extends State<MenuScreen> {
                             widget.store.setColorIndex(i);
                           },
                         ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionTitle(t.themeLabel),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      for (final th in GameTheme.all) ...[
+                        Expanded(
+                          child: _ChoiceButton(
+                            label: th.name,
+                            selected: th.id == _theme.id,
+                            accent: accent,
+                            onTap: () {
+                              setState(() {
+                                _theme = th;
+                                Palette.theme = th;
+                              });
+                              widget.store.setTheme(th);
+                            },
+                          ),
+                        ),
+                        if (th != GameTheme.all.last) const SizedBox(width: 6),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 22),

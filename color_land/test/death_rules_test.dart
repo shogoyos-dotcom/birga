@@ -12,14 +12,41 @@ const double kNorth = -math.pi / 2;
 
 void main() {
   group("o'lim qoidalari", () {
-    test('xarita chegarasiga urilsa o\'ladi', () {
+    test('xarita chegarasi to\'siq — o\'ldirmaydi', () {
       final world = makeWorld();
       final p = placePlayer(world, left: 8, top: 8);
 
-      walk(world, p, kNorth, 14);
+      // Chetga qarab uzoq yuramiz.
+      walk(world, p, kNorth, 20);
 
-      expect(p.alive, isFalse);
-      expect(p.deathCause, DeathCause.wall);
+      expect(p.alive, isTrue, reason: 'chegara o\'ldirmaydi');
+      expect(p.cy, 0, reason: 'eng yuqori qatorda turibdi');
+      expect(p.y, greaterThanOrEqualTo(0.0));
+      expect(p.y, lessThan(1.0));
+    });
+
+    test('chetga qiya kelsa chet bo\'ylab sirpanadi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      // Chapga-yuqoriga qiya: yuqori chetga tiralib, chap tomonga ketadi.
+      walk(world, p, -2.6, 20);
+
+      expect(p.alive, isTrue);
+      expect(p.cy, 0, reason: 'yuqori chetda');
+      expect(p.cx, lessThan(8), reason: 'chet bo\'ylab chapga surilgan');
+    });
+
+    test('burchakda ham tirik qoladi', () {
+      final world = makeWorld();
+      final p = placePlayer(world, left: 8, top: 8);
+
+      walk(world, p, kNorth, 20);
+      walk(world, p, kWest, 20);
+
+      expect(p.alive, isTrue);
+      expect(p.cx, 0);
+      expect(p.cy, 0);
     });
 
     test('o\'z izini kesib o\'tsa o\'ladi', () {
@@ -187,7 +214,7 @@ void main() {
       expect(world.grid.territoryOf(p.id), 25);
       expect(p.trail, isNotEmpty);
 
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
 
       expect(world.grid.territoryOf(p.id), 0);
       for (var i = 0; i < world.grid.owner.length; i++) {
@@ -204,7 +231,7 @@ void main() {
       final before = world.percentOf(p);
       expect(before, greaterThan(0));
 
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
 
       expect(world.grid.percentOf(p.id), 0, reason: 'panjara tozalanadi');
       expect(
@@ -220,7 +247,7 @@ void main() {
       final p = placePlayer(world, left: 8, top: 8);
       world.events.clear();
 
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
 
       final death = world.events.whereType<DeathEvent>().single;
       expect(
@@ -239,8 +266,8 @@ void main() {
       final other = placePlayer(world, left: 2, top: 2, colorIndex: 1);
       other.speed = 0;
 
-      world.kill(p, DeathCause.wall, other);
-      world.kill(p, DeathCause.wall, other);
+      world.kill(p, DeathCause.selfCross, other);
+      world.kill(p, DeathCause.selfCross, other);
 
       expect(other.kills, 1);
     });

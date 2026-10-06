@@ -111,7 +111,7 @@ void main() {
       final bot = world.players[1];
       expect(bot.alive, isTrue);
 
-      world.kill(bot, DeathCause.wall, null);
+      world.kill(bot, DeathCause.selfCross, null);
       expect(bot.alive, isFalse);
       expect(world.grid.territoryOf(bot.id), 0, reason: 'hududi bo\'shaydi');
 

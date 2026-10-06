@@ -19,11 +19,6 @@ import 'palette.dart';
 class TerritoryShapes {
   TerritoryShapes(this.grid, this.cellSize);
 
-  /// Animatsiyalar hudud bilan bir xil ko'rinishi uchun ishlatadigan
-  /// yumaloqlik qiymatlari.
-  static const double growFactor = 0.3;
-  static const double radiusFactor = 0.8;
-
   /// Chegarani necha marta silliqlash. Ko'proq = yumaloqroq, lekin
   /// nuqtalar soni har safar ikki barobar oshadi.
   static const int smoothPasses = 2;
@@ -31,10 +26,9 @@ class TerritoryShapes {
   /// Pog'onalarni to'g'ri chiziqqa aylantirish chegarasi (katak ulushi).
   static const double simplifyTolerance = 0.8;
 
-  /// Hudud "qalinligi" — shakl pastga shuncha surilib, to'q rangda
-  /// chiziladi. Shu tufayli maydon tekis emas, ko'tarilgan plita bo'lib
-  /// ko'rinadi.
-  static const double depthFactor = 0.55;
+  /// Hudud "qalinligi" uslubdan olinadi — shakl pastga shuncha surilib,
+  /// to'q rangda chiziladi.
+  static double get depthFactor => Palette.depthFactor;
 
   final GameGrid grid;
   final double cellSize;
@@ -190,7 +184,7 @@ class TrailPainter {
     // lenta boshdan bir oz orqada qolib ko'rinadi.
     path.lineTo(p.x * cellSize, p.y * cellSize);
 
-    final depth = cellSize * TerritoryShapes.depthFactor;
+    final depth = cellSize * Palette.depthFactor;
     final width = cellSize * 1.15;
 
     // Iz ham hudud kabi qalinlikka ega: pastga surilgan to'q nusxa.

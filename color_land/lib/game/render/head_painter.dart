@@ -4,7 +4,6 @@ import 'package:flutter/painting.dart';
 
 import '../logic/player_state.dart';
 import 'palette.dart';
-import 'shape_painter.dart';
 
 /// O'yinchini kub ko'rinishida chizadi: yerdagi soya, yon yuza va ustki
 /// yuza. Shu uchtasi birga 3D hissini beradi.
@@ -30,7 +29,7 @@ class HeadPainter {
 
   void paint(ui.Canvas canvas, PlayerState p) {
     final size = cellSize * sizeFactor;
-    final depth = cellSize * TerritoryShapes.depthFactor * 1.3;
+    final depth = cellSize * Palette.depthFactor * 1.3;
     final center = Offset(p.x * cellSize, p.y * cellSize);
     final radius = Radius.circular(cellSize * 0.42);
 

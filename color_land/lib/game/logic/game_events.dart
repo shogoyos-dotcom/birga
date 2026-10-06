@@ -2,9 +2,6 @@
 enum DeathCause {
   none,
 
-  /// Xarita chegarasiga urildi.
-  wall,
-
   /// O'z izini kesib o'tdi.
   selfCross,
 

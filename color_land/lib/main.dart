@@ -13,6 +13,7 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   final store = await SettingsStore.load();
+  Palette.theme = store.theme;
   // Til tanlanmagan bo'lsa — tizim tiliga moslashtiramiz.
   final language =
       store.language ??

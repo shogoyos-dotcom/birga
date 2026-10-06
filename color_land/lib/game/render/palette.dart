@@ -1,79 +1,102 @@
 import 'dart:ui';
 
-/// O'yinchi ranglari. Har rangning uch varianti bor:
-///  * `head`      — o'yinchi kvadrati (asosiy rang),
-///  * `territory` — hududi (to'q variant),
-///  * `trail`     — izi (och variant).
-///
-/// Ranglar oldindan hisoblanadi — har kadrda HSL konvertatsiyasi bo'lmaydi.
+import 'game_theme.dart';
+
+/// O'yinchi ranglari va fon. Hamma rang joriy [GameTheme] dan kelib
+/// chiqadi va uslub o'zgarganda bir marta qayta hisoblanadi — har
+/// kadrda HSL konvertatsiyasi bo'lmaydi.
 class Palette {
   Palette._();
 
-  static const Color background = Color(0xFFF2F4F8);
-  static const Color mapBorder = Color(0xFF3A4256);
-  static const Color outside = Color(0xFFDFE4EC);
+  static GameTheme _theme = GameTheme.bright;
 
-  /// Yorqin, bir-biridan yaxshi ajraladigan asosiy ranglar.
-  static const List<Color> heads = <Color>[
-    Color(0xFF2E7BFF), // ko'k
-    Color(0xFFFF4D6D), // qizil-pushti
-    Color(0xFF14C38E), // yashil
-    Color(0xFFFFA62B), // to'q sariq
-    Color(0xFF9B5DE5), // binafsha
-    Color(0xFF00C2D1), // moviy
-    Color(0xFFF15BB5), // pushti
-    Color(0xFFFFD60A), // sariq
-    Color(0xFF6C7BFF), // indigo
-    Color(0xFF52B788), // zumrad
-    Color(0xFFFF7A45), // marjon
-    Color(0xFF00B4D8), // havorang
-    Color(0xFFB5179E), // magenta
-    Color(0xFF7CB518), // o't rangi
-    Color(0xFFEF476F), // qizil
-    Color(0xFF4CC9F0), // muz ko'k
-  ];
+  static GameTheme get theme => _theme;
 
-  static final List<Color> _territories = List<Color>.unmodifiable(
-    heads.map((c) => _shade(c, -0.14)),
-  );
-  static final List<Color> _trails = List<Color>.unmodifiable(
-    heads.map((c) => _shade(c, 0.34)),
-  );
+  static set theme(GameTheme value) {
+    if (identical(_theme, value)) return;
+    _theme = value;
+    _rebuild();
+  }
 
-  /// Hududning yon devori — qalinlik hissi uchun to'qroq variant.
-  static final List<Color> _sides = List<Color>.unmodifiable(
-    heads.map((c) => _shade(c, -0.42)),
-  );
+  static List<Color> _territories = const <Color>[];
+  static List<Color> _trails = const <Color>[];
+  static List<Color> _sides = const <Color>[];
+  static List<Color> _headSides = const <Color>[];
+  static List<int> _territoryValues = const <int>[];
+  static List<int> _trailValues = const <int>[];
 
-  /// Kubning yon yuzalari.
-  static final List<Color> _headSides = List<Color>.unmodifiable(
-    heads.map((c) => _shade(c, -0.3)),
-  );
+  static bool _ready = false;
 
-  /// ARGB butun sonlar — chizishda rang solishtirish arzon bo'lsin.
-  static final List<int> territoryValues = List<int>.unmodifiable(
-    _territories.map(_argb),
-  );
-  static final List<int> trailValues = List<int>.unmodifiable(
-    _trails.map(_argb),
-  );
+  static void _rebuild() {
+    final heads = _theme.heads;
+    _territories = List<Color>.unmodifiable(
+      heads.map((c) => _shade(c, _theme.territoryShade)),
+    );
+    _trails = List<Color>.unmodifiable(
+      heads.map((c) => _shade(c, _theme.trailShade)),
+    );
+    _sides = List<Color>.unmodifiable(
+      heads.map((c) => _shade(c, _theme.sideShade)),
+    );
+    _headSides = List<Color>.unmodifiable(
+      heads.map((c) => _shade(c, _theme.sideShade * 0.7)),
+    );
+    _territoryValues = List<int>.unmodifiable(_territories.map(_argb));
+    _trailValues = List<int>.unmodifiable(_trails.map(_argb));
+    _ready = true;
+  }
 
-  static int get colorCount => heads.length;
+  static void _ensure() {
+    if (!_ready) _rebuild();
+  }
 
-  static Color head(int index) => heads[index % heads.length];
+  static Color get background => _theme.background;
+  static Color get outside => _theme.outside;
+  static Color get mapBorder => _theme.mapBorder;
+  static double get depthFactor => _theme.depthFactor;
+  static bool get isDark => _theme.dark;
 
-  static Color territory(int index) => _territories[index % heads.length];
+  static List<Color> get heads => _theme.heads;
+  static int get colorCount => _theme.heads.length;
 
-  static Color trail(int index) => _trails[index % heads.length];
+  /// Yerga tushadigan soya — to'q fonda kuchliroq bo'lishi kerak.
+  static Color get groundShadow =>
+      _theme.dark ? const Color(0x4D000000) : const Color(0x26101828);
+
+  static Color head(int index) => _theme.heads[index % colorCount];
+
+  static Color territory(int index) {
+    _ensure();
+    return _territories[index % colorCount];
+  }
+
+  static Color trail(int index) {
+    _ensure();
+    return _trails[index % colorCount];
+  }
 
   /// Hudud "qalinligi" (yon devor) rangi.
-  static Color side(int index) => _sides[index % heads.length];
+  static Color side(int index) {
+    _ensure();
+    return _sides[index % colorCount];
+  }
 
   /// O'yinchi kubining yon yuzasi.
-  static Color headSide(int index) => _headSides[index % heads.length];
+  static Color headSide(int index) {
+    _ensure();
+    return _headSides[index % colorCount];
+  }
 
-  /// Yerga tushadigan yumshoq soya.
-  static const Color groundShadow = Color(0x26101828);
+  /// ARGB butun sonlar — chizishda rang solishtirish arzon bo'lsin.
+  static List<int> get territoryValues {
+    _ensure();
+    return _territoryValues;
+  }
+
+  static List<int> get trailValues {
+    _ensure();
+    return _trailValues;
+  }
 
   static int _argb(Color c) =>
       ((c.a * 255).round() << 24) |

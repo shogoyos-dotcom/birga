@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../game/logic/difficulty.dart';
+import '../game/render/game_theme.dart';
 import '../i18n/app_language.dart';
 
 /// O'yinchi sozlamalari va rekordi — `shared_preferences` da saqlanadi.
@@ -13,6 +14,7 @@ class SettingsStore {
   static const _kDifficulty = 'difficulty';
   static const _kLanguage = 'language';
   static const _kTickets = 'tickets';
+  static const _kTheme = 'theme';
 
   /// Ilova birinchi marta ochilganda beriladigan beletlar.
   static const int welcomeTickets = 3;
@@ -29,6 +31,11 @@ class SettingsStore {
   int get bestKills => _prefs.getInt(_kKills) ?? 0;
 
   int get colorIndex => _prefs.getInt(_kColor) ?? 0;
+
+  /// Tanlangan vizual uslub.
+  GameTheme get theme => GameTheme.byId(_prefs.getString(_kTheme));
+
+  Future<void> setTheme(GameTheme value) => _prefs.setString(_kTheme, value.id);
 
   /// O'limdan keyin davom etish uchun ishlatiladigan beletlar soni.
   int get tickets => _prefs.getInt(_kTickets) ?? welcomeTickets;

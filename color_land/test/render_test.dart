@@ -16,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'widget_helpers.dart';
+
 ColorLandGame makeGame({int size = 64, int bots = 0, int seed = 1}) {
   return ColorLandGame(
     sim: createMatch(
@@ -180,16 +182,13 @@ void main() {
         )
         .game!;
 
-    // Devorga qarab yuramiz — o'lim o'yin tsikli ichida sodir bo'lsin.
-    game.setSteerAngle(-math.pi / 2);
-    var livePercent = 0.0;
-    for (var i = 0; i < 1200 && game.sim.human.alive; i++) {
-      livePercent = game.sim.grid.percentOf(game.sim.human.id);
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    expect(game.sim.human.alive, isFalse);
-    expect(game.sim.human.deathCause, DeathCause.wall);
+    // O'lim o'yin tsikli ichida sodir bo'lishi kerak, aks holda ekran
+    // undan xabar topmaydi.
+    final livePercent = game.sim.grid.percentOf(game.sim.human.id);
     expect(livePercent, greaterThan(0));
+    await dieBySelfCross(tester, game);
+    expect(game.sim.human.alive, isFalse);
+    expect(game.sim.human.deathCause, DeathCause.selfCross);
 
     // O'lim hududni tozalaydi — natija esa oldingi holatni ko'rsatishi kerak.
     for (var i = 0; i < 12; i++) {

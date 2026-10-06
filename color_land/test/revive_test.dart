@@ -9,7 +9,7 @@ void main() {
       final world = makeWorld();
       final p = placePlayer(world, left: 8, top: 8);
       world.events.clear();
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
       final cleared = world.events.whereType<DeathEvent>().single.clearedCells;
 
       final ok = world.revive(p, cleared);
@@ -31,7 +31,7 @@ void main() {
       final p = placePlayer(world, left: 8, top: 8);
       p.kills = 4;
       world.events.clear();
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
       final cleared = world.events.whereType<DeathEvent>().single.clearedCells;
 
       world.revive(p, cleared);
@@ -45,7 +45,7 @@ void main() {
       final p = placePlayer(world, left: 8, top: 8);
       final rival = placePlayer(world, left: 2, top: 2, colorIndex: 1);
       world.events.clear();
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
       final cleared = world.events.whereType<DeathEvent>().single.clearedCells;
 
       // Bo'shagan hamma katakni raqib egallab oladi.
@@ -73,7 +73,7 @@ void main() {
       final p = placePlayer(world, left: 7, top: 7);
       final rival = placePlayer(world, left: 1, top: 1, colorIndex: 1);
       world.events.clear();
-      world.kill(p, DeathCause.wall, null);
+      world.kill(p, DeathCause.selfCross, null);
       final cleared = world.events.whereType<DeathEvent>().single.clearedCells;
       for (var i = 0; i < world.grid.owner.length; i++) {
         world.grid.setOwnerIndex(i, rival.id);
