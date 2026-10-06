@@ -191,6 +191,17 @@ class GameWorld {
     p.cy = ny;
     final i = grid.index(nx, ny);
 
+    // Qoida: kimdir sening izingga tegsa — sen o'lasan, unga +1 kill.
+    //
+    // Bu tekshiruv katak kimniki ekanidan oldin turadi: raqib mening
+    // hududim ustidan o'tayotganda ham iz qoldiradi, va o'sha izni o'z
+    // hududim ichida kessam ham u o'lishi kerak.
+    final other = grid.trail[i];
+    if (other != 0 && other != p.id) {
+      final victim = _byId[other];
+      if (victim != null && victim.alive) kill(victim, DeathCause.trailHit, p);
+    }
+
     if (grid.owner[i] == p.id) {
       // O'z hududiga qaytdi — iz bo'lsa hudud egallanadi.
       if (p.trail.isNotEmpty) _finishLoop(p);
@@ -205,13 +216,6 @@ class GameWorld {
         kill(p, DeathCause.selfCross, null);
       }
       return;
-    }
-
-    // Qoida: kimdir sening izingga tegsa — sen o'lasan, unga +1 kill.
-    final other = grid.trail[i];
-    if (other != 0) {
-      final victim = _byId[other];
-      if (victim != null && victim.alive) kill(victim, DeathCause.trailHit, p);
     }
 
     if (p.trail.isEmpty) {

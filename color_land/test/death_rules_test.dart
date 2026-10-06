@@ -99,6 +99,50 @@ void main() {
       expect(p.deathCause, DeathCause.selfCross);
     });
 
+    test('o\'z hududim ichidagi raqib izini kessam ham o\'ladi', () {
+      // Raqib mening hududim ustidan o'tayotganda ham o'z hududidan
+      // tashqarida hisoblanadi, demak iz qoldiradi. O'sha izga tegsam,
+      // u o'lishi kerak — iz qayerda yotgani ahamiyatsiz.
+      final world = makeWorld();
+      final me = placePlayer(world, left: 8, top: 8, name: 'Men');
+      final rival = placePlayer(
+        world,
+        left: 1,
+        top: 8,
+        name: 'Raqib',
+        colorIndex: 1,
+      );
+
+      // Raqib mening hududimga kirib, iz qoldiradi.
+      me.speed = 0;
+      walk(world, rival, kEast, 5);
+      expect(
+        world.grid.trailAt(8, 10),
+        rival.id,
+        reason: 'mening katagimda raqibning izi yotibdi',
+      );
+      expect(world.grid.ownerAt(8, 10), me.id, reason: 'katak baribir meniki');
+
+      // Endi men o'sha izning ustidan o'taman — lekin o'z hududimdan
+      // chiqmay. Aks holda izni hududimdan tashqarida kesgan bo'lardim
+      // va bu boshqa holat.
+      rival.speed = 0;
+      me.speed = 8;
+      walk(world, me, kWest, 2);
+
+      expect(me.cx, 8, reason: 'izning ustida turibman');
+      expect(
+        world.grid.ownerAt(me.cx, me.cy),
+        me.id,
+        reason: 'hali ham o\'z hududim ichidaman',
+      );
+
+      expect(rival.alive, isFalse, reason: 'izini kesdim — o\'lishi kerak');
+      expect(rival.deathCause, DeathCause.trailHit);
+      expect(me.kills, 1);
+      expect(me.alive, isTrue);
+    });
+
     test('o\'z iziga tegish raqibni o\'ldirmaydi', () {
       final world = makeWorld();
       final p = placePlayer(world, left: 8, top: 8);
