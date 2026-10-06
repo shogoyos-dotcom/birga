@@ -9,6 +9,7 @@ import 'package:color_land/game/logic/territory_capture.dart';
 import 'package:color_land/game/render/avatar_painter.dart';
 import 'package:color_land/game/render/color_land_game.dart';
 import 'package:color_land/game/render/shape_painter.dart';
+import 'package:color_land/ui/widgets/mini_map.dart';
 import 'package:color_land/game/render/palette.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,6 +87,87 @@ void main() {
       lessThan(2000),
       reason: 'kadr byudjeti 16 600 µs; mantiq uning kichik qismi bo\'lsin',
     );
+  });
+
+  test("mini-xarita chizish arzon tushadi", () {
+    final world = filledWorld();
+    const size = Size(96, 96);
+
+    var rects = 0;
+    void frame() {
+      final rec = ui.PictureRecorder();
+      rects = MiniMap.paintTerritories(
+        ui.Canvas(rec, Offset.zero & size),
+        world.grid,
+        world.colorIndexById,
+        size,
+      );
+      rec.endRecording().dispose();
+    }
+
+    frame();
+    expect(rects, greaterThan(100), reason: 'xarita bo\'sh bo\'lmasligi kerak');
+
+    const frames = 200;
+    final sw = Stopwatch()..start();
+    for (var i = 0; i < frames; i++) {
+      frame();
+    }
+    sw.stop();
+    final us = sw.elapsedMicroseconds / frames;
+
+    // Mini-xarita HUD bilan birga, sekundiga ~8 marta qayta chiziladi —
+    // ya'ni har kadrda emas. Shunga qaramay kadr byudjetiga sig'sin.
+    // ignore: avoid_print
+    print(
+      'mini-xarita: $rects to\'rtburchak, ${us.toStringAsFixed(1)} µs/chizish '
+      '(sekundiga ~8 marta)',
+    );
+    expect(us, lessThan(4000));
+  });
+
+  test("arena panjarasini chizish kadr byudjetiga sig'adi", () {
+    final world = filledWorld();
+    final visible = busiestView(world);
+    final map = Rect.fromLTWH(
+      0,
+      0,
+      world.grid.width * kCellSize,
+      world.grid.height * kCellSize,
+    );
+
+    final minorPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final majorPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+
+    var lines = 0;
+    void frame() {
+      final (minor, major) = BoardBackground.buildGridPoints(visible, map);
+      lines = (minor.length + major.length) ~/ 4;
+      final rec = ui.PictureRecorder();
+      final canvas = ui.Canvas(rec, visible);
+      canvas.drawRawPoints(ui.PointMode.lines, minor, minorPaint);
+      canvas.drawRawPoints(ui.PointMode.lines, major, majorPaint);
+      rec.endRecording().dispose();
+    }
+
+    frame();
+    expect(lines, greaterThan(50), reason: 'panjara chizilishi kerak');
+
+    const frames = 600;
+    final sw = Stopwatch()..start();
+    for (var i = 0; i < frames; i++) {
+      frame();
+    }
+    sw.stop();
+    final us = sw.elapsedMicroseconds / frames;
+
+    // ignore: avoid_print
+    print('arena panjarasi: $lines chiziq, ${us.toStringAsFixed(1)} µs/kadr');
+    expect(us, lessThan(2000));
   });
 
   test('avatarlarni chizish kadr byudjetiga sig\'adi', () {

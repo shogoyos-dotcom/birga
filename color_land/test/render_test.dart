@@ -202,7 +202,7 @@ void main() {
       reason: "0% emas, o'limdan oldingi foiz ko'rinishi kerak",
     );
     expect(game.hud.value.rank, lessThanOrEqualTo(game.hud.value.alivePlayers));
-    expect(find.text("O'yin tugadi"), findsOneWidget);
+    expect(findText("O'yin tugadi"), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

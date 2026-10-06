@@ -16,12 +16,15 @@ import 'package:color_land/i18n/l10n.dart';
 import 'package:color_land/storage/settings_store.dart';
 import 'package:color_land/ui/game_screen.dart';
 import 'package:color_land/ui/menu_screen.dart';
+import 'package:color_land/ui/theme/arcade.dart';
 import 'package:color_land/ui/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../test/widget_helpers.dart';
 
 final GlobalKey shotKey = GlobalKey();
 
@@ -69,7 +72,9 @@ Widget wrap(SettingsStore store, AppLanguage lang, Widget child) {
     controller: LanguageController(store, lang),
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+      theme: Arcade.themeData().copyWith(
+        textTheme: Arcade.themeData().textTheme.apply(fontFamily: 'Roboto'),
+      ),
       home: RepaintBoundary(key: shotKey, child: child),
     ),
   );
@@ -112,6 +117,18 @@ void main() {
     );
     await tester.pumpAndSettle();
     await saveFrame(tester, 'build/shot_menu_en.png');
+  });
+
+  testWidgets('menyu — keng ekran', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      wrap(store, AppLanguage.uz, MenuScreen(store: store)),
+    );
+    await tester.pumpAndSettle();
+    await saveFrame(tester, 'build/shot_menu_wide.png');
   });
 
   testWidgets('profil', (tester) async {
@@ -194,15 +211,18 @@ void main() {
     );
     await saveFrame(tester, 'build/shot_game.png');
 
+    // Pauza oynasi.
+    await tester.tap(find.byTooltip('Pauza'));
+    await tester.pump(frame);
+    await tester.pump(frame);
+    await saveFrame(tester, 'build/shot_pause.png');
+    await tester.tap(find.text('DAVOM ETISH'));
+    await tester.pump(frame);
+
     // Natija oynasi: o'lim o'yin tsikli ichida bo'lishi kerak, aks holda
-    // ekran o'lim haqida xabar olmaydi — shuning uchun devorga qarab
-    // yuramiz.
-    game.setSteerAngle(-math.pi / 2);
-    for (var i = 0; i < 1500 && game.sim.human.alive; i++) {
-      await tester.pump(frame);
-    }
-    // Flame o'yini doim tiklanadi, shuning uchun pumpAndSettle ishlamaydi.
-    // Natija oynasi rekordni saqlashni kutadi — bir necha kadr kerak.
+    // ekran o'lim haqida xabar olmaydi. Chegara endi o'ldirmaydi,
+    // shuning uchun o'yinchi o'z izini kesadi.
+    await dieBySelfCross(tester, game);
     for (var i = 0; i < 40; i++) {
       await tester.pump(frame);
     }

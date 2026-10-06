@@ -56,6 +56,7 @@ class AppStrings {
     required this.searchCountry,
     required this.save,
     required this.profileSaved,
+    required this.rulesShort,
     required this.noRoomToContinue,
   });
 
@@ -109,6 +110,7 @@ class AppStrings {
   final String searchCountry;
   final String save;
   final String profileSaved;
+  final String rulesShort;
   final String noRoomToContinue;
 
   String difficultyName(Difficulty d) => switch (d) {
@@ -125,6 +127,7 @@ class AppStrings {
   };
 
   static const AppStrings uz = AppStrings(
+    rulesShort: "Hududingizdan chiqing, halqa chizing va qaytib keling — ichidagi hamma narsa sizniki bo'ladi.",
     profile: 'Profil',
     nickname: 'Taxallus',
     nicknameHint: 'Ismingizni kiriting',
@@ -179,6 +182,7 @@ class AppStrings {
   );
 
   static const AppStrings en = AppStrings(
+    rulesShort: 'Leave your zone, draw a loop and come back — everything inside becomes yours.',
     profile: 'Profile',
     nickname: 'Nickname',
     nicknameHint: 'Enter your name',
@@ -233,6 +237,7 @@ class AppStrings {
   );
 
   static const AppStrings ru = AppStrings(
+    rulesShort: 'Выйдите из своей зоны, очертите петлю и вернитесь — всё внутри станет вашим.',
     profile: 'Профиль',
     nickname: 'Никнейм',
     nicknameHint: 'Введите имя',
@@ -287,6 +292,7 @@ class AppStrings {
   );
 
   static const AppStrings tr = AppStrings(
+    rulesShort: 'Bölgenden çık, bir halka çiz ve geri dön — içindeki her şey senin olur.',
     profile: 'Profil',
     nickname: 'Takma ad',
     nicknameHint: 'Adınızı girin',
@@ -341,6 +347,7 @@ class AppStrings {
   );
 
   static const AppStrings kk = AppStrings(
+    rulesShort: 'Аймағыңнан шығып, ілмек сызып қайтыңыз — ішіндегінің бәрі сіздікі болады.',
     profile: 'Профиль',
     nickname: 'Лақап ат',
     nicknameHint: 'Атыңызды енгізіңіз',

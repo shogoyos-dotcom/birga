@@ -1,7 +1,38 @@
 import 'dart:math' as math;
 
 import 'package:color_land/game/render/color_land_game.dart';
+import 'package:color_land/ui/widgets/ui_kit.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Matnni katta-kichik harfga qaramay topadi.
+///
+/// Interfeys sarlavhalarni KATTA HARFLARDA ko'rsatadi — bu dizayn
+/// qarori, testlar unga bog'lanib qolmasligi kerak.
+Finder findText(String text) {
+  final needle = text.toLowerCase();
+  return find.byWidgetPredicate(
+    (w) => w is Text && (w.data ?? '').toLowerCase() == needle,
+    description: 'matn "$text" (harf registriga qaramay)',
+  );
+}
+
+/// Tugmani yozuvi bo'yicha topadi (yozuv ekranda katta harflarda).
+Finder findButton(String label) => find.byWidgetPredicate(
+  (w) => w is GameButton && w.label == label,
+  description: 'tugma "$label"',
+);
+
+/// Tugmani yozuvining bir qismi bo'yicha topadi.
+Finder findButtonContaining(String part) => find.byWidgetPredicate(
+  (w) => w is GameButton && w.label.contains(part),
+  description: 'tugma, yozuvida "$part"',
+);
+
+Future<void> tapButton(WidgetTester tester, String label) async {
+  await tester.tap(findButton(label));
+  await tester.pumpAndSettle();
+}
 
 /// O'yinchini o'z izini kesishga majbur qiladi.
 ///

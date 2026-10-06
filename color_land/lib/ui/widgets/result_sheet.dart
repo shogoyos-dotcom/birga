@@ -4,6 +4,7 @@ import '../../game/logic/game_events.dart';
 import '../../game/render/hud_snapshot.dart';
 import '../../game/render/palette.dart';
 import '../../i18n/l10n.dart';
+import '../theme/arcade.dart';
 import 'ui_kit.dart';
 
 /// O'yin tugaganda chiqadigan natija oynasi.
@@ -42,59 +43,64 @@ class ResultSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
+    final accent = Palette.head(colorIndex);
     return GamePanel(
+      accent: Arcade.coral,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            t.gameOver,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 4),
+          Text(t.gameOver.toUpperCase(), style: Arcade.title),
+          const SizedBox(height: 6),
           Text(
             t.deathReason(deathCause),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+            style: Arcade.body.copyWith(fontSize: 13),
           ),
           if (isRecord) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF4CC),
-                borderRadius: BorderRadius.circular(999),
+                color: Arcade.gold.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(Arcade.radiusPill),
+                border: Border.all(color: Arcade.gold.withValues(alpha: 0.5)),
               ),
               child: Text(
-                '⭐  ${t.newRecord}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF8A6D00),
-                ),
+                '★  ${t.newRecord.toUpperCase()}',
+                style: Arcade.section.copyWith(color: Arcade.gold),
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          StatRow(
-            label: t.territory,
-            value: '${snapshot.percent.toStringAsFixed(2)}%',
-            highlight: true,
+          const SizedBox(height: 20),
+
+          // Asosiy natija — eng katta raqam.
+          Row(
+            children: [
+              Expanded(
+                child: StatTile(
+                  value: '${snapshot.percent.toStringAsFixed(2)}%',
+                  label: t.territory,
+                  color: accent,
+                ),
+              ),
+              Expanded(
+                child: StatTile(
+                  value: '${snapshot.kills}',
+                  label: t.kills,
+                  color: Arcade.coral,
+                ),
+              ),
+            ],
           ),
-          StatRow(label: t.kills, value: '${snapshot.kills}'),
+          const SizedBox(height: 16),
+          Container(height: 1, color: Arcade.stroke),
           StatRow(label: t.time, value: snapshot.formattedTime),
           StatRow(label: t.record, value: '${bestPercent.toStringAsFixed(2)}%'),
           const SizedBox(height: 18),
 
           // Davom etish: belet yoki reklama.
-          Text(
-            t.continueGame,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.8,
-              color: Color(0xFF9AA3B2),
-            ),
-          ),
-          const SizedBox(height: 10),
+          SectionLabel(t.continueGame),
           Row(
             children: [
               Expanded(
@@ -102,24 +108,24 @@ class ResultSheet extends StatelessWidget {
                     ? GameButton(
                         label: '${t.withTicket} ($tickets)',
                         icon: Icons.confirmation_number_rounded,
-                        color: Palette.head(colorIndex),
+                        color: accent,
                         onPressed: onContinueWithTicket,
                       )
                     : GameButton(
                         label: t.buyTickets,
                         icon: Icons.shopping_bag_rounded,
-                        color: Palette.head(colorIndex),
+                        color: accent,
                         onPressed: onOpenShop,
                       ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: GameButton(
+                  // Reklama tayyor bo'lmasa ham bosiladi: o'yinchi
+                  // sababini bilsin (tugma "o'lik" bo'lib qolmaydi).
                   label: t.watchAd,
                   icon: Icons.play_circle_fill_rounded,
-                  color: adReady
-                      ? const Color(0xFF14C38E)
-                      : const Color(0xFF9AA3B2),
+                  color: adReady ? Arcade.mint : Arcade.textFaint,
                   onPressed: onContinueWithAd,
                 ),
               ),
@@ -130,14 +136,15 @@ class ResultSheet extends StatelessWidget {
           GameButton(
             label: t.playAgain,
             icon: Icons.refresh_rounded,
-            color: const Color(0xFF4B5563),
+            kind: ButtonKind.ghost,
+            color: Arcade.coral,
             onPressed: onPlayAgain,
           ),
           const SizedBox(height: 10),
           GameButton(
             label: t.menu,
             icon: Icons.home_rounded,
-            color: const Color(0xFF6B7280),
+            kind: ButtonKind.ghost,
             onPressed: onMenu,
           ),
         ],

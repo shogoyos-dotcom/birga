@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../game/render/palette.dart';
 import '../../i18n/l10n.dart';
 import '../../services/continue_services.dart';
+import '../theme/arcade.dart';
 import 'ui_kit.dart';
 
 /// Belet sotib olish oynasi.
@@ -64,18 +65,17 @@ class _ShopSheetState extends State<ShopSheet> {
     final packs = _packs;
 
     return GamePanel(
+      accent: Arcade.gold,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            t.shop,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 4),
+          Text(t.shop.toUpperCase(), style: Arcade.title),
+          const SizedBox(height: 6),
           Text(
             t.demoPurchaseNote,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF9AA3B2)),
+            style: Arcade.body.copyWith(fontSize: 12),
           ),
           const SizedBox(height: 16),
           if (packs == null)
@@ -97,7 +97,9 @@ class _ShopSheetState extends State<ShopSheet> {
           const SizedBox(height: 8),
           GameButton(
             label: t.close,
-            color: const Color(0xFF6B7280),
+            kind: ButtonKind.ghost,
+            // Xarid ketayotganda oyna yopilmasin.
+            enabled: _busyId == null,
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -124,19 +126,22 @@ class _PackRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: pack.bestValue ? accent.withValues(alpha: 0.12) : Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      color: pack.bestValue ? accent.withValues(alpha: 0.16) : Arcade.surface,
+      borderRadius: BorderRadius.circular(Arcade.radiusSmall + 2),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall + 2),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Arcade.radiusSmall + 2),
             border: Border.all(
-              color: pack.bestValue ? accent : const Color(0xFFE5E7EB),
+              color: pack.bestValue ? accent : Arcade.stroke,
               width: pack.bestValue ? 2 : 1,
             ),
+            boxShadow: pack.bestValue
+                ? Arcade.glow(accent, strength: 0.6)
+                : null,
           ),
           child: Row(
             children: [
@@ -148,6 +153,7 @@ class _PackRow extends StatelessWidget {
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 16,
+                    color: Arcade.text,
                   ),
                 ),
               ),
@@ -160,7 +166,7 @@ class _PackRow extends StatelessWidget {
               else
                 Text(
                   pack.price,
-                  style: TextStyle(fontWeight: FontWeight.w900, color: accent),
+                  style: Arcade.numberSmall.copyWith(color: accent),
                 ),
             ],
           ),

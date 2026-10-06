@@ -20,7 +20,7 @@ Hamma narsa kod bilan chiziladi, tashqi rasm fayllari ishlatilmaydi.
 ```bash
 flutter pub get
 flutter run              # qurilma yoki emulyatorda
-flutter test             # 39 ta test
+flutter test             # 102 ta test
 flutter analyze
 ```
 
@@ -37,6 +37,7 @@ lib/
       player_profile.dart     taxallus va avatar (emoji / odam / bayroq)
       match.dart              o'yinchi + botlardan o'yin yig'ish
     render/       # Flame komponentlari, keshlangan chizish
+      game_theme.dart         arena uslublari (fon, panjara, ranglar)
       shape_painter.dart      hudud konturi + ui.Picture keshi
       contour.dart            chegarani topish, soddalashtirish, silliqlash
       avatar_painter.dart     avatarni tuvalga chizish
@@ -45,13 +46,43 @@ lib/
     countries.dart            ISO 3166-1: 249 davlat va bayrog'i
   i18n/           # 5 til: uz, en, ru, tr, kk
   storage/        # shared_preferences (rekord, rang, qiyinlik, til, profil)
-  ui/             # menyu, profil, o'yin ekrani, HUD, natija oynasi
+  ui/
+    theme/arcade.dart         dizayn tizimi: ranglar, tipografika, o'lchamlar
+    widgets/ui_kit.dart       tugma, panel, chip, stat — umumiy komponentlar
+    widgets/mini_map.dart     butun xaritaning kichik ko'rinishi
+    widgets/game_hud.dart     foiz, vaqt, reyting, pauza
+    menu_screen.dart          bosh menyu
+    profile_screen.dart       taxallus va avatar
+    game_screen.dart          o'yin, pauza va natija oynalari
 test/             # flood fill, o'lim qoidalari, bot AI, rendering, tezlik
 tool/             # skrinshot va ikonka generatorlari (test sifatida ishlaydi)
 ```
 
 Mantiq rendering'dan to'liq ajratilgan: `lib/game/logic/` ichidagi hech bir
 fayl Flutter yoki Flame'ni import qilmaydi.
+
+## Dizayn: "Arcade Grid"
+
+Butun interfeys bitta dizayn tizimidan quriladi — `lib/ui/theme/arcade.dart`:
+
+- Fon `#100E1B`, panel `#1A1728`, chiziq `#2E2946`.
+- Asosiy aksent — elektr ko'k `#3D7BFF`, ikkinchisi — korall `#FF6B5B`.
+- Sarlavhalar va tugma yozuvlari KATTA HARFLARDA, siyrak oraliq bilan;
+  muhim raqamlar yirik va qalin, `tabularFigures` bilan (raqam
+  o'zgarganda kenglik sakramaydi).
+- Tugmalarning holatlari aniq: oddiy, hover, bosilgan (pastga suriladi,
+  "qalinligi" yo'qoladi) va o'chirilgan.
+
+Arena — ekrandagi eng katta element. Yuzasi aniq panjaraga bo'lingan
+(har katakda ingichka chiziq, har beshinchisida yo'g'onroq), chekkasi
+neon chiziq bilan belgilangan. HUD chekkalarga surilgan: yuqori chapda
+foiz va chiziq, yuqori o'ngda pauza va tor reyting, pastki chap burchakda
+mini-xarita. Arenaning o'rtasi hech narsa bilan to'silmaydi.
+
+Interfeys ranglari uslub tanlashga bog'liq emas — menyu, profil va HUD
+hamma uslubda bir xil to'q ko'rinishda. Uslub tanlash faqat **arena**
+ko'rinishini o'zgartiradi (fon, panjara, o'yinchi ranglari, qalinlik):
+Arcade (standart), Neon, Tungi, Yorqin, Pastel.
 
 ## Profil
 
@@ -81,11 +112,24 @@ sifatida bir marta `ui.Picture` ga yoziladi va faqat o'sha hudud
 o'zgarganda qayta yoziladi; ekranga tushmagan hududlar umuman
 chizilmaydi.
 
+Kadr byudjeti 60 FPS da 16 600 µs. Oxirgi o'lchov (250x250 xarita,
+15 ta o'yinchi, maydonning 30% i egallangan):
+
+| Ish | Narxi |
+| --- | --- |
+| Mantiq (10 o'yinchi) | 7 µs/kadr |
+| Keshlangan hududlarni chizish | 19 µs/kadr |
+| Arena panjarasi (121 chiziq) | 35 µs/kadr |
+| Avatarlar (15 ta, eng yomon holat) | 84 µs/kadr |
+| Mini-xarita (441 to'rtburchak) | 289 µs, sekundiga ~8 marta |
+| Bitta hudud shaklini qayta yozish | 491 µs, kadrda ~0.01 marta |
+
 ## Yordamchi vositalar
 
 ```bash
 flutter test tool/icon_test.dart        # ikonkalar + Play materiallari
 flutter test tool/screenshot_test.dart  # build/shot_*.png skrinshotlar
+flutter test tool/themes_test.dart      # build/theme_*.png — har uslub
 ```
 
 ## Reklama va xaridlar

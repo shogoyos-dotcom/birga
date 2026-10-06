@@ -14,6 +14,7 @@ import '../storage/settings_store.dart';
 import 'widgets/game_hud.dart';
 import 'widgets/result_sheet.dart';
 import 'widgets/shop_sheet.dart';
+import 'theme/arcade.dart';
 import 'widgets/ui_kit.dart';
 
 /// O'yin ekrani: Flame tuvali + ustidan Flutter UI.
@@ -244,6 +245,7 @@ class GameScreenState extends State<GameScreen> {
               snapshot: snapshot,
               colorIndex: widget.colorIndex,
               onPause: _togglePause,
+              game: _game,
             ),
           ),
           if (_showHint && !_showResult)
@@ -252,19 +254,34 @@ class GameScreenState extends State<GameScreen> {
               child: IgnorePointer(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
+                    horizontal: 18,
+                    vertical: 11,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    t.dragToMove,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF374151),
+                    color: Arcade.panel.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(Arcade.radius),
+                    border: Border.all(
+                      color: Arcade.blue.withValues(alpha: 0.5),
                     ),
+                    boxShadow: Arcade.glow(Arcade.blue, strength: 0.7),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.touch_app_rounded,
+                        size: 18,
+                        color: Arcade.blueBright,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        t.dragToMove,
+                        style: Arcade.body.copyWith(
+                          color: Arcade.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -272,17 +289,34 @@ class GameScreenState extends State<GameScreen> {
           if (_showPause)
             _Overlay(
               child: GamePanel(
+                accent: Palette.head(widget.colorIndex),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      t.pause,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Text(t.pause.toUpperCase(), style: Arcade.title),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: StatTile(
+                            value:
+                                '${_game.hud.value.percent.toStringAsFixed(2)}%',
+                            label: t.territory,
+                            color: Palette.head(widget.colorIndex),
+                            compact: true,
+                          ),
+                        ),
+                        Expanded(
+                          child: StatTile(
+                            value: _game.hud.value.formattedTime,
+                            label: t.time,
+                            compact: true,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 20),
                     GameButton(
                       label: t.resume,
                       icon: Icons.play_arrow_rounded,
@@ -293,7 +327,7 @@ class GameScreenState extends State<GameScreen> {
                     GameButton(
                       label: t.menu,
                       icon: Icons.home_rounded,
-                      color: const Color(0xFF6B7280),
+                      kind: ButtonKind.ghost,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -332,7 +366,7 @@ class _Overlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: ColoredBox(
-        color: const Color(0x8C101828),
+        color: Arcade.scrim,
         child: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),

@@ -6,6 +6,7 @@ import 'i18n/app_language.dart';
 import 'i18n/l10n.dart';
 import 'storage/settings_store.dart';
 import 'ui/menu_screen.dart';
+import 'ui/theme/arcade.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,11 +61,7 @@ class _ColorLandAppState extends State<ColorLandApp> {
           title: 'Color Land',
           debugShowCheckedModeBanner: false,
           locale: _language.language.locale,
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(seedColor: Palette.heads.first),
-            scaffoldBackgroundColor: Palette.background,
-          ),
+          theme: Arcade.themeData(),
           home: MenuScreen(store: widget.store),
         ),
       ),

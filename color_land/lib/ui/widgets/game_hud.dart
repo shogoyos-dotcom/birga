@@ -1,169 +1,221 @@
 import 'package:flutter/material.dart';
 
+import '../../game/render/color_land_game.dart';
 import '../../game/render/hud_snapshot.dart';
 import '../../game/render/palette.dart';
-import 'avatar_view.dart';
 import '../../i18n/l10n.dart';
+import '../theme/arcade.dart';
+import 'avatar_view.dart';
+import 'mini_map.dart';
 
-/// O'yin ustidagi ma'lumot paneli: foiz, vaqt va top-5 reyting.
+/// O'yin ustidagi ma'lumot qatlami.
+///
+/// Joylashuv ataylab chekkalarga surilgan: yuqorida bitta ixcham qator
+/// (foiz, vaqt, o'ldirishlar, pauza), o'ng tomonda tor reyting, pastki
+/// chap burchakda mini-xarita. Arenaning o'rtasi — eng muhim joy —
+/// hech narsa bilan to'silmaydi.
 class GameHud extends StatelessWidget {
   const GameHud({
     super.key,
     required this.snapshot,
     required this.colorIndex,
     required this.onPause,
+    this.game,
   });
 
   final HudSnapshot snapshot;
   final int colorIndex;
   final VoidCallback onPause;
 
+  /// Mini-xarita uchun. Berilmasa xarita ko'rsatilmaydi.
+  final ColorLandGame? game;
+
   @override
   Widget build(BuildContext context) {
     final t = L10n.of(context);
+    final accent = Palette.head(colorIndex);
+
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-        // Reyting maydonni to'smasligi uchun o'ng burchakka, tor ustunga
-        // joylashtirilgan; chap tomonda esa o'yinchining o'z raqamlari.
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
+      child: Stack(
+        children: [
+          // Yuqori qator.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PercentBadge(
-                  percent: snapshot.percent,
-                  colorIndex: colorIndex,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ScoreBar(percent: snapshot.percent, accent: accent),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _Pill(
+                            icon: Icons.timer_outlined,
+                            text: snapshot.formattedTime,
+                          ),
+                          const SizedBox(width: 6),
+                          _Pill(
+                            icon: Icons.bolt_rounded,
+                            text: '${snapshot.kills}',
+                            color: Arcade.coral,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Row(
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    _Pill(
-                      icon: Icons.timer_outlined,
-                      text: snapshot.formattedTime,
+                    _SquareButton(
+                      icon: Icons.pause_rounded,
+                      onTap: onPause,
+                      tooltip: t.pause,
                     ),
-                    const SizedBox(width: 6),
-                    _Pill(icon: Icons.bolt_rounded, text: '${snapshot.kills}'),
+                    const SizedBox(height: 8),
+                    _Leaderboard(
+                      title: t.leaderboard,
+                      rows: snapshot.top,
+                      rank: snapshot.rank,
+                      alive: snapshot.alivePlayers,
+                    ),
                   ],
                 ),
               ],
             ),
-            const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _IconButtonSquare(icon: Icons.pause_rounded, onTap: onPause),
-                const SizedBox(height: 8),
-                _Leaderboard(
-                  title: t.leaderboard,
-                  rows: snapshot.top,
-                  rank: snapshot.rank,
-                  alive: snapshot.alivePlayers,
-                ),
-              ],
+          ),
+          // Mini-xarita — pastki chap burchak, boshqaruvga xalaqit bermaydi.
+          if (game != null)
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 0, 14),
+                child: IgnorePointer(child: MiniMap(game: game!)),
+              ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _PercentBadge extends StatelessWidget {
-  const _PercentBadge({required this.percent, required this.colorIndex});
+/// Egallangan foiz: yirik raqam va ostida to'ldiruvchi chiziq.
+class _ScoreBar extends StatelessWidget {
+  const _ScoreBar({required this.percent, required this.accent});
 
   final double percent;
-  final int colorIndex;
+  final Color accent;
+
+  /// Chiziq to'lishi uchun mo'ljal — amalda 20% ham katta natija.
+  static const double fullAt = 25;
 
   @override
   Widget build(BuildContext context) {
+    final fill = (percent / fullAt).clamp(0.0, 1.0);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
       decoration: BoxDecoration(
-        color: Palette.head(colorIndex),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Palette.territory(colorIndex),
-            offset: const Offset(0, 3),
+        color: Arcade.panel.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall + 2),
+        border: Border.all(color: Arcade.stroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${percent.toStringAsFixed(2)}%',
+            style: Arcade.number.copyWith(fontSize: 26, color: accent),
+          ),
+          const SizedBox(height: 7),
+          SizedBox(
+            width: 112,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: Stack(
+                children: [
+                  Container(height: 5, color: Arcade.surface),
+                  FractionallySizedBox(
+                    widthFactor: fill,
+                    child: Container(
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        boxShadow: Arcade.glow(accent, strength: 0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
-      ),
-      child: Text(
-        '${percent.toStringAsFixed(2)}%',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 19,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.icon, required this.text});
+  const _Pill({required this.icon, required this.text, this.color});
 
   final IconData icon;
   final String text;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Palette.isDark
-            ? const Color(0xD91B2133)
-            : Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(12),
+        color: Arcade.panel.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+        border: Border.all(color: Arcade.stroke),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: Palette.isDark
-                ? const Color(0xFFB4BCC9)
-                : const Color(0xFF4B5563),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: Palette.isDark
-                  ? const Color(0xFFF2F4F8)
-                  : const Color(0xFF1F2937),
-            ),
-          ),
+          Icon(icon, size: 15, color: color ?? Arcade.textDim),
+          const SizedBox(width: 5),
+          Text(text, style: Arcade.numberSmall),
         ],
       ),
     );
   }
 }
 
-class _IconButtonSquare extends StatelessWidget {
-  const _IconButtonSquare({required this.icon, required this.onTap});
+class _SquareButton extends StatelessWidget {
+  const _SquareButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Palette.isDark
-          ? const Color(0xD91B2133)
-          : Colors.white.withValues(alpha: 0.94),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.all(8),
-          child: Icon(Icons.pause_rounded, size: 20, color: Color(0xFF1F2937)),
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Arcade.panel.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Arcade.radiusSmall),
+              border: Border.all(color: Arcade.stroke),
+            ),
+            child: Icon(icon, size: 20, color: Arcade.text),
+          ),
         ),
       ),
     );
@@ -183,8 +235,8 @@ class _Leaderboard extends StatelessWidget {
   final int rank;
   final int alive;
 
-  /// Tor ustun — maydonning ko'p qismi ochiq qoladi.
-  static const double width = 150;
+  /// Tor ustun — arenaning ko'p qismi ochiq qoladi.
+  static const double width = 152;
 
   @override
   Widget build(BuildContext context) {
@@ -192,12 +244,11 @@ class _Leaderboard extends StatelessWidget {
     return SizedBox(
       width: width,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
         decoration: BoxDecoration(
-          color: Palette.isDark
-              ? const Color(0xD91B2133)
-              : Colors.white.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(12),
+          color: Arcade.panel.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(Arcade.radiusSmall + 2),
+          border: Border.all(color: Arcade.stroke),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,25 +258,23 @@ class _Leaderboard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 9,
-                      letterSpacing: 1,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF9AA3B2),
-                    ),
+                    style: Arcade.section.copyWith(fontSize: 9),
                   ),
                 ),
                 Text(
                   '$rank/$alive',
-                  style: const TextStyle(
+                  style: Arcade.section.copyWith(
                     fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF6B7280),
+                    color: Arcade.blueBright,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 3),
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              color: Arcade.stroke,
+            ),
             for (var i = 0; i < rows.length; i++) _row(i + 1, rows[i]),
           ],
         ),
@@ -235,26 +284,26 @@ class _Leaderboard extends StatelessWidget {
 
   Widget _row(int place, ScoreRow r) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.5),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           SizedBox(
-            width: 11,
+            width: 10,
             child: Text(
               '$place',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFFB4BCC9),
+                color: r.isHuman ? Arcade.blueBright : Arcade.textFaint,
               ),
             ),
           ),
           Container(
-            width: 9,
-            height: 9,
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
               color: Palette.head(r.colorIndex),
-              borderRadius: BorderRadius.circular(2.5),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 4),
@@ -267,24 +316,15 @@ class _Leaderboard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: r.isHuman ? FontWeight.w900 : FontWeight.w600,
-                color: Palette.isDark
-                    ? (r.isHuman
-                          ? const Color(0xFFFFFFFF)
-                          : const Color(0xFFC3CAD6))
-                    : (r.isHuman
-                          ? const Color(0xFF111827)
-                          : const Color(0xFF4B5563)),
+                color: r.isHuman ? Arcade.text : Arcade.textDim,
               ),
             ),
           ),
           Text(
             '${r.percent.toStringAsFixed(1)}%',
-            style: TextStyle(
+            style: Arcade.numberSmall.copyWith(
               fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Palette.isDark
-                  ? const Color(0xFFE4E8EF)
-                  : const Color(0xFF374151),
+              color: r.isHuman ? Arcade.text : Arcade.textDim,
             ),
           ),
         ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../game/logic/player_profile.dart';
 import '../../game/render/avatar_painter.dart';
+import '../theme/arcade.dart';
 
 /// Avatarni interfeysda ko'rsatadi.
 ///
@@ -79,21 +80,20 @@ class AvatarChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ?? const Color(0xFF2E7BFF);
+    final color = accent ?? Arcade.blue;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.16)
-              : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(14),
+          color: selected ? color.withValues(alpha: 0.18) : Arcade.surface,
+          borderRadius: BorderRadius.circular(Arcade.radiusSmall + 2),
           border: Border.all(
-            color: selected ? color : Colors.transparent,
-            width: 2.5,
+            color: selected ? color : Arcade.stroke,
+            width: selected ? 2.5 : 1,
           ),
+          boxShadow: selected ? Arcade.glow(color, strength: 0.6) : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -112,7 +112,7 @@ class AvatarChip extends StatelessWidget {
                     fontSize: 9,
                     height: 1.1,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B7280),
+                    color: Arcade.textDim,
                   ),
                 ),
               ),

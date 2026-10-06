@@ -66,15 +66,15 @@ void main() {
 
     await die(tester, screen);
     expect(screen.gameForTest.sim.human.alive, isFalse);
-    expect(find.text("O'yin tugadi"), findsOneWidget);
+    expect(findText("O'yin tugadi"), findsOneWidget);
 
-    await tester.tap(find.textContaining('Belet bilan'));
+    await tester.tap(findButtonContaining('Belet bilan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(screen.gameForTest.sim.human.alive, isTrue, reason: 'tirildi');
     expect(store.tickets, 1, reason: 'bitta belet sarflandi');
-    expect(find.text("O'yin tugadi"), findsNothing);
+    expect(findText("O'yin tugadi"), findsNothing);
   });
 
   testWidgets('belet qolmasa do\'kon ochiladi', (tester) async {
@@ -84,11 +84,11 @@ void main() {
 
     await die(tester, screen);
     // Belet yo'q — tugma "Belet sotib olish" bo'lib turadi.
-    await tester.tap(find.text('Belet sotib olish'));
+    await tester.tap(findButton('Belet sotib olish'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text("Do'kon"), findsOneWidget);
+    expect(findText("Do'kon"), findsOneWidget);
     expect(
       screen.gameForTest.sim.human.alive,
       isFalse,
@@ -105,7 +105,7 @@ void main() {
     final screen = await startGame(tester, store, ads: ads);
 
     await die(tester, screen);
-    await tester.tap(find.text("Reklama ko'rish"));
+    await tester.tap(findButton("Reklama ko'rish"));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -121,13 +121,13 @@ void main() {
     final screen = await startGame(tester, store, ads: ads);
 
     await die(tester, screen);
-    await tester.tap(find.text("Reklama ko'rish"));
+    await tester.tap(findButton("Reklama ko'rish"));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(ads.shownCount, 1);
     expect(screen.gameForTest.sim.human.alive, isFalse);
-    expect(find.text("O'yin tugadi"), findsOneWidget);
+    expect(findText("O'yin tugadi"), findsOneWidget);
   });
 
   testWidgets('reklama tayyor bo\'lmasa xabar chiqadi', (tester) async {
@@ -137,7 +137,7 @@ void main() {
     final screen = await startGame(tester, store, ads: ads);
 
     await die(tester, screen);
-    await tester.tap(find.text("Reklama ko'rish"));
+    await tester.tap(findButton("Reklama ko'rish"));
     await tester.pump();
 
     expect(ads.shownCount, 0);

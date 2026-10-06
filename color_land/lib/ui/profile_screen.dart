@@ -6,6 +6,7 @@ import '../game/logic/player_profile.dart';
 import '../game/render/palette.dart';
 import '../i18n/l10n.dart';
 import '../storage/settings_store.dart';
+import 'theme/arcade.dart';
 import 'widgets/avatar_view.dart';
 import 'widgets/ui_kit.dart';
 
@@ -73,7 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final accent = Palette.head(widget.colorIndex);
 
     return Scaffold(
-      backgroundColor: Palette.background,
+      backgroundColor: Arcade.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -85,22 +86,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.arrow_back_rounded),
-                    color: Palette.isDark
-                        ? Colors.white
-                        : const Color(0xFF1F2937),
+                    color: Arcade.text,
                     tooltip: t.back,
                   ),
                   Expanded(
-                    child: Text(
-                      t.profile,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Palette.isDark
-                            ? Colors.white
-                            : const Color(0xFF1F2937),
-                      ),
-                    ),
+                    child: Text(t.profile.toUpperCase(), style: Arcade.title),
                   ),
                 ],
               ),
@@ -116,11 +106,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Palette.territory(widget.colorIndex),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: accent, width: 3),
+                            color: Arcade.surface,
+                            borderRadius: BorderRadius.circular(Arcade.radius),
+                            border: Border.all(color: accent, width: 2.5),
+                            boxShadow: Arcade.glow(accent, strength: 0.7),
                           ),
-                          child: AvatarView(avatar: _avatar, size: 60),
+                          child: AvatarView(avatar: _avatar, size: 56),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -135,18 +126,39 @@ class _ProfileScreenState extends State<ProfileScreen>
                             style: const TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF1F2937),
+                              color: Arcade.text,
                             ),
                             decoration: InputDecoration(
-                              labelText: t.nickname,
+                              labelText: t.nickname.toUpperCase(),
+                              labelStyle: Arcade.section,
                               hintText: t.nicknameHint,
+                              hintStyle: Arcade.body.copyWith(
+                                color: Arcade.textFaint,
+                              ),
                               counterText: '',
                               isDense: true,
+                              filled: true,
+                              fillColor: Arcade.surface,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(
+                                  Arcade.radiusSmall + 2,
+                                ),
+                                borderSide: const BorderSide(
+                                  color: Arcade.stroke,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  Arcade.radiusSmall + 2,
+                                ),
+                                borderSide: const BorderSide(
+                                  color: Arcade.stroke,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(
+                                  Arcade.radiusSmall + 2,
+                                ),
                                 borderSide: BorderSide(color: accent, width: 2),
                               ),
                             ),
@@ -156,18 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Text(
-                    t.avatarLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                      color: Palette.isDark
-                          ? const Color(0xFFBFC7D5)
-                          : const Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  SectionLabel(t.avatarLabel),
                   GamePanel(
                     padding: const EdgeInsets.fromLTRB(10, 6, 10, 12),
                     child: Column(
@@ -176,7 +177,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                           controller: _tabs,
                           labelColor: accent,
                           indicatorColor: accent,
-                          unselectedLabelColor: const Color(0xFF9CA3AF),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Arcade.stroke,
+                          unselectedLabelColor: Arcade.textFaint,
                           labelStyle: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
@@ -253,11 +256,18 @@ class _ProfileScreenState extends State<ProfileScreen>
         TextField(
           controller: _search,
           onChanged: (v) => setState(() => _query = v),
-          style: const TextStyle(fontSize: 15, color: Color(0xFF1F2937)),
+          style: const TextStyle(fontSize: 15, color: Arcade.text),
           decoration: InputDecoration(
             hintText: searchLabel,
+            hintStyle: Arcade.body.copyWith(color: Arcade.textFaint),
             isDense: true,
-            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            filled: true,
+            fillColor: Arcade.surface,
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              size: 20,
+              color: Arcade.textFaint,
+            ),
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(
@@ -274,14 +284,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         // 249 bayroq — ro'yxat baland bo'lmasligi uchun o'z ichida
         // aylantiriladi.
         SizedBox(
-          height: 260,
+          height: 250,
           child: GridView.builder(
             padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
               mainAxisSpacing: 8,
               crossAxisSpacing: 8,
-              childAspectRatio: 1.15,
+              childAspectRatio: 1.35,
             ),
             itemCount: list.length,
             itemBuilder: (_, i) {

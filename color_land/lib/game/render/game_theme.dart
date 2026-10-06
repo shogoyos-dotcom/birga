@@ -11,6 +11,8 @@ class GameTheme {
     required this.background,
     required this.outside,
     required this.mapBorder,
+    required this.gridLine,
+    required this.gridMajor,
     required this.heads,
     required this.territoryShade,
     required this.trailShade,
@@ -31,6 +33,12 @@ class GameTheme {
   final Color outside;
 
   final Color mapBorder;
+
+  /// Arena panjarasining ingichka chizig'i (har katakda).
+  final Color gridLine;
+
+  /// Har beshinchi katakdagi yo'g'onroq chiziq — masshtab sezilsin.
+  final Color gridMajor;
 
   /// O'yinchilarning asosiy ranglari.
   final List<Color> heads;
@@ -107,6 +115,44 @@ class GameTheme {
     Color(0xFF5BE9FF),
   ];
 
+  /// Arcade uslubi uchun ranglar: elektr ko'k va korall atrofida.
+  static const List<Color> _arcade = <Color>[
+    Color(0xFF3D7BFF), // elektr ko'k — o'yinchi uchun birinchi rang
+    Color(0xFFFF6B5B), // korall
+    Color(0xFF2FD6A6),
+    Color(0xFFFFC43D),
+    Color(0xFF9B6BFF),
+    Color(0xFF22D3EE),
+    Color(0xFFFF5CA8),
+    Color(0xFFA3E635),
+    Color(0xFF6D8BFF),
+    Color(0xFFFF8A4C),
+    Color(0xFF34D399),
+    Color(0xFFE879F9),
+    Color(0xFF4CC9F0),
+    Color(0xFFFFD166),
+    Color(0xFFF2545B),
+    Color(0xFF7DD3FC),
+  ];
+
+  /// Asosiy uslub: arcade kabinet — to'q binafsha-qora arena,
+  /// aniq panjara, elektr ko'k va korall aksentlar.
+  static const GameTheme arcade = GameTheme(
+    id: 'arcade',
+    name: 'Arcade',
+    background: Color(0xFF171329),
+    outside: Color(0xFF0B0914),
+    mapBorder: Color(0xFF3D7BFF),
+    gridLine: Color(0x14FFFFFF),
+    gridMajor: Color(0x2E6FA3FF),
+    heads: _arcade,
+    territoryShade: -0.08,
+    trailShade: 0.28,
+    sideShade: -0.5,
+    depthFactor: 0.62,
+    dark: true,
+  );
+
   /// 1-variant: hozirgi yorqin uslub, ochiq fon.
   static const GameTheme bright = GameTheme(
     id: 'bright',
@@ -114,6 +160,8 @@ class GameTheme {
     background: Color(0xFFF2F4F8),
     outside: Color(0xFFDFE4EC),
     mapBorder: Color(0xFF3A4256),
+    gridLine: Color(0x0F101828),
+    gridMajor: Color(0x241B2A4A),
     heads: _bright,
     territoryShade: -0.14,
     trailShade: 0.34,
@@ -129,6 +177,8 @@ class GameTheme {
     background: Color(0xFFFBF7F0),
     outside: Color(0xFFEDE5D8),
     mapBorder: Color(0xFF8A7F6E),
+    gridLine: Color(0x0D6B5B43),
+    gridMajor: Color(0x1F8A7F6E),
     heads: _pastel,
     territoryShade: -0.08,
     trailShade: 0.30,
@@ -144,6 +194,8 @@ class GameTheme {
     background: Color(0xFF1B2133),
     outside: Color(0xFF111624),
     mapBorder: Color(0xFF3D4760),
+    gridLine: Color(0x12FFFFFF),
+    gridMajor: Color(0x2A6E8ACF),
     heads: _bright,
     territoryShade: -0.06,
     trailShade: 0.26,
@@ -159,6 +211,8 @@ class GameTheme {
     background: Color(0xFF0B0E17),
     outside: Color(0xFF05070D),
     mapBorder: Color(0xFF2A3350),
+    gridLine: Color(0x14FFFFFF),
+    gridMajor: Color(0x332BD9FF),
     heads: _neon,
     territoryShade: -0.10,
     trailShade: 0.22,
@@ -167,8 +221,17 @@ class GameTheme {
     dark: true,
   );
 
-  static const List<GameTheme> all = <GameTheme>[bright, pastel, night, neon];
+  static const List<GameTheme> all = <GameTheme>[
+    arcade,
+    neon,
+    night,
+    bright,
+    pastel,
+  ];
+
+  /// Standart uslub.
+  static const GameTheme fallback = arcade;
 
   static GameTheme byId(String? id) =>
-      all.firstWhere((t) => t.id == id, orElse: () => bright);
+      all.firstWhere((t) => t.id == id, orElse: () => fallback);
 }

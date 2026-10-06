@@ -8,7 +8,7 @@ import 'game_theme.dart';
 class Palette {
   Palette._();
 
-  static GameTheme _theme = GameTheme.bright;
+  static GameTheme _theme = GameTheme.fallback;
 
   static GameTheme get theme => _theme;
 
@@ -53,8 +53,9 @@ class Palette {
   static Color get background => _theme.background;
   static Color get outside => _theme.outside;
   static Color get mapBorder => _theme.mapBorder;
+  static Color get gridLine => _theme.gridLine;
+  static Color get gridMajor => _theme.gridMajor;
   static double get depthFactor => _theme.depthFactor;
-  static bool get isDark => _theme.dark;
 
   static List<Color> get heads => _theme.heads;
   static int get colorCount => _theme.heads.length;

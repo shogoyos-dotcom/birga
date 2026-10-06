@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'widget_helpers.dart';
+
 Future<SettingsStore> storeWith(Map<String, Object> values) async {
   SharedPreferences.setMockInitialValues(values);
   return SettingsStore.load();
@@ -63,7 +65,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '  Alisher  ');
-    await tester.tap(find.text('Saqlash'));
+    await tester.tap(findButton('Saqlash'));
     await tester.pumpAndSettle();
 
     // Probellar olinadi va menyuga qaytiladi.
@@ -79,7 +81,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '   ');
-    await tester.tap(find.text('Saqlash'));
+    await tester.tap(findButton('Saqlash'));
     await tester.pumpAndSettle();
 
     expect(store.nickname, 'Siz');

@@ -206,15 +206,32 @@ class ColorLandGame extends FlameGame {
   }
 }
 
-/// Fon: ochiq rang, mayin panjara chiziqlari va xarita chegarasi.
+/// Arena foni: tekis yuza, aniq panjara va neon chegara.
+///
+/// Panjara chiziqlari bitta `drawRawPoints` chaqiruvida chiziladi —
+/// ekranda ~130 ta chiziq bo'lsa ham bitta chizish amali bo'ladi.
 class BoardBackground extends Component with HasGameReference<ColorLandGame> {
   BoardBackground() : super(priority: 0);
 
-  final Paint _bg = Paint()..color = Palette.background;
-  final Paint _border = Paint()
-    ..color = Palette.mapBorder
+  /// Har nechanchi katakda yo'g'onroq chiziq chiziladi.
+  static const int majorEvery = 5;
+
+  final Paint _bg = Paint();
+  final Paint _minor = Paint()
     ..style = PaintingStyle.stroke
-    ..strokeWidth = kCellSize * 0.9;
+    ..strokeWidth = 1.0;
+  final Paint _major = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.6;
+  final Paint _border = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = kCellSize * 0.5;
+  final Paint _borderGlow = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = kCellSize * 1.6;
+
+  Float32List _minorPoints = Float32List(0);
+  Float32List _majorPoints = Float32List(0);
 
   @override
   void render(ui.Canvas canvas) {
@@ -229,10 +246,54 @@ class BoardBackground extends Component with HasGameReference<ColorLandGame> {
     final area = visible.intersect(mapRect);
     if (area.isEmpty) return;
 
-    // Panjara chiziqlari ataylab chizilmaydi: maydon tekis ko'rinadi,
-    // hudud va izlar esa o'z ranglari bilan ajralib turadi.
+    _bg.color = Palette.background;
     canvas.drawRect(area, _bg);
-    canvas.drawRect(mapRect.deflate(_border.strokeWidth / 2), _border);
+
+    final (minor, major) = buildGridPoints(area, mapRect);
+    _minorPoints = minor;
+    _majorPoints = major;
+    _minor.color = Palette.gridLine;
+    _major.color = Palette.gridMajor;
+    if (_minorPoints.isNotEmpty) {
+      canvas.drawRawPoints(ui.PointMode.lines, _minorPoints, _minor);
+    }
+    if (_majorPoints.isNotEmpty) {
+      canvas.drawRawPoints(ui.PointMode.lines, _majorPoints, _major);
+    }
+
+    // Chegara: ichkarida yo'g'on, shaffof yorug'lik + ustidan aniq chiziq.
+    final border = mapRect.deflate(_border.strokeWidth / 2);
+    _borderGlow.color = Palette.mapBorder.withValues(alpha: 0.18);
+    canvas.drawRect(mapRect.deflate(_borderGlow.strokeWidth / 2), _borderGlow);
+    _border.color = Palette.mapBorder;
+    canvas.drawRect(border, _border);
+  }
+
+  /// Ko'rinadigan qism uchun chiziq uchlarini tayyorlaydi.
+  /// Testlar ham shuni chaqiradi.
+  static (Float32List, Float32List) buildGridPoints(Rect area, Rect map) {
+    final minor = <double>[];
+    final major = <double>[];
+
+    final firstX = (area.left / kCellSize).floor();
+    final lastX = (area.right / kCellSize).ceil();
+    for (var i = firstX; i <= lastX; i++) {
+      final x = i * kCellSize;
+      if (x < map.left || x > map.right) continue;
+      final list = i % majorEvery == 0 ? major : minor;
+      list.addAll(<double>[x, area.top, x, area.bottom]);
+    }
+
+    final firstY = (area.top / kCellSize).floor();
+    final lastY = (area.bottom / kCellSize).ceil();
+    for (var i = firstY; i <= lastY; i++) {
+      final y = i * kCellSize;
+      if (y < map.top || y > map.bottom) continue;
+      final list = i % majorEvery == 0 ? major : minor;
+      list.addAll(<double>[area.left, y, area.right, y]);
+    }
+
+    return (Float32List.fromList(minor), Float32List.fromList(major));
   }
 }
 
