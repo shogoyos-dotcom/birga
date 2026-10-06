@@ -403,7 +403,7 @@ class _TicketChip extends StatelessWidget {
               Icon(Icons.confirmation_number_rounded, size: 18, color: accent),
               const SizedBox(width: 6),
               Text(
-                '\$count',
+                '$count',
                 style: const TextStyle(
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF1F2937),
