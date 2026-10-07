@@ -1,5 +1,8 @@
 extends SceneTree
 
+const TestRunner := preload("res://tests/test_runner.gd")
+const MapHelpers := preload("res://tests/map_helpers.gd")
+
 ## Headless test kiruvchi nuqtasi:
 ##   godot --headless --script res://tests/run_tests.gd
 

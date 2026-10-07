@@ -42,6 +42,7 @@ func _drive() -> void:
 	var view := current_scene
 	if view == null or not view.has_method("steer_human"):
 		return
+	view.start_for_demo()
 	# Keng, silliq halqa: radius = tezlik / burchak tezligi ~= 14 katak.
 	# Keskin burilishda o'yinchi o'z izini kesib o'lib qoladi.
 	view.steer_human(_elapsed * 0.55)

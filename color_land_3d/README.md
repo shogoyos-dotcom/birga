@@ -20,12 +20,14 @@ Tayyor:
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi.
-- Barmoq bilan boshqarish, eng sodda HUD.
-- Android APK quriladi (arm64-v8a).
+- Barmoq bilan boshqarish, HUD (foiz, vaqt, o'ldirishlar, o'rin).
+- To'liq o'yin tsikli: boshlash ekrani -> o'yin -> natija -> qayta
+  o'ynash.
+- Android APK quriladi (arm64-v8a) va ishga tushishi tekshirilgan.
 
-Hali yo'q (keyingi bosqichlar): menyu, sozlamalar, profil va avatarlar,
-ovoz va musiqa, 5 til, do'kon va beletlar, natija oynasi, poytaxt
-belgilari, APK hajmini kamaytirish.
+Hali yo'q (keyingi bosqichlar): sozlamalar, profil va avatarlar, ovoz va
+musiqa, 5 til, do'kon va beletlar, reyting ro'yxati, poytaxt belgilari,
+APK hajmini kamaytirish.
 
 ## Ishga tushirish
 
@@ -70,12 +72,17 @@ Kerak: Android SDK (build-tools, platform-tools), JDK 17+, Godot eksport
 shablonlari va imzo kaliti. Yo'llar `export_presets.cfg` va Godot
 muharrir sozlamalarida ko'rsatiladi.
 
-APK hajmi **25 MB**. Godot dvigatelining o'zi (`libgodot_android.so`)
-70 MB, lekin `gradle_build/compress_native_libraries=true` bilan u APK
-ichida siqiladi — ishga tushish bir oz sekinlashadi, evaziga yuklab
-olish hajmi uch baravar kamayadi. Undan ham kichraytirish uchun keraksiz
-modullarni o'chirib maxsus eksport shabloni kompilyatsiya qilish kerak
-(keyingi bosqich).
+Ikkita preset bor:
+
+| Preset | Hajm | Izoh |
+| --- | --- | --- |
+| `Android` | 73 MB | Kutubxona siqilmagan — eng ishonchli variant |
+| `Android (siqilgan)` | 25 MB | Kutubxona APK ichida siqilgan; ishga tushish bir oz sekinroq |
+
+Hajmning asosiy qismi — Godot dvigatelining o'zi
+(`libgodot_android.so`, 70 MB, allaqachon stripped). Undan kichraytirish
+uchun keraksiz modullarni o'chirib maxsus eksport shabloni
+kompilyatsiya qilish kerak.
 
 ## Tuzilma
 
@@ -107,6 +114,34 @@ python3 ../color_land/tool/make_world_map.py 520 205
 ```
 
 U bir vaqtning o'zida ikkala variant uchun ham ma'lumot yozadi.
+
+## Eksport tuzoqlari (qimmatga tushgan)
+
+Bu uchtasi tufayli birinchi APK umuman ishga tushmagan edi. Hammasi
+**faqat eksport qilingan qurilmada** chiqadi — muharrirdan ishga
+tushirilganda o'yin bemalol ishlaydi.
+
+1. **`.bin` fayli eksportga kirmaydi.** `export_filter="all_resources"`
+   faqat Godot taniydigan resurslarni oladi; `world_land.bin` tushib
+   qolgan. `include_filter="*.bin, *.json"` kerak.
+2. **`assert()` release qurilishida o'chiriladi.** Fayl topilmaganini
+   `assert` bilan tekshirish kifoya emas edi: release'da u yo'qoladi va
+   keyingi qator `null` ga murojaat qilib segfault beradi. Endi haqiqiy
+   `push_error` va zaxira yo'l bor.
+3. **Eksportdan chiqarilgan skript global sinf bo'lmasin.** `tests/`
+   papkasi eksportga kirmaydi, lekin `class_name` tufayli sinflar
+   ro'yxatida qolgan edi — o'yin ishga tushganda yo'q faylni qidiradi.
+
+Shuning uchun har o'zgarishdan keyin eksport **Linux varianti sifatida
+qurilib, ishga tushirib ko'riladi** — Android'ga bormasdan ham xuddi
+shu xatolar chiqadi:
+
+```bash
+godot --headless --path . --export-release "Linux" build/colorland.x86_64
+xvfb-run -a build/colorland.x86_64 --audio-driver Dummy \
+  --rendering-driver opengl3 --rendering-method gl_compatibility \
+  --quit-after 400
+```
 
 ## GDScript'dagi tuzoq
 

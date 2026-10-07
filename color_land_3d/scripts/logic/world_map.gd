@@ -24,15 +24,32 @@ static func load_default() -> WorldMap:
 	map._read_capitals()
 	return map
 
+## Niqob o'qildimi. `assert` ishlatilmaydi: u release qurilmasida
+## o'chiriladi va keyin `null` ga murojaat qilib o'yin yiqilardi.
+var ok: bool = false
+
 func _read_land() -> void:
 	var file := FileAccess.open(LAND_PATH, FileAccess.READ)
-	assert(file != null, "Quruqlik niqobi topilmadi: " + LAND_PATH)
+	if file == null:
+		push_error("Quruqlik niqobi topilmadi: %s" % LAND_PATH)
+		return
+	if file.get_length() < 8:
+		push_error("Quruqlik niqobi juda kichik: %s" % LAND_PATH)
+		file.close()
+		return
 	var magic := file.get_buffer(4).get_string_from_ascii()
-	assert(magic == "CLND", "Niqob fayli buzilgan")
+	if magic != "CLND":
+		push_error("Quruqlik niqobi buzilgan (sarlavha: %s)" % magic)
+		file.close()
+		return
 	width = file.get_16()
 	height = file.get_16()
 	var packed := file.get_buffer(file.get_length() - 8)
 	file.close()
+	if width <= 0 or height <= 0 or packed.size() * 8 < width * height:
+		push_error("Quruqlik niqobi to'liq emas")
+		return
+	ok = true
 
 	land = PackedByteArray()
 	land.resize(width * height)

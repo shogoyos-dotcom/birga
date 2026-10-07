@@ -24,9 +24,13 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 	var land := PackedByteArray()
 	if config.world_map:
 		var map := WorldMap.load_default()
-		assert(map.width == config.grid_width and map.height == config.grid_height,
-			"Dunyo xaritasi panjara o'lchamiga mos kelmadi")
-		land = map.land
+		if map.ok and map.width == config.grid_width \
+				and map.height == config.grid_height:
+			land = map.land
+		else:
+			# Xarita o'qilmasa o'yin yiqilmasin: butun to'rtburchak
+			# maydon o'ynaladi.
+			push_error("Dunyo xaritasi yuklanmadi — to'rtburchak maydon")
 	grid = GameGrid.new(config.grid_width, config.grid_height, land)
 	_capturer = TerritoryCapturer.new(grid)
 	_rng = RandomNumberGenerator.new()

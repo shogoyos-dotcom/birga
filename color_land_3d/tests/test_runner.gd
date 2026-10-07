@@ -1,7 +1,11 @@
-class_name TestRunner
 extends RefCounted
 
 ## Oddiy headless test yurituvchi.
+##
+## Diqqat: bu yerda `class_name` ishlatilmaydi. Global sinf nomi
+## loyihaning sinflar ro'yxatiga tushadi, test fayllari esa o'yin
+## eksportiga kirmaydi — natijada tayyor o'yin ishga tushganda yo'q
+## skriptni qidirib xato beradi.
 ##
 ## Godot'da o'rnatilgan test tizimi yo'q, lekin mantiq qatlami
 ## dvigatelga bog'liq emas — shuning uchun shunchaki chaqirib,

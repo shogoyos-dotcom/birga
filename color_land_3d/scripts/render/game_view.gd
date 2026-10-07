@@ -18,7 +18,7 @@ const DRAG_LEASH := 70.0
 @onready var ocean: MeshInstance3D = $Ocean
 @onready var camera: Camera3D = $Camera3D
 @onready var players_root: Node3D = $Players
-@onready var hud: Control = $Hud
+@onready var ui: CanvasLayer = $Ui
 @onready var sun: DirectionalLight3D = $Sun
 
 var world: GameWorld
@@ -29,6 +29,8 @@ var _heads: Array[MeshInstance3D] = []
 var _drag_origin := Vector2.ZERO
 var _dragging := false
 var _hud_timer := 0.0
+## O'yin ketyaptimi. Boshlash va natija oynasida mantiq to'xtaydi.
+var _playing := false
 
 func _ready() -> void:
 	# Quyosh yuqoridan va yon tomondan tushadi: ustki yuzalar yorug',
@@ -42,12 +44,31 @@ func _ready() -> void:
 	sun.directional_shadow_max_distance = 90.0
 
 	config.difficulty = Difficulty.new(Difficulty.Level.NORMAL)
-	world = MatchBuilder.create(config, 0, "Siz", 3)
+	ui.play_pressed.connect(_start_match)
+	_new_match()
 
+## Yangi o'yin: dunyo, arena va o'yinchilar qaytadan quriladi.
+func _new_match() -> void:
+	world = MatchBuilder.create(config, 0, "Siz")
 	_build_arena()
 	_build_players()
 	_place_camera_instantly()
 	_refresh_hud()
+
+func _start_match() -> void:
+	if _playing:
+		return
+	# Natija oynasidan keyin — butunlay yangi o'yin.
+	if not world.human().alive:
+		_clear_scene()
+		_new_match()
+	_playing = true
+	ui.show_game()
+
+func _clear_scene() -> void:
+	for head in _heads:
+		head.queue_free()
+	_heads.clear()
 
 func _build_arena() -> void:
 	var built := ArenaBuilder.build(world.grid)
@@ -62,6 +83,8 @@ func _build_arena() -> void:
 	var top := StandardMaterial3D.new()
 	top.albedo_color = Color.WHITE
 	top.albedo_texture = paint.texture
+	# NEAREST: chiziqli filtr qo'shni o'yinchilarning ranglarini
+	# aralashtirib, chegarani loyqa qilib yuboradi.
 	top.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	top.roughness = 0.9
 	arena.set_surface_override_material(0, top)
@@ -101,7 +124,10 @@ func _build_players() -> void:
 		_heads.append(head)
 
 func _process(delta: float) -> void:
-	world.update(delta)
+	if _playing:
+		world.update(delta)
+		if not world.human().alive:
+			_end_match()
 	paint.sync()
 	_sync_heads()
 	_follow_camera(delta)
@@ -110,6 +136,25 @@ func _process(delta: float) -> void:
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.12
 		_refresh_hud()
+
+func _end_match() -> void:
+	_playing = false
+	_dragging = false
+	var p := world.human()
+	ui.show_result(
+		world.percent_of(p), p.kills, world.elapsed, _death_reason(p.death_cause))
+
+func _death_reason(cause: PlayerState.DeathCause) -> String:
+	match cause:
+		PlayerState.DeathCause.SELF_CROSS:
+			return "O'z izingizni kesib o'tdingiz"
+		PlayerState.DeathCause.TRAIL_HIT:
+			return "Izingizga tegib ketishdi"
+		PlayerState.DeathCause.TERRITORY_LOST:
+			return "Butun hududingiz egallandi"
+		_:
+			return ""
+
 
 func _sync_heads() -> void:
 	for i in world.players.size():
@@ -140,6 +185,8 @@ func _follow_camera(delta: float) -> void:
 # ——— Boshqaruv: ekranni surish ———
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _playing:
+		return
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
@@ -171,6 +218,11 @@ func _steer(at: Vector2) -> void:
 	if delta.length() > DRAG_LEASH:
 		_drag_origin = at - delta.normalized() * DRAG_LEASH
 
+## Skrinshot vositasi uchun: o'yinni boshlab yuboradi.
+func start_for_demo() -> void:
+	if not _playing:
+		_start_match()
+
 ## Tashqaridan (skrinshot vositasidan) boshqarish uchun.
 func steer_human(angle: float) -> void:
 	world.human().steer_to(angle)
@@ -181,10 +233,12 @@ func revive_human_for_demo() -> void:
 	var p := world.human()
 	if not p.alive:
 		world.spawn(p)
+		_playing = true
+		ui.show_game()
 
 func _refresh_hud() -> void:
 	var p := world.human()
-	hud.set_stats(
+	ui.set_stats(
 		world.percent_of(p),
 		p.kills,
 		world.elapsed,

@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/render/game_view.gd" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="3"]
+[ext_resource type="Script" path="res://scripts/render/game_ui.gd" id="3"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -39,4 +39,5 @@ directional_shadow_max_distance = 120.0
 fov = 58.0
 far = 400.0
 
-[node name="Hud" parent="." instance=ExtResource("3")]
+[node name="Ui" type="CanvasLayer" parent="."]
+script = ExtResource("3")

@@ -1,7 +1,8 @@
-class_name MapHelpers
 extends RefCounted
 
 ## Testlar uchun kichik xaritalar.
+##
+## `class_name` ataylab yo'q — sababi `test_runner.gd` da yozilgan.
 ##
 ## Belgilar: `~` — suv, `.` — bo'sh quruqlik, raqam — o'sha ID hududi.
 static func grid_from(pattern: PackedStringArray) -> GameGrid:
