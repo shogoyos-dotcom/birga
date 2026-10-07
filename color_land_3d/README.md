@@ -70,9 +70,12 @@ Kerak: Android SDK (build-tools, platform-tools), JDK 17+, Godot eksport
 shablonlari va imzo kaliti. Yo'llar `export_presets.cfg` va Godot
 muharrir sozlamalarida ko'rsatiladi.
 
-**Diqqat:** hozirgi APK ~73 MB. Bu Godot'ning standart kutubxonasi
-(`libgodot_android.so` 70 MB) hisobiga — keyingi bosqichda keraksiz
-modullarni o'chirgan maxsus shablon bilan kamaytiriladi.
+APK hajmi **25 MB**. Godot dvigatelining o'zi (`libgodot_android.so`)
+70 MB, lekin `gradle_build/compress_native_libraries=true` bilan u APK
+ichida siqiladi — ishga tushish bir oz sekinlashadi, evaziga yuklab
+olish hajmi uch baravar kamayadi. Undan ham kichraytirish uchun keraksiz
+modullarni o'chirib maxsus eksport shabloni kompilyatsiya qilish kerak
+(keyingi bosqich).
 
 ## Tuzilma
 
