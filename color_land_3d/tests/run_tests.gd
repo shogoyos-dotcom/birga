@@ -13,7 +13,7 @@ func _initialize() -> void:
 	_test_water(t)
 	_test_world_map(t)
 	_test_match(t)
-	_test_marks(t)
+	_test_avatar_placement(t)
 	_test_continue(t)
 	_test_profile(t)
 	_test_strings(t)
@@ -95,70 +95,65 @@ func _test_strings(t: TestRunner) -> void:
 		Strings.set_language("uz")
 	)
 
-# ——— Hudud ustidagi avatar naqshi ———
+# ——— Hudud ustidagi avatar ———
 
-func _test_marks(t: TestRunner) -> void:
-	t.group("avatar naqshi")
+func _test_avatar_placement(t: TestRunner) -> void:
+	t.group("hududdagi avatar")
 
-	t.test("belgilar faqat hudud ustiga tushadi", func() -> void:
-		var grid := GameGrid.new(60, 60)
-		grid.fill_block(10, 10, 40, 1)
-		var plan := MarkLayout.plan(grid, 1)
-		var points: PackedVector2Array = plan["points"]
-		t.greater(points.size(), 1, "naqsh bir nechta belgidan iborat")
-		var outside := 0
-		for point in points:
-			if grid.owner_at(int(point.x), int(point.y)) != 1:
-				outside += 1
-		t.equal(outside, 0, "hammasi hudud ichida")
-	)
-
-	t.test("naqsh butun hududga tarqaladi", func() -> void:
+	t.test("kvadrat hududda markazga to'liq sig'adi", func() -> void:
 		var grid := GameGrid.new(80, 80)
-		grid.fill_block(0, 0, 80, 1)
-		var points: PackedVector2Array = MarkLayout.plan(grid, 1)["points"]
-		var min_p := Vector2(1e9, 1e9)
-		var max_p := Vector2(-1e9, -1e9)
-		for point in points:
-			min_p = min_p.min(point)
-			max_p = max_p.max(point)
-		# Belgilar bir burchakda to'planib qolmasin: eng chap va eng
-		# o'ng belgi orasidagi masofa hududning yarmidan katta.
-		t.greater(max_p.x - min_p.x, 40.0, "gorizontal bo'ylab")
-		t.greater(max_p.y - min_p.y, 40.0, "vertikal bo'ylab")
+		grid.fill_block(10, 10, 40, 1)
+		var place := AvatarPlacement.of(grid, 1)
+		t.check(place["center"].distance_to(Vector2(30, 30)) < 1.0,
+			"markaz hudud o'rtasida: %s" % place["center"])
+		t.check(absf(float(place["half"]) - 20.0) < 1.0,
+			"yarim o'lcham ~20: %s" % place["half"])
 	)
 
-	t.test("egasiz hudud uchun belgi yo'q", func() -> void:
+	t.test("egasiz hudud uchun o'lcham nol", func() -> void:
 		var grid := GameGrid.new(20, 20)
-		t.equal(MarkLayout.plan(grid, 3)["points"].size(), 0)
+		t.equal(AvatarPlacement.of(grid, 3)["half"], 0.0)
 	)
 
-	t.test("kichik hududda ham bitta belgi bo'ladi", func() -> void:
-		var grid := GameGrid.new(20, 20)
-		grid.fill_block(5, 5, 4, 1)
-		t.equal(MarkLayout.plan(grid, 1)["points"].size(), 1)
+	t.test("cho'ziq hududda avatar cheklanadi", func() -> void:
+		var grid := GameGrid.new(80, 80)
+		for y in range(10, 70):
+			for x in range(10, 20):
+				grid.set_owner(x, y, 1)
+		var half := float(AvatarPlacement.of(grid, 1)["half"])
+		t.check(half <= 10.0 * AvatarPlacement.MAX_STRETCH * 0.5 + 0.01,
+			"qisqa tomonidan ko'p cho'zilmaydi: %f" % half)
+		t.greater(half, 5.0, "lekin kichkina ham emas")
 	)
 
-	t.test("belgilar soni chegaradan oshmaydi", func() -> void:
-		var grid := GameGrid.new(300, 300)
-		grid.fill_block(0, 0, 300, 1)
-		var points: PackedVector2Array = MarkLayout.plan(grid, 1)["points"]
-		t.check(points.size() <= MarkLayout.MAX_PER_PLAYER,
-			"%d <= %d" % [points.size(), MarkLayout.MAX_PER_PLAYER])
-		t.greater(points.size(), 8, "lekin naqsh siyrak emas")
+	t.test("\"L\" shaklida markaz hudud ichida qoladi", func() -> void:
+		var grid := GameGrid.new(60, 60)
+		grid.fill_block(5, 5, 20, 1)
+		for y in range(25, 50):
+			for x in range(5, 25):
+				grid.set_owner(x, y, 1)
+		var center: Vector2 = AvatarPlacement.of(grid, 1)["center"]
+		t.equal(grid.owner_at(int(center.x), int(center.y)), 1,
+			"markaz egallangan katakda")
 	)
 
-	t.test("suv ustiga belgi tushmaydi", func() -> void:
-		var grid := MapHelpers.grid_from(PackedStringArray([
-			"1111111111",
-			"1111111111",
-			"11~~~~~~11",
-			"11~~~~~~11",
-			"1111111111",
-			"1111111111",
-		]))
-		for point: Vector2 in MarkLayout.plan(grid, 1)["points"]:
-			t.check(grid.is_land(int(point.x), int(point.y)), "quruqlikda")
+	t.test("avatar hududning katta qismini qoplaydi", func() -> void:
+		var grid := GameGrid.new(80, 80)
+		grid.fill_disc(40, 40, 18.0, 1)
+		var place := AvatarPlacement.of(grid, 1)
+		var center: Vector2 = place["center"]
+		var half := float(place["half"])
+		var inside := 0
+		var total := 0
+		for y in 80:
+			for x in 80:
+				if grid.owner_at(x, y) != 1:
+					continue
+				total += 1
+				if absf(x + 0.5 - center.x) <= half \
+						and absf(y + 0.5 - center.y) <= half:
+					inside += 1
+		t.greater(float(inside) / float(total), 0.75, "hududning 75%+ qismi")
 	)
 
 # ——— Belet va reklama ———

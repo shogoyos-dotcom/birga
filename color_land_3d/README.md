@@ -22,9 +22,10 @@ Tayyor:
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
-  silliqlanadi (`render/arena.gdshader`): har piksel eng yaqin 4
-  katakning egasini bilinear og'irlik bilan taqqoslaydi, shuning uchun
-  hudud cheti zinapoya emas, silliq egri chiziq bo'lib chiqadi.
+  silliqlanadi (`render/arena.gdshader`): hudud cheti 4x4 katak
+  bo'yicha kubik og'irlik bilan, iz esa eng yaqin 4 katak bo'yicha
+  hisoblanadi — shuning uchun hudud cheti silliq egri chiziq bo'ladi,
+  bir kataklik iz esa ingichkalashmaydi.
 - Barmoq bilan boshqarish, HUD (foiz, vaqt, o'ldirishlar, o'rin).
 - To'liq o'yin tsikli: boshlash ekrani -> o'yin -> natija -> qayta
   o'ynash.
@@ -36,8 +37,10 @@ Tayyor:
   rekordni tozalash.
 - **Profil**: taxallus, 40 emoji, 12 odam tasviri va **249 davlat
   bayrog'i** (qidiruv bilan).
-- **Hududda avatar naqshi** — o'yinchining bayrog'i yoki emojisi uning
-  butun hududi bo'ylab takrorlanadi (`MarkLayout`).
+- **Hududda avatar** — har o'yinchining bayrog'i yoki emojisi bitta
+  bo'lib, uning butun hududini egallaydi. Avatar arena shaderida
+  chiziladi va hudud shakliga aniq kesiladi (`AvatarPlacement` +
+  `render/avatar_atlas.gd`).
 - **Poytaxtlar** — xaritadagi 236 poytaxt arena ustida ustun bo'lib
   turadi (bitta `MultiMesh`).
 - **Kichik xarita** — egalik teksturasining o'zi kichraytirib
@@ -117,12 +120,12 @@ scripts/
     bot_ai.gd            botlar xulq-atvori
     world_map.gd         dunyo niqobi va poytaxtlar
     match_builder.gd     o'yinchi + botlardan o'yin yig'ish
-    mark_layout.gd       hudud ustidagi naqsh joylashuvi
+    avatar_placement.gd  hududdagi avatarning markazi va o'lchami
   render/       # 3D chizish
     arena_builder.gd     xaritadan plato meshi
     paint_layer.gd       egalik va rang teksturalari
     arena.gdshader       chegaralarni silliqlovchi shader
-    territory_marks.gd   hududdagi avatar naqshi (Label3D)
+    avatar_atlas.gd      avatarlar teksturasi va joylashuvi
     capital_marks.gd     poytaxt ustunlari (MultiMesh)
     palette.gd           ranglar va 5 arena uslubi
     game_view.gd         sahna, kamera, boshqaruv

@@ -8,6 +8,8 @@ extends Node3D
 ## Kamera o'yinchidan qancha orqada va baland turadi.
 const CAM_HEIGHT := 48.0
 const CAM_BACK := 36.0
+## Hudud ustidagi avatarning quyuqligi.
+const AVATAR_ALPHA := 0.92
 ## Kamera o'yinchini qanchalik yumshoq kuzatadi (1/sekund).
 const CAM_FOLLOW := 6.0
 ## Boshqaruv: barmoq shu masofadan uzoqlashsa yo'nalish hisoblanadi.
@@ -22,10 +24,10 @@ const DRAG_LEASH := 70.0
 @onready var sun: DirectionalLight3D = $Sun
 @onready var world_env: WorldEnvironment = $WorldEnvironment
 
-## Hudud ustidagi avatar naqshi va poytaxt belgilari — kod bilan
-## qo'shiladi, sahnada alohida tugun saqlanmaydi.
+## Avatar teksturasi va poytaxt belgilari — kod bilan qo'shiladi,
+## sahnada alohida tugun saqlanmaydi.
 const ARENA_SHADER := preload("res://scripts/render/arena.gdshader")
-const TerritoryMarksNode := preload("res://scripts/render/territory_marks.gd")
+const AvatarAtlasNode := preload("res://scripts/render/avatar_atlas.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 
 var world: GameWorld
@@ -33,7 +35,8 @@ var paint: PaintLayer
 var config := GameConfig.new()
 
 var _heads: Array[MeshInstance3D] = []
-var _marks: Node3D
+var _avatars: Node
+var _arena_material: ShaderMaterial
 var _capitals: MultiMeshInstance3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
@@ -55,8 +58,8 @@ func _ready() -> void:
 	sun.shadow_normal_bias = 3.0
 	sun.directional_shadow_max_distance = 90.0
 
-	_marks = TerritoryMarksNode.new()
-	add_child(_marks)
+	_avatars = AvatarAtlasNode.new()
+	add_child(_avatars)
 	_capitals = CapitalMarksNode.new()
 	add_child(_capitals)
 
@@ -87,10 +90,10 @@ func _new_match() -> void:
 	world = MatchBuilder.create(
 		config, store.color_index, _player_name(), store.avatar)
 	_clear_scene()
+	_avatars.setup(world)
 	_build_arena()
 	_build_players()
 	_build_capitals()
-	_marks.setup(world)
 	_apply_view_settings()
 	_place_camera_instantly()
 
@@ -121,7 +124,9 @@ func _on_settings_changed() -> void:
 
 ## Faqat ko'rinish kalitlari: o'yin to'xtamaydi.
 func _apply_view_settings() -> void:
-	_marks.enabled = store.show_flags
+	if _arena_material != null:
+		_arena_material.set_shader_parameter(
+			"avatar_alpha", AVATAR_ALPHA if store.show_flags else 0.0)
 	_capitals.enabled = store.show_capitals
 	ui.set_minimap(paint.texture if store.show_minimap else null)
 
@@ -139,7 +144,7 @@ func _on_continue_with_ticket() -> void:
 		ui.toast(Strings.t("noTickets"))
 		return
 	if world.revive(world.human(), _cleared_on_death):
-		_marks.refresh()
+		_avatars.refresh()
 		_playing = true
 		ui.show_screen(ui.Screen.HUD)
 		return
@@ -169,13 +174,16 @@ func _build_arena() -> void:
 	# Ustki yuza: ranglarni shader hisoblaydi. Oddiy "nearest" filtrda
 	# hudud chetlari zinapoya bo'lib qolardi — shader eng yaqin 4
 	# katakning egasini taqqoslab, chegarani silliq chizadi.
-	var top := ShaderMaterial.new()
-	top.shader = ARENA_SHADER
-	top.set_shader_parameter("index_tex", paint.index_texture)
-	top.set_shader_parameter("palette_tex", paint.palette_texture)
-	top.set_shader_parameter("grid_size",
+	_arena_material = ShaderMaterial.new()
+	_arena_material.shader = ARENA_SHADER
+	_arena_material.set_shader_parameter("index_tex", paint.index_texture)
+	_arena_material.set_shader_parameter("palette_tex", paint.palette_texture)
+	_arena_material.set_shader_parameter("grid_size",
 		Vector2(world.grid.width, world.grid.height))
-	arena.set_surface_override_material(0, top)
+	_arena_material.set_shader_parameter("avatar_tex", _avatars.texture())
+	_arena_material.set_shader_parameter("avatar_data", _avatars.data_texture)
+	_arena_material.set_shader_parameter("avatar_grid", _avatars.grid_size())
+	arena.set_surface_override_material(0, _arena_material)
 
 	var wall := StandardMaterial3D.new()
 	wall.albedo_color = Palette.land_side()
