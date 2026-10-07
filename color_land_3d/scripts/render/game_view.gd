@@ -24,6 +24,7 @@ const DRAG_LEASH := 70.0
 
 ## Hudud ustidagi avatar naqshi va poytaxt belgilari — kod bilan
 ## qo'shiladi, sahnada alohida tugun saqlanmaydi.
+const ARENA_SHADER := preload("res://scripts/render/arena.gdshader")
 const TerritoryMarksNode := preload("res://scripts/render/territory_marks.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 
@@ -165,16 +166,15 @@ func _build_arena() -> void:
 	paint = PaintLayer.new(world.grid, world.color_index_by_id)
 	_apply_sky()
 
-	# Ustki yuza: egalik teksturasi quruqlik rangi ustiga tushadi.
-	# Albedo oq: butun rang teksturadan keladi (material rangni
-	# teksturaga ko'paytiradi).
-	var top := StandardMaterial3D.new()
-	top.albedo_color = Color.WHITE
-	top.albedo_texture = paint.texture
-	# NEAREST: chiziqli filtr qo'shni o'yinchilarning ranglarini
-	# aralashtirib, chegarani loyqa qilib yuboradi.
-	top.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	top.roughness = 0.9
+	# Ustki yuza: ranglarni shader hisoblaydi. Oddiy "nearest" filtrda
+	# hudud chetlari zinapoya bo'lib qolardi — shader eng yaqin 4
+	# katakning egasini taqqoslab, chegarani silliq chizadi.
+	var top := ShaderMaterial.new()
+	top.shader = ARENA_SHADER
+	top.set_shader_parameter("index_tex", paint.index_texture)
+	top.set_shader_parameter("palette_tex", paint.palette_texture)
+	top.set_shader_parameter("grid_size",
+		Vector2(world.grid.width, world.grid.height))
 	arena.set_surface_override_material(0, top)
 
 	var wall := StandardMaterial3D.new()

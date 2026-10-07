@@ -17,7 +17,54 @@ func _initialize() -> void:
 	_test_continue(t)
 	_test_profile(t)
 	_test_strings(t)
+	_test_paint(t)
 	quit(0 if t.report() else 1)
+
+# ——— Chizish qatlami ———
+
+func _test_paint(t: TestRunner) -> void:
+	t.group("egalik teksturasi")
+
+	t.test("belgilar panjara bilan mos keladi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"....",
+			".11.",
+			".1~.",
+			"....",
+		]))
+		grid.set_trail(3, 0, 2)
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		paint.sync()
+		t.equal(paint.index_at(0, 0), 0, "egasiz katak")
+		t.equal(paint.index_at(1, 1), 1, "hudud egasi")
+		t.equal(paint.index_at(3, 0), 256 + 2, "iz egasi")
+	)
+
+	t.test("o'zgargan katak teksturada yangilanadi", func() -> void:
+		var grid := GameGrid.new(8, 8)
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		paint.sync()
+		grid.set_owner(4, 4, 7)
+		t.equal(paint.sync(), 1, "bitta katak o'zgardi")
+		t.equal(paint.index_at(4, 4), 7)
+	)
+
+	t.test("rang jadvali to'liq noshaffof", func() -> void:
+		var grid := GameGrid.new(4, 4)
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		t.equal(paint.palette_image.get_width(), PaintLayer.PALETTE_SIZE)
+		var clear := 0
+		for i in PaintLayer.PALETTE_SIZE:
+			if paint.palette_image.get_pixel(i, 0).a < 1.0:
+				clear += 1
+		t.equal(clear, 0, "shaffof rang yo'q")
+	)
 
 # ——— Matnlar ———
 

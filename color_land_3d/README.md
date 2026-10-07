@@ -21,7 +21,10 @@ Tayyor:
   o'yinchini kuzatadi, yo'naltirilgan quyosh va soyalar.
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
-  faqat o'zgargan piksellar yangilanadi.
+  faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
+  silliqlanadi (`render/arena.gdshader`): har piksel eng yaqin 4
+  katakning egasini bilinear og'irlik bilan taqqoslaydi, shuning uchun
+  hudud cheti zinapoya emas, silliq egri chiziq bo'lib chiqadi.
 - Barmoq bilan boshqarish, HUD (foiz, vaqt, o'ldirishlar, o'rin).
 - To'liq o'yin tsikli: boshlash ekrani -> o'yin -> natija -> qayta
   o'ynash.
@@ -117,7 +120,8 @@ scripts/
     mark_layout.gd       hudud ustidagi naqsh joylashuvi
   render/       # 3D chizish
     arena_builder.gd     xaritadan plato meshi
-    paint_layer.gd       egalik teksturasi
+    paint_layer.gd       egalik va rang teksturalari
+    arena.gdshader       chegaralarni silliqlovchi shader
     territory_marks.gd   hududdagi avatar naqshi (Label3D)
     capital_marks.gd     poytaxt ustunlari (MultiMesh)
     palette.gd           ranglar va 5 arena uslubi
