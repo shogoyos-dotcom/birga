@@ -5,3 +5,7 @@ build/
 # Android qurish shabloni — `godot --install-android-build-template`
 # bilan yoki qo'lda eksport shablonidan ochiladi; repozitoriyda saqlanmaydi.
 android/
+
+# Qisqartirilmagan emoji shrifti (`tool/subset_emoji_font.py` zaxirasi).
+# Asl fayl: github.com/googlefonts/noto-emoji — NotoColorEmoji.ttf
+*.ttf.full

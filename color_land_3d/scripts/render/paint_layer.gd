@@ -27,7 +27,7 @@ func _init(grid: GameGrid, color_index_by_id: PackedByteArray) -> void:
 func _rebuild_colors(color_index_by_id: PackedByteArray) -> void:
 	_colors = PackedColorArray()
 	_colors.resize(512)
-	_colors[0] = Palette.LAND
+	_colors[0] = Palette.land()
 	for id in range(1, 256):
 		var ci: int = color_index_by_id[id]
 		_colors[id] = Palette.territory(ci)

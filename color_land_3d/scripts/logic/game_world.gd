@@ -14,6 +14,9 @@ var players: Array[PlayerState] = []
 var elapsed: float = 0.0
 ## O'yinchi ID -> rang indeksi.
 var color_index_by_id := PackedByteArray()
+## Xaritadagi poytaxtlar: {name, code, x, y, pop}. Chizish qatlami
+## ularni arena ustiga belgi qilib qo'yadi.
+var capitals: Array[Dictionary] = []
 
 var _rng: RandomNumberGenerator
 var _by_id: Array[PlayerState] = []
@@ -27,6 +30,7 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 		if map.ok and map.width == config.grid_width \
 				and map.height == config.grid_height:
 			land = map.land
+			capitals = map.capitals
 		else:
 			# Xarita o'qilmasa o'yin yiqilmasin: butun to'rtburchak
 			# maydon o'ynaladi.
@@ -277,6 +281,46 @@ func alive_count() -> int:
 		if p.alive:
 			n += 1
 	return n
+
+## O'lgan o'yinchini qaytaradi: o'limda bo'shagan kataklaridan hali
+## bo'sh turganlari unga qaytariladi va o'yinchi o'sha hududning
+## o'rtasiga qo'yiladi. Juda kam katak qolgan bo'lsa — yangi joydan.
+func revive(p: PlayerState, cells: PackedInt32Array) -> bool:
+	if p.alive:
+		return true
+	var restored := PackedInt32Array()
+	for i: int in cells:
+		if grid.owner_cells[i] == 0 and grid.trail_cells[i] == 0:
+			grid.set_owner_index(i, p.id)
+			restored.append(i)
+	if restored.size() < config.min_revive_cells:
+		for i: int in restored:
+			grid.set_owner_index(i, 0)
+		return spawn(p)
+
+	var sum_x := 0
+	var sum_y := 0
+	for i: int in restored:
+		sum_x += i % grid.width
+		sum_y += i / grid.width
+	var cx: int = sum_x / restored.size()
+	var cy: int = sum_y / restored.size()
+
+	# Markaz boshqa o'yinchiga o'tib ketgan bo'lishi mumkin — eng yaqin
+	# o'z katagimizni topamiz.
+	var best := restored[0]
+	var best_dist := 1 << 30
+	for i: int in restored:
+		var dx: int = i % grid.width - cx
+		var dy: int = i / grid.width - cy
+		var d: int = dx * dx + dy * dy
+		if d < best_dist:
+			best_dist = d
+			best = i
+	p.place_at(best % grid.width + 0.5, best / grid.width + 0.5,
+		_rng.randf() * TAU - PI)
+	events.append({"type": "respawn", "player": p.id})
+	return true
 
 ## Hodisalarni olib, navbatni bo'shatadi.
 func drain_events() -> Array[Dictionary]:

@@ -20,62 +20,150 @@ const DRAG_LEASH := 70.0
 @onready var players_root: Node3D = $Players
 @onready var ui: CanvasLayer = $Ui
 @onready var sun: DirectionalLight3D = $Sun
+@onready var world_env: WorldEnvironment = $WorldEnvironment
+
+## Hudud ustidagi avatar naqshi va poytaxt belgilari — kod bilan
+## qo'shiladi, sahnada alohida tugun saqlanmaydi.
+const TerritoryMarksNode := preload("res://scripts/render/territory_marks.gd")
+const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 
 var world: GameWorld
 var paint: PaintLayer
 var config := GameConfig.new()
 
 var _heads: Array[MeshInstance3D] = []
+var _marks: Node3D
+var _capitals: MultiMeshInstance3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
 var _hud_timer := 0.0
 ## O'yin ketyaptimi. Boshlash va natija oynasida mantiq to'xtaydi.
 var _playing := false
 
+var store: SettingsStore
+## O'limda bo'shagan kataklar — belet bilan davom etilganda qaytariladi.
+var _cleared_on_death := PackedInt32Array()
+
 func _ready() -> void:
 	# Quyosh yuqoridan va yon tomondan tushadi: ustki yuzalar yorug',
 	# yon devorlar to'q bo'lsin.
 	sun.rotation_degrees = Vector3(-52.0, -38.0, 0.0)
-	# Arena juda keng (520x205), shuning uchun standart bias bilan ustki
-	# yuza butunlay o'z soyasiga tushib qoladi (shadow acne). Bias va
-	# soya masofasi arenaga moslab qo'yiladi.
+	# Arena juda keng, shuning uchun standart bias bilan ustki yuza o'z
+	# soyasiga tushib qoladi (shadow acne).
 	sun.shadow_bias = 0.1
 	sun.shadow_normal_bias = 3.0
 	sun.directional_shadow_max_distance = 90.0
 
-	config.difficulty = Difficulty.new(Difficulty.Level.NORMAL)
-	ui.play_pressed.connect(_start_match)
+	_marks = TerritoryMarksNode.new()
+	add_child(_marks)
+	_capitals = CapitalMarksNode.new()
+	add_child(_capitals)
+
+	store = SettingsStore.load_store()
+	Strings.set_language(store.language if not store.language.is_empty()
+		else Strings.detect_language())
+	Palette.set_theme(store.theme_id)
+	Audio.apply(store.music_enabled, store.sound_enabled,
+		store.vibration_enabled)
+
+	ui.setup(store)
+	ui.play_pressed.connect(_on_play)
+	ui.resume_pressed.connect(_on_resume)
+	ui.menu_pressed.connect(_on_menu)
+	ui.settings_changed.connect(_on_settings_changed)
+	ui.view_changed.connect(_apply_view_settings)
+	ui.continue_with_ticket.connect(_on_continue_with_ticket)
 	_new_match()
+
+func _config_from_store() -> GameConfig:
+	var c := GameConfig.new()
+	c.difficulty = Difficulty.from_name(store.difficulty_name)
+	return c
 
 ## Yangi o'yin: dunyo, arena va o'yinchilar qaytadan quriladi.
 func _new_match() -> void:
-	world = MatchBuilder.create(config, 0, "Siz")
+	config = _config_from_store()
+	world = MatchBuilder.create(
+		config, store.color_index, _player_name(), store.avatar)
+	_clear_scene()
 	_build_arena()
 	_build_players()
+	_build_capitals()
+	_marks.setup(world)
+	_apply_view_settings()
 	_place_camera_instantly()
-	_refresh_hud()
 
-func _start_match() -> void:
-	if _playing:
-		return
-	# Natija oynasidan keyin — butunlay yangi o'yin.
-	if not world.human().alive:
-		_clear_scene()
-		_new_match()
+func _player_name() -> String:
+	var saved := store.nickname
+	return saved if not saved.is_empty() else Strings.t("you")
+
+func _on_play() -> void:
+	_new_match()
 	_playing = true
-	ui.show_game()
+	ui.show_screen(ui.Screen.HUD)
+	_apply_view_settings()
+
+func _on_resume() -> void:
+	_playing = true
+	ui.show_screen(ui.Screen.HUD)
+	_apply_view_settings()
+
+func _on_menu() -> void:
+	_playing = false
+	ui.show_screen(ui.Screen.MENU)
+
+## Rang, uslub yoki qiyinlik o'zgarsa — yangi o'yin tayyorlanadi.
+func _on_settings_changed() -> void:
+	Palette.set_theme(store.theme_id)
+	_apply_sky()
+	_new_match()
+
+## Faqat ko'rinish kalitlari: o'yin to'xtamaydi.
+func _apply_view_settings() -> void:
+	_marks.enabled = store.show_flags
+	_capitals.enabled = store.show_capitals
+	ui.set_minimap(paint.texture if store.show_minimap else null)
+
+## Osmon va tuman rangi uslubdan olinadi.
+func _apply_sky() -> void:
+	var env := world_env.environment
+	if env == null:
+		return
+	var sky := Palette.sky()
+	env.background_color = sky
+	env.fog_light_color = sky
+
+func _on_continue_with_ticket() -> void:
+	if not store.spend_ticket():
+		ui.toast(Strings.t("noTickets"))
+		return
+	if world.revive(world.human(), _cleared_on_death):
+		_marks.refresh()
+		_playing = true
+		ui.show_screen(ui.Screen.HUD)
+		return
+	# Joy topilmadi — belet sarflanmagan hisoblanadi.
+	store.add_tickets(1)
+	ui.toast(Strings.t("noRoomToContinue"))
 
 func _clear_scene() -> void:
 	for head in _heads:
 		head.queue_free()
 	_heads.clear()
 
+## Arena geometriyasi xaritaga bog'liq va o'yindan o'yinga o'zgarmaydi —
+## bir marta quriladi. Har safar qayta qurish sezilarli sakrash berardi.
+var _mesh_built := false
+
 func _build_arena() -> void:
-	var built := ArenaBuilder.build(world.grid)
-	arena.mesh = built["mesh"]
-	print("Arena: %d to'rtburchak" % int(built["quads"]))
+	if not _mesh_built:
+		var built := ArenaBuilder.build(world.grid)
+		arena.mesh = built["mesh"]
+		_mesh_built = true
+		print("Arena: %d to'rtburchak" % int(built["quads"]))
 
 	paint = PaintLayer.new(world.grid, world.color_index_by_id)
+	_apply_sky()
 
 	# Ustki yuza: egalik teksturasi quruqlik rangi ustiga tushadi.
 	# Albedo oq: butun rang teksturadan keladi (material rangni
@@ -90,7 +178,7 @@ func _build_arena() -> void:
 	arena.set_surface_override_material(0, top)
 
 	var wall := StandardMaterial3D.new()
-	wall.albedo_color = Palette.LAND_SIDE
+	wall.albedo_color = Palette.land_side()
 	wall.roughness = 1.0
 	arena.set_surface_override_material(1, wall)
 
@@ -100,10 +188,20 @@ func _build_arena() -> void:
 	ocean.mesh = plane
 	ocean.position = Vector3(world.grid.width / 2.0, 0.0, world.grid.height / 2.0)
 	var sea := StandardMaterial3D.new()
-	sea.albedo_color = Palette.OCEAN
+	sea.albedo_color = Palette.ocean()
 	sea.roughness = 0.3
 	sea.metallic = 0.25
 	ocean.set_surface_override_material(0, sea)
+
+## Poytaxt belgilari xaritaga bog'liq — bir marta quriladi.
+var _capitals_built := false
+
+func _build_capitals() -> void:
+	if _capitals_built:
+		return
+	_capitals_built = true
+	var count: int = _capitals.build(world.capitals, world.grid)
+	print("Poytaxtlar: %d belgi" % count)
 
 func _build_players() -> void:
 	var box := BoxMesh.new()
@@ -126,6 +224,7 @@ func _build_players() -> void:
 func _process(delta: float) -> void:
 	if _playing:
 		world.update(delta)
+		_handle_events()
 		if not world.human().alive:
 			_end_match()
 	paint.sync()
@@ -137,23 +236,33 @@ func _process(delta: float) -> void:
 		_hud_timer = 0.12
 		_refresh_hud()
 
+## Mantiq chiqargan hodisalar: ovoz va o'limda bo'shagan kataklar.
+func _handle_events() -> void:
+	var human_id := world.human().id
+	for event in world.drain_events():
+		match event["type"]:
+			"capture":
+				if int(event["player"]) == human_id:
+					Audio.capture()
+					ui.flash(Palette.head(world.human().color_index), 0.18)
+			"death":
+				if int(event["player"]) == human_id:
+					_cleared_on_death = event["cleared"]
+					Audio.death()
+					ui.flash(UiKit.CORAL, 0.34)
+				elif int(event["killer"]) == human_id:
+					Audio.kill()
+					ui.flash(UiKit.MINT, 0.16)
+
 func _end_match() -> void:
 	_playing = false
 	_dragging = false
 	var p := world.human()
-	ui.show_result(
-		world.percent_of(p), p.kills, world.elapsed, _death_reason(p.death_cause))
-
-func _death_reason(cause: PlayerState.DeathCause) -> String:
-	match cause:
-		PlayerState.DeathCause.SELF_CROSS:
-			return "O'z izingizni kesib o'tdingiz"
-		PlayerState.DeathCause.TRAIL_HIT:
-			return "Izingizga tegib ketishdi"
-		PlayerState.DeathCause.TERRITORY_LOST:
-			return "Butun hududingiz egallandi"
-		_:
-			return ""
+	var percent := world.percent_of(p)
+	var is_record := store.submit_result(percent, p.kills)
+	ui.set_result(percent, p.kills, world.elapsed,
+		Strings.death_reason(p.death_cause), is_record)
+	ui.show_screen(ui.Screen.RESULT)
 
 
 func _sync_heads() -> void:
@@ -218,10 +327,30 @@ func _steer(at: Vector2) -> void:
 	if delta.length() > DRAG_LEASH:
 		_drag_origin = at - delta.normalized() * DRAG_LEASH
 
+## Skrinshot vositasi uchun: kerakli ekranni ochadi.
+func show_screen_for_demo(name: String) -> void:
+	match name:
+		"menu": ui.show_screen(ui.Screen.MENU)
+		"settings": ui.show_screen(ui.Screen.SETTINGS)
+		"profile": ui.show_screen(ui.Screen.PROFILE)
+		"pause": ui.show_screen(ui.Screen.PAUSE)
+		"shop": ui.open_shop(ui.Screen.MENU)
+		"result":
+			ui.set_result(12.34, 3, 95.0,
+				Strings.death_reason(PlayerState.DeathCause.TRAIL_HIT), true)
+			ui.show_screen(ui.Screen.RESULT)
+
+## Skrinshot vositasi uchun: avatarni almashtiradi.
+func set_avatar_for_demo(value: String) -> void:
+	if store.avatar == value:
+		return
+	store.avatar = value
+	_new_match()
+
 ## Skrinshot vositasi uchun: o'yinni boshlab yuboradi.
 func start_for_demo() -> void:
 	if not _playing:
-		_start_match()
+		_on_play()
 
 ## Tashqaridan (skrinshot vositasidan) boshqarish uchun.
 func steer_human(angle: float) -> void:
@@ -234,13 +363,28 @@ func revive_human_for_demo() -> void:
 	if not p.alive:
 		world.spawn(p)
 		_playing = true
-		ui.show_game()
+		ui.show_screen(ui.Screen.HUD)
 
 func _refresh_hud() -> void:
 	var p := world.human()
-	ui.set_stats(
-		world.percent_of(p),
-		p.kills,
-		world.elapsed,
-		world.rank_of(p),
-		world.alive_count())
+	ui.update_hud(
+		world.percent_of(p), p.kills, world.elapsed,
+		world.rank_of(p), world.alive_count(), _leaderboard(),
+		Vector2(p.x / world.grid.width, p.y / world.grid.height))
+
+## Top-5 reyting.
+func _leaderboard() -> Array:
+	var sorted := world.players.duplicate()
+	sorted.sort_custom(func(a: PlayerState, b: PlayerState) -> bool:
+		return world.grid.territory_of(a.id) > world.grid.territory_of(b.id))
+	var rows: Array = []
+	for i in mini(5, sorted.size()):
+		var p: PlayerState = sorted[i]
+		rows.append({
+			"name": p.player_name,
+			"avatar": p.avatar,
+			"color": p.color_index,
+			"percent": world.grid.percent_of(p.id),
+			"is_human": not p.is_bot,
+		})
+	return rows

@@ -10,18 +10,20 @@ const BOT_NAMES: PackedStringArray = [
 ]
 
 static func create(config: GameConfig, player_color: int, player_name: String,
-		seed_value: int = 0) -> GameWorld:
+		player_avatar: String = "figure:0", seed_value: int = 0) -> GameWorld:
 	var world := GameWorld.new(config, seed_value)
 	var rng := RandomNumberGenerator.new()
 	if seed_value != 0:
 		rng.seed = seed_value + 1
 
-	world.add_player(player_name, player_color % Palette.HEADS.size(), false)
+	var human := world.add_player(
+		player_name, player_color % Palette.color_count(), false)
+	human.avatar = player_avatar
 
 	# Botlarga o'yinchinikidan boshqa ranglar beriladi.
 	var colors: Array[int] = []
-	for i in Palette.HEADS.size():
-		if i != player_color % Palette.HEADS.size():
+	for i in Palette.color_count():
+		if i != player_color % Palette.color_count():
 			colors.append(i)
 	colors.shuffle()
 
@@ -29,11 +31,12 @@ static func create(config: GameConfig, player_color: int, player_name: String,
 	names.shuffle()
 
 	for i in config.bot_count:
-		world.add_player(
+		var bot := world.add_player(
 			names[i % names.size()],
 			colors[i % colors.size()],
 			true,
 			BotBrain.new(config.difficulty, rng))
+		bot.avatar = Profile.random_avatar(rng)
 
 	world.spawn_all()
 	return world

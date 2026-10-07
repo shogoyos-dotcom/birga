@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/render/game_view.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/render/game_ui.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/ui/screens.gd" id="3"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1

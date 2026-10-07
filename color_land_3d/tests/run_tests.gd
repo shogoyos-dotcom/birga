@@ -13,7 +13,151 @@ func _initialize() -> void:
 	_test_water(t)
 	_test_world_map(t)
 	_test_match(t)
+	_test_marks(t)
+	_test_continue(t)
+	_test_profile(t)
+	_test_strings(t)
 	quit(0 if t.report() else 1)
+
+# ——— Matnlar ———
+
+func _test_strings(t: TestRunner) -> void:
+	t.group("matnlar")
+
+	t.test("hamma tilda bir xil kalitlar bor", func() -> void:
+		Strings.set_language("uz")
+		var file := FileAccess.open(Strings.PATH, FileAccess.READ)
+		var all: Dictionary = JSON.parse_string(file.get_as_text())
+		file.close()
+		var base: Array = all["uz"].keys()
+		base.sort()
+		for code: String in Strings.CODES:
+			t.check(all.has(code), "til bor: " + code)
+			var keys: Array = all[code].keys()
+			keys.sort()
+			t.equal(keys, base, "kalitlar mos: " + code)
+	)
+
+	t.test("uslub nomlari tarjima qilingan", func() -> void:
+		for code: String in Strings.CODES:
+			Strings.set_language(code)
+			for id: String in Palette.ORDER:
+				var name := Strings.theme_name(id)
+				t.check(not name.begins_with("theme"),
+					"%s / %s tarjimasi bor" % [code, id])
+		Strings.set_language("uz")
+	)
+
+# ——— Hudud ustidagi avatar naqshi ———
+
+func _test_marks(t: TestRunner) -> void:
+	t.group("avatar naqshi")
+
+	t.test("belgilar faqat hudud ustiga tushadi", func() -> void:
+		var grid := GameGrid.new(60, 60)
+		grid.fill_block(10, 10, 40, 1)
+		var plan := MarkLayout.plan(grid, 1)
+		var points: PackedVector2Array = plan["points"]
+		t.greater(points.size(), 1, "naqsh bir nechta belgidan iborat")
+		var outside := 0
+		for point in points:
+			if grid.owner_at(int(point.x), int(point.y)) != 1:
+				outside += 1
+		t.equal(outside, 0, "hammasi hudud ichida")
+	)
+
+	t.test("naqsh butun hududga tarqaladi", func() -> void:
+		var grid := GameGrid.new(80, 80)
+		grid.fill_block(0, 0, 80, 1)
+		var points: PackedVector2Array = MarkLayout.plan(grid, 1)["points"]
+		var min_p := Vector2(1e9, 1e9)
+		var max_p := Vector2(-1e9, -1e9)
+		for point in points:
+			min_p = min_p.min(point)
+			max_p = max_p.max(point)
+		# Belgilar bir burchakda to'planib qolmasin: eng chap va eng
+		# o'ng belgi orasidagi masofa hududning yarmidan katta.
+		t.greater(max_p.x - min_p.x, 40.0, "gorizontal bo'ylab")
+		t.greater(max_p.y - min_p.y, 40.0, "vertikal bo'ylab")
+	)
+
+	t.test("egasiz hudud uchun belgi yo'q", func() -> void:
+		var grid := GameGrid.new(20, 20)
+		t.equal(MarkLayout.plan(grid, 3)["points"].size(), 0)
+	)
+
+	t.test("kichik hududda ham bitta belgi bo'ladi", func() -> void:
+		var grid := GameGrid.new(20, 20)
+		grid.fill_block(5, 5, 4, 1)
+		t.equal(MarkLayout.plan(grid, 1)["points"].size(), 1)
+	)
+
+	t.test("belgilar soni chegaradan oshmaydi", func() -> void:
+		var grid := GameGrid.new(300, 300)
+		grid.fill_block(0, 0, 300, 1)
+		var points: PackedVector2Array = MarkLayout.plan(grid, 1)["points"]
+		t.check(points.size() <= MarkLayout.MAX_PER_PLAYER,
+			"%d <= %d" % [points.size(), MarkLayout.MAX_PER_PLAYER])
+		t.greater(points.size(), 8, "lekin naqsh siyrak emas")
+	)
+
+	t.test("suv ustiga belgi tushmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"1111111111",
+			"1111111111",
+			"11~~~~~~11",
+			"11~~~~~~11",
+			"1111111111",
+			"1111111111",
+		]))
+		for point: Vector2 in MarkLayout.plan(grid, 1)["points"]:
+			t.check(grid.is_land(int(point.x), int(point.y)), "quruqlikda")
+	)
+
+# ——— Belet va reklama ———
+
+func _test_continue(t: TestRunner) -> void:
+	t.group("belet va reklama")
+
+	t.test("to'plam sotib olinsa belet soni ortadi", func() -> void:
+		var s := ContinueServices.new()
+		t.equal(s.buy("tickets_5"), 5)
+		t.equal(s.buy("tickets_15"), 15)
+	)
+
+	t.test("noma'lum to'plam xaridi o'tmaydi", func() -> void:
+		t.equal(ContinueServices.new().buy("tickets_999"), 0)
+	)
+
+	t.test("reklama bir marta mukofot beradi", func() -> void:
+		var s := ContinueServices.new()
+		t.equal(s.show_rewarded(), ContinueServices.AD_REWARD)
+		t.equal(s.show_rewarded(), 0, "qayta yuklanmaguncha yo'q")
+		s.preload_ad()
+		t.equal(s.show_rewarded(), ContinueServices.AD_REWARD)
+	)
+
+# ——— Profil ———
+
+func _test_profile(t: TestRunner) -> void:
+	t.group("profil")
+
+	t.test("har bir avatar arenada belgiga ega", func() -> void:
+		var empty := 0
+		for e: String in Profile.EMOJIS:
+			if Profile.map_glyph(Profile.encode(Profile.Kind.EMOJI, e)).is_empty():
+				empty += 1
+		for i in Profile.FIGURE_COUNT:
+			if Profile.map_glyph(Profile.encode(
+					Profile.Kind.FIGURE, str(i))).is_empty():
+				empty += 1
+		t.equal(empty, 0, "bo'sh belgi yo'q")
+	)
+
+	t.test("bayroq kodi emojiga aylanadi", func() -> void:
+		t.equal(Profile.map_glyph("flag:UZ"), Profile.flag_emoji("UZ"))
+		t.greater(Profile.flag_emoji("UZ").length(), 1, "ikki belgidan")
+	)
 
 # ——— Hudud egallash ———
 

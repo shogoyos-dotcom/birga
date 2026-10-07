@@ -13,6 +13,10 @@ config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 boot_splash/show_image=false
 
+[autoload]
+
+Audio="*res://scripts/app/audio.gd"
+
 [display]
 
 window/size/viewport_width=720

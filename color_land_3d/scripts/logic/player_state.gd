@@ -10,8 +10,8 @@ var id: int
 var player_name: String
 var color_index: int
 var is_bot: bool
-## Avatar: {"kind": "emoji"|"figure"|"flag", "value": String}.
-var avatar: Dictionary = {"kind": "figure", "value": "0"}
+## Avatar kodi: "emoji:🦊", "figure:3" yoki "flag:UZ" ([Profile] ga qarang).
+var avatar: String = "figure:0"
 
 var speed: float
 var turn_rate: float
