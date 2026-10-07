@@ -27,6 +27,8 @@ BASE = (
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, '..', 'build', 'naturalearth')
 OUT = os.path.join(HERE, '..', 'lib', 'data')
+# Godot (3D) varianti uchun: xuddi shu ma'lumot, lekin ikkilik fayl va JSON.
+GODOT_OUT = os.path.join(HERE, '..', '..', 'color_land_3d', 'data')
 
 # Antarktida o'yin uchun foydasiz — kesib tashlanadi.
 LAT_TOP = 83.0
@@ -256,6 +258,38 @@ const List<Capital> kCapitals = <Capital>[
     print(f'capitals.dart: {len(caps)} ta poytaxt')
 
 
+def write_godot(land, caps, w, h):
+    """Godot varianti uchun: niqob ikkilik fayl, poytaxtlar JSON."""
+    if not os.path.isdir(os.path.dirname(GODOT_OUT)):
+        return
+    os.makedirs(GODOT_OUT, exist_ok=True)
+
+    packed = bytearray((w * h + 7) // 8)
+    for i, v in enumerate(land):
+        if v:
+            packed[i >> 3] |= 1 << (i & 7)
+    header = b'CLND' + w.to_bytes(2, 'little') + h.to_bytes(2, 'little')
+    with open(os.path.join(GODOT_OUT, 'world_land.bin'), 'wb') as f:
+        f.write(header + bytes(packed))
+
+    with open(os.path.join(GODOT_OUT, 'capitals.json'), 'w') as f:
+        json.dump(
+            {
+                'width': w,
+                'height': h,
+                'capitals': [
+                    {'name': n, 'code': c, 'x': x, 'y': y, 'pop': p}
+                    for n, c, x, y, p in caps
+                ],
+            },
+            f,
+            ensure_ascii=False,
+            separators=(',', ':'),
+        )
+    print(f'godot: world_land.bin ({len(header) + len(packed)} bayt), '
+          f'capitals.json ({len(caps)} ta)')
+
+
 if __name__ == '__main__':
     width = int(sys.argv[1]) if len(sys.argv) > 1 else 520
     height = int(sys.argv[2]) if len(sys.argv) > 2 else 205
@@ -266,3 +300,4 @@ if __name__ == '__main__':
     caps = capitals(mask, width, height)
     write_map(mask, width, height)
     write_capitals(caps, width, height)
+    write_godot(mask, caps, width, height)

@@ -1,0 +1,7 @@
+# Godot import keshi va eksport natijalari
+.godot/
+build/
+
+# Android qurish shabloni — `godot --install-android-build-template`
+# bilan yoki qo'lda eksport shablonidan ochiladi; repozitoriyda saqlanmaydi.
+android/

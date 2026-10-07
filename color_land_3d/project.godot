@@ -1,0 +1,41 @@
+; Color Land 3D — Godot 4 loyihasi.
+; Mantiq qatlami (scripts/logic) dvigatelga bog'liq emas va headless
+; testlardan o'tadi; 3D chizish scripts/render ichida.
+
+config_version=5
+
+[application]
+
+config/name="Color Land"
+config/description="Hudud egallash arcade o'yini — 3D"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.5", "Mobile")
+config/icon="res://icon.svg"
+boot_splash/show_image=false
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/handheld/orientation=1
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+; Android eksporti ETC2/ASTC siqishni talab qiladi.
+textures/vram_compression/import_etc2_astc=true
+renderer/rendering_method.mobile="mobile"
+textures/default_filters/anisotropic_filtering_level=0
+anti_aliasing/quality/msaa_3d=1
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[input]
+
+[debug]
+
+gdscript/warnings/untyped_declaration=1
