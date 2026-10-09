@@ -205,6 +205,24 @@ func _build_settings() -> Control:
 			_rebuild(), _accent()))
 	box.add_child(look)
 
+	# Maydon
+	var arena := UiKit.panel()
+	var arena_box := VBoxContainer.new()
+	arena_box.add_theme_constant_override("separation", 10)
+	arena.add_child(arena_box)
+	arena_box.add_child(UiKit.section(Strings.t("arena")))
+	var maps := WorldMap.ids()
+	var map_names := PackedStringArray()
+	for map_id: String in maps:
+		map_names.append(Strings.map_name(map_id))
+	arena_box.add_child(UiKit.chips(map_names, maps.find(store.map_id),
+		func(index: int) -> void:
+			Audio.tap()
+			store.map_id = maps[index]
+			settings_changed.emit()
+			_rebuild(), _accent()))
+	box.add_child(arena)
+
 	# O'yin
 	var game := UiKit.panel()
 	var game_box := VBoxContainer.new()

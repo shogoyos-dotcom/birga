@@ -16,9 +16,16 @@ Tayyor:
   (flood fill), harakat, iz, o'lim qoidalari, dunyo xaritasi, suv
   qoidalari, botlar. Dvigatelga bog'liq emas va headless testlardan
   o'tadi (94 ta tekshiruv).
-- **3D sahna**: dunyo xaritasi okeandan ko'tarilgan plato bo'lib
-  quriladi (greedy meshing, ~7800 to'rtburchak), perspektiv kamera
-  o'yinchini kuzatadi, yo'naltirilgan quyosh va soyalar.
+- **Sakkizta maydon**: dunyo xaritasi, oltita materik (Afrika, Osiyo,
+  Yevropa, Shimoliy va Janubiy Amerika, Okeaniya) va erkin doira
+  maydon. Sozlamalardan tanlanadi.
+- **3D sahna**: maydon okeandan ko'tarilgan plato bo'lib quriladi
+  (greedy meshing, dunyo uchun ~16 500 to'rtburchak), perspektiv
+  kamera o'yinchini kuzatadi, yo'naltirilgan quyosh va soyalar.
+- **Qirg'oq silliq**: geometriya o'yin panjarasidan emas, uch barobar
+  maydaroq va silliqlangan niqobdan quriladi. Mantiq niqobi ham
+  o'shandan olinadi — ko'rinadigan va yuriladigan quruqlik aynan bir
+  xil.
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
@@ -123,7 +130,7 @@ scripts/
     territory_capture.gd flood fill orqali hudud egallash
     game_world.gd        harakat, o'lim qoidalari, hodisalar
     bot_ai.gd            botlar xulq-atvori
-    world_map.gd         dunyo niqobi va poytaxtlar
+    world_map.gd         maydon niqoblari va poytaxtlar
     match_builder.gd     o'yinchi + botlardan o'yin yig'ish
     avatar_placement.gd  hududdagi avatarning markazi va o'lchami
   render/       # 3D chizish
@@ -167,16 +174,31 @@ Ikki tuzoq bor:
    Skript kerakli belgilarni `scripts/app/profile.gd` dan o'qiydi va
    `ccmp` jadvalini saqlaydi (bayroq ligaturalari shu yerda).
 
+## O'z izi haqidagi qoida
+
+O'z izini **kesib** o'tgan o'yinchi o'ladi, lekin iz bo'ylab **ortga
+qaytish** o'lim emas. Ingichka bo'g'ozga yoki kichik orolga kirib
+qolgan o'yinchi boshqa yo'ldan chiqolmaydi — qaytishda u izning
+ketma-ket kataklariga tegadi, shuning uchun har tegish oldingisining
+qo'shnisi bo'lsa, bu qaytish deb hisoblanadi. Haqiqiy kesishda izga
+butunlay boshqa joydan kiriladi va qoida ishlaydi.
+
 ## Ma'lumot manbai
 
-Dunyo xaritasi va poytaxtlar — [Natural Earth](https://www.naturalearthdata.com/)
-1:110m (public domain). Generator Flutter loyihasida:
+Maydonlar — [Natural Earth](https://www.naturalearthdata.com/) 1:110m
+(public domain). Generator shu loyihada:
 
 ```bash
-python3 ../color_land/tool/make_world_map.py 520 205
+pip install  # kerak emas, faqat standart kutubxona
+python3 tool/make_maps.py
 ```
 
-U bir vaqtning o'zida ikkala variant uchun ham ma'lumot yozadi.
+Har maydon uchun `data/maps/<id>.bin` yoziladi: mantiq niqobi va uch
+barobar maydaroq silliqlangan chizish niqobi. Poytaxtlar
+`data/maps/index.json` da.
+
+Flutter (2D) varianti hamon `../color_land/tool/make_world_map.py` dan
+foydalanadi — u tegilmagan.
 
 ## Eksport tuzoqlari (qimmatga tushgan)
 

@@ -59,6 +59,11 @@ var theme_id: String:
 	get: return str(_read("theme", "arcade"))
 	set(value): _write("theme", value)
 
+## Qaysi maydon o'ynaladi: "world", "africa", ..., "circle".
+var map_id: String:
+	get: return str(_read("map", "world"))
+	set(value): _write("map", value)
+
 var difficulty_name: String:
 	get: return str(_read("difficulty", "normal"))
 	set(value): _write("difficulty", value)

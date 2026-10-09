@@ -17,6 +17,8 @@ var _elapsed := 0.0
 var _mode := "play"
 ## Tekshirish uchun avatar, masalan "flag:UZ".
 var _avatar := ""
+## Tekshirish uchun maydon, masalan "circle".
+var _map := ""
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -28,6 +30,8 @@ func _initialize() -> void:
 		_mode = args[2]
 	if args.size() > 3:
 		_avatar = args[3]
+	if args.size() > 4:
+		_map = args[4]
 	_frames_left = int(_seconds * 60.0)
 	change_scene_to_file("res://scenes/main.tscn")
 
@@ -51,6 +55,8 @@ func _drive() -> void:
 	var view := current_scene
 	if view == null or not view.has_method("steer_human"):
 		return
+	if not _map.is_empty() and view.has_method("set_map_for_demo"):
+		view.set_map_for_demo(_map)
 	if not _avatar.is_empty() and view.has_method("set_avatar_for_demo"):
 		view.set_avatar_for_demo(_avatar)
 	if _mode != "play" and _mode != "trail":

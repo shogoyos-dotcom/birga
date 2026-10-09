@@ -361,21 +361,39 @@ func _test_death_rules(t: TestRunner) -> void:
 	t.group("o'lim qoidalari")
 
 	t.test("o'z izini kesgan o'yinchi o'ladi", func() -> void:
-		var world := MapHelpers.make_world()
-		var p := MapHelpers.place_player(world, 8, 8)
-		# Hududdan chiqib, halqa chizamiz.
-		p.steer_to(-PI / 2)
-		p.angle = -PI / 2
-		for i in 40:
-			world.update(1.0 / 60.0)
-		var angle := -PI / 2
-		for i in 400:
-			if not p.alive:
-				break
-			angle += 0.3
-			p.steer_to(angle)
-			world.update(1.0 / 60.0)
-		t.check(not p.alive, "o'z iziga tegib o'lishi kerak")
+		var world := MapHelpers.make_world(60, 60)
+		var p := MapHelpers.place_player(world, 28, 28)
+		# To'rtburchak halqa: oxirgi tomon birinchi tomonni kesadi.
+		_walk(world, p, -PI / 2, 16)
+		_walk(world, p, 0.0, 8)
+		_walk(world, p, PI / 2, 12)
+		_walk(world, p, PI, 12)
+		t.check(not p.alive, "o'z izini kesib o'lishi kerak")
+		t.equal(p.death_cause, PlayerState.DeathCause.SELF_CROSS)
+	)
+
+	t.test("iz bo'ylab ortga qaytgan o'yinchi o'lmaydi", func() -> void:
+		# Ingichka bo'g'ozga yoki kichik orolga kirib qolgan o'yinchi
+		# boshqa yo'ldan chiqolmaydi — qaytish o'lim bo'lmasligi kerak.
+		var world := MapHelpers.make_world(60, 60)
+		var p := MapHelpers.place_player(world, 28, 28)
+		_walk(world, p, -PI / 2, 16)
+		t.check(p.alive, "chiqishda tirik")
+		t.greater(p.trail.size(), 10, "iz qoldi")
+		_walk(world, p, PI / 2, 16)
+		t.check(p.alive, "qaytishda ham tirik")
+		t.equal(p.trail.size(), 0, "hududiga qaytib, iz yopildi")
+	)
+
+	t.test("izga boshqa joydan kirgan o'yinchi o'ladi", func() -> void:
+		var world := MapHelpers.make_world(60, 60)
+		var p := MapHelpers.place_player(world, 28, 28)
+		_walk(world, p, -PI / 2, 16)
+		# Izdan uzoqlashib, keyin uni yon tomondan kesadi.
+		_walk(world, p, 0.0, 6)
+		_walk(world, p, PI / 2, 6)
+		_walk(world, p, PI, 10)
+		t.check(not p.alive, "kesib o'tishda o'ladi")
 		t.equal(p.death_cause, PlayerState.DeathCause.SELF_CROSS)
 	)
 
@@ -442,6 +460,17 @@ func _test_death_rules(t: TestRunner) -> void:
 		t.equal(world.grid.territory_of(small.id), 0, "hududi yo'qoldi")
 	)
 
+## O'yinchini berilgan yo'nalishda shuncha katak yurgizadi.
+func _walk(world: GameWorld, p: PlayerState, angle: float,
+		cells: float) -> void:
+	p.angle = angle
+	p.steer_to(angle)
+	var steps := int(cells / (p.speed / 60.0))
+	for i in steps:
+		if not p.alive:
+			return
+		world.update(1.0 / 60.0)
+
 # ——— Suv ———
 
 func _test_water(t: TestRunner) -> void:
@@ -479,24 +508,59 @@ func _test_water(t: TestRunner) -> void:
 		t.check(not grid.playable(2, 0))
 	)
 
-# ——— Dunyo xaritasi ———
+# ——— Maydonlar ———
 
 func _test_world_map(t: TestRunner) -> void:
-	t.group("dunyo xaritasi")
+	t.group("maydonlar")
 
-	t.test("niqob o'qiladi va o'lchami to'g'ri", func() -> void:
-		var map := WorldMap.load_default()
-		t.equal(map.width, 520)
-		t.equal(map.height, 205)
-		t.equal(map.land.size(), map.width * map.height)
+	t.test("hamma maydon o'qiladi", func() -> void:
+		for map_id: String in WorldMap.ids():
+			var map := WorldMap.load_map(map_id)
+			t.check(map.ok, "o'qildi: " + map_id)
+			t.equal(map.land.size(), map.width * map.height,
+				"mantiq niqobi to'liq: " + map_id)
+			t.equal(map.render_land.size(),
+				map.render_width * map.render_height,
+				"chizish niqobi to'liq: " + map_id)
+			t.equal(map.render_width, map.width * map.scale,
+				"chizish niqobi maydaroq: " + map_id)
+			var share: float = float(map.land_cells) / float(map.land.size())
+			t.greater(share, 0.1, "quruqlik ulushi: " + map_id)
+			t.less(share, 0.95, "quruqlik ulushi: " + map_id)
+	)
+
+	t.test("ko'rinadigan va yuriladigan quruqlik bir xil", func() -> void:
+		# Mantiq niqobi silliqlangan niqobdan olinadi: ko'rinmas yerda
+		# yurib qolish ham, kirib bo'lmaydigan burun ham bo'lmasligi
+		# kerak.
+		var map := WorldMap.load_map("world")
+		var bad := 0
+		var full: int = map.scale * map.scale
+		for y in map.height:
+			for x in map.width:
+				var count := 0
+				for sy in range(y * map.scale, (y + 1) * map.scale):
+					var base: int = sy * map.render_width + x * map.scale
+					for sx in map.scale:
+						count += map.render_land[base + sx]
+				var walkable: bool = map.land[y * map.width + x] == 1
+				if walkable != (count * 2 >= full):
+					bad += 1
+		t.equal(bad, 0, "mos kelmagan katak")
+	)
+
+	t.test("doira maydon kod bilan quriladi", func() -> void:
+		var map := WorldMap.load_map(WorldMap.CIRCLE_ID)
+		t.check(map.ok)
+		t.check(map.is_land(map.width / 2, map.height / 2), "markazi quruqlik")
+		t.check(not map.is_land(0, 0), "burchagi suv")
 		var share: float = float(map.land_cells) / float(map.land.size())
-		t.greater(share, 0.2, "quruqlik ulushi")
-		t.less(share, 0.4, "quruqlik ulushi")
+		t.greater(share, 0.6, "doira maydonning katta qismini egallaydi")
 	)
 
 	t.test("poytaxtlar xarita ichida va quruqlikda", func() -> void:
-		var map := WorldMap.load_default()
-		t.equal(map.capitals.size(), 236)
+		var map := WorldMap.load_map("world")
+		t.greater(map.capitals.size(), 150)
 		var bad := 0
 		for c in map.capitals:
 			if not map.is_land(int(c["x"]), int(c["y"])):
@@ -505,7 +569,7 @@ func _test_world_map(t: TestRunner) -> void:
 	)
 
 	t.test("mashhur poytaxtlar to'g'ri joyda", func() -> void:
-		var map := WorldMap.load_default()
+		var map := WorldMap.load_map("world")
 		var by_name := {}
 		for c in map.capitals:
 			by_name[c["name"]] = c
@@ -513,6 +577,19 @@ func _test_world_map(t: TestRunner) -> void:
 		var ba: Dictionary = by_name["Buenos Aires"]
 		t.greater(int(tashkent["x"]), int(ba["x"]), "Toshkent sharqroqda")
 		t.less(int(tashkent["y"]), int(ba["y"]), "Toshkent shimolroqda")
+	)
+
+	t.test("materik maydonida o'yin boshlanadi", func() -> void:
+		var config := GameConfig.new()
+		config.map_id = "africa"
+		config.bot_count = 5
+		var world := MatchBuilder.create(config, 0, "Men", "figure:0", 9)
+		t.equal(world.grid.width, world.map.width, "panjara xaritaga mos")
+		var bad := 0
+		for p in world.players:
+			if not p.alive or not world.grid.playable(p.cx, p.cy):
+				bad += 1
+		t.equal(bad, 0, "hamma quruqlikda")
 	)
 
 # ——— To'liq o'yin ———

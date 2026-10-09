@@ -17,6 +17,9 @@ var color_index_by_id := PackedByteArray()
 ## Xaritadagi poytaxtlar: {name, code, x, y, pop}. Chizish qatlami
 ## ularni arena ustiga belgi qilib qo'yadi.
 var capitals: Array[Dictionary] = []
+## Yuklangan maydon — arena geometriyasi uning silliqlangan niqobidan
+## quriladi.
+var map: WorldMap
 
 var _rng: RandomNumberGenerator
 var _by_id: Array[PlayerState] = []
@@ -26,15 +29,18 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 	config = p_config
 	var land := PackedByteArray()
 	if config.world_map:
-		var map := WorldMap.load_default()
-		if map.ok and map.width == config.grid_width \
-				and map.height == config.grid_height:
+		# Panjara o'lchami xaritadan olinadi — har maydonning o'z
+		# kengligi va balandligi bor.
+		map = WorldMap.load_map(config.map_id)
+		if map.ok:
 			land = map.land
 			capitals = map.capitals
+			config.grid_width = map.width
+			config.grid_height = map.height
 		else:
 			# Xarita o'qilmasa o'yin yiqilmasin: butun to'rtburchak
 			# maydon o'ynaladi.
-			push_error("Dunyo xaritasi yuklanmadi — to'rtburchak maydon")
+			push_error("Maydon yuklanmadi — to'rtburchak maydon")
 	grid = GameGrid.new(config.grid_width, config.grid_height, land)
 	_capturer = TerritoryCapturer.new(grid)
 	_rng = RandomNumberGenerator.new()
@@ -199,32 +205,50 @@ func _enter_cell(p: PlayerState, nx: int, ny: int) -> void:
 			_finish_loop(p)
 		return
 
-	# Qoida: o'z izingni kesib o'tsang — o'lasan. Lekin endigina qo'ygan
-	# bir necha katak bundan mustasno.
+	# Qoida: o'z izingni **kesib** o'tsang — o'lasan.
 	if grid.trail_cells[i] == p.id:
-		if not _is_fresh_trail(p, i):
+		if not _own_trail_allowed(p, i):
 			kill(p, PlayerState.DeathCause.SELF_CROSS, null)
 		return
 
+	p.since_retrace += 1
 	if p.trail.is_empty():
 		# Hududdan endi chiqdi — yo'l shu nuqtadan boshlanadi.
 		p.trail_path.clear()
 		p.trail_path.append(Vector2(p.x, p.y))
 	grid.set_trail_index(i, p.id)
-	p.trail.append(i)
+	p.add_trail(i)
 
-## `i` — `p` ning eng so'nggi bir necha izidan birimi?
-func _is_fresh_trail(p: PlayerState, i: int) -> bool:
-	var from: int = maxi(0, p.trail.size() - config.self_hit_grace)
-	for k in range(p.trail.size() - 1, from - 1, -1):
-		if p.trail[k] == i:
-			return true
+## O'z iziga tegish kechiriladimi.
+##
+## Ikki holat ajratiladi:
+##  * **endigina qo'yilgan katak** — barmoq tebranishi yoki qirg'oq
+##    bo'ylab sirpanish; o'ldirish adolatsiz bo'lardi;
+##  * **iz bo'ylab ortga qaytish** — ingichka bo'g'ozga yoki kichik
+##    orolga kirib qolgan o'yinchi boshqa yo'ldan chiqolmaydi. Qaytishda
+##    u izning ketma-ket kataklariga tegadi, shuning uchun har tegish
+##    oldingisining qo'shnisi bo'lsa — bu qaytish, kesish emas.
+##
+## Haqiqiy kesishda o'yinchi izga butunlay boshqa joydan kiradi:
+## tartib raqami uzoq bo'ladi va qoida ishlaydi.
+func _own_trail_allowed(p: PlayerState, i: int) -> bool:
+	var k: int = p.trail_at.get(i, -1)
+	if k < 0:
+		return true
+	if p.trail.size() - k <= config.self_hit_grace:
+		p.retrace_index = k
+		p.since_retrace = 0
+		return true
+	if p.retrace_index >= 0 and p.since_retrace <= 1 \
+			and absi(k - p.retrace_index) <= config.retrace_jump:
+		p.retrace_index = k
+		p.since_retrace = 0
+		return true
 	return false
 
 func _finish_loop(p: PlayerState) -> void:
 	var result := _capturer.capture(p.id, p.trail)
-	p.trail.clear()
-	p.trail_path.clear()
+	p.clear_trail()
 	var cells: PackedInt32Array = result["cells"]
 	if cells.is_empty():
 		return
@@ -245,8 +269,7 @@ func kill(p: PlayerState, cause: PlayerState.DeathCause,
 		return
 	p.alive = false
 	p.death_cause = cause
-	p.trail.clear()
-	p.trail_path.clear()
+	p.clear_trail()
 	if killer != null and killer.id != p.id:
 		killer.kills += 1
 	p.final_territory = grid.territory_of(p.id)

@@ -38,6 +38,12 @@ var death_cause: DeathCause = DeathCause.NONE
 
 ## O'z hududidan tashqarida chizilgan iz kataklari (tartib bilan).
 var trail := PackedInt32Array()
+## Katak -> izdagi tartib raqami. Izga tegishni tez tekshirish uchun.
+var trail_at := {}
+## Oxirgi tegilgan o'z iz katagining tartib raqami (-1 — yo'q).
+var retrace_index: int = -1
+## O'sha tegishdan beri nechta katak o'tildi.
+var since_retrace: int = 99
 ## Izning uzluksiz yo'li — 3D lenta shu bo'yicha quriladi.
 var trail_path := PackedVector2Array()
 
@@ -63,12 +69,24 @@ func place_at(px: float, py: float, dir: float) -> void:
 	cy = int(floor(py))
 	angle = dir
 	target_angle = dir
-	trail.clear()
-	trail_path.clear()
+	clear_trail()
 	alive = true
 	death_cause = DeathCause.NONE
 	respawn_timer = 0.0
 	final_territory = 0
+
+## Izni butunlay bo'shatadi (tug'ilish, o'lim, hudud egallash).
+func clear_trail() -> void:
+	trail.clear()
+	trail_at.clear()
+	trail_path.clear()
+	retrace_index = -1
+	since_retrace = 99
+
+## Izga yangi katak qo'shadi.
+func add_trail(cell: int) -> void:
+	trail_at[cell] = trail.size()
+	trail.append(cell)
 
 func steer_to(dir: float) -> void:
 	target_angle = normalize_angle(dir)

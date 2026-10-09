@@ -86,6 +86,7 @@ func _ready() -> void:
 func _config_from_store() -> GameConfig:
 	var c := GameConfig.new()
 	c.difficulty = Difficulty.from_name(store.difficulty_name)
+	c.map_id = store.map_id
 	return c
 
 ## Yangi o'yin: dunyo, arena va o'yinchilar qaytadan quriladi.
@@ -167,16 +168,20 @@ func _clear_scene() -> void:
 		head.queue_free()
 	_heads.clear()
 
-## Arena geometriyasi xaritaga bog'liq va o'yindan o'yinga o'zgarmaydi —
-## bir marta quriladi. Har safar qayta qurish sezilarli sakrash berardi.
-var _mesh_built := false
+## Arena geometriyasi faqat maydonga bog'liq: o'yindan o'yinga
+## o'zgarmaydi va qayta qurilmaydi. Maydon almashtirilgandagina
+## qaytadan quriladi.
+var _built_map := ""
 
 func _build_arena() -> void:
-	if not _mesh_built:
-		var built := ArenaBuilder.build(world.grid)
+	if world.map != null and world.map.ok and _built_map != world.map.id:
+		var started := Time.get_ticks_msec()
+		var built := ArenaBuilder.build(world.map)
 		arena.mesh = built["mesh"]
-		_mesh_built = true
-		print("Arena: %d to'rtburchak" % int(built["quads"]))
+		_built_map = world.map.id
+		print("Arena (%s): %d to'rtburchak, %d ms" % [
+			world.map.id, int(built["quads"]),
+			Time.get_ticks_msec() - started])
 
 	paint = PaintLayer.new(world.grid, world.color_index_by_id)
 	_apply_sky()
@@ -211,15 +216,14 @@ func _build_arena() -> void:
 	sea.metallic = 0.25
 	ocean.set_surface_override_material(0, sea)
 
-## Poytaxt belgilari xaritaga bog'liq — bir marta quriladi.
-var _capitals_built := false
+## Poytaxt belgilari ham faqat maydonga bog'liq.
+var _capitals_map := ""
 
 func _build_capitals() -> void:
-	if _capitals_built:
+	if _capitals_map == world.config.map_id:
 		return
-	_capitals_built = true
-	var count: int = _capitals.build(world.capitals, world.grid)
-	print("Poytaxtlar: %d belgi" % count)
+	_capitals_map = world.config.map_id
+	_capitals.build(world.capitals, world.grid)
 
 ## Bosh — o'yinchi rangidagi shar; ustida uning belgisi turadi.
 const HEAD_RADIUS := 1.35
@@ -379,6 +383,13 @@ func show_screen_for_demo(name: String) -> void:
 			ui.set_result(12.34, 3, 95.0,
 				Strings.death_reason(PlayerState.DeathCause.TRAIL_HIT), true)
 			ui.show_screen(ui.Screen.RESULT)
+
+## Skrinshot vositasi uchun: maydonni almashtiradi.
+func set_map_for_demo(map_id: String) -> void:
+	if store.map_id == map_id:
+		return
+	store.map_id = map_id
+	_new_match()
 
 ## Skrinshot vositasi uchun: avatarni almashtiradi.
 func set_avatar_for_demo(value: String) -> void:

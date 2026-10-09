@@ -3,11 +3,14 @@ extends RefCounted
 
 ## O'yinning barcha sozlamalari bir joyda. Mantiq qatlami faqat shuni biladi.
 
-var grid_width: int = 520
-var grid_height: int = 205
-## Maydon dunyo xaritasidan yaratiladimi. `false` — butun to'rtburchak
+## Panjara o'lchami. Xarita yuklanganda uning o'lchamiga moslanadi.
+var grid_width: int = 460
+var grid_height: int = 233
+## Maydon xaritadan yaratiladimi. `false` — butun to'rtburchak
 ## o'ynaladi (testlar uchun qulay).
 var world_map: bool = true
+## Qaysi maydon: "world", "africa", ..., "circle".
+var map_id: String = "world"
 
 ## Boshlang'ich hudud joylashadigan kvadrat tomoni.
 var start_block: int = 5
@@ -24,7 +27,10 @@ var bot_respawn_delay: float = 3.0
 var max_step_dt: float = 1.0 / 30.0
 ## Oxirgi necha katak iz "o'ziniki" hisoblanmaydi — barmoq tebranishi
 ## uchun o'ldirish adolatsiz bo'lardi.
-var self_hit_grace: int = 3
+var self_hit_grace: int = 4
+## Iz bo'ylab ortga qaytayotganda tartib raqami shuncha sakrashi
+## mumkin — burchakni kesib o'tganda bir-ikki katak o'tkazib yuboriladi.
+var retrace_jump: int = 3
 ## O'limdan keyin davom etishda kamida shuncha katak qaytarilsa, o'yinchi
 ## o'sha joyida tiklanadi.
 var min_revive_cells: int = 10

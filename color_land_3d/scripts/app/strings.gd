@@ -55,6 +55,14 @@ static func t(key: String) -> String:
 		set_language(_code)
 	return str(_current.get(key, key))
 
+## Maydon nomi: "north_america" -> "mapNorthAmerica".
+static func map_name(id: String) -> String:
+	var parts := id.split("_")
+	var key := "map"
+	for part: String in parts:
+		key += part.capitalize()
+	return t(key)
+
 ## Arena uslubi nomi — tarjima qilinadi, [Palette] dagi nom emas.
 static func theme_name(id: String) -> String:
 	return t("theme" + id.capitalize())
