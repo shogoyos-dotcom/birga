@@ -122,14 +122,36 @@ static func sanitize(raw: String, fallback: String) -> String:
 		return fallback
 	return trimmed.substr(0, MAX_NICKNAME)
 
-## Tasodifiy avatar — botlar uchun.
+## Bayroq tanlanmagan bo'lsa shu davlat olinadi.
+const DEFAULT_COUNTRY := "UZ"
+
+## Avatar belgisi — bosh uchun. Bayroq tanlangan bo'lsa ham ishlaydi.
+static func sanitize_country(code: String) -> String:
+	var upper := code.strip_edges().to_upper()
+	if upper.length() != 2:
+		return DEFAULT_COUNTRY
+	for c: Dictionary in countries():
+		if str(c["code"]) == upper:
+			return upper
+	return DEFAULT_COUNTRY
+
+## Qurilma tilidan davlat kodini oladi ("uz_UZ" -> "UZ").
+static func detect_country() -> String:
+	var parts := OS.get_locale().replace("-", "_").split("_")
+	for part: String in parts:
+		if part.length() == 2 and part == part.to_upper():
+			return sanitize_country(part)
+	return DEFAULT_COUNTRY
+
+static func random_country(rng: RandomNumberGenerator) -> String:
+	var list := countries()
+	if list.is_empty():
+		return DEFAULT_COUNTRY
+	return str(list[rng.randi_range(0, list.size() - 1)]["code"])
+
+## Tasodifiy avatar — botlar uchun. Bayroq alohida tanlanadi, shuning
+## uchun bu yerda faqat emoji va odam tasvirlari.
 static func random_avatar(rng: RandomNumberGenerator) -> String:
-	match rng.randi_range(0, 2):
-		0: return encode(Kind.EMOJI, EMOJIS[rng.randi_range(0, EMOJIS.size() - 1)])
-		1: return encode(Kind.FIGURE, str(rng.randi_range(0, FIGURE_COUNT - 1)))
-		_:
-			var list := countries()
-			if list.is_empty():
-				return encode(Kind.FIGURE, "0")
-			var c: Dictionary = list[rng.randi_range(0, list.size() - 1)]
-			return encode(Kind.FLAG, str(c["code"]))
+	if rng.randi_range(0, 1) == 0:
+		return encode(Kind.EMOJI, EMOJIS[rng.randi_range(0, EMOJIS.size() - 1)])
+	return encode(Kind.FIGURE, str(rng.randi_range(0, FIGURE_COUNT - 1)))

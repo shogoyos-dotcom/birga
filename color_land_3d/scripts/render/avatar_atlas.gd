@@ -1,22 +1,27 @@
 extends Node
 
-## O'yinchilar avatarlarini bitta teksturaga yig'adi va ularning
-## hududdagi o'rnini shaderga uzatadi.
+## O'yinchilarning belgilarini bitta teksturaga yig'adi va hududdagi
+## o'rnini shaderga uzatadi.
 ##
-## Avatar emoji (yoki bayroq) bo'lgani uchun u shriftdan chiziladi:
-## kichik `SubViewport` ichida har o'yinchiga bitta katak ajratilib,
-## belgi bir marta chizib olinadi. Keyin arena shaderi shu teksturadan
-## o'qiydi va avatarni **hudud shakliga kesib** qo'yadi — shuning uchun
-## bitta avatar butun hududni egallaydi va chetidan chiqmaydi.
+## Har o'yinchiga ikkita katak ajratiladi:
+##  * [KIND_HEAD] — bosh ustidagi belgi (emoji yoki odam tasviri);
+##  * [KIND_FLAG] — hududni egallaydigan davlat bayrog'i.
 ##
-## Label3D lardan foydalanilmaydi: ular hudud shakliga kesilmaydi va
-## har o'yinchi uchun alohida tugun kerak bo'lardi.
+## Belgilar emoji shriftidan chiziladi, shuning uchun ular kichik
+## `SubViewport` ichida bir marta chizib olinadi. Keyin arena shaderi
+## bayroqni o'qiydi va **hudud shakliga kesib** qo'yadi, bosh ustidagi
+## belgi esa shu teksturaning bir bo'lagi sifatida ishlatiladi.
 
-## Bitta avatar katagi (piksel).
+## Bitta katak (piksel). Emoji shrifti bitmap bo'lgani uchun undan
+## kattaroq qilishning foydasi yo'q.
 const TILE := 192
 
 ## Teksturadagi ustunlar soni.
-const COLS := 4
+const COLS := 8
+
+## Katak turlari.
+const KIND_HEAD := 0
+const KIND_FLAG := 1
 
 ## Joylashuv sekundda shuncha marta qayta hisoblanadi.
 const REFRESH := 0.25
@@ -35,7 +40,7 @@ func _ready() -> void:
 	data_image = Image.create_empty(256, 1, false, Image.FORMAT_RGBAF)
 	data_texture = ImageTexture.create_from_image(data_image)
 
-## Yangi o'yin: avatarlar qaytadan chiziladi.
+## Yangi o'yin: belgilar qaytadan chiziladi.
 func setup(world: GameWorld) -> void:
 	_world = world
 	_build_tiles()
@@ -47,32 +52,46 @@ func texture() -> Texture2D:
 func grid_size() -> Vector2:
 	return Vector2(COLS, rows)
 
+## Katak raqami: har o'yinchiga ikkita.
+static func tile_index(id: int, kind: int) -> int:
+	return (id - 1) * 2 + kind
+
+## Bosh ustidagi belgi uchun teksturadan kesib olinadigan to'rtburchak.
+func tile_region(id: int, kind: int) -> Rect2:
+	var index := tile_index(id, kind)
+	return Rect2((index % COLS) * TILE, (index / COLS) * TILE, TILE, TILE)
+
 func _build_tiles() -> void:
 	if viewport != null:
 		viewport.queue_free()
-	rows = maxi(1, int(ceil(_world.players.size() / float(COLS))))
+	var count := _world.players.size() * 2
+	rows = maxi(1, int(ceil(count / float(COLS))))
 
 	viewport = SubViewport.new()
 	viewport.size = Vector2i(COLS * TILE, rows * TILE)
 	viewport.transparent_bg = true
 	viewport.disable_3d = true
-	# Belgilar o'zgarmaydi — bir marta chizib olinadi.
+	# Belgilar o'yin davomida o'zgarmaydi — bir marta chizib olinadi.
 	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	add_child(viewport)
 
-	var font := UiKit.emoji_font()
 	for p in _world.players:
-		var label := Label.new()
-		label.text = Profile.map_glyph(p.avatar)
-		label.position = Vector2(
-			((p.id - 1) % COLS) * TILE, ((p.id - 1) / COLS) * TILE)
-		label.size = Vector2(TILE, TILE)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", int(TILE * 0.8))
-		if font != null:
-			label.add_theme_font_override("font", font)
-		viewport.add_child(label)
+		_add_glyph(tile_index(p.id, KIND_HEAD), Profile.map_glyph(p.avatar))
+		_add_glyph(tile_index(p.id, KIND_FLAG),
+			Profile.flag_emoji(p.country))
+
+func _add_glyph(index: int, glyph: String) -> void:
+	var label := Label.new()
+	label.text = glyph
+	label.position = Vector2((index % COLS) * TILE, (index / COLS) * TILE)
+	label.size = Vector2(TILE, TILE)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", int(TILE * 0.8))
+	var font := UiKit.emoji_font()
+	if font != null:
+		label.add_theme_font_override("font", font)
+	viewport.add_child(label)
 
 func _process(delta: float) -> void:
 	if _world == null:
@@ -90,6 +109,5 @@ func refresh() -> void:
 		var place := AvatarPlacement.of(_world.grid, p.id)
 		var half: float = place["half"] if p.alive else 0.0
 		var center: Vector2 = place["center"]
-		data_image.set_pixel(p.id, 0,
-			Color(center.x, center.y, half, 1.0))
+		data_image.set_pixel(p.id, 0, Color(center.x, center.y, half, 1.0))
 	data_texture.update(data_image)

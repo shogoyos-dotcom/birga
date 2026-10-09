@@ -94,6 +94,11 @@ var avatar: String:
 	get: return str(_read("avatar", "figure:0"))
 	set(value): _write("avatar", value)
 
+## Hududda ko'rinadigan bayroq (ISO 3166-1 alpha-2).
+var country: String:
+	get: return str(_read("country", ""))
+	set(value): _write("country", value)
+
 # ——— Ovoz ———
 
 var music_enabled: bool:

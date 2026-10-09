@@ -53,10 +53,15 @@ func _drive() -> void:
 		return
 	if not _avatar.is_empty() and view.has_method("set_avatar_for_demo"):
 		view.set_avatar_for_demo(_avatar)
-	if _mode != "play":
+	if _mode != "play" and _mode != "trail":
 		view.show_screen_for_demo(_mode)
 		return
 	view.start_for_demo()
+	if _mode == "trail":
+		# Diagonal to'g'ri chiziq — zinapoya eng yomon ko'rinadigan
+		# holat; iz tekis chiqyaptimi, shu bilan tekshiriladi.
+		view.steer_human(0.62)
+		return
 	# Keng, silliq halqa: radius = tezlik / burchak tezligi ~= 14 katak.
 	# Keskin burilishda o'yinchi o'z izini kesib o'lib qoladi.
 	view.steer_human(_elapsed * 0.55)

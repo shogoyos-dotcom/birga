@@ -11,7 +11,10 @@ var player_name: String
 var color_index: int
 var is_bot: bool
 ## Avatar kodi: "emoji:🦊", "figure:3" yoki "flag:UZ" ([Profile] ga qarang).
+## Bosh ustida shu belgi turadi.
 var avatar: String = "figure:0"
+## Hududda ko'rinadigan bayroq (ISO 3166-1 alpha-2).
+var country: String = Profile.DEFAULT_COUNTRY
 
 var speed: float
 var turn_rate: float
@@ -70,13 +73,42 @@ func place_at(px: float, py: float, dir: float) -> void:
 func steer_to(dir: float) -> void:
 	target_angle = normalize_angle(dir)
 
-## Yo'lga yangi nuqta qo'shadi (juda yaqin bo'lsa qo'shmaydi).
+## Yo'l nuqtalari orasidagi eng kichik masofa (katakda).
+const PATH_MIN_STEP := 0.4
+
+## Oraliq nuqta to'g'ri chiziqdan shuncha chetlashmasa — tashlanadi.
+const PATH_TOLERANCE := 0.2
+
+## Yo'lga yangi nuqta qo'shadi.
+##
+## To'g'ri borayotgan qism ikki nuqtada qoladi: oxirgi nuqta to'g'ri
+## chiziq ustida bo'lsa, u yangisi bilan almashtiriladi. Shuning uchun
+## uzoq to'g'ri iz ham o'nlab emas, ikki nuqtadan iborat bo'ladi va 3D
+## lenta to'liq tekis chiqadi.
 func add_path_point(px: float, py: float) -> void:
-	if trail_path.size() >= 1:
-		var last := trail_path[trail_path.size() - 1]
-		if (Vector2(px, py) - last).length_squared() < 0.09:
-			return
-	trail_path.append(Vector2(px, py))
+	var point := Vector2(px, py)
+	var count := trail_path.size()
+	if count == 0:
+		trail_path.append(point)
+		return
+	if (point - trail_path[count - 1]).length_squared() \
+			< PATH_MIN_STEP * PATH_MIN_STEP:
+		return
+	if count >= 2 and _on_line(trail_path[count - 2], trail_path[count - 1],
+			point):
+		trail_path[count - 1] = point
+		return
+	trail_path.append(point)
+
+## `b` nuqtasi `a`—`c` kesmasidan deyarli chetlashmaganmi.
+static func _on_line(a: Vector2, b: Vector2, c: Vector2) -> bool:
+	var line := c - a
+	var length2 := line.length_squared()
+	if length2 < 1e-6:
+		return true
+	var t: float = clampf((b - a).dot(line) / length2, 0.0, 1.0)
+	return (a + line * t).distance_squared_to(b) \
+		<= PATH_TOLERANCE * PATH_TOLERANCE
 
 ## Burchakni [-PI, PI] oralig'iga keltiradi.
 static func normalize_angle(a: float) -> float:

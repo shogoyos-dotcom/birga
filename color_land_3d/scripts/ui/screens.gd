@@ -123,6 +123,11 @@ func _profile_card() -> Control:
 	frame.add_child(AvatarView.new(store.avatar, 42.0))
 	row.add_child(frame)
 
+	var flag := UiKit.panel(UiKit.SURFACE, 6)
+	flag.add_child(AvatarView.new(
+		Profile.encode(Profile.Kind.FLAG, _country()), 42.0))
+	row.add_child(flag)
+
 	var texts := VBoxContainer.new()
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	texts.add_child(UiKit.section(Strings.t("profile")))
@@ -357,9 +362,10 @@ func _build_profile() -> Control:
 	row.add_child(_nickname_edit)
 	box.add_child(card)
 
+	# Avatar — bosh ustidagi belgi.
 	box.add_child(UiKit.section(Strings.t("avatarLabel")))
 	var tabs := PackedStringArray([
-		Strings.t("tabEmoji"), Strings.t("tabFigure"), Strings.t("tabFlag")])
+		Strings.t("tabEmoji"), Strings.t("tabFigure")])
 	box.add_child(UiKit.chips(tabs, _avatar_tab, func(index: int) -> void:
 		Audio.tap()
 		_avatar_tab = index
@@ -367,10 +373,16 @@ func _build_profile() -> Control:
 
 	var panel := UiKit.panel(UiKit.PANEL, 12)
 	box.add_child(panel)
-	match _avatar_tab:
-		0: panel.add_child(_emoji_grid())
-		1: panel.add_child(_figure_grid())
-		_: panel.add_child(_flag_grid())
+	if _avatar_tab == 0:
+		panel.add_child(_emoji_grid())
+	else:
+		panel.add_child(_figure_grid())
+
+	# Bayroq — hududni egallaydi, shuning uchun alohida tanlanadi.
+	box.add_child(UiKit.section(Strings.t("territoryFlag")))
+	var flags := UiKit.panel(UiKit.PANEL, 12)
+	flags.add_child(_flag_grid())
+	box.add_child(flags)
 	return root
 
 func _save_nickname() -> void:
@@ -383,6 +395,17 @@ func _pick_avatar(value: String) -> void:
 	_save_nickname()
 	store.avatar = value
 	_rebuild()
+
+func _pick_country(code: String) -> void:
+	Audio.tap()
+	_save_nickname()
+	store.country = code
+	settings_changed.emit()
+	_rebuild()
+
+func _country() -> String:
+	var saved := store.country
+	return saved if not saved.is_empty() else Profile.detect_country()
 
 func _grid(columns: int) -> GridContainer:
 	var grid := GridContainer.new()
@@ -433,13 +456,15 @@ func _flag_grid() -> Control:
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(grid)
 	# 249 bayroqni birdan qurish sekin — ro'yxat qisqartiriladi.
+	var chosen := _country()
 	var list := Profile.search_countries(_flag_query)
 	var limit: int = mini(list.size(), 60)
 	for i in limit:
 		var c: Dictionary = list[i]
-		var value := Profile.encode(Profile.Kind.FLAG, str(c["code"]))
-		grid.add_child(AvatarView.chip(value, store.avatar == value,
-			func() -> void: _pick_avatar(value), str(c["name"]), _accent()))
+		var code := str(c["code"])
+		var value := Profile.encode(Profile.Kind.FLAG, code)
+		grid.add_child(AvatarView.chip(value, chosen == code,
+			func() -> void: _pick_country(code), str(c["name"]), _accent()))
 	return box
 
 # ——— HUD ———

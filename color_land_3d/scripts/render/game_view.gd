@@ -28,6 +28,7 @@ const DRAG_LEASH := 70.0
 ## sahnada alohida tugun saqlanmaydi.
 const ARENA_SHADER := preload("res://scripts/render/arena.gdshader")
 const AvatarAtlasNode := preload("res://scripts/render/avatar_atlas.gd")
+const TrailRibbonsNode := preload("res://scripts/render/trail_ribbons.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 
 var world: GameWorld
@@ -36,6 +37,7 @@ var config := GameConfig.new()
 
 var _heads: Array[MeshInstance3D] = []
 var _avatars: Node
+var _trails: MeshInstance3D
 var _arena_material: ShaderMaterial
 var _capitals: MultiMeshInstance3D
 var _drag_origin := Vector2.ZERO
@@ -60,6 +62,8 @@ func _ready() -> void:
 
 	_avatars = AvatarAtlasNode.new()
 	add_child(_avatars)
+	_trails = TrailRibbonsNode.new()
+	add_child(_trails)
 	_capitals = CapitalMarksNode.new()
 	add_child(_capitals)
 
@@ -88,14 +92,20 @@ func _config_from_store() -> GameConfig:
 func _new_match() -> void:
 	config = _config_from_store()
 	world = MatchBuilder.create(
-		config, store.color_index, _player_name(), store.avatar)
+		config, store.color_index, _player_name(), store.avatar, 0,
+		_player_country())
 	_clear_scene()
 	_avatars.setup(world)
+	_trails.setup(world)
 	_build_arena()
 	_build_players()
 	_build_capitals()
 	_apply_view_settings()
 	_place_camera_instantly()
+
+func _player_country() -> String:
+	var saved := store.country
+	return saved if not saved.is_empty() else Profile.detect_country()
 
 func _player_name() -> String:
 	var saved := store.nickname
@@ -211,12 +221,20 @@ func _build_capitals() -> void:
 	var count: int = _capitals.build(world.capitals, world.grid)
 	print("Poytaxtlar: %d belgi" % count)
 
+## Bosh — o'yinchi rangidagi shar; ustida uning belgisi turadi.
+const HEAD_RADIUS := 1.35
+
 func _build_players() -> void:
-	var box := BoxMesh.new()
-	box.size = Vector3(2.2, 2.2, 2.2)
+	var ball := SphereMesh.new()
+	ball.radius = HEAD_RADIUS
+	ball.height = HEAD_RADIUS * 2.0
+	# Mobil qurilma uchun kamroq uchburchak — bosh baribir kichik.
+	ball.radial_segments = 16
+	ball.rings = 8
+
 	for p in world.players:
 		var head := MeshInstance3D.new()
-		head.mesh = box
+		head.mesh = ball
 		var mat := StandardMaterial3D.new()
 		mat.albedo_color = Palette.head(p.color_index)
 		mat.roughness = 0.6
@@ -226,6 +244,21 @@ func _build_players() -> void:
 			mat.emission = Palette.head(p.color_index)
 			mat.emission_energy_multiplier = 0.45
 		head.set_surface_override_material(0, mat)
+
+		# Belgi sharning ustida, doim kameraga qarab turadi.
+		var glyph := Sprite3D.new()
+		var tile := AtlasTexture.new()
+		tile.atlas = _avatars.texture()
+		tile.region = _avatars.tile_region(p.id, _avatars.KIND_HEAD)
+		glyph.texture = tile
+		glyph.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		glyph.shaded = false
+		# Shar ichiga kirib ketmasin.
+		glyph.no_depth_test = true
+		glyph.render_priority = 1
+		glyph.pixel_size = HEAD_RADIUS * 2.1 / float(_avatars.TILE)
+		head.add_child(glyph)
+
 		players_root.add_child(head)
 		_heads.append(head)
 
@@ -280,9 +313,8 @@ func _sync_heads() -> void:
 		head.visible = p.alive
 		if not p.alive:
 			continue
-		head.position = Vector3(p.x, ArenaBuilder.LAND_HEIGHT + 1.1, p.y)
-		# Kub yurish yo'nalishiga qarab biroz buriladi — jonli ko'rinadi.
-		head.rotation.y = -p.angle
+		head.position = Vector3(
+			p.x, ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS, p.y)
 
 func _player_target() -> Vector3:
 	var p := world.human()

@@ -22,10 +22,14 @@ Tayyor:
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
-  silliqlanadi (`render/arena.gdshader`): hudud cheti 4x4 katak
-  bo'yicha kubik og'irlik bilan, iz esa eng yaqin 4 katak bo'yicha
-  hisoblanadi — shuning uchun hudud cheti silliq egri chiziq bo'ladi,
-  bir kataklik iz esa ingichkalashmaydi.
+  silliqlanadi (`render/arena.gdshader`): hudud egasi 4x4 katak
+  bo'yicha kubik og'irlik bilan tanlanadi, shuning uchun chegara
+  zinapoya emas, silliq egri chiziq bo'lib chiqadi.
+- **Iz** — kataklardan emas, o'yinchining uzluksiz yo'lidan quriladigan
+  lenta (`render/trail_ribbons.gd`). Kataklardan chizilgan chiziq
+  silliqlangandan keyin ham to'lqinli ko'rinardi; yo'l esa mantiq
+  qatlamida soddalashtirib boriladi, shuning uchun to'g'ri borgan
+  joyda chiziq ham to'liq tekis.
 - Barmoq bilan boshqarish, HUD (foiz, vaqt, o'ldirishlar, o'rin).
 - To'liq o'yin tsikli: boshlash ekrani -> o'yin -> natija -> qayta
   o'ynash.
@@ -37,10 +41,11 @@ Tayyor:
   rekordni tozalash.
 - **Profil**: taxallus, 40 emoji, 12 odam tasviri va **249 davlat
   bayrog'i** (qidiruv bilan).
-- **Hududda avatar** — har o'yinchining bayrog'i yoki emojisi bitta
-  bo'lib, uning butun hududini egallaydi. Avatar arena shaderida
-  chiziladi va hudud shakliga aniq kesiladi (`AvatarPlacement` +
-  `render/avatar_atlas.gd`).
+- **Hududda bayroq** — o'yinchi tanlagan davlat bayrog'i uning butun
+  hududini egallaydi. Bayroq arena shaderida chiziladi va hudud
+  shakliga aniq kesiladi (`AvatarPlacement` + `render/avatar_atlas.gd`).
+- **Bosh** — o'yinchi rangidagi shar; ustida uning avatari (emoji yoki
+  odam tasviri) turadi.
 - **Poytaxtlar** — xaritadagi 236 poytaxt arena ustida ustun bo'lib
   turadi (bitta `MultiMesh`).
 - **Kichik xarita** — egalik teksturasining o'zi kichraytirib
@@ -125,7 +130,8 @@ scripts/
     arena_builder.gd     xaritadan plato meshi
     paint_layer.gd       egalik va rang teksturalari
     arena.gdshader       chegaralarni silliqlovchi shader
-    avatar_atlas.gd      avatarlar teksturasi va joylashuvi
+    avatar_atlas.gd      belgilar teksturasi va joylashuvi
+    trail_ribbons.gd     izlar lentasi
     capital_marks.gd     poytaxt ustunlari (MultiMesh)
     palette.gd           ranglar va 5 arena uslubi
     game_view.gd         sahna, kamera, boshqaruv

@@ -16,6 +16,8 @@ func _initialize() -> void:
 	_test_avatar_placement(t)
 	_test_continue(t)
 	_test_profile(t)
+	_test_trail_path(t)
+	_test_country(t)
 	_test_strings(t)
 	_test_paint(t)
 	quit(0 if t.report() else 1)
@@ -64,6 +66,85 @@ func _test_paint(t: TestRunner) -> void:
 			if paint.palette_image.get_pixel(i, 0).a < 1.0:
 				clear += 1
 		t.equal(clear, 0, "shaffof rang yo'q")
+	)
+
+# ——— Iz yo'li ———
+
+func _test_trail_path(t: TestRunner) -> void:
+	t.group("iz yo'li")
+
+	t.test("to'g'ri qism ikki nuqtada qoladi", func() -> void:
+		var p := PlayerState.new(1, "P", 0, false, 1.0, 1.0)
+		for i in 40:
+			p.add_path_point(10.0 + i * 0.5, 10.0)
+		t.equal(p.trail_path.size(), 2, "to'g'ri chiziq soddalashtirildi")
+		t.check(p.trail_path[1].is_equal_approx(Vector2(29.5, 10.0)),
+			"oxirgi nuqta joyida: %s" % p.trail_path[1])
+	)
+
+	t.test("burilish nuqtasi saqlanadi", func() -> void:
+		var p := PlayerState.new(1, "P", 0, false, 1.0, 1.0)
+		for i in 10:
+			p.add_path_point(10.0 + i * 0.5, 10.0)
+		for i in 10:
+			p.add_path_point(14.5, 10.0 + (i + 1) * 0.5)
+		t.equal(p.trail_path.size(), 3, "boshi, burchagi va oxiri")
+	)
+
+	t.test("juda yaqin nuqta qo'shilmaydi", func() -> void:
+		var p := PlayerState.new(1, "P", 0, false, 1.0, 1.0)
+		p.add_path_point(5.0, 5.0)
+		p.add_path_point(5.05, 5.0)
+		t.equal(p.trail_path.size(), 1)
+	)
+
+	t.test("egri yo'l nuqtalari saqlanadi", func() -> void:
+		var p := PlayerState.new(1, "P", 0, false, 1.0, 1.0)
+		for i in 60:
+			var a := i * 0.1
+			p.add_path_point(20.0 + cos(a) * 8.0, 20.0 + sin(a) * 8.0)
+		t.greater(p.trail_path.size(), 4, "aylana nuqtalarga bo'linadi")
+	)
+
+	t.test("o'lim yo'lni tozalaydi", func() -> void:
+		var world := MapHelpers.make_world(40, 40)
+		var p := MapHelpers.place_player(world, 5, 5)
+		p.add_path_point(9.0, 9.0)
+		world.kill(p, PlayerState.DeathCause.TRAIL_HIT, null)
+		t.equal(p.trail_path.size(), 0)
+	)
+
+# ——— Davlat bayrog'i ———
+
+func _test_country(t: TestRunner) -> void:
+	t.group("davlat bayrog'i")
+
+	t.test("noto'g'ri kod standart davlatga aylanadi", func() -> void:
+		t.equal(Profile.sanitize_country("xx"), Profile.DEFAULT_COUNTRY)
+		t.equal(Profile.sanitize_country(""), Profile.DEFAULT_COUNTRY)
+		t.equal(Profile.sanitize_country("uz"), "UZ")
+	)
+
+	t.test("tasodifiy davlat ro'yxatdan olinadi", func() -> void:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 11
+		for i in 20:
+			var code := Profile.random_country(rng)
+			t.equal(Profile.sanitize_country(code), code,
+				"ro'yxatda bor: " + code)
+	)
+
+	t.test("botlarga avatar va bayroq beriladi", func() -> void:
+		var config := GameConfig.new()
+		config.bot_count = 6
+		var world := MatchBuilder.create(config, 0, "Men", "emoji:\U01F98A", 3)
+		var bad := 0
+		for p in world.players:
+			if Profile.map_glyph(p.avatar).is_empty():
+				bad += 1
+			if Profile.flag_emoji(p.country).is_empty():
+				bad += 1
+		t.equal(bad, 0, "hammasida belgi va bayroq bor")
 	)
 
 # ——— Matnlar ———
