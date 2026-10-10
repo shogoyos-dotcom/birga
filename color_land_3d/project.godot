@@ -16,6 +16,8 @@ boot_splash/show_image=false
 [autoload]
 
 Audio="*res://scripts/app/audio.gd"
+Net="*res://scripts/net/net_link.gd"
+Board="*res://scripts/app/leaderboard.gd"
 
 [display]
 

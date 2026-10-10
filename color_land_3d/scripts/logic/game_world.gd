@@ -49,8 +49,35 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 	color_index_by_id.resize(256)
 	_by_id.resize(256)
 
+## Shu qurilmadagi o'yinchi. Tarmoqda mehmon o'zi birinchi bo'lmasligi
+## mumkin, shuning uchun indeks alohida saqlanadi.
+var local_index: int = 0
+
 func human() -> PlayerState:
-	return players[0]
+	return players[local_index]
+
+func player_by_id(id: int) -> PlayerState:
+	if id <= 0 or id >= _by_id.size():
+		return null
+	return _by_id[id]
+
+## Tarmoqdagi yangi odam o'yinchi. Joy qolmasa `null`.
+func add_human(p_name: String, color: int, avatar: String,
+		country: String) -> PlayerState:
+	if players.size() >= 255:
+		return null
+	var player := add_player(
+		p_name, color % Palette.color_count(), false)
+	player.avatar = avatar
+	player.country = Profile.sanitize_country(country)
+	return player
+
+## Shu o'yinchini mahalliy deb belgilaydi.
+func set_local(id: int) -> void:
+	for i in players.size():
+		if players[i].id == id:
+			local_index = i
+			return
 
 func add_player(p_name: String, color: int, is_bot: bool,
 		brain: Object = null) -> PlayerState:
@@ -154,10 +181,15 @@ func _move(p: PlayerState, dt: float) -> void:
 		p.y = cy_clamped
 	else:
 		var row: int = int(floor(p.y))
+		var moved := false
 		if grid.playable(int(floor(cx_clamped)), row):
 			p.x = cx_clamped
+			moved = true
 		if grid.playable(int(floor(p.x)), int(floor(cy_clamped))):
 			p.y = cy_clamped
+			moved = true
+		if not moved:
+			_slide_along_shore(p, dist)
 
 	if not p.trail.is_empty():
 		p.add_path_point(p.x, p.y)
@@ -179,6 +211,32 @@ func _move(p: PlayerState, dt: float) -> void:
 			else:
 				sx = p.cx
 		_enter_cell(p, sx, sy)
+
+## Ikkala o'q ham to'silganda — qirg'oqning ichki burchagida — o'yinchi
+## butunlay to'xtab qolardi.
+##
+## Shu yerda yo'nalishga eng yaqin bo'sh tomon qidiriladi va o'yinchi
+## o'sha tomonga sirpanadi. Yo'nalishning o'zi o'zgarmaydi: barmoq
+## qayerni ko'rsatsa, o'sha yoqqa intilaveradi.
+func _slide_along_shore(p: PlayerState, dist: float) -> void:
+	for step in SHORE_TURNS:
+		for sign in [1.0, -1.0]:
+			var angle: float = p.angle + step * sign
+			var nx: float = p.x + cos(angle) * dist
+			var ny: float = p.y + sin(angle) * dist
+			if nx <= 0.0 or ny <= 0.0 \
+					or nx >= grid.width or ny >= grid.height:
+				continue
+			if not grid.playable(int(floor(nx)), int(floor(ny))):
+				continue
+			p.x = nx
+			p.y = ny
+			return
+
+## Qirg'oq bo'ylab sirpanish uchun sinab ko'riladigan burchaklar.
+const SHORE_TURNS: PackedFloat32Array = [
+	PI / 6.0, PI / 3.0, PI / 2.0, PI * 2.0 / 3.0,
+]
 
 func _enter_cell(p: PlayerState, nx: int, ny: int) -> void:
 	# Suv va xarita cheti — to'siq.

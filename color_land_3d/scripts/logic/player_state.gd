@@ -15,6 +15,9 @@ var is_bot: bool
 var avatar: String = "figure:0"
 ## Hududda ko'rinadigan bayroq (ISO 3166-1 alpha-2).
 var country: String = Profile.DEFAULT_COUNTRY
+## O'yinchi yuklagan rasm yo'llari ("" — belgi/bayroq ishlatiladi).
+var avatar_image: String = ""
+var flag_image: String = ""
 
 var speed: float
 var turn_rate: float
@@ -92,10 +95,14 @@ func steer_to(dir: float) -> void:
 	target_angle = normalize_angle(dir)
 
 ## Yo'l nuqtalari orasidagi eng kichik masofa (katakda).
-const PATH_MIN_STEP := 0.4
+const PATH_MIN_STEP := 0.25
 
 ## Oraliq nuqta to'g'ri chiziqdan shuncha chetlashmasa — tashlanadi.
-const PATH_TOLERANCE := 0.2
+##
+## Chegara kichik: aks holda yumshoq burilish bir necha uzun kesmaga
+## aylanib, iz "singan" bo'lib ko'rinardi. Hozirgi qiymatda chetlashish
+## iz kengligining o'ndan biridan kam — ko'zga tashlanmaydi.
+const PATH_TOLERANCE := 0.05
 
 ## Yo'lga yangi nuqta qo'shadi.
 ##

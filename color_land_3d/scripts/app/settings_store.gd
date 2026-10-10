@@ -77,6 +77,11 @@ var show_capitals: bool:
 	get: return bool(_read("capitals", true))
 	set(value): _write("capitals", value)
 
+## Arenada shahar nomlari yozilsinmi.
+var show_city_names: bool:
+	get: return bool(_read("city_names", true))
+	set(value): _write("city_names", value)
+
 ## Hudud ustida avatar (bayroq) naqshi ko'rinadimi.
 var show_flags: bool:
 	get: return bool(_read("flags", true))
@@ -99,6 +104,16 @@ var avatar: String:
 	get: return str(_read("avatar", "figure:0"))
 	set(value): _write("avatar", value)
 
+## O'yinchi yuklagan avatar rasmi ("" — yo'q).
+var avatar_image: String:
+	get: return str(_read("avatar_image", ""))
+	set(value): _write("avatar_image", value)
+
+## O'yinchi yuklagan hudud rasmi ("" — bayroq ishlatiladi).
+var flag_image: String:
+	get: return str(_read("flag_image", ""))
+	set(value): _write("flag_image", value)
+
 ## Hududda ko'rinadigan bayroq (ISO 3166-1 alpha-2).
 var country: String:
 	get: return str(_read("country", ""))
@@ -117,6 +132,28 @@ var sound_enabled: bool:
 var vibration_enabled: bool:
 	get: return bool(_read("vibration", true))
 	set(value): _write("vibration", value)
+
+# ——— Tarmoq ———
+
+## Oxirgi kiritilgan xona manzili (mahalliy tarmoq).
+var last_room: String:
+	get: return str(_read("last_room", ""))
+	set(value): _write("last_room", value)
+
+## Internetdagi server manzili.
+var server_address: String:
+	get: return str(_read("server", ""))
+	set(value): _write("server", value)
+
+## Reyting serveri manzili (http://...). Bo'sh — reyting o'chiq.
+var leaderboard_url: String:
+	get: return str(_read("board_url", ""))
+	set(value): _write("board_url", value)
+
+## O'yinchi shahri — shahar bo'yicha reyting uchun.
+var city: String:
+	get: return str(_read("city", ""))
+	set(value): _write("city", value)
 
 # ——— Beletlar ———
 

@@ -22,10 +22,19 @@ var avatar: String = "figure:0":
 		avatar = value
 		_refresh()
 
-var _label: Label
+## O'yinchi yuklagan rasm ("" — belgi chiziladi).
+var image_path: String = "":
+	set(value):
+		image_path = value
+		_refresh()
 
-func _init(p_avatar: String = "figure:0", size: float = 44.0) -> void:
+var _label: Label
+var _picture: TextureRect
+
+func _init(p_avatar: String = "figure:0", size: float = 44.0,
+		p_image: String = "") -> void:
 	custom_minimum_size = Vector2(size, size)
+	image_path = p_image
 	avatar = p_avatar
 
 func _ready() -> void:
@@ -34,6 +43,26 @@ func _ready() -> void:
 func _refresh() -> void:
 	if not is_inside_tree():
 		return
+
+	# O'yinchi o'z rasmini qo'ygan bo'lsa — belgi o'rniga o'sha.
+	var texture := ImagePicker.load_texture(image_path)
+	if texture != null:
+		if _label != null:
+			_label.visible = false
+		if _picture == null:
+			_picture = TextureRect.new()
+			_picture.set_anchors_preset(Control.PRESET_FULL_RECT)
+			_picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			_picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			add_child(_picture)
+		_picture.visible = true
+		_picture.texture = texture
+		queue_redraw()
+		return
+	if _picture != null:
+		_picture.visible = false
+
 	var glyph := Profile.glyph(avatar)
 	if glyph.is_empty():
 		if _label != null:
@@ -59,6 +88,8 @@ func _refresh() -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	if _picture != null and _picture.visible:
+		return
 	if not Profile.glyph(avatar).is_empty():
 		return
 	_draw_figure(Profile.figure_index(avatar))

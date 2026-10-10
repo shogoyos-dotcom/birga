@@ -18,6 +18,9 @@ var land_cells: int
 ## Oxirgi tozalashdan beri o'zgargan kataklar — chizish qatlami faqat
 ## shularni qayta bo'yaydi (butun xaritani emas).
 var dirty_cells := PackedInt32Array()
+## Xuddi shunday ro'yxat, lekin tarmoq uchun: chizish qatlami va
+## tarmoq bir-biridan mustaqil bo'shatadi.
+var net_dirty := PackedInt32Array()
 
 var _territory: PackedInt32Array
 var _version: PackedInt32Array
@@ -114,6 +117,7 @@ func set_owner_index(i: int, id: int) -> void:
 	_territory[id] += 1
 	owner_cells[i] = id
 	dirty_cells.append(i)
+	net_dirty.append(i)
 	_version[prev] += 1
 	_version[id] += 1
 	if id != 0:
@@ -132,6 +136,7 @@ func set_trail_index(i: int, id: int) -> void:
 		return
 	trail_cells[i] = id
 	dirty_cells.append(i)
+	net_dirty.append(i)
 
 func set_trail(x: int, y: int, id: int) -> void:
 	set_trail_index(index(x, y), id)
@@ -149,6 +154,7 @@ func clear_player(id: int) -> PackedInt32Array:
 		if trail_cells[i] == id:
 			trail_cells[i] = 0
 			dirty_cells.append(i)
+			net_dirty.append(i)
 	_min_x[id] = 1 << 30
 	_min_y[id] = 1 << 30
 	_max_x[id] = -1
@@ -196,4 +202,12 @@ func take_dirty() -> PackedInt32Array:
 		return PackedInt32Array()
 	var copy := dirty_cells
 	dirty_cells = PackedInt32Array()
+	return copy
+
+## Xuddi shunday, lekin tarmoq ro'yxati uchun.
+func take_net_dirty() -> PackedInt32Array:
+	if net_dirty.is_empty():
+		return PackedInt32Array()
+	var copy := net_dirty
+	net_dirty = PackedInt32Array()
 	return copy

@@ -19,6 +19,7 @@ var _mode := "play"
 var _avatar := ""
 ## Tekshirish uchun maydon, masalan "circle".
 var _map := ""
+var _opened := false
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -55,12 +56,19 @@ func _drive() -> void:
 	var view := current_scene
 	if view == null or not view.has_method("steer_human"):
 		return
+	if _mode.begins_with("board:") and view.has_method("set_board_url_for_demo"):
+		view.set_board_url_for_demo(_mode.substr(6))
+		_mode = "board"
 	if not _map.is_empty() and view.has_method("set_map_for_demo"):
 		view.set_map_for_demo(_map)
 	if not _avatar.is_empty() and view.has_method("set_avatar_for_demo"):
 		view.set_avatar_for_demo(_avatar)
 	if _mode != "play" and _mode != "trail":
-		view.show_screen_for_demo(_mode)
+		# Ekran bir marta ochiladi: har kadrda qayta ochilsa, serverdan
+		# kelgan javob darhol o'chib ketardi.
+		if not _opened:
+			_opened = true
+			view.show_screen_for_demo(_mode)
 		return
 	view.start_for_demo()
 	if _mode == "trail":

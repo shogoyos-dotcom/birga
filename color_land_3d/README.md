@@ -16,12 +16,23 @@ Tayyor:
   (flood fill), harakat, iz, o'lim qoidalari, dunyo xaritasi, suv
   qoidalari, botlar. Dvigatelga bog'liq emas va headless testlardan
   o'tadi (94 ta tekshiruv).
+- **Uch xil o'yin**: botlar bilan (internetsiz), do'stlar bilan
+  (bitta Wi-Fi tarmog'ida xona ochib) va internetda (o'z serveringiz
+  orqali).
+- **Onlayn reyting** — shahar, davlat, materik va dunyo bo'yicha.
+  Server `server/leaderboard.py` da (faqat standart kutubxona).
+- **O'z rasmingiz** — avatar va hudud uchun telefondan rasm yuklash
+  mumkin.
+- **Shahar nomlari** arena ustida yoziladi (yaqindagilari ko'rinadi).
 - **Sakkizta maydon**: dunyo xaritasi, oltita materik (Afrika, Osiyo,
   Yevropa, Shimoliy va Janubiy Amerika, Okeaniya) va erkin doira
   maydon. Sozlamalardan tanlanadi.
 - **3D sahna**: maydon okeandan ko'tarilgan plato bo'lib quriladi
   (greedy meshing, dunyo uchun ~16 500 to'rtburchak), perspektiv
   kamera o'yinchini kuzatadi, yo'naltirilgan quyosh va soyalar.
+- **Orollar ulangan**: juda kichik orollar olib tashlanadi, qolganlari
+  esa eng qisqa suv oralig'i bo'ylab ko'prik bilan materikka ulanadi —
+  xaritaning hamma yeriga yetib borish mumkin.
 - **Qirg'oq silliq**: geometriya o'yin panjarasidan emas, uch barobar
   maydaroq va silliqlangan niqobdan quriladi. Mantiq niqobi ham
   o'shandan olinadi — ko'rinadigan va yuriladigan quruqlik aynan bir
@@ -144,6 +155,8 @@ scripts/
     game_view.gd         sahna, kamera, boshqaruv
   app/          # sozlamalar, matnlar, profil, ovoz, do'kon
   ui/           # ekranlar, komponentlar, avatar, kichik xarita
+  net/          # tarmoq qatlami (uy egasi / mehmon)
+server/         # reyting serveri (Python, standart kutubxona)
 data/           # generatsiya qilingan (../color_land/tool/make_world_map.py)
 tests/          # headless testlar
 tools/          # skrinshot vositasi
@@ -182,6 +195,55 @@ qolgan o'yinchi boshqa yo'ldan chiqolmaydi — qaytishda u izning
 ketma-ket kataklariga tegadi, shuning uchun har tegish oldingisining
 qo'shnisi bo'lsa, bu qaytish deb hisoblanadi. Haqiqiy kesishda izga
 butunlay boshqa joydan kiriladi va qoida ishlaydi.
+
+Qirg'oqning ichki burchagida ikkala o'q ham to'silsa, o'yinchi to'xtab
+qolmaydi: yo'nalishiga eng yaqin bo'sh tomon qidirilib, qirg'oq bo'ylab
+sirpanadi.
+
+## Uch xil o'yin
+
+| Rejim | Nima kerak | Qanday ishlaydi |
+| --- | --- | --- |
+| Botlar bilan | hech narsa | Hammasi telefonda hisoblanadi |
+| Do'stlar bilan | bitta Wi-Fi | Biri xona ochadi, qolganlari manzilni kiritib qo'shiladi |
+| Internetda | o'z serveringiz | Server manzili sozlamalarda yoziladi |
+
+Tarmoq modeli oddiy: **uy egasi** butun o'yinni hisoblaydi (botlar
+ham), mehmonlar faqat yo'nalishini yuboradi va tayyor holatni oladi.
+Pozitsiyalar sekundiga 15 marta ishonchsiz kanalda, o'zgargan kataklar
+esa ishonchli kanalda bo'lib yuboriladi; yangi qo'shilganga butun
+panjara bir marta siqib yuboriladi.
+
+### Doimiy server (VPS uchun)
+
+Linux eksporti xuddi shu o'yin, lekin `--server` bilan interfeyssiz
+xona bo'lib ishlaydi:
+
+```bash
+godot --headless --path . --export-release "Linux" colorland.x86_64
+./colorland.x86_64 --server --headless --port 7777
+```
+
+Keyin o'yinchilar "Internetda" bo'limiga serveringiz IP sini yozadi.
+7777 porti ochiq bo'lishi kerak (UDP).
+
+## Onlayn reyting
+
+Natija har o'yindan keyin serverga yuboriladi; ro'yxat shahar, davlat,
+materik va dunyo kesimida ko'rsatiladi. Server manzili sozlamalarda
+("Reyting serveri"), shahar esa profilda yoziladi.
+
+```bash
+python3 server/leaderboard.py --port 8080 --db colorland.db
+```
+
+Namuna server SQLite ga yozadi va hisob (akkaunt) talab qilmaydi —
+haqiqiy chiqarishda oldiga HTTPS proksi qo'yish kerak. API:
+
+```
+POST /score  {name, country, city, continent, percent, kills}
+GET  /top?scope=world|continent|country|city&key=<qiymat>
+```
 
 ## Ma'lumot manbai
 

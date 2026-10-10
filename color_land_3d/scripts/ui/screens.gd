@@ -13,8 +13,12 @@ signal settings_changed
 ## o'yin qaytadan boshlanmaydi, faqat chizish qatlami yangilanadi.
 signal view_changed
 signal continue_with_ticket
+## Tarmoq o'yini boshlandi: uy egasi sifatida (`host`) yoki mehmon
+## sifatida.
+signal host_pressed
+signal join_pressed(address: String)
 
-enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP }
+enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD }
 
 var store: SettingsStore
 ## Belet va reklama xizmati (hozircha namuna).
@@ -41,6 +45,13 @@ var _ad_busy := false
 var _reset_armed := false
 ## Do'kondan qaytganda qaysi ekranga qaytiladi.
 var _shop_return: Screen = Screen.MENU
+## Xona ekrani: internetdagi server (`true`) yoki mahalliy tarmoq.
+var _room_online := false
+var _room_status := ""
+## Onlayn reyting: tanlangan kesim va olingan qatorlar.
+var _board_scope := "world"
+var _board_rows: Array = []
+var _board_note := ""
 
 func setup(p_store: SettingsStore) -> void:
 	store = p_store
@@ -70,6 +81,8 @@ func _rebuild() -> void:
 		Screen.PAUSE: _root = _build_pause()
 		Screen.RESULT: _root = _build_result()
 		Screen.SHOP: _root = _build_shop()
+		Screen.ROOM: _root = _build_room()
+		Screen.BOARD: _root = _build_board()
 	add_child(_root)
 
 func _accent() -> Color:
@@ -103,14 +116,33 @@ func _build_menu() -> Control:
 		HORIZONTAL_ALIGNMENT_CENTER, true))
 	box.add_child(UiKit.spacer(8))
 
-	var play := UiKit.button(Strings.t("play"), _accent(), true)
+	var play := UiKit.button(Strings.t("modeBots"), _accent(), true)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
 		play_pressed.emit())
 	box.add_child(play)
+	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 13, UiKit.TEXT_FAINT))
+
+	var friends := UiKit.ghost_button(Strings.t("modeFriends"), UiKit.MINT)
+	friends.pressed.connect(func() -> void:
+		Audio.tap()
+		open_room(false))
+	box.add_child(friends)
+
+	var online := UiKit.ghost_button(Strings.t("modeOnline"), UiKit.GOLD)
+	online.pressed.connect(func() -> void:
+		Audio.tap()
+		open_room(true))
+	box.add_child(online)
 
 	box.add_child(_profile_card())
 	box.add_child(_record_card())
+
+	var board := UiKit.ghost_button(Strings.t("onlineBoard"), UiKit.BLUE)
+	board.pressed.connect(func() -> void:
+		Audio.tap()
+		open_board())
+	box.add_child(board)
 	return root
 
 func _profile_card() -> Control:
@@ -120,12 +152,13 @@ func _profile_card() -> Control:
 	card.add_child(row)
 
 	var frame := UiKit.panel(UiKit.SURFACE, 6)
-	frame.add_child(AvatarView.new(store.avatar, 42.0))
+	frame.add_child(AvatarView.new(store.avatar, 42.0, store.avatar_image))
 	row.add_child(frame)
 
 	var flag := UiKit.panel(UiKit.SURFACE, 6)
 	flag.add_child(AvatarView.new(
-		Profile.encode(Profile.Kind.FLAG, _country()), 42.0))
+		Profile.encode(Profile.Kind.FLAG, _country()), 42.0,
+		store.flag_image))
 	row.add_child(flag)
 
 	var texts := VBoxContainer.new()
@@ -292,6 +325,12 @@ func _build_settings() -> Control:
 			Audio.tap()
 			view_changed.emit()
 			_rebuild(), _accent()))
+	view_box.add_child(UiKit.switch_row(Strings.t("showCityNames"),
+		store.show_city_names, func(value: bool) -> void:
+			store.show_city_names = value
+			Audio.tap()
+			view_changed.emit()
+			_rebuild(), _accent()))
 	view_box.add_child(UiKit.switch_row(Strings.t("showFlags"),
 		store.show_flags, func(value: bool) -> void:
 			store.show_flags = value
@@ -316,6 +355,20 @@ func _build_settings() -> Control:
 		"%.2f%%   %d %s" % [store.best_percent, store.best_kills,
 			Strings.t("kills")], 18, UiKit.TEXT_DIM,
 		HORIZONTAL_ALIGNMENT_LEFT))
+	data_box.add_child(UiKit.label(Strings.t("boardUrl"), 16, UiKit.TEXT_DIM,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	var board_field := LineEdit.new()
+	board_field.text = store.leaderboard_url
+	board_field.placeholder_text = "http://192.168.1.5:8080"
+	board_field.add_theme_font_size_override("font_size", 16)
+	board_field.add_theme_stylebox_override("normal",
+		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+	board_field.add_theme_stylebox_override("focus",
+		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+	board_field.text_changed.connect(func(text: String) -> void:
+		store.leaderboard_url = text.strip_edges())
+	data_box.add_child(board_field)
+
 	var reset := UiKit.ghost_button(
 		Strings.t("resetRecordConfirm") if _reset_armed
 			else Strings.t("resetRecord"),
@@ -362,7 +415,7 @@ func _build_profile() -> Control:
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
 	var frame := UiKit.panel(UiKit.SURFACE, 6)
-	frame.add_child(AvatarView.new(store.avatar, 52.0))
+	frame.add_child(AvatarView.new(store.avatar, 52.0, store.avatar_image))
 	row.add_child(frame)
 
 	_nickname_edit = LineEdit.new()
@@ -395,13 +448,66 @@ func _build_profile() -> Control:
 		panel.add_child(_emoji_grid())
 	else:
 		panel.add_child(_figure_grid())
+	box.add_child(_photo_row(store.avatar_image, ImagePicker.AVATAR_FILE,
+		func(path: String) -> void: store.avatar_image = path))
 
 	# Bayroq — hududni egallaydi, shuning uchun alohida tanlanadi.
+	box.add_child(UiKit.section(Strings.t("cityLabel")))
+	var city := LineEdit.new()
+	city.text = store.city
+	city.placeholder_text = Strings.t("cityLabel")
+	city.max_length = 40
+	city.add_theme_font_size_override("font_size", 18)
+	city.add_theme_stylebox_override("normal",
+		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+	city.add_theme_stylebox_override("focus",
+		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+	city.text_changed.connect(func(text: String) -> void:
+		store.city = text.strip_edges())
+	box.add_child(city)
+
 	box.add_child(UiKit.section(Strings.t("territoryFlag")))
 	var flags := UiKit.panel(UiKit.PANEL, 12)
 	flags.add_child(_flag_grid())
 	box.add_child(flags)
+	box.add_child(_photo_row(store.flag_image, ImagePicker.FLAG_FILE,
+		func(path: String) -> void: store.flag_image = path))
 	return root
+
+## "Rasm yuklash" qatori: o'yinchi o'z rasmini qo'yishi mumkin.
+func _photo_row(current: String, dest: String,
+		on_set: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+
+	var upload := UiKit.ghost_button(
+		Strings.t("uploadPhoto"), _accent())
+	upload.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	upload.pressed.connect(func() -> void:
+		Audio.tap()
+		_save_nickname()
+		ImagePicker.open(self, dest, Strings.t("uploadPhoto"),
+			func(path: String) -> void:
+				if path.is_empty():
+					toast(Strings.t("photoFailed"))
+					return
+				on_set.call(path)
+				settings_changed.emit()
+				_rebuild()
+				toast(Strings.t("photoAdded"))))
+	row.add_child(upload)
+
+	if not current.is_empty():
+		var clear := UiKit.ghost_button("✕", UiKit.CORAL)
+		clear.custom_minimum_size = Vector2(60, 56)
+		clear.pressed.connect(func() -> void:
+			Audio.tap()
+			ImagePicker.remove(current)
+			on_set.call("")
+			settings_changed.emit()
+			_rebuild())
+		row.add_child(clear)
+	return row
 
 func _save_nickname() -> void:
 	if _nickname_edit != null and is_instance_valid(_nickname_edit):
@@ -817,6 +923,198 @@ func _watch_ad(then_continue: bool) -> void:
 		return
 	_rebuild()
 	toast("%s: +%d" % [Strings.t("ticketsAdded"), reward])
+
+# ——— Onlayn reyting ———
+
+func open_board() -> void:
+	_board_rows = []
+	_board_note = Strings.t("loading")
+	show_screen(Screen.BOARD)
+	Board.fetch(store, _board_scope)
+
+## Server javobi keldi.
+func set_board(rows: Array) -> void:
+	_board_rows = rows
+	_board_note = "" if not rows.is_empty() else Strings.t("emptyBoard")
+	if _screen == Screen.BOARD:
+		_rebuild()
+
+func set_board_error(reason: String) -> void:
+	_board_rows = []
+	_board_note = Strings.t(reason)
+	if _screen == Screen.BOARD:
+		_rebuild()
+
+func _build_board() -> Control:
+	var root := UiKit.overlay()
+	var box := UiKit.centered_column(root, 440)
+	box.add_child(_header(Strings.t("onlineBoard"), func() -> void:
+		show_screen(Screen.MENU)))
+
+	var names := PackedStringArray()
+	for scope: String in Board.SCOPES:
+		names.append(Strings.t("scope" + scope.capitalize()))
+	box.add_child(UiKit.chips(names, Board.SCOPES.find(_board_scope),
+		func(index: int) -> void:
+			Audio.tap()
+			_board_scope = Board.SCOPES[index]
+			_board_rows = []
+			_board_note = Strings.t("loading")
+			_rebuild()
+			Board.fetch(store, _board_scope), _accent()))
+
+	var panel := UiKit.panel()
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 6)
+	panel.add_child(inner)
+	if not _board_note.is_empty():
+		inner.add_child(UiKit.label(_board_note, 16, UiKit.TEXT_DIM,
+			HORIZONTAL_ALIGNMENT_CENTER, true))
+	for i in _board_rows.size():
+		inner.add_child(_board_line(i + 1, _board_rows[i]))
+	box.add_child(panel)
+	return root
+
+func _board_line(place: int, row: Dictionary) -> Control:
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 8)
+	var mine: bool = str(row.get("name", "")) == store.nickname
+	var rank := UiKit.label(str(place), 14,
+		UiKit.BLUE if mine else UiKit.TEXT_FAINT)
+	rank.custom_minimum_size = Vector2(26, 0)
+	line.add_child(rank)
+
+	var code := str(row.get("country", ""))
+	if code.length() == 2:
+		line.add_child(AvatarView.new(
+			Profile.encode(Profile.Kind.FLAG, code), 22.0))
+
+	var name_label := UiKit.label(str(row.get("name", "")), 16,
+		UiKit.TEXT if mine else UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
+	line.add_child(name_label)
+	line.add_child(UiKit.label("%.2f%%" % float(row.get("percent", 0.0)), 16,
+		UiKit.TEXT if mine else UiKit.TEXT_DIM))
+	return line
+
+# ——— Xona: do'stlar bilan va internetda ———
+
+## Xona ekranini ochadi. `online` — internetdagi server, aks holda
+## bitta Wi-Fi tarmog'idagi o'yin.
+func open_room(online: bool) -> void:
+	_room_online = online
+	_room_status = ""
+	show_screen(Screen.ROOM)
+
+func set_room_status(text: String) -> void:
+	_room_status = text
+	if _screen == Screen.ROOM:
+		_rebuild()
+
+func _build_room() -> Control:
+	var root := UiKit.overlay()
+	var box := UiKit.centered_column(root, 440)
+	box.add_child(_header(
+		Strings.t("modeOnline") if _room_online else Strings.t("modeFriends"),
+		func() -> void:
+			Net.leave()
+			show_screen(Screen.MENU)))
+
+	var panel := UiKit.panel()
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 12)
+	panel.add_child(inner)
+
+	if Net.is_online():
+		inner.add_child(_room_members())
+	elif _room_online:
+		inner.add_child(UiKit.label(Strings.t("onlineNote"), 14,
+			UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
+		inner.add_child(_address_row(Strings.t("serverAddress"),
+			store.server_address))
+	else:
+		# Uy egasi bo'lish — bitta Wi-Fi tarmog'ida eng oson yo'l.
+		inner.add_child(UiKit.section(Strings.t("createRoom")))
+		inner.add_child(UiKit.label(Strings.t("shareCode"), 13,
+			UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
+		inner.add_child(UiKit.label(Net.local_address(), 22, UiKit.MINT))
+		var create := UiKit.button(Strings.t("createRoom"), UiKit.MINT)
+		create.pressed.connect(func() -> void:
+			Audio.tap()
+			host_pressed.emit())
+		inner.add_child(create)
+		inner.add_child(UiKit.section(Strings.t("joinRoom")))
+		inner.add_child(_address_row(Strings.t("roomCode"),
+			store.last_room))
+
+	if not _room_status.is_empty():
+		inner.add_child(UiKit.label(_room_status, 15, UiKit.CORAL,
+			HORIZONTAL_ALIGNMENT_CENTER, true))
+	box.add_child(panel)
+	return root
+
+## Manzil kiritish qatori va "Qo'shilish" tugmasi.
+func _address_row(title: String, value: String) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.add_child(UiKit.label(title, 15, UiKit.TEXT_DIM,
+		HORIZONTAL_ALIGNMENT_LEFT))
+
+	var field := LineEdit.new()
+	field.text = value
+	field.placeholder_text = "192.168.1.5"
+	field.add_theme_font_size_override("font_size", 19)
+	field.add_theme_stylebox_override("normal",
+		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+	field.add_theme_stylebox_override("focus",
+		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+	box.add_child(field)
+
+	var join := UiKit.button(Strings.t("joinRoom"), _accent())
+	join.pressed.connect(func() -> void:
+		Audio.tap()
+		var address := field.text.strip_edges()
+		if address.is_empty():
+			return
+		if _room_online:
+			store.server_address = address
+		else:
+			store.last_room = address
+		set_room_status(Strings.t("connecting"))
+		join_pressed.emit(address))
+	box.add_child(join)
+	return box
+
+## Xonadagi o'yinchilar ro'yxati.
+func _room_members() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.add_child(UiKit.section("%s (%d)" % [
+		Strings.t("inRoom"), Net.roster.size()]))
+	for row: Dictionary in Net.roster:
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		var dot := ColorRect.new()
+		dot.color = Palette.head(int(row["color"]))
+		dot.custom_minimum_size = Vector2(12, 12)
+		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(dot)
+		line.add_child(AvatarView.new(str(row["avatar"]), 22.0))
+		var name_label := UiKit.label(str(row["name"]), 16,
+			UiKit.TEXT_DIM if bool(row["bot"]) else UiKit.TEXT,
+			HORIZONTAL_ALIGNMENT_LEFT)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(name_label)
+		box.add_child(line)
+
+	var leave := UiKit.ghost_button(Strings.t("leaveRoom"), UiKit.CORAL)
+	leave.pressed.connect(func() -> void:
+		Audio.tap()
+		Net.leave()
+		menu_pressed.emit())
+	box.add_child(leave)
+	return box
 
 static func _clock(seconds: float) -> String:
 	return "%02d:%02d" % [int(seconds) / 60, int(seconds) % 60]

@@ -76,14 +76,27 @@ func _build_tiles() -> void:
 	add_child(viewport)
 
 	for p in _world.players:
-		_add_glyph(tile_index(p.id, KIND_HEAD), Profile.map_glyph(p.avatar))
-		_add_glyph(tile_index(p.id, KIND_FLAG),
-			Profile.flag_emoji(p.country))
+		_add_tile(tile_index(p.id, KIND_HEAD),
+			Profile.map_glyph(p.avatar), p.avatar_image)
+		_add_tile(tile_index(p.id, KIND_FLAG),
+			Profile.flag_emoji(p.country), p.flag_image)
 
-func _add_glyph(index: int, glyph: String) -> void:
+## Katakka o'yinchi rasmini yoki belgisini chizadi.
+func _add_tile(index: int, glyph: String, image_path: String) -> void:
+	var at := Vector2((index % COLS) * TILE, (index / COLS) * TILE)
+	var texture := ImagePicker.load_texture(image_path)
+	if texture != null:
+		var picture := TextureRect.new()
+		picture.texture = texture
+		picture.position = at
+		picture.size = Vector2(TILE, TILE)
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		viewport.add_child(picture)
+		return
 	var label := Label.new()
 	label.text = glyph
-	label.position = Vector2((index % COLS) * TILE, (index / COLS) * TILE)
+	label.position = at
 	label.size = Vector2(TILE, TILE)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

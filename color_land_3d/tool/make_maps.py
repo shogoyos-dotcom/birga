@@ -24,6 +24,7 @@ Natija:
   data/maps/<id>.bin     niqoblar
   data/maps/index.json   maydonlar ro'yxati va poytaxtlar
 """
+import collections
 import json
 import math
 import os
@@ -47,6 +48,16 @@ TARGET_LAND = 26000
 
 ## Panjara tomoni shundan oshmasin.
 MAX_SIDE = 460
+
+## Shundan kichik orol olib tashlanadi (katak).
+MIN_ISLAND = 24
+
+## Shundan uzun ko'prik chizilmaydi — bo'lak olib tashlanadi (katak).
+MAX_BRIDGE = 90
+
+## Ko'prik yarim kengligi (katak). Silliqlashdan keyin ham qolishi
+## uchun yetarlicha keng.
+BRIDGE_RADIUS = 2.2
 
 ## Maydonlar. `box` — (lon0, lon1, lat_pastki, lat_yuqori); berilmasa
 ## materikning o'z chegarasidan olinadi.
@@ -178,6 +189,181 @@ def grid_for(polys, box, target):
     print(f'    panjara {best[0]}x{best[1]}, quruqlik {best[3]} '
           f'({best[3] * 100 / (best[0] * best[1]):.1f}%), nisbat {aspect:.2f}')
     return best
+
+
+def components(land, w, h):
+    """Quruqlikning bog'langan bo'laklari (4 tomonlama)."""
+    label = [0] * (w * h)
+    sizes = {}
+    current = 0
+    for start in range(w * h):
+        if not land[start] or label[start]:
+            continue
+        current += 1
+        stack = [start]
+        label[start] = current
+        count = 0
+        while stack:
+            i = stack.pop()
+            count += 1
+            x, y = i % w, i // w
+            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if 0 <= nx < w and 0 <= ny < h:
+                    j = ny * w + nx
+                    if land[j] and not label[j]:
+                        label[j] = current
+                        stack.append(j)
+        sizes[current] = count
+    return label, sizes
+
+
+def stamp_disc(mask, w, h, cx, cy, radius):
+    r = int(math.ceil(radius))
+    r2 = radius * radius
+    for dy in range(-r, r + 1):
+        y = cy + dy
+        if y < 0 or y >= h:
+            continue
+        row = y * w
+        for dx in range(-r, r + 1):
+            if dx * dx + dy * dy > r2:
+                continue
+            x = cx + dx
+            if 0 <= x < w:
+                mask[row + x] = 1
+
+
+def stamp_line(mask, w, h, x0, y0, x1, y1, radius):
+    """Ikki nuqta orasiga qalin yo'l chizadi."""
+    steps = max(abs(x1 - x0), abs(y1 - y0), 1)
+    for s in range(steps + 1):
+        cx = int(round(x0 + (x1 - x0) * s / steps))
+        cy = int(round(y0 + (y1 - y0) * s / steps))
+        stamp_disc(mask, w, h, cx, cy, radius)
+
+
+def drop_small(land, w, h, min_island):
+    """Juda kichik orollarni olib tashlaydi — ularda o'ynab bo'lmaydi."""
+    label, sizes = components(land, w, h)
+    alive = {k for k, n in sizes.items() if n >= min_island}
+    removed = 0
+    for i in range(w * h):
+        if land[i] and label[i] not in alive:
+            land[i] = 0
+            removed += 1
+    return removed
+
+
+def plan_bridges(land, w, h, max_bridge):
+    """Orollarni materikka ulaydigan eng qisqa ko'priklarni rejalashtiradi.
+
+    Suv bo'ylab ko'p manbali BFS har suv katagi uchun eng yaqin
+    quruqlik katagini topadi; ikki bo'lak uchrashgan joy ular
+    orasidagi eng tor suv oralig'i bo'ladi. Shundan keyin Kruskal
+    bilan hammasi bitta tarmoqqa bog'lanadi.
+
+    Natija: (ko'priklar, ulanmay qolgan bo'lak raqamlari, belgilar).
+    """
+    label, sizes = components(land, w, h)
+    if len(sizes) <= 1:
+        return [], set(), label
+
+    INF = 1 << 30
+    dist = [INF] * (w * h)
+    origin = [-1] * (w * h)
+    owner = [0] * (w * h)
+    queue = collections.deque()
+    for i in range(w * h):
+        if land[i]:
+            dist[i] = 0
+            origin[i] = i
+            owner[i] = label[i]
+            queue.append(i)
+    while queue:
+        i = queue.popleft()
+        x, y = i % w, i // w
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if not (0 <= nx < w and 0 <= ny < h):
+                continue
+            j = ny * w + nx
+            if land[j] or dist[j] != INF:
+                continue
+            dist[j] = dist[i] + 1
+            origin[j] = origin[i]
+            owner[j] = owner[i]
+            queue.append(j)
+
+    best = {}
+    for i in range(w * h):
+        if owner[i] == 0:
+            continue
+        x, y = i % w, i // w
+        for nx, ny in ((x + 1, y), (x, y + 1)):
+            if not (0 <= nx < w and 0 <= ny < h):
+                continue
+            j = ny * w + nx
+            if owner[j] == 0 or owner[j] == owner[i]:
+                continue
+            key = (min(owner[i], owner[j]), max(owner[i], owner[j]))
+            cost = dist[i] + dist[j] + 1
+            if key not in best or cost < best[key][0]:
+                best[key] = (cost, origin[i], origin[j])
+
+    parent = {k: k for k in sizes}
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    bridges = []
+    for (a, b), (cost, ia, ib) in sorted(best.items(), key=lambda e: e[1][0]):
+        if cost > max_bridge:
+            continue
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            continue
+        parent[ra] = rb
+        bridges.append((ia % w, ia // w, ib % w, ib // w))
+
+    main = find(max(sizes, key=lambda k: sizes[k]))
+    dead = {k for k in sizes if find(k) != main}
+    return bridges, dead, label
+
+
+def dilate(mask, w, h, radius):
+    """Niqobni `radius` katakka kengaytiradi (ikki o'q bo'ylab)."""
+    tmp = bytearray(w * h)
+    for y in range(h):
+        row = y * w
+        for x in range(w):
+            for dx in range(-radius, radius + 1):
+                xx = x + dx
+                if 0 <= xx < w and mask[row + xx]:
+                    tmp[row + x] = 1
+                    break
+    out = bytearray(w * h)
+    for y in range(h):
+        for x in range(w):
+            for dy in range(-radius, radius + 1):
+                yy = y + dy
+                if 0 <= yy < h and tmp[yy * w + x]:
+                    out[y * w + x] = 1
+                    break
+    return out
+
+
+def trim_render(render, keep, w, h, scale):
+    """Olib tashlangan oroldan qolgan silliq chetlarni tozalaydi."""
+    near = dilate(keep, w, h, 2)
+    hw = w * scale
+    for sy in range(h * scale):
+        row = sy * hw
+        cy = (sy // scale) * w
+        for sx in range(hw):
+            if render[row + sx] and not near[cy + sx // scale]:
+                render[row + sx] = 0
 
 
 def box_blur(field, w, h, radius):
@@ -342,11 +528,48 @@ def main():
         box = bounds(polys, spec)
         w, h, raw, _ = grid_for(
             polys, box, spec.get('target', TARGET_LAND))
+        drop_small(raw, w, h, MIN_ISLAND)
         render, hw, hh = smooth(raw, w, h, SCALE)
         land = logic_from(render, w, h, SCALE)
+
+        # Ko'prik silliqlashdan **keyin** chiziladi: aks holda
+        # silliqlash uni yupqalatib uzib qo'yardi. Chizish niqobiga
+        # mayda panjarada chiziladi, shuning uchun ko'prik ham silliq.
+        bridges, dead, label = plan_bridges(
+            land, w, h, spec.get('max_bridge', MAX_BRIDGE))
+        for x0, y0, x1, y1 in bridges:
+            stamp_line(land, w, h, x0, y0, x1, y1, BRIDGE_RADIUS)
+            stamp_line(render, hw, hh,
+                       x0 * SCALE + SCALE // 2, y0 * SCALE + SCALE // 2,
+                       x1 * SCALE + SCALE // 2, y1 * SCALE + SCALE // 2,
+                       BRIDGE_RADIUS * SCALE)
+        dropped = 0
+        if dead:
+            for i in range(w * h):
+                if land[i] and label[i] in dead:
+                    land[i] = 0
+                    dropped += 1
+            trim_render(render, land, w, h, SCALE)
+        land = logic_from(render, w, h, SCALE)
+
+        # Oxirgi tozalash: silliqlashdan keyin ajralib qolgan mayda
+        # bo'lak qolsa, u ham olib tashlanadi — xaritaning hamma yeri
+        # bir-biriga ulangan bo'lishi kerak.
+        label, sizes = components(land, w, h)
+        if len(sizes) > 1:
+            main = max(sizes, key=lambda k: sizes[k])
+            for i in range(w * h):
+                if land[i] and label[i] != main:
+                    land[i] = 0
+                    dropped += 1
+            trim_render(render, land, w, h, SCALE)
+            land = logic_from(render, w, h, SCALE)
+
         count = sum(land)
         caps = capitals_for(places, land, box, w, h)
-        print(f'    silliqlashdan keyin quruqlik {count}')
+        _, parts = components(land, w, h)
+        print(f'    {len(bridges)} ko\'prik, {dropped} katak olib '
+              f'tashlandi, {len(parts)} bo\'lak, quruqlik {count}')
         size = write_map(spec, w, h, land, render, hw, hh)
         total_bytes += size
         print(f'    {size / 1024:.0f} KB, {len(caps)} poytaxt')
@@ -355,6 +578,18 @@ def main():
             'width': w, 'height': h, 'scale': SCALE,
             'land': count, 'capitals': caps,
         })
+
+    # Davlat -> materik: onlayn reyting uchun kerak.
+    table = {}
+    for f in country_data['features']:
+        props = f['properties']
+        code = (props.get('ISO_A2') or '').strip().upper()
+        continent = props.get('CONTINENT') or ''
+        if len(code) == 2 and code.isalpha() and continent:
+            table[code] = continent
+    with open(os.path.join(HERE, '..', 'data', 'continents.json'), 'w') as f:
+        json.dump(dict(sorted(table.items())), f, ensure_ascii=False,
+                  separators=(',', ':'))
 
     with open(os.path.join(OUT, 'index.json'), 'w') as f:
         json.dump({'maps': index}, f, ensure_ascii=False,

@@ -9,3 +9,6 @@ android/
 # Qisqartirilmagan emoji shrifti (`tool/subset_emoji_font.py` zaxirasi).
 # Asl fayl: github.com/googlefonts/noto-emoji — NotoColorEmoji.ttf
 *.ttf.full
+
+# Python keshi
+__pycache__/

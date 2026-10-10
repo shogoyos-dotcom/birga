@@ -11,7 +11,8 @@ const BOT_NAMES: PackedStringArray = [
 
 static func create(config: GameConfig, player_color: int, player_name: String,
 		player_avatar: String = "figure:0", seed_value: int = 0,
-		player_country: String = Profile.DEFAULT_COUNTRY) -> GameWorld:
+		player_country: String = Profile.DEFAULT_COUNTRY,
+		player_images: PackedStringArray = PackedStringArray()) -> GameWorld:
 	var world := GameWorld.new(config, seed_value)
 	var rng := RandomNumberGenerator.new()
 	if seed_value != 0:
@@ -21,6 +22,9 @@ static func create(config: GameConfig, player_color: int, player_name: String,
 		player_name, player_color % Palette.color_count(), false)
 	human.avatar = player_avatar
 	human.country = Profile.sanitize_country(player_country)
+	if player_images.size() >= 2:
+		human.avatar_image = player_images[0]
+		human.flag_image = player_images[1]
 
 	# Botlarga o'yinchinikidan boshqa ranglar beriladi.
 	var colors: Array[int] = []

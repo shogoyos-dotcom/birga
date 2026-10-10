@@ -43,8 +43,20 @@ var _capitals: MultiMeshInstance3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
 var _hud_timer := 0.0
-## O'yin ketyaptimi. Boshlash va natija oynasida mantiq to'xtaydi.
+## Mahalliy o'yinchi boshqaruvdami (o'lsa yoki pauzada — yo'q).
 var _playing := false
+## Dunyo shu qurilmada hisoblanadimi.
+##
+## Uy egasida bu `_playing` dan ajralib turadi: uning o'zi o'lsa ham
+## yoki natija oynasini ochsa ham, xonadagi boshqalar uchun o'yin
+## davom etishi kerak. Mehmonda esa hech qachon `true` bo'lmaydi —
+## hamma hisob uy egasida.
+var _match_running := false
+
+## Boshqaruvni yoqadi/o'chiradi va dunyo hisoblanishini shunga moslaydi.
+func _set_playing(value: bool) -> void:
+	_playing = value
+	_match_running = Net.is_host() if Net.is_online() else value
 
 var store: SettingsStore
 ## O'limda bo'shagan kataklar — belet bilan davom etilganda qaytariladi.
@@ -75,12 +87,24 @@ func _ready() -> void:
 		store.vibration_enabled)
 
 	ui.setup(store)
+	if _server_mode():
+		_start_dedicated_server()
+		return
 	ui.play_pressed.connect(_on_play)
 	ui.resume_pressed.connect(_on_resume)
 	ui.menu_pressed.connect(_on_menu)
 	ui.settings_changed.connect(_on_settings_changed)
 	ui.view_changed.connect(_apply_view_settings)
 	ui.continue_with_ticket.connect(_on_continue_with_ticket)
+	ui.host_pressed.connect(_on_host)
+	ui.join_pressed.connect(_on_join)
+	Net.joined.connect(_on_joined)
+	Net.roster_changed.connect(_sync_net_players)
+	Net.stopped.connect(_on_net_stopped)
+	Board.loaded.connect(func(_scope: String, rows: Array) -> void:
+		ui.set_board(rows))
+	Board.failed.connect(func(reason: String) -> void:
+		ui.set_board_error(reason))
 	_new_match()
 
 func _config_from_store() -> GameConfig:
@@ -94,7 +118,8 @@ func _new_match() -> void:
 	config = _config_from_store()
 	world = MatchBuilder.create(
 		config, store.color_index, _player_name(), store.avatar, 0,
-		_player_country())
+		_player_country(),
+		PackedStringArray([store.avatar_image, store.flag_image]))
 	_clear_scene()
 	_avatars.setup(world)
 	_trails.setup(world)
@@ -103,6 +128,133 @@ func _new_match() -> void:
 	_build_capitals()
 	_apply_view_settings()
 	_place_camera_instantly()
+
+# ——— Maxsus server ———
+
+## Buyruq satrida `--server` berilganmi.
+##
+## Shu rejimda o'yin interfeyssiz ishlaydi va faqat xona bo'lib
+## xizmat qiladi: VPS da shu bilan doimiy server ko'tariladi.
+##   colorland.x86_64 --server --headless [--port 7777]
+static func _server_mode() -> bool:
+	return OS.get_cmdline_args().has("--server")
+
+static func _server_port() -> int:
+	var args := OS.get_cmdline_args()
+	var at := args.find("--port")
+	if at >= 0 and at + 1 < args.size():
+		return int(args[at + 1])
+	return Net.PORT
+
+func _start_dedicated_server() -> void:
+	var port := _server_port()
+	var error := Net.host_room(port)
+	if not error.is_empty():
+		push_error("Server ochilmadi: %s" % error)
+		get_tree().quit(1)
+		return
+	_new_match()
+	# Serverning o'z o'yinchisi bo'sh turmasin — u ham bot bo'lib
+	# o'ynaydi, shunda xona jonli ko'rinadi.
+	var owner_player := world.human()
+	owner_player.is_bot = true
+	owner_player.player_name = "Server"
+	owner_player.brain = BotBrain.new(config.difficulty, RandomNumberGenerator.new())
+	Net.attach_world(world, _profile())
+	_match_running = true
+	ui.visible = false
+	print("Color Land server: %s port %d, maydon %s" % [
+		Net.local_address(), port, config.map_id])
+
+# ——— Tarmoq ———
+
+## Tarmoqqa yuboriladigan profil.
+func _profile() -> Dictionary:
+	return {
+		"name": _player_name(), "color": store.color_index,
+		"avatar": store.avatar, "country": _player_country(),
+	}
+
+## Xona ochish: o'yin odatdagidek boshlanadi, lekin tarmoqqa ulanadi.
+func _on_host() -> void:
+	var error := Net.host_room()
+	if not error.is_empty():
+		ui.set_room_status(Strings.t("connectFailed"))
+		return
+	_new_match()
+	Net.attach_world(world, _profile())
+	_set_playing(true)
+	ui.show_screen(ui.Screen.HUD)
+	_apply_view_settings()
+
+func _on_join(address: String) -> void:
+	var error := Net.join_room(address, _profile())
+	if not error.is_empty():
+		ui.set_room_status(Strings.t("connectFailed"))
+
+## Uy egasi qabul qildi: uning maydonida bo'sh dunyo quriladi va
+## o'yinchilar ro'yxat bilan to'ldiriladi.
+func _on_joined(player_id: int, map_id: String) -> void:
+	config = _config_from_store()
+	config.map_id = map_id
+	config.bot_count = 0
+	world = GameWorld.new(config, 0)
+	world.local_index = 0
+	_clear_scene()
+	_avatars.setup(world)
+	_trails.setup(world)
+	_build_arena()
+	_build_capitals()
+	Net.attach_world(world, _profile())
+	_sync_net_players()
+	_set_playing(true)
+	ui.show_screen(ui.Screen.HUD)
+	_apply_view_settings()
+
+## Ro'yxat o'zgardi: mehmonda o'yinchilar qo'shiladi, uy egasida esa
+## yangi kelganlar uchun bosh va avatar tayyorlanadi.
+func _sync_net_players() -> void:
+	if world == null or not Net.is_online():
+		return
+	if Net.is_host():
+		_rebuild_actors()
+		return
+	var known := {}
+	for p in world.players:
+		known[p.id] = true
+	var added := false
+	for row: Dictionary in Net.roster:
+		if known.has(int(row["id"])):
+			continue
+		var player := world.add_human(
+			str(row["name"]), int(row["color"]), str(row["avatar"]),
+			str(row["country"]))
+		if player == null:
+			continue
+		player.is_bot = bool(row["bot"])
+		player.alive = true
+		added = true
+	if added:
+		world.set_local(Net.local_player_id)
+		_rebuild_actors()
+		_place_camera_instantly()
+
+## O'yinchilar ro'yxati o'zgargach boshlarni va avatar teksturasini
+## qaytadan tayyorlaydi.
+func _rebuild_actors() -> void:
+	_avatars.setup(world)
+	_clear_scene()
+	_build_players()
+	if _arena_material != null:
+		_arena_material.set_shader_parameter("avatar_tex", _avatars.texture())
+		_arena_material.set_shader_parameter(
+			"avatar_grid", _avatars.grid_size())
+
+func _on_net_stopped(reason: String) -> void:
+	_set_playing(false)
+	_match_running = false
+	ui.open_room(false)
+	ui.set_room_status(Strings.t(reason))
 
 func _player_country() -> String:
 	var saved := store.country
@@ -113,18 +265,21 @@ func _player_name() -> String:
 	return saved if not saved.is_empty() else Strings.t("you")
 
 func _on_play() -> void:
+	Net.leave()
 	_new_match()
-	_playing = true
+	_set_playing(true)
 	ui.show_screen(ui.Screen.HUD)
 	_apply_view_settings()
 
 func _on_resume() -> void:
-	_playing = true
+	_set_playing(true)
 	ui.show_screen(ui.Screen.HUD)
 	_apply_view_settings()
 
 func _on_menu() -> void:
-	_playing = false
+	_set_playing(false)
+	_match_running = false
+	Net.leave()
 	ui.show_screen(ui.Screen.MENU)
 
 ## Rang, uslub yoki qiyinlik o'zgarsa — yangi o'yin tayyorlanadi.
@@ -139,6 +294,10 @@ func _apply_view_settings() -> void:
 		_arena_material.set_shader_parameter(
 			"avatar_alpha", AVATAR_ALPHA if store.show_flags else 0.0)
 	_capitals.enabled = store.show_capitals
+	if _capitals.names_visible != store.show_city_names:
+		_capitals.names_visible = store.show_city_names
+		_capitals_map = ""
+		_build_capitals()
 	ui.set_minimap(paint.texture if store.show_minimap else null)
 
 ## Osmon va tuman rangi uslubdan olinadi.
@@ -156,7 +315,7 @@ func _on_continue_with_ticket() -> void:
 		return
 	if world.revive(world.human(), _cleared_on_death):
 		_avatars.refresh()
-		_playing = true
+		_set_playing(true)
 		ui.show_screen(ui.Screen.HUD)
 		return
 	# Joy topilmadi — belet sarflanmagan hisoblanadi.
@@ -267,11 +426,13 @@ func _build_players() -> void:
 		_heads.append(head)
 
 func _process(delta: float) -> void:
-	if _playing:
+	if _match_running:
 		world.update(delta)
 		_handle_events()
-		if not world.human().alive:
-			_end_match()
+	# Mehmonda holat uy egasidan keladi, lekin o'lim baribir shu yerda
+	# seziladi — natija oynasi ochiladi.
+	if _playing and not world.human().alive:
+		_end_match()
 	paint.sync()
 	_sync_heads()
 	_follow_camera(delta)
@@ -300,11 +461,13 @@ func _handle_events() -> void:
 					ui.flash(UiKit.MINT, 0.16)
 
 func _end_match() -> void:
-	_playing = false
+	_set_playing(false)
 	_dragging = false
 	var p := world.human()
 	var percent := world.percent_of(p)
 	var is_record := store.submit_result(percent, p.kills)
+	# Natija onlayn reytingga ham yuboriladi (server sozlangan bo'lsa).
+	Board.submit(store, percent, p.kills)
 	ui.set_result(percent, p.kills, world.elapsed,
 		Strings.death_reason(p.death_cause), is_record)
 	ui.show_screen(ui.Screen.RESULT)
@@ -366,7 +529,9 @@ func _steer(at: Vector2) -> void:
 	# Ekran o'qlari dunyo o'qlariga to'g'ri keladi: kamera tepadan
 	# qaraydi va burilmaydi, shuning uchun qo'shimcha aylantirish kerak
 	# emas.
-	world.human().steer_to(atan2(delta.y, delta.x))
+	var angle := atan2(delta.y, delta.x)
+	world.human().steer_to(angle)
+	Net.send_steer(angle)
 	# Barmoq uzoqlashsa boshlang'ich nuqtani ergashtiramiz.
 	if delta.length() > DRAG_LEASH:
 		_drag_origin = at - delta.normalized() * DRAG_LEASH
@@ -379,10 +544,16 @@ func show_screen_for_demo(name: String) -> void:
 		"profile": ui.show_screen(ui.Screen.PROFILE)
 		"pause": ui.show_screen(ui.Screen.PAUSE)
 		"shop": ui.open_shop(ui.Screen.MENU)
+		"room": ui.open_room(false)
+		"board": ui.open_board()
 		"result":
 			ui.set_result(12.34, 3, 95.0,
 				Strings.death_reason(PlayerState.DeathCause.TRAIL_HIT), true)
 			ui.show_screen(ui.Screen.RESULT)
+
+## Skrinshot vositasi uchun: reyting serveri manzilini qo'yadi.
+func set_board_url_for_demo(url: String) -> void:
+	store.leaderboard_url = url
 
 ## Skrinshot vositasi uchun: maydonni almashtiradi.
 func set_map_for_demo(map_id: String) -> void:
@@ -413,7 +584,7 @@ func revive_human_for_demo() -> void:
 	var p := world.human()
 	if not p.alive:
 		world.spawn(p)
-		_playing = true
+		_set_playing(true)
 		ui.show_screen(ui.Screen.HUD)
 
 func _refresh_hud() -> void:
