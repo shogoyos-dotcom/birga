@@ -83,8 +83,7 @@ func _ready() -> void:
 	Strings.set_language(store.language if not store.language.is_empty()
 		else Strings.detect_language())
 	Palette.set_theme(store.theme_id)
-	Audio.apply(store.music_enabled, store.sound_enabled,
-		store.vibration_enabled)
+	Audio.apply(store)
 
 	ui.setup(store)
 	if _server_mode():

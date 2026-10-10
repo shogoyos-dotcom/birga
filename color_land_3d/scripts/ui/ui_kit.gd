@@ -180,6 +180,80 @@ static func switch_row(title: String, value: bool, on_toggle: Callable,
 	row.add_child(toggle)
 	return row
 
+## Dumaloq "tutqich" teksturasi — slayder uchun.
+##
+## Statik ro'yxatda saqlanmaydi: statik o'zgaruvchidagi resurs
+## ilova yopilguncha turib qoladi va Godot chiqishda "resurs hali
+## ishlatilmoqda" deb ogohlantiradi. 30x30 piksel esa shunchalik
+## arzon — har slayderga qayta yasash muammo emas.
+static func _grabber(color: Color, size: int = 30) -> ImageTexture:
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var r := size * 0.5
+	for y in size:
+		for x in size:
+			var d := Vector2(x + 0.5 - r, y + 0.5 - r).length()
+			# Chetida bir piksel yumshoq o'tish — "zinapoya" ko'rinmaydi.
+			var alpha := clampf(r - d, 0.0, 1.0)
+			if alpha <= 0.0:
+				continue
+			var tint := color if d < r - 4.0 else color.lightened(0.25)
+			image.set_pixel(x, y, Color(tint.r, tint.g, tint.b, alpha))
+	return ImageTexture.create_from_image(image)
+
+## Balandlik kabi sonli sozlama uchun slayder qatori.
+##
+## `on_change` har qadamda chaqiriladi — ovoz darhol o'zgaradi.
+## Qadam 5% bo'lgani uchun bir surishda 20 tadan ko'p chaqiriq
+## bo'lmaydi, shuning uchun sozlamani shu yerda saqlash ham arzon.
+static func slider_row(title: String, value: int, on_change: Callable,
+		accent: Color = BLUE, step: int = 5) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var name_label := label(title, 18, TEXT if value > 0 else TEXT_DIM,
+		HORIZONTAL_ALIGNMENT_LEFT)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(name_label)
+	var value_label := label("%d%%" % value, 16,
+		accent if value > 0 else TEXT_FAINT, HORIZONTAL_ALIGNMENT_RIGHT)
+	value_label.custom_minimum_size = Vector2(54, 0)
+	head.add_child(value_label)
+	box.add_child(head)
+
+	var slider := HSlider.new()
+	slider.min_value = 0
+	slider.max_value = 100
+	slider.step = step
+	slider.value = value
+	slider.custom_minimum_size = Vector2(0, 40)
+	# Barmoq uchun kengroq ushlash maydoni.
+	slider.add_theme_constant_override("center_grabber", 1)
+	slider.add_theme_constant_override("grabber_offset", 0)
+	var rail := style(SURFACE, 5, 0, 0)
+	rail.content_margin_top = 5
+	rail.content_margin_bottom = 5
+	slider.add_theme_stylebox_override("slider", rail)
+	var filled := style(accent, 5, 0, 0)
+	filled.content_margin_top = 5
+	filled.content_margin_bottom = 5
+	slider.add_theme_stylebox_override("grabber_area", filled)
+	slider.add_theme_stylebox_override("grabber_area_highlight", filled)
+	for key: String in ["grabber", "grabber_highlight", "grabber_disabled"]:
+		slider.add_theme_icon_override(key, _grabber(TEXT))
+	slider.value_changed.connect(func(new_value: float) -> void:
+		var percent := int(new_value)
+		value_label.text = "%d%%" % percent
+		value_label.add_theme_color_override("font_color",
+			accent if percent > 0 else TEXT_FAINT)
+		name_label.add_theme_color_override("font_color",
+			TEXT if percent > 0 else TEXT_DIM)
+		on_change.call(percent))
+	box.add_child(slider)
+	return box
+
 ## Rang tanlash katakchasi.
 static func color_chip(index: int, selected: bool,
 		on_tap: Callable) -> Button:

@@ -285,12 +285,35 @@ func _build_settings() -> Control:
 			store.music_enabled = value
 			Audio.set_music_enabled(value)
 			_rebuild(), _accent()))
+	# Balandlik — slayder bilan. O'yindan chiqmasdan darhol eshitiladi.
+	audio_box.add_child(UiKit.slider_row(Strings.t("musicVolume"),
+		store.music_volume, func(value: int) -> void:
+			store.music_volume = value
+			Audio.set_music_volume(value), _accent()))
+	# Kuy tanlovi — bosilganda darhol o'ynaydi, shunda eshitib tanlanadi.
+	audio_box.add_child(UiKit.label(Strings.t("musicTrack"), 15,
+		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	audio_box.add_child(UiKit.chips(_track_names(), _track_index(),
+		func(index: int) -> void:
+			var id: String = Audio.TRACKS[index]["id"]
+			store.music_track = id
+			if not store.music_enabled:
+				store.music_enabled = true
+				Audio.set_music_enabled(true)
+			Audio.set_track(id)
+			_rebuild(), _accent()))
+	audio_box.add_child(UiKit.spacer(2))
 	audio_box.add_child(UiKit.switch_row(Strings.t("sound"),
 		store.sound_enabled, func(value: bool) -> void:
 			store.sound_enabled = value
 			Audio.sound_enabled = value
 			Audio.tap()
 			_rebuild(), _accent()))
+	audio_box.add_child(UiKit.slider_row(Strings.t("soundVolume"),
+		store.sound_volume, func(value: int) -> void:
+			store.sound_volume = value
+			Audio.set_sound_volume(value)
+			Audio.tap(), _accent()))
 	audio_box.add_child(UiKit.switch_row(Strings.t("vibration"),
 		store.vibration_enabled, func(value: bool) -> void:
 			store.vibration_enabled = value
@@ -372,6 +395,19 @@ func _build_settings() -> Control:
 	data_box.add_child(reset)
 	box.add_child(data)
 	return root
+
+## Kuylar nomi — tanlov chiplari uchun.
+func _track_names() -> PackedStringArray:
+	var names := PackedStringArray()
+	for track: Dictionary in Audio.TRACKS:
+		names.append(Strings.t(track["key"]))
+	return names
+
+func _track_index() -> int:
+	for i in Audio.TRACKS.size():
+		if Audio.TRACKS[i]["id"] == store.music_track:
+			return i
+	return 0
 
 func _header(title: String, on_back: Callable) -> Control:
 	var row := HBoxContainer.new()
@@ -735,12 +771,21 @@ func _build_pause() -> Control:
 			store.music_enabled = value
 			Audio.set_music_enabled(value)
 			_rebuild(), _accent()))
+	inner.add_child(UiKit.slider_row(Strings.t("musicVolume"),
+		store.music_volume, func(value: int) -> void:
+			store.music_volume = value
+			Audio.set_music_volume(value), _accent()))
 	inner.add_child(UiKit.switch_row(Strings.t("sound"), store.sound_enabled,
 		func(value: bool) -> void:
 			store.sound_enabled = value
 			Audio.sound_enabled = value
 			Audio.tap()
 			_rebuild(), _accent()))
+	inner.add_child(UiKit.slider_row(Strings.t("soundVolume"),
+		store.sound_volume, func(value: int) -> void:
+			store.sound_volume = value
+			Audio.set_sound_volume(value)
+			Audio.tap(), _accent()))
 	inner.add_child(UiKit.switch_row(Strings.t("vibration"),
 		store.vibration_enabled, func(value: bool) -> void:
 			store.vibration_enabled = value

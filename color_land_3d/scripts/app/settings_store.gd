@@ -133,6 +133,21 @@ var vibration_enabled: bool:
 	get: return bool(_read("vibration", true))
 	set(value): _write("vibration", value)
 
+## Musiqa balandligi, 0..100.
+var music_volume: int:
+	get: return clampi(int(_read("music_volume", 70)), 0, 100)
+	set(value): _write("music_volume", clampi(value, 0, 100))
+
+## Ovoz effektlari balandligi, 0..100.
+var sound_volume: int:
+	get: return clampi(int(_read("sound_volume", 85)), 0, 100)
+	set(value): _write("sound_volume", clampi(value, 0, 100))
+
+## Tanlangan kuy: "pulse", "neon", "sprint" yoki "retro".
+var music_track: String:
+	get: return str(_read("music_track", "pulse"))
+	set(value): _write("music_track", value)
+
 # ——— Tarmoq ———
 
 ## Oxirgi kiritilgan xona manzili (mahalliy tarmoq).

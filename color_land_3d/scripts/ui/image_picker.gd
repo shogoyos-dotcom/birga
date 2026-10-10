@@ -9,6 +9,11 @@ extends RefCounted
 ##
 ## Tizimning o'z oynasi bo'lsa (Android, ish stoli) o'sha ishlatiladi;
 ## bo'lmasa o'yin ichidagi oddiy fayl oynasi ochiladi.
+##
+## iOS da Godot tizim oynasini bermaydi va ilova o'z "qumsaloni"dan
+## tashqariga chiqolmaydi, shuning uchun u yerda ilovaning o'z hujjatlar
+## papkasi ochiladi (Files ilovasi orqali rasm tashlab qo'yiladi).
+## Haqiqiy fotosurat kutubxonasi uchun alohida plagin kerak.
 
 ## Saqlanadigan rasm tomoni (piksel). Atlasdagi katak bilan bir xil.
 const SIZE := 192
@@ -62,8 +67,12 @@ static func open(parent: Node, dest: String, title: String,
 
 ## Oyna ochiladigan papka.
 static func start_dir() -> String:
-	if OS.get_name() == "Android":
-		return "/storage/emulated/0"
+	match OS.get_name():
+		"Android":
+			return "/storage/emulated/0"
+		"iOS":
+			# Qumsalondan tashqarisi baribir ko'rinmaydi.
+			return OS.get_user_data_dir()
 	var pictures := OS.get_system_dir(OS.SYSTEM_DIR_PICTURES)
 	return pictures if not pictures.is_empty() else OS.get_user_data_dir()
 

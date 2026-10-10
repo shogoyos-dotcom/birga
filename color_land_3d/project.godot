@@ -39,6 +39,13 @@ renderer/rendering_method.mobile="mobile"
 textures/default_filters/anisotropic_filtering_level=0
 anti_aliasing/quality/msaa_3d=1
 
+[audio]
+
+; "Music" va "Sfx" avtobuslari — o'yinchi sozlagan balandlik shu
+; yerda qo'llanadi, miks esa har bir ovozning o'z `volume_db` sida
+; qoladi.
+buses/default_bus_layout="res://default_bus_layout.tres"
+
 [physics]
 
 common/physics_ticks_per_second=60

@@ -63,8 +63,9 @@ Tayyor:
 - **Menyu, sozlamalar, profil, pauza, natija va do'kon** ekranlari —
   "Arcade Grid" uslubida, kod bilan quriladi.
 - **Sozlamalar**: rang, arena uslubi (5 ta), qiyinlik, til (5 ta),
-  musiqa/ovoz/vibratsiya, poytaxt va naqsh kalitlari, kichik xarita,
-  rekordni tozalash.
+  musiqa/ovoz/vibratsiya va ularning **balandligi**, **kuy tanlovi**
+  (4 ta), poytaxt va naqsh kalitlari, kichik xarita, rekordni
+  tozalash.
 - **Profil**: taxallus, 40 emoji, 12 odam tasviri va **249 davlat
   bayrog'i** (qidiruv bilan).
 - **Hududda bayroq** — o'yinchi tanlagan davlat bayrog'i uning butun
@@ -78,12 +79,18 @@ Tayyor:
   ko'rsatiladi, qo'shimcha hisob yo'q.
 - **Top-5 reyting**, hudud olinganda va o'limda chaqnash, ovoz va
   musiqa, vibratsiya.
+- **To'rtta kuy** — "Puls", "Neon", "Shiddat" va eski "Retro";
+  pauzadan ham, sozlamalardan ham almashtiriladi va balandligi
+  slayder bilan sozlanadi.
 - **Belet va reklama** — o'limdan keyin davom etish, do'kon ekrani
   (`ContinueServices` — namuna; haqiqiy AdMob va Play Billing uchun
   shu fayl almashtiriladi).
 
+- **iOS eksporti** — Xcode loyihasi to'liq yig'iladi (pastda).
+
 Hali yo'q: haqiqiy AdMob/Play Billing plaginlari, maxsus eksport
-shabloni bilan APK hajmini yanada kamaytirish.
+shabloni bilan APK hajmini yanada kamaytirish, iOS uchun fotosurat
+kutubxonasi plagini.
 
 ## Ishga tushirish
 
@@ -117,6 +124,9 @@ godot --path . --script res://tools/uitest.gd
 
 # Maydon bo'yicha xotira va tugunlar soni.
 godot --path . --script res://tools/memtest.gd
+
+# Ovoz: avtobuslar, balandlik egri chizig'i, kuy almashtirish.
+godot --headless --path . --script res://tools/audiotest.gd
 
 # Kadr sakrashi: qaysi amal qancha vaqt oladi.
 godot --headless --path . --script res://tools/spiketest.gd
@@ -164,6 +174,101 @@ Hajmning asosiy qismi — Godot dvigatelining o'zi
 uchun keraksiz modullarni o'chirib maxsus eksport shabloni
 kompilyatsiya qilish kerak.
 
+### iOS (iPhone / iPad)
+
+O'yin kodi platformaga bog'liq emas: hammasi GDScript va GDShader,
+tashqi kutubxona yo'q. `iOS` preseti qo'shilgan va tekshirilgan —
+Linux'da ham to'liq **Xcode loyihasi** yig'iladi:
+
+```bash
+godot --headless --path . --export-release "iOS" build/ios/ColorLand.ipa
+```
+
+Natija: `ColorLand.xcodeproj`, `ColorLand.xcframework`,
+`MoltenVK.xcframework`, `ColorLand.pck`, `PrivacyInfo.xcprivacy` va
+`Launch Screen.storyboard`. Godot ogohlantiradi:
+*".ipa can only be built on macOS"* — ya'ni oxirgi qadam uchun
+**Mac va Xcode** kerak.
+
+Kerak bo'ladigan narsalar:
+
+| Nima | Nega |
+| --- | --- |
+| Mac + Xcode | `.ipa` faqat macOS da yig'iladi |
+| Apple Developer hisobi (yiliga $99) | App Store va TestFlight uchun |
+| Team ID | `export_presets.cfg` dagi `application/app_store_team_id` — hozir bo'sh, usiz eksport boshlanmaydi |
+
+Preset nima deydi: eng kam iOS 14.0, faqat tik (portrait) holat,
+to'liq ekran, mahalliy tarmoq ruxsati (do'stlar bilan o'ynash uchun).
+
+Nimalar o'z-o'zidan ishlaydi: Vulkan (MoltenVK orqali), ENet bilan
+tarmoq o'yini, HTTP reyting, vibratsiya (`Input.vibrate_handheld`
+iOS da ham bor), shriftlar va emoji.
+
+Nimaga e'tibor kerak: **o'z rasmini yuklash**. iOS da Godot tizim
+fayl oynasini bermaydi va ilova o'z "qumsaloni"dan tashqariga
+chiqolmaydi, shuning uchun u yerda ilovaning hujjatlar papkasi
+ochiladi (Files ilovasi orqali rasm tashlab qo'yish mumkin).
+Haqiqiy fotosurat kutubxonasi uchun alohida iOS plagini kerak —
+qolgan hamma narsa o'zgarishsiz ishlaydi.
+
+## Ovoz
+
+```
+assets/audio/
+  music_pulse.ogg    "Puls"     112 BPM, 34 s   — standart
+  music_neon.ogg     "Neon"      92 BPM, 42 s   — sokin
+  music_sprint.ogg   "Shiddat"  140 BPM, 27 s   — tez
+  music.ogg          "Retro"                    — eski chiptune
+  capture/kill/death/tap.ogg                    — effektlar
+```
+
+Kuylar kod bilan yaratiladi:
+
+```bash
+python3 tool/make_music.py      # numpy va ffmpeg kerak
+```
+
+Sintez **additiv**: har bir nota garmonikalar yig'indisi, shuning
+uchun "aliasing" shovqini yo'q. Baraban ham sintez qilinadi
+(bochkaning chastotasi pasayadi, hi-hat — yorqin shovqin), ustiga
+aks-sado va FFT-reverb qo'shiladi.
+
+Ikkita narsa muhim bo'lib chiqdi:
+
+1. **Master EQ.** Additiv sintezda butun quvvat bassda to'planadi
+   (o'lchov: 20–120 Gc da 77%). Telefon karnayi 400 Gc dan pastini
+   deyarli chiqarmaydi, shuning uchun kuy loyqa eshitilardi. EQ
+   egri chizig'i gumburlashni kesadi va o'rta/yuqorini ko'taradi —
+   endi taqsimot 40/27/24/4/5%.
+2. **Limiter, `tanh` emas.** Avval cho'qqilar `tanh` bilan
+   "yanchilgan" edi; bu garmonik buzilish beradi va OGG kodlagichi
+   uni yomonlashtiradi (dekodlashda cho'qqi 0.62 dan 1.03 ga
+   chiqib, kesilib ketardi). Hozir oldinga qarab ishlaydigan
+   cheklovchi faqat baland joylarda kuchaytirishni silliq
+   pasaytiradi — buzilish yo'q, cho'qqi 0.87–0.91.
+
+Halqa uzluksiz: kuy bir marta chiziladi, reverb dumi boshiga
+qo'shiladi. O'lchov — takrorlanish joyidagi eng katta sakrash
+kuyning ichidagi oddiy sakrashdan katta emas.
+
+Uchala kuy bir xil balandlikka (RMS) keltirilgan, shuning uchun
+almashtirganda ovoz sakramaydi.
+
+### Balandlik qanday boshqariladi
+
+Ikki qatlam:
+
+* har bir ovozning o'z `volume_db` si — miks (masalan o'lim tovushi
+  "tap" dan 7 dB baland);
+* `Music` va `Sfx` avtobuslari (`default_bus_layout.tres`) —
+  o'yinchi sozlagan balandlik.
+
+Shuning uchun slayderni surish miksni buzmaydi. Foiz dB ga
+`pow(level, 1.7)` egri chizig'i bilan o'giriladi — slayder o'rtasida
+ovoz quloqqa "yarmi" bo'lib eshitiladi; 0% da avtobus butunlay
+o'chadi.
+
 ## Tuzilma
 
 ```
@@ -191,8 +296,8 @@ scripts/
 server/         # reyting serveri (Python, standart kutubxona)
 data/           # generatsiya qilingan (../color_land/tool/make_world_map.py)
 tests/          # headless testlar
-tools/          # skrinshot vositasi
-tool/           # emoji shriftini qisqartirish
+tools/          # skrinshot, sinov va o'lchov vositalari
+tool/           # xarita, kuy va emoji shriftini generatsiya qilish
 ```
 
 ## Shriftlar
