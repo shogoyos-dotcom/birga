@@ -9,8 +9,8 @@ extends MultiMeshInstance3D
 ## Nomlar ikki bosqichda tanlanadi:
 ##
 ##  1. **Bir marta**, xarita yuklanganda: shaharlar muhimligi bo'yicha
-##     saralanadi (poytaxt va aholi) va bir-biridan [MIN_GAP] katak
-##     narida turadiganlari tanlanadi. Bu ro'yxat o'yin davomida
+##     saralanadi (poytaxt va aholi) va yozuvlari bir-birining ustiga
+##     tushmaydiganlari tanlanadi. Bu ro'yxat o'yin davomida
 ##     o'zgarmaydi.
 ##  2. **Har kadrda**: shu ro'yxatdan kameraga eng yaqinlari
 ##     [POOL] ta tayyor tugunga biriktiriladi.
@@ -35,18 +35,39 @@ const SCREEN_SIZE := 0.00042
 
 ## Nom shu masofadan uzoqda ko'rsatilmaydi (katak), oxirgi
 ## [FADE] ulushida asta so'nadi.
-const NAME_RANGE := 56.0
+const NAME_RANGE := 46.0
 const FADE := 0.22
 
 ## Bir vaqtda ekranda bo'ladigan nomlar soni.
 ##
-## Ataylab ehtiyot bilan olingan: ko'rish doirasiga sig'adigan
-## shaharlardan ko'proq. Agar chegara tez-tez urilsa, eng uzoqdagi
-## nom goh ko'rinib, goh yo'qolib miltillab qolardi.
-const POOL := 64
+## [NAME_RANGE] doirasiga sig'adigan nomlardan ko'p bo'lishi shart:
+## chegara urilsa, eng uzoqdagi nom goh ko'rinib, goh yo'qolib
+## miltillab qoladi. `tools/nametest.gd` o'lchagan: eng yomon
+## holatda (dunyo xaritasi) doirada 99 ta nom bor.
+const POOL := 150
 
-## Nomi yoziladigan shaharlar bir-biridan shuncha narida turadi.
-const MIN_GAP := 13.0
+## Yozuvlar bir-birining ustiga tushmasligi uchun har bir nom
+## atrofida "band" to'rtburchak bor:
+##
+##     |dx| < yarim_kenglik(a) + yarim_kenglik(b) + GAP_X
+##     |dy| < GAP_Y
+##
+## Yozuv **gorizontal** bo'lgani uchun kengligi nom uzunligiga
+## qarab o'sadi, balandligi esa deyarli o'zgarmaydi — shuning uchun
+## doira emas, to'rtburchak. Ilgari doira edi (13 katak radius) va u
+## eng uzun nomga moslab olingani uchun "Lima" ham "Ulaanbaatar" ham
+## bir xil joy egallardi: ekranda o'rtacha atigi 5.2 ta nom qolardi,
+## hozir 19.6 ta.
+##
+## Uchala son skrinshotlar bo'yicha sozlangan va `nametest.gd` bilan
+## o'lchangan — kamera qo'zg'almas, shuning uchun katak bilan ekran
+## piksellari orasidagi nisbat ham o'zgarmaydi.
+##
+## Bitta harfning kengligi (katak, yozuv kattaligi 1.0 bo'lganda).
+const CHAR_WIDTH := 0.55
+## Ikki yozuv orasidagi eng kichik bo'shliq (katak).
+const GAP_X := 0.8
+const GAP_Y := 4.4
 
 ## Ro'yxat sekundiga shuncha marta qayta tanlanadi.
 const REFRESH := 0.3
@@ -171,21 +192,27 @@ static func _mesh_from(mesh: Mesh, placed: Array[Transform3D]) -> MultiMesh:
 	return mm
 
 ## Nomi yoziladigan shaharlarni bir marta tanlaydi: muhimi oldin,
-## va ular bir-biridan [MIN_GAP] katak narida turadi.
+## va ularning yozuvlari bir-birining ustiga tushmaydi.
 func _pick_named(rows: Array) -> void:
 	var sorted := rows.duplicate()
 	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return a["rank"] > b["rank"])
 	_named = []
-	var gap := MIN_GAP * MIN_GAP
 	for row: Dictionary in sorted:
+		row["half"] = 0.5 * row["name"].length() * CHAR_WIDTH \
+			* _name_scale(row)
 		var crowded := false
 		for kept: Dictionary in _named:
-			if row["at"].distance_squared_to(kept["at"]) < gap:
+			var d: Vector2 = (row["at"] - kept["at"]).abs()
+			if d.x < row["half"] + kept["half"] + GAP_X and d.y < GAP_Y:
 				crowded = true
 				break
 		if not crowded:
 			_named.append(row)
+
+## Yozuv kattaligi — shahar kattaligiga qarab.
+static func _name_scale(row: Dictionary) -> float:
+	return 0.62 + 0.85 * row["weight"] + (0.15 if row["cap"] else 0.0)
 
 ## Kamera (yoki o'yinchi) qayerda — shuning atrofidagi nomlar
 ## ko'rsatiladi va chetdagilari so'nadi.
@@ -215,10 +242,7 @@ func _assign(center: Vector2) -> void:
 		var label := _label(i)
 		label.visible = true
 		label.text = row["name"]
-		# Yozuv kattaligi ham shahar kattaligiga qarab.
-		var scale: float = 0.62 + 0.85 * row["weight"] \
-			+ (0.15 if row["cap"] else 0.0)
-		label.pixel_size = SCREEN_SIZE * scale
+		label.pixel_size = SCREEN_SIZE * _name_scale(row)
 		label.position = Vector3(
 			row["at"].x,
 			ArenaBuilder.LAND_HEIGHT + (MAX_HEIGHT + 0.8 if row["cap"]

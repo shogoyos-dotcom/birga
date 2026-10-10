@@ -19,6 +19,10 @@ var _mode := "play"
 var _avatar := ""
 ## Tekshirish uchun maydon, masalan "circle".
 var _map := ""
+## O'yinchini shu katakka qo'yadi, masalan "240,58" (Syurix atrofi —
+## dunyo xaritasidagi eng zich shaharlar joyi). Bo'sh bo'lsa
+## o'yin o'zi tanlagan joyda qoladi.
+var _at := ""
 var _opened := false
 
 func _initialize() -> void:
@@ -33,6 +37,8 @@ func _initialize() -> void:
 		_avatar = args[3]
 	if args.size() > 4:
 		_map = args[4]
+	if args.size() > 5:
+		_at = args[5]
 	_frames_left = int(_seconds * 60.0)
 	change_scene_to_file("res://scenes/main.tscn")
 
@@ -71,6 +77,14 @@ func _drive() -> void:
 			view.show_screen_for_demo(_mode)
 		return
 	view.start_for_demo()
+	if not _at.is_empty():
+		var parts := _at.split(",")
+		if parts.size() == 2:
+			var p: Object = view.world.human()
+			p.x = float(parts[0])
+			p.y = float(parts[1])
+			view._place_camera_instantly()
+		_at = ""
 	if _mode == "trail":
 		# Diagonal to'g'ri chiziq — zinapoya eng yomon ko'rinadigan
 		# holat; iz tekis chiqyaptimi, shu bilan tekshiriladi.

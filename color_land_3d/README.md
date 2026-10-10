@@ -42,9 +42,9 @@ Tayyor:
   yirik shaharlar (dunyo xaritasida 1113 ta). Har shaharda nuqta,
   poytaxtlarda oltin ustun; nuqta ham, yozuv ham shahar aholisiga
   qarab kattalashadi. Nomi yoziladiganlar bir marta tanlanadi
-  (muhimi oldin, bir-biridan 13 katak narida), shuning uchun ular
-  o'yin davomida o'rin almashib miltillamaydi — chetdagisi asta
-  so'nadi.
+  (muhimi oldin), shuning uchun ular o'yin davomida o'rin almashib
+  miltillamaydi — uzoqdagisi asta so'nadi. Pastda: oraliq qanday
+  tanlangan.
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
@@ -211,6 +211,48 @@ chiqolmaydi, shuning uchun u yerda ilovaning hujjatlar papkasi
 ochiladi (Files ilovasi orqali rasm tashlab qo'yish mumkin).
 Haqiqiy fotosurat kutubxonasi uchun alohida iOS plagini kerak —
 qolgan hamma narsa o'zgarishsiz ishlaydi.
+
+## Xaritadagi shahar nomlari
+
+Nomi yoziladigan shaharlar `render/capital_marks.gd` da bir marta,
+xarita yuklanganda tanlanadi. Muhimi oldin (poytaxt + aholi), va
+yozuvlari bir-birining ustiga tushmaydiganlar olinadi.
+
+Avval bu tekshiruv **doira** edi: har nom atrofida 13 katak radius.
+Doira eng uzun nomga moslab olingani uchun "Lima" ham "Ulaanbaatar"
+ham bir xil joy egallardi, natijada ekranda atigi 5 ta nom qolardi.
+
+Hozir **to'rtburchak**: yozuv gorizontal, shuning uchun kengligi nom
+uzunligiga qarab o'sadi, balandligi esa deyarli o'zgarmaydi.
+
+```
+chetga chiqmaydi  <=>  |dx| < yarim_kenglik(a) + yarim_kenglik(b) + GAP_X
+                  va   |dy| < GAP_Y
+```
+
+Oraliqlar `tools/nametest.gd` bilan sozlangan — u har xaritada
+nechta shaharning nomi yozilishini va bitta ekranga nechtasi
+tushishini sanaydi:
+
+```bash
+godot --headless --path . --script res://tools/nametest.gd
+```
+
+| Maydon | Shahar | Ilgari nomlanardi | Hozir | Bir ekranda ilgari / hozir |
+| --- | --- | --- | --- | --- |
+| world | 1113 | 143 (13%) | **485 (44%)** | 5.2 / **19.6** |
+| asia | 430 | 89 (21%) | **249 (58%)** | 4.5 / **14.3** |
+| africa | 223 | 72 (32%) | **169 (76%)** | 4.3 / **10.6** |
+| north_america | 202 | 71 (35%) | **143 (71%)** | 4.1 / **9.0** |
+| europe | 156 | 76 (49%) | **139 (89%)** | 3.9 / **8.1** |
+
+Narxi: dunyo xaritasida +2.3 MB va +48 tugun (`memtest.gd`:
+95.5 -> 97.8 MB).
+
+Tugunlar havzasi (`POOL`) ko'rish doirasiga sig'adigan nomlardan
+ko'p bo'lishi shart — aks holda eng chetdagi nom goh ko'rinib, goh
+yo'qolib miltillaydi. `nametest.gd` shuni ham o'lchaydi: eng yomon
+holatda 99, havza esa 150.
 
 ## Ovoz
 
