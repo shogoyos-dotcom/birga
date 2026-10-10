@@ -181,14 +181,18 @@ func _move(p: PlayerState, dt: float) -> void:
 		p.y = cy_clamped
 	else:
 		var row: int = int(floor(p.y))
-		var moved := false
+		var from_x := p.x
+		var from_y := p.y
 		if grid.playable(int(floor(cx_clamped)), row):
 			p.x = cx_clamped
-			moved = true
 		if grid.playable(int(floor(p.x)), int(floor(cy_clamped))):
 			p.y = cy_clamped
-			moved = true
-		if not moved:
+		# Haqiqatan ham siljidimi. "O'q o'tdi" deb hisoblash kifoya
+		# emas: tik shimolga yurganda X o'zgarishi nolga teng va
+		# tekshiruv o'z-o'zidan o'tib ketardi — o'yinchi esa devorga
+		# tirab turaverardi.
+		var moved := Vector2(p.x - from_x, p.y - from_y).length()
+		if moved < dist * 0.25:
 			_slide_along_shore(p, dist)
 
 	if not p.trail.is_empty():
@@ -220,8 +224,8 @@ func _move(p: PlayerState, dt: float) -> void:
 ## qayerni ko'rsatsa, o'sha yoqqa intilaveradi.
 func _slide_along_shore(p: PlayerState, dist: float) -> void:
 	for step in SHORE_TURNS:
-		for sign in [1.0, -1.0]:
-			var angle: float = p.angle + step * sign
+		for turn in [1.0, -1.0]:
+			var angle: float = p.angle + step * turn
 			var nx: float = p.x + cos(angle) * dist
 			var ny: float = p.y + sin(angle) * dist
 			if nx <= 0.0 or ny <= 0.0 \
@@ -231,11 +235,23 @@ func _slide_along_shore(p: PlayerState, dist: float) -> void:
 				continue
 			p.x = nx
 			p.y = ny
+			# Harakat yo'nalishi ham shu tomonga buriladi: aks holda
+			# keyingi kadrda yana devorga tiqilardi.
+			p.angle = angle
+			# Bot qirg'oqqa tirab turmasin — maqsadi ham o'zgaradi.
+			# O'yinchiniki o'zgarmaydi: barmoq qayerni ko'rsatsa,
+			# chetlab o'tgach yana o'sha yoqqa intiladi.
+			if p.is_bot:
+				p.steer_to(angle)
 			return
 
 ## Qirg'oq bo'ylab sirpanish uchun sinab ko'riladigan burchaklar.
+##
+## 150 gradusgacha boradi: ingichka cho'ntakda faqat deyarli orqaga
+## burilish qoladi, aks holda o'yinchi tiqilib qolardi.
 const SHORE_TURNS: PackedFloat32Array = [
 	PI / 6.0, PI / 3.0, PI / 2.0, PI * 2.0 / 3.0,
+	PI * 5.0 / 6.0, PI * 0.97,
 ]
 
 func _enter_cell(p: PlayerState, nx: int, ny: int) -> void:
@@ -327,11 +343,14 @@ func kill(p: PlayerState, cause: PlayerState.DeathCause,
 		return
 	p.alive = false
 	p.death_cause = cause
+	# Iz ro'yxati oldin nusxalanadi: panjaradagi iz kataklari aynan
+	# shu ro'yxat bo'yicha tozalanadi.
+	var trail := p.trail.duplicate()
 	p.clear_trail()
 	if killer != null and killer.id != p.id:
 		killer.kills += 1
 	p.final_territory = grid.territory_of(p.id)
-	var cleared := grid.clear_player(p.id)
+	var cleared := grid.clear_player(p.id, trail)
 	p.respawn_timer = config.bot_respawn_delay
 	events.append({
 		"type": "death",

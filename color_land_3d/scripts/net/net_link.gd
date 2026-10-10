@@ -110,6 +110,8 @@ static func local_address() -> String:
 func attach_world(world: GameWorld, profile: Dictionary) -> void:
 	_world = world
 	_profile = profile
+	# Endi o'zgargan kataklar tarmoq uchun ham yig'iladi.
+	world.grid.net_tracking = true
 	if role == Role.HOST:
 		local_player_id = world.human().id
 		_rebuild_roster()

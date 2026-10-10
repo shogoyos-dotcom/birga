@@ -20,6 +20,10 @@ var land_cells: int
 var dirty_cells := PackedInt32Array()
 ## Xuddi shunday ro'yxat, lekin tarmoq uchun: chizish qatlami va
 ## tarmoq bir-biridan mustaqil bo'shatadi.
+##
+## Yolg'iz o'ynaganda hech kim bo'shatmaydi, shuning uchun u faqat
+## tarmoq o'yinida yig'iladi — aks holda ro'yxat cheksiz o'sardi.
+var net_tracking := false
 var net_dirty := PackedInt32Array()
 
 var _territory: PackedInt32Array
@@ -117,7 +121,8 @@ func set_owner_index(i: int, id: int) -> void:
 	_territory[id] += 1
 	owner_cells[i] = id
 	dirty_cells.append(i)
-	net_dirty.append(i)
+	if net_tracking:
+		net_dirty.append(i)
 	_version[prev] += 1
 	_version[id] += 1
 	if id != 0:
@@ -136,25 +141,40 @@ func set_trail_index(i: int, id: int) -> void:
 		return
 	trail_cells[i] = id
 	dirty_cells.append(i)
-	net_dirty.append(i)
+	if net_tracking:
+		net_dirty.append(i)
 
 func set_trail(x: int, y: int, id: int) -> void:
 	set_trail_index(index(x, y), id)
 
 ## `id` ning butun hududi va izini bo'shatadi. Bo'shagan kataklarni
 ## qaytaradi — o'lim animatsiyasi uchun.
-func clear_player(id: int) -> PackedInt32Array:
+## `trail` — o'sha o'yinchining iz kataklari (tartib bilan). U alohida
+## beriladi, chunki iz hududdan tashqarida yotadi.
+##
+## Hudud faqat o'zining to'rtburchagi ichida qidiriladi: butun
+## panjarani (100 000 dan ortiq katak) aylanib chiqish o'lim paytida
+## sezilarli sakrash berardi.
+func clear_player(id: int,
+		trail: PackedInt32Array = PackedInt32Array()) -> PackedInt32Array:
 	var cleared := PackedInt32Array()
 	if id == 0:
 		return cleared
-	for i in owner_cells.size():
-		if owner_cells[i] == id:
-			cleared.append(i)
-			set_owner_index(i, 0)
+	var box := bounds_of(id)
+	if not box.is_empty():
+		for y in range(box[1], box[3] + 1):
+			var row := y * width
+			for x in range(box[0], box[2] + 1):
+				var i := row + x
+				if owner_cells[i] == id:
+					cleared.append(i)
+					set_owner_index(i, 0)
+	for i: int in trail:
 		if trail_cells[i] == id:
 			trail_cells[i] = 0
 			dirty_cells.append(i)
-			net_dirty.append(i)
+			if net_tracking:
+				net_dirty.append(i)
 	_min_x[id] = 1 << 30
 	_min_y[id] = 1 << 30
 	_max_x[id] = -1

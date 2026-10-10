@@ -98,6 +98,27 @@ godot --headless --path . --script res://tests/run_tests.gd
 Mantiq qatlami Godot tugunlariga bog'liq emas, shuning uchun testlar
 sahna ochmasdan, bir soniyada o'tadi.
 
+### Avtomatik o'ynab ko'rish
+
+O'yinni haqiqiy sharoitda o'ynab chiqadigan uchta vosita bor.
+
+```bash
+# 30 ta o'yin: o'yinchini ham bot miyasi boshqaradi, har o'yindan
+# keyin panjara va o'yinchilar holati tekshiriladi.
+godot --headless --path . --script res://tools/playtest.gd -- 30 90
+
+# Barcha ekranlar, maydonlar, uslublar va tillar ketma-ket ochiladi.
+godot --path . --script res://tools/uitest.gd
+
+# Maydon bo'yicha xotira va tugunlar soni.
+godot --path . --script res://tools/memtest.gd
+```
+
+`playtest.gd` quyidagilarni qidiradi: suvda yurib ketgan o'yinchi,
+tiqilib qolgan o'yinchi, suvdagi hudud, o'lgan o'yinchining izi,
+foizlar yig'indisining oshib ketishi, bo'sh hudud egallash va eng
+sekin kadr. O'lim sabablari ham sanab beriladi.
+
 ### Skrinshot (displaysiz konteynerda)
 
 Konteynerda Vulkan yo'q, shuning uchun moslashuvchan chizuvchi bilan:

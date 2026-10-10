@@ -294,10 +294,7 @@ func _apply_view_settings() -> void:
 		_arena_material.set_shader_parameter(
 			"avatar_alpha", AVATAR_ALPHA if store.show_flags else 0.0)
 	_capitals.enabled = store.show_capitals
-	if _capitals.names_visible != store.show_city_names:
-		_capitals.names_visible = store.show_city_names
-		_capitals_map = ""
-		_build_capitals()
+	_capitals.names_visible = store.show_city_names
 	ui.set_minimap(paint.texture if store.show_minimap else null)
 
 ## Osmon va tuman rangi uslubdan olinadi.
@@ -434,6 +431,8 @@ func _process(delta: float) -> void:
 	if _playing and not world.human().alive:
 		_end_match()
 	paint.sync()
+	# Shahar nomlari kamera atrofida almashib turadi.
+	_capitals.update_focus(Vector2(world.human().x, world.human().y), delta)
 	_sync_heads()
 	_follow_camera(delta)
 
