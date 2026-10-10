@@ -284,18 +284,31 @@ func _test_profile(t: TestRunner) -> void:
 
 # ——— Hudud egallash ———
 
+## Panjaraga iz qo'yadi va uning indekslarini qaytaradi.
+func _lay_trail(grid: GameGrid, id: int,
+		cells: Array) -> PackedInt32Array:
+	var trail := PackedInt32Array()
+	for cell: Vector2i in cells:
+		var i := grid.index(cell.x, cell.y)
+		grid.set_trail_index(i, id)
+		trail.append(i)
+	return trail
+
 func _test_capture(t: TestRunner) -> void:
 	t.group("hudud egallash")
 
-	t.test("yopiq halqa ichidagi bo'sh joy egallanadi", func() -> void:
+	t.test("iz bilan yopilgan halqa ichi egallanadi", func() -> void:
+		# Hududning yuqori tomoni ochiq; iz uni yopadi.
 		var grid := MapHelpers.grid_from(PackedStringArray([
 			".....",
-			".111.",
+			".....",
 			".1.1.",
 			".111.",
 			".....",
 		]))
-		TerritoryCapturer.new(grid).capture(1, PackedInt32Array())
+		var trail := _lay_trail(grid, 1,
+			[Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1)])
+		TerritoryCapturer.new(grid).capture(1, trail)
 		t.equal(grid.owner_at(2, 2), 1, "o'rtadagi katak egallanadi")
 		t.equal(grid.territory_of(1), 9)
 	)
@@ -303,12 +316,14 @@ func _test_capture(t: TestRunner) -> void:
 	t.test("tashqaridagi joy egallanmaydi", func() -> void:
 		var grid := MapHelpers.grid_from(PackedStringArray([
 			".....",
-			".111.",
+			".....",
 			".1.1.",
 			".111.",
 			".....",
 		]))
-		TerritoryCapturer.new(grid).capture(1, PackedInt32Array())
+		var trail := _lay_trail(grid, 1,
+			[Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1)])
+		TerritoryCapturer.new(grid).capture(1, trail)
 		t.equal(grid.owner_at(0, 0), 0)
 		t.equal(grid.owner_at(4, 4), 0)
 	)
@@ -320,9 +335,7 @@ func _test_capture(t: TestRunner) -> void:
 			".....",
 		]))
 		# Iz: (2,0) va (2,1) — hududni o'ngga kengaytiradi.
-		var trail := PackedInt32Array([2, 5 + 2])
-		for i: int in trail:
-			grid.set_trail_index(i, 1)
+		var trail := _lay_trail(grid, 1, [Vector2i(2, 0), Vector2i(2, 1)])
 		var result := TerritoryCapturer.new(grid).capture(1, trail)
 		t.equal(grid.owner_at(2, 0), 1)
 		t.equal(grid.owner_at(2, 1), 1)
@@ -332,27 +345,80 @@ func _test_capture(t: TestRunner) -> void:
 	t.test("raqib hududi ham o'raladi", func() -> void:
 		var grid := MapHelpers.grid_from(PackedStringArray([
 			".....",
-			".111.",
+			".....",
 			".121.",
 			".111.",
 			".....",
 		]))
-		var result := TerritoryCapturer.new(grid).capture(1, PackedInt32Array())
+		var trail := _lay_trail(grid, 1,
+			[Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1)])
+		var result := TerritoryCapturer.new(grid).capture(1, trail)
 		t.equal(grid.owner_at(2, 2), 1, "raqib katagi tortib olinadi")
 		t.equal(int((result["taken_from"] as Dictionary).get(2, 0)), 1)
 	)
 
-	t.test("katta maydonda ham tez ishlaydi", func() -> void:
+	t.test("suv egallanmaydi, lekin ichki ko'l o'raladi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			".....",
+			".....",
+			".1~1.",
+			".111.",
+			".....",
+		]))
+		var trail := _lay_trail(grid, 1,
+			[Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1)])
+		TerritoryCapturer.new(grid).capture(1, trail)
+		t.equal(grid.owner_at(2, 2), 0, "suv egasiz qoladi")
+	)
+
+	t.test("okeanga ulangan qo'ltiq egallanmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~",
+			".....",
+			".1~1.",
+			".1~1.",
+			".111.",
+		]))
+		var trail := _lay_trail(grid, 1,
+			[Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1)])
+		TerritoryCapturer.new(grid).capture(1, trail)
+		t.equal(grid.owner_at(2, 2), 0, "qo'ltiq ochiq qoladi")
+	)
+
+	t.test("katta halqa ichi to'liq egallanadi", func() -> void:
 		var grid := GameGrid.new(150, 150)
 		for y in range(10, 140):
 			for x in range(10, 140):
-				if x == 10 or x == 139 or y == 10 or y == 139:
+				if (x == 10 or x == 139 or y == 139) and y > 10:
 					grid.set_owner(x, y, 1)
+		var cells: Array = []
+		for x in range(10, 140):
+			cells.append(Vector2i(x, 10))
+		var trail := _lay_trail(grid, 1, cells)
 		var started := Time.get_ticks_usec()
-		TerritoryCapturer.new(grid).capture(1, PackedInt32Array())
+		TerritoryCapturer.new(grid).capture(1, trail)
 		var took := Time.get_ticks_usec() - started
 		t.equal(grid.owner_at(75, 75), 1, "ichkarisi to'ldi")
 		t.less(took, 100000, "egallash 100 ms dan tez (%d µs)" % took)
+	)
+
+	t.test("katta hududda kichik halqa tez egallanadi", func() -> void:
+		# Narx egallangan maydonga bog'liq bo'lishi kerak, hududning
+		# kattaligiga emas: aks holda katta hududda har kichik halqa
+		# kadrni tushirib yuborardi.
+		var grid := GameGrid.new(200, 200)
+		for y in range(5, 195):
+			for x in range(5, 195):
+				grid.set_owner(x, y, 1)
+		# Hudud chetida kichkina "quloq" chizamiz.
+		var trail := _lay_trail(grid, 1, [
+			Vector2i(100, 4), Vector2i(101, 4), Vector2i(102, 4)])
+		var capturer := TerritoryCapturer.new(grid)
+		var started := Time.get_ticks_usec()
+		var result := capturer.capture(1, trail)
+		var took := Time.get_ticks_usec() - started
+		t.equal(int(result["captured"]), 3, "faqat iz kataklari")
+		t.less(took, 3000, "kichik halqa 3 ms dan tez (%d µs)" % took)
 	)
 
 # ——— O'lim qoidalari ———
@@ -446,15 +512,27 @@ func _test_death_rules(t: TestRunner) -> void:
 
 	t.test("butun hududi egallangan o'yinchi o'ladi", func() -> void:
 		var world := MapHelpers.make_world(30, 30)
-		var big := MapHelpers.place_player(world, 5, 5, 20)
+		# Katta o'yinchining hududi yuqori tomondan ochiq halqa.
+		var big := world.add_player("B", 0, false)
+		for y in range(5, 25):
+			for x in range(5, 25):
+				if x == 5 or x == 24 or y == 24:
+					world.grid.set_owner(x, y, big.id)
+		big.place_at(5.5, 24.5, 0.0)
+		big.alive = true
 		var small := world.add_player("S", 1, false)
-		# Kichkina o'yinchi kattaning ichida.
+		# Kichkina o'yinchi halqa ichida.
 		world.grid.fill_block(12, 12, 2, small.id)
 		small.place_at(12.5, 12.5, 0.0)
 		small.alive = true
 		t.equal(world.grid.territory_of(small.id), 4)
 
-		TerritoryCapturer.new(world.grid).capture(big.id, PackedInt32Array())
+		# Katta o'yinchi kichkinani iz bilan o'rab oladi.
+		var cells: Array = []
+		for x in range(5, 25):
+			cells.append(Vector2i(x, 4))
+		var trail := _lay_trail(world.grid, big.id, cells)
+		TerritoryCapturer.new(world.grid).capture(big.id, trail)
 		# Qoida tekshiruvi mantiqda `_finish_loop` ichida — bu yerda
 		# natijani qo'lda tekshiramiz.
 		t.equal(world.grid.territory_of(small.id), 0, "hududi yo'qoldi")

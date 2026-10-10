@@ -38,8 +38,13 @@ Tayyor:
   + chiziqli interpolatsiya), shuning uchun chegara katakka yopishmaydi
   va haqiqiy egri chiziq bo'ladi. O'yin faqat tayyor uchburchaklarni
   o'qiydi — dunyo arenasi 37 ms da quriladi.
-- **Shahar nomlari**: Natural Earth 1:50m dan barcha davlat
-  poytaxtlari va yirik shaharlar (dunyo xaritasida 1113 ta).
+- **Shaharlar**: Natural Earth 1:50m dan barcha davlat poytaxtlari va
+  yirik shaharlar (dunyo xaritasida 1113 ta). Har shaharda nuqta,
+  poytaxtlarda oltin ustun; nuqta ham, yozuv ham shahar aholisiga
+  qarab kattalashadi. Nomi yoziladiganlar bir marta tanlanadi
+  (muhimi oldin, bir-biridan 13 katak narida), shuning uchun ular
+  o'yin davomida o'rin almashib miltillamaydi — chetdagisi asta
+  so'nadi.
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
@@ -213,6 +218,29 @@ Ikki tuzoq bor:
 
    Skript kerakli belgilarni `scripts/app/profile.gd` dan o'qiydi va
    `ccmp` jadvalini saqlaydi (bayroq ligaturalari shu yerda).
+
+## Hudud egallash qanday hisoblanadi
+
+Iz yopilgach, uning **qo'shni kataklaridan** to'ldirish boshlanadi.
+To'ldirish o'yinchining to'rtburchagi chetiga chiqib ketsa — demak bu
+tashqari, darhol to'xtatiladi; chetga chiqmay tugasa — demak o'ralgan
+joy va u o'yinchiga o'tadi.
+
+Shuning uchun narx **egallangan maydonga** bog'liq, hududning
+kattaligiga emas. Ilgari har safar butun to'rtburchak uch marta
+aylanib chiqilardi va katta hududda bir nechta katak olish ham 15
+millisekund olardi — kadr tushib ketardi. O'lchov (`tools/spiketest.gd`,
+uch marta besh daqiqalik o'yin, 54 000 kadr):
+
+| | Ilgari | Hozir |
+| --- | --- | --- |
+| Eng sekin kadr | 15.4 ms | **5.4 ms** |
+| 3 ms dan oshgan kadrlar | 638 | **8** |
+| 8192 kataklik to'rtburchak | 8.3 ms | **0.73 ms** |
+
+Bitta farq bor: ilgari hududingiz ichida qolgan har qanday bo'sh joy
+keyingi istalgan halqada o'z-o'zidan qo'shilib ketardi. Endi uni
+egallash uchun atrofidan aylanib chiqish kerak.
 
 ## O'z izi haqidagi qoida
 
