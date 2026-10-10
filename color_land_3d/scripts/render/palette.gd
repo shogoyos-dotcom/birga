@@ -7,6 +7,15 @@ extends RefCounted
 ## osmon, o'yinchi ranglari). Interfeys ranglari [UiKit] da va ular
 ## hamma uslubda bir xil — shunda menyu va HUD doim bir xil o'qiladi.
 
+## "Color Lands" to'plami — och muz maydonda yaxshi ko'rinadigan,
+## to'yingan ranglar. Hudud bu ranglardan 18% to'qroq chiziladi,
+## shuning uchun ular muz ustida aniq ajralib turadi.
+const COLORLANDS: PackedColorArray = [
+	Color("ff3d9a"), Color("3be8b0"), Color("2e9bff"), Color("ffd23f"),
+	Color("9b4be0"), Color("ff8a3d"), Color("d8ff3e"), Color("00d6d1"),
+	Color("ff6fc8"), Color("6ee07a"), Color("5c8cff"), Color("ffb020"),
+	Color("c06bff"), Color("ff5f5f"), Color("1fc7a4"), Color("8ad0ff"),
+]
 const ARCADE: PackedColorArray = [
 	Color("3d7bff"), Color("ff6b5b"), Color("2fd6a6"), Color("ffc43d"),
 	Color("9b6bff"), Color("22d3ee"), Color("ff5ca8"), Color("a3e635"),
@@ -28,6 +37,10 @@ const PASTEL: PackedColorArray = [
 
 ## id -> {name, land, land_side, ocean, sky, heads}
 const THEMES := {
+	"colorlands": {
+		"name": "Color Lands", "land": "cfe6f7", "land_side": "8fb6d2",
+		"ocean": "1b0f3e", "sky": "241350", "heads": "colorlands",
+	},
 	"arcade": {
 		"name": "Arcade", "land": "3b3370", "land_side": "231c47",
 		"ocean": "0b1038", "sky": "100e1b", "heads": "arcade",
@@ -50,12 +63,16 @@ const THEMES := {
 	},
 }
 
-const ORDER: PackedStringArray = ["arcade", "neon", "night", "bright", "pastel"]
+const ORDER: PackedStringArray = [
+	"colorlands", "arcade", "neon", "night", "bright", "pastel",
+]
 
-static var _theme_id := "arcade"
+const DEFAULT_THEME := "colorlands"
+
+static var _theme_id := DEFAULT_THEME
 
 static func set_theme(id: String) -> void:
-	_theme_id = id if THEMES.has(id) else "arcade"
+	_theme_id = id if THEMES.has(id) else DEFAULT_THEME
 
 static func theme_id() -> String:
 	return _theme_id
@@ -71,6 +88,7 @@ static func _current() -> Dictionary:
 
 static func heads() -> PackedColorArray:
 	match str(_current()["heads"]):
+		"colorlands": return COLORLANDS
 		"neon": return NEON
 		"pastel": return PASTEL
 		_: return ARCADE
@@ -89,6 +107,27 @@ static func territory(index: int) -> Color:
 ## Iz rangi — bosh rangdan ochroq.
 static func trail(index: int) -> Color:
 	return head(index).lightened(0.3)
+
+## Quruqlik ustiga yoziladigan matn ranglari.
+##
+## "Color Lands" maydoni deyarli oq — oq yozuv unda yo'qoladi.
+## Shuning uchun rang quruqlikning yorqinligiga qarab tanlanadi:
+## ochiq maydonda to'q siyoh va oq kontur, to'q maydonda aksincha.
+static func land_is_light() -> bool:
+	return land().get_luminance() > 0.5
+
+static func on_land() -> Color:
+	return Color("1f1646") if land_is_light() else Color("f4f2ff")
+
+static func on_land_dim() -> Color:
+	return Color("4b3f80") if land_is_light() else Color("9a93bd")
+
+static func on_land_outline() -> Color:
+	return Color(1, 1, 1, 0.9) if land_is_light() else Color(0.04, 0.03, 0.09, 0.85)
+
+## Shahar nuqtasining rangi.
+static func city_dot() -> Color:
+	return Color("6b5fa8") if land_is_light() else Color("b9c0e0")
 
 static func land() -> Color:
 	return Color(str(_current()["land"]))

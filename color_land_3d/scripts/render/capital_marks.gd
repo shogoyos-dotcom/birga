@@ -166,10 +166,12 @@ func _build_dots(rows: Array) -> void:
 	dot.radial_segments = 10
 	dot.rings = 0
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("b9c0e0")
+	# Nuqta rangi uslubga qarab: ochiq maydonda to'q, to'qda ochiq.
+	var tint := Palette.city_dot()
+	mat.albedo_color = tint
 	mat.emission_enabled = true
-	mat.emission = Color("b9c0e0")
-	mat.emission_energy_multiplier = 0.12
+	mat.emission = tint
+	mat.emission_energy_multiplier = 0.12 if not Palette.land_is_light() else 0.0
 	mat.roughness = 0.5
 	dot.material = mat
 
@@ -261,9 +263,10 @@ func _fade(center: Vector2) -> void:
 		var alpha: float = clampf(
 			(NAME_RANGE - d) / (NAME_RANGE - fade_from), 0.0, 1.0)
 		var label: Label3D = item["label"]
-		var base: Color = UiKit.TEXT if item["cap"] else UiKit.TEXT_DIM
+		var base: Color = Palette.on_land() if item["cap"] else Palette.on_land_dim()
 		label.modulate = Color(base.r, base.g, base.b, alpha)
-		label.outline_modulate = Color(0.04, 0.03, 0.09, 0.85 * alpha)
+		var edge := Palette.on_land_outline()
+		label.outline_modulate = Color(edge.r, edge.g, edge.b, edge.a * alpha)
 
 func _label(index: int) -> Label3D:
 	while _labels.size() <= index:
@@ -273,7 +276,9 @@ func _label(index: int) -> Label3D:
 		# Kamera uzoqligiga qarab kattalashmaydi — xaritadagi nomlar
 		# bir xil o'lchamda, o'qishga qulay.
 		label.fixed_size = true
-		label.outline_size = 8
+		# Ochiq maydonda kontur qalinroq: yozuv ba'zan okean ustiga
+		# tushadi, oq halqa ikkala fonda ham ushlab turadi.
+		label.outline_size = 14 if Palette.land_is_light() else 8
 		label.no_depth_test = true
 		label.render_priority = 2
 		add_child(label)

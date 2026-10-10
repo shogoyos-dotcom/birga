@@ -1,31 +1,48 @@
 class_name UiKit
 extends RefCounted
 
-## "Arcade Grid" uslubidagi umumiy interfeys komponentlari.
+## "Neon Arcade" uslubidagi umumiy interfeys komponentlari.
 ## Hammasi kod bilan quriladi — uslub bir joyda turadi.
+##
+## Uslub: to'q binafsha fon, limon va malina neon urg'ular,
+## qiyshaygan (skew) tugmalar va ularning tagidagi neon "rels".
+## Bu yerda faqat **ko'rinish** bor — o'yin qoidalari va ekranlar
+## tuzilishi o'zgarmaydi, chunki hamma funksiya nomi va parametri
+## avvalgidek qoldi.
 
-const BG := Color("100e1b")
-const PANEL := Color("1a1728")
-const SURFACE := Color("231f38")
-const STROKE := Color("2e2946")
-const TEXT := Color("f4f2ff")
-const TEXT_DIM := Color("9a93bd")
-const TEXT_FAINT := Color("635c85")
-const BLUE := Color("3d7bff")
-const CORAL := Color("ff6b5b")
-const MINT := Color("2fd6a6")
-const GOLD := Color("ffc43d")
+const BG := Color("120726")
+const PANEL := Color("241b52")
+const SURFACE := Color("15103a")
+const STROKE := Color("473a7e")
+const TEXT := Color("fff4fd")
+const TEXT_DIM := Color("afa6d8")
+const TEXT_FAINT := Color("756ca6")
+const BLUE := Color("2e9bff")
+const CORAL := Color("ff3d9a")
+const MINT := Color("3be8b0")
+const GOLD := Color("ffd23f")
+const LIME := Color("d8ff3e")
+const VIOLET := Color("9b4be0")
 
-const FONT_PATH := "res://assets/fonts/DejaVuSans.ttf"
+## Tugma qanchalik qiyshayadi (StyleBoxFlat.skew).
+const SKEW := 0.23
+
+const FONT_PATH := "res://assets/fonts/Rubik-Medium.ttf"
+const BOLD_FONT_PATH := "res://assets/fonts/Rubik-Bold.ttf"
+const DISPLAY_FONT_PATH := "res://assets/fonts/Exo2-BoldItalic.ttf"
+## Rubik va Exo 2 kirill harflarini biladi, lekin hamma belgini emas —
+## topilmagani DejaVuSans dan olinadi.
+const FALLBACK_FONT_PATH := "res://assets/fonts/DejaVuSans.ttf"
 const EMOJI_FONT_PATH := "res://assets/fonts/NotoColorEmoji.ttf"
 
 static var _fonts_ready := false
 
 ## Shriftlarni bir marta o'rnatadi.
 ##
-## Godot'ning ichki shrifti emoji va bayroqlarni bilmaydi, kengaytirilgan
-## kirill harflarini ham to'liq qoplamaydi — shuning uchun DejaVuSans
-## asosiy, NotoColorEmoji esa zaxira qilib qo'yiladi.
+## Ikki shrift: interfeys matni Rubik, sarlavhalar esa Exo 2 (qalin
+## kursiv). Ikkalasi ham kirill harflarini biladi, shuning uchun ruscha
+## va qozoqcha ham bir xil ko'rinadi. Topilmagan belgi DejaVuSans dan,
+## emoji esa NotoColorEmoji dan olinadi.
 static func ensure_fonts() -> void:
 	if _fonts_ready:
 		return
@@ -34,14 +51,40 @@ static func ensure_fonts() -> void:
 	# faqat Godot import qilgan nusxasi bo'ladi.
 	var base: Font = load(FONT_PATH)
 	var emoji: Font = load(EMOJI_FONT_PATH)
+	var spare: Font = load(FALLBACK_FONT_PATH)
 	_emoji_font = emoji
+	_display_font = load(DISPLAY_FONT_PATH)
+	_bold_font = load(BOLD_FONT_PATH)
 	if base == null:
 		push_error("Asosiy shrift yuklanmadi: %s" % FONT_PATH)
+		base = spare
+	if base == null:
 		return
+	var spares: Array[Font] = []
+	if spare != null and spare != base:
+		spares.append(spare)
 	if emoji != null:
-		base.fallbacks = [emoji]
+		spares.append(emoji)
+	base.fallbacks = spares
+	if _display_font != null:
+		_display_font.fallbacks = spares
+	if _bold_font != null:
+		_bold_font.fallbacks = spares
 	ThemeDB.fallback_font = base
 	ThemeDB.fallback_font_size = 20
+
+## Sarlavha shrifti — Exo 2 qalin kursiv.
+static func display_font() -> Font:
+	ensure_fonts()
+	return _display_font
+
+## Qalin interfeys shrifti.
+static func bold_font() -> Font:
+	ensure_fonts()
+	return _bold_font
+
+static var _display_font: Font
+static var _bold_font: Font
 
 ## Emoji shrifti — alohida.
 ##
@@ -56,8 +99,8 @@ static func emoji_font() -> Font:
 
 static var _emoji_font: Font
 
-static func style(bg: Color, radius: int = 18, border: int = 2,
-		margin: int = 18) -> StyleBoxFlat:
+static func style(bg: Color, radius: int = 14, border: int = 1,
+		margin: int = 16) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
 	box.border_color = STROKE
@@ -66,9 +109,9 @@ static func style(bg: Color, radius: int = 18, border: int = 2,
 	box.set_content_margin_all(margin)
 	return box
 
-static func panel(bg: Color = PANEL, margin: int = 18) -> PanelContainer:
+static func panel(bg: Color = PANEL, margin: int = 16) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", style(bg, 18, 2, margin))
+	p.add_theme_stylebox_override("panel", style(bg, 14, 1, margin))
 	return p
 
 static func label(text: String, size: int, color: Color = TEXT,
@@ -82,38 +125,75 @@ static func label(text: String, size: int, color: Color = TEXT,
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
+## Sarlavha — Exo 2 qalin kursiv, katta harflar bilan.
+##
+## [method label] dan farqi faqat shrift va harf oralig'ida; qolgan
+## hammasi bir xil, shuning uchun uni istalgan sarlavha o'rniga
+## qo'yish mumkin.
+static func title(text: String, size: int, color: Color = TEXT,
+		align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	var l := label(text.to_upper(), size, color, align)
+	var font := display_font()
+	if font != null:
+		l.add_theme_font_override("font", font)
+	l.add_theme_constant_override("line_spacing", -2)
+	return l
+
 ## Bo'lim sarlavhasi: kichik, katta harflar, siyrak oraliq.
 static func section(text: String) -> Label:
 	var l := label(text.to_upper(), 13, TEXT_FAINT, HORIZONTAL_ALIGNMENT_LEFT)
 	l.add_theme_constant_override("line_spacing", 2)
 	return l
 
+## Asosiy tugma: qiyshaygan to'rtburchak, tagida neon "rels".
+##
+## Rels — StyleBoxFlat soyasi: o'lchami nol, lekin pastga surilgan,
+## shuning uchun tugma ostida ingichka yorqin chiziq bo'lib ko'rinadi.
+## Matn qiyshaymaydi — Godot uni stildan alohida chizadi.
 static func button(text: String, color: Color, big: bool = false) -> Button:
 	var b := Button.new()
 	b.text = text.to_upper()
-	b.custom_minimum_size = Vector2(0, 68 if big else 56)
-	b.add_theme_font_size_override("font_size", 24 if big else 18)
+	b.custom_minimum_size = Vector2(0, 64 if big else 54)
+	b.add_theme_font_size_override("font_size", 23 if big else 18)
+	var font := display_font()
+	if font != null:
+		b.add_theme_font_override("font", font)
+	# Och rangli tugmada limon rels ko'rinmaydi — malina qo'yiladi.
+	var rail := CORAL if color.get_luminance() > 0.52 else LIME
+	var ink := Color("1a0f36") if color.get_luminance() > 0.52 else Color.WHITE
 	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var bg := color
+		var lift := 5
 		if state == "pressed":
-			bg = color.darkened(0.22)
+			bg = color.darkened(0.2)
+			lift = 2
 		elif state == "hover":
-			bg = color.lightened(0.1)
+			bg = color.lightened(0.12)
 		elif state == "disabled":
 			bg = SURFACE
-		var box := style(bg, 16, 0, 10)
+		var box := style(bg, 7, 0, 12)
+		box.skew = Vector2(SKEW, 0.0)
+		box.content_margin_left = 20
+		box.content_margin_right = 20
+		if state != "disabled":
+			box.shadow_color = Color(rail.r, rail.g, rail.b, 0.95)
+			box.shadow_offset = Vector2(0, lift)
 		b.add_theme_stylebox_override(state, box)
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color",
 			"font_focus_color"]:
-		b.add_theme_color_override(state, Color.WHITE)
+		b.add_theme_color_override(state, ink)
 	b.add_theme_color_override("font_disabled_color", TEXT_FAINT)
 	return b
 
-## Chekkasi chizilgan, ikkinchi darajali tugma.
-static func ghost_button(text: String, color: Color = TEXT_DIM) -> Button:
+## Chekkasi chizilgan, ikkinchi darajali tugma. Relssiz.
+static func ghost_button(text: String, color: Color = LIME) -> Button:
 	var b := button(text, PANEL)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
-		var box := style(PANEL if state != "hover" else SURFACE, 16, 2, 10)
+		var box := style(Color(color.r, color.g, color.b,
+			0.12 if state == "hover" else 0.0), 7, 2, 12)
+		box.skew = Vector2(SKEW, 0.0)
+		box.content_margin_left = 20
+		box.content_margin_right = 20
 		box.border_color = color
 		b.add_theme_stylebox_override(state, box)
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color",
@@ -121,14 +201,19 @@ static func ghost_button(text: String, color: Color = TEXT_DIM) -> Button:
 		b.add_theme_color_override(state, color)
 	return b
 
-## Kichik kvadrat tugma (sozlamalar, orqaga).
+## Kichik dumaloq tugma (orqaga, pauza).
 static func icon_button(text: String) -> Button:
 	var b := button(text, PANEL)
-	b.custom_minimum_size = Vector2(56, 52)
-	b.add_theme_font_size_override("font_size", 22)
+	b.custom_minimum_size = Vector2(52, 52)
+	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_font_override("font", ThemeDB.fallback_font)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(state,
-			style(PANEL if state != "hover" else SURFACE, 14, 2, 6))
+		var box := style(SURFACE if state != "hover" else PANEL, 26, 2, 4)
+		box.border_color = Color(1, 1, 1, 0.26)
+		b.add_theme_stylebox_override(state, box)
+	for state: String in ["font_color", "font_hover_color", "font_pressed_color",
+			"font_focus_color"]:
+		b.add_theme_color_override(state, TEXT)
 	return b
 
 ## Tanlov chiplari qatori. Tanlangan indeks bilan signal beradi.
@@ -140,16 +225,21 @@ static func chips(values: PackedStringArray, selected: int,
 	for i in values.size():
 		var chip := Button.new()
 		chip.text = values[i]
-		chip.add_theme_font_size_override("font_size", 16)
-		chip.custom_minimum_size = Vector2(0, 46)
+		chip.add_theme_font_size_override("font_size", 15)
+		chip.custom_minimum_size = Vector2(0, 42)
 		var is_on := i == selected
+		var ink := Color("1a0f36") if (is_on and accent.get_luminance() > 0.52) \
+			else (Color.WHITE if is_on else TEXT_DIM)
 		for state: String in ["normal", "hover", "pressed", "focus"]:
-			var box := style(accent if is_on else SURFACE, 12, 2, 10)
+			var box := style(accent if is_on else SURFACE, 6, 1, 9)
+			box.skew = Vector2(0.14, 0.0)
+			box.content_margin_left = 14
+			box.content_margin_right = 14
 			box.border_color = accent if is_on else STROKE
 			chip.add_theme_stylebox_override(state, box)
 		for state: String in ["font_color", "font_hover_color",
 				"font_pressed_color", "font_focus_color"]:
-			chip.add_theme_color_override(state, Color.WHITE if is_on else TEXT_DIM)
+			chip.add_theme_color_override(state, ink)
 		var index := i
 		chip.pressed.connect(func() -> void: on_select.call(index))
 		row.add_child(chip)
@@ -167,15 +257,22 @@ static func switch_row(title: String, value: bool, on_toggle: Callable,
 
 	var toggle := Button.new()
 	toggle.text = "ON" if value else "OFF"
-	toggle.custom_minimum_size = Vector2(86, 46)
-	toggle.add_theme_font_size_override("font_size", 16)
+	toggle.custom_minimum_size = Vector2(80, 40)
+	toggle.add_theme_font_size_override("font_size", 14)
+	var on_font := bold_font()
+	if on_font != null:
+		toggle.add_theme_font_override("font", on_font)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
-		var box := style(accent if value else SURFACE, 12, 2, 8)
-		box.border_color = accent if value else STROKE
+		var box := style(LIME if value else SURFACE, 5, 1, 7)
+		box.skew = Vector2(0.17, 0.0)
+		box.content_margin_left = 12
+		box.content_margin_right = 12
+		box.border_color = LIME if value else STROKE
 		toggle.add_theme_stylebox_override(state, box)
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color",
 			"font_focus_color"]:
-		toggle.add_theme_color_override(state, Color.WHITE if value else TEXT_DIM)
+		toggle.add_theme_color_override(state,
+			Color("1a0f36") if value else TEXT_DIM)
 	toggle.pressed.connect(func() -> void: on_toggle.call(not value))
 	row.add_child(toggle)
 	return row
@@ -218,7 +315,7 @@ static func slider_row(title: String, value: int, on_change: Callable,
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_label)
 	var value_label := label("%d%%" % value, 16,
-		accent if value > 0 else TEXT_FAINT, HORIZONTAL_ALIGNMENT_RIGHT)
+		LIME if value > 0 else TEXT_FAINT, HORIZONTAL_ALIGNMENT_RIGHT)
 	value_label.custom_minimum_size = Vector2(54, 0)
 	head.add_child(value_label)
 	box.add_child(head)
@@ -232,13 +329,14 @@ static func slider_row(title: String, value: int, on_change: Callable,
 	# Barmoq uchun kengroq ushlash maydoni.
 	slider.add_theme_constant_override("center_grabber", 1)
 	slider.add_theme_constant_override("grabber_offset", 0)
-	var rail := style(SURFACE, 5, 0, 0)
-	rail.content_margin_top = 5
-	rail.content_margin_bottom = 5
+	var rail := style(SURFACE, 4, 1, 0)
+	rail.border_color = STROKE
+	rail.content_margin_top = 4
+	rail.content_margin_bottom = 4
 	slider.add_theme_stylebox_override("slider", rail)
-	var filled := style(accent, 5, 0, 0)
-	filled.content_margin_top = 5
-	filled.content_margin_bottom = 5
+	var filled := style(LIME, 4, 0, 0)
+	filled.content_margin_top = 4
+	filled.content_margin_bottom = 4
 	slider.add_theme_stylebox_override("grabber_area", filled)
 	slider.add_theme_stylebox_override("grabber_area_highlight", filled)
 	for key: String in ["grabber", "grabber_highlight", "grabber_disabled"]:
@@ -247,7 +345,7 @@ static func slider_row(title: String, value: int, on_change: Callable,
 		var percent := int(new_value)
 		value_label.text = "%d%%" % percent
 		value_label.add_theme_color_override("font_color",
-			accent if percent > 0 else TEXT_FAINT)
+			LIME if percent > 0 else TEXT_FAINT)
 		name_label.add_theme_color_override("font_color",
 			TEXT if percent > 0 else TEXT_DIM)
 		on_change.call(percent))
@@ -280,7 +378,7 @@ static func overlay(dim: bool = true) -> Control:
 		else Control.MOUSE_FILTER_IGNORE
 	if dim:
 		var shade := ColorRect.new()
-		shade.color = Color(BG.r, BG.g, BG.b, 0.9)
+		shade.color = Color(0.047, 0.027, 0.125, 0.88)
 		shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(shade)

@@ -115,7 +115,7 @@ func _build_menu() -> Control:
 	box.add_child(top)
 
 	box.add_child(UiKit.spacer(8))
-	box.add_child(UiKit.label("COLOR LAND", 44))
+	box.add_child(_logo())
 	box.add_child(UiKit.label(Strings.t("rulesShort"), 17, UiKit.TEXT_DIM,
 		HORIZONTAL_ALIGNMENT_CENTER, true))
 	box.add_child(UiKit.spacer(8))
@@ -148,6 +148,16 @@ func _build_menu() -> Control:
 		open_board())
 	box.add_child(board)
 	return root
+
+## O'yin nomi — ikki qator, ikkinchisi limon rangda.
+func _logo() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", -8)
+	box.add_child(UiKit.title("Color", 46, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_CENTER))
+	box.add_child(UiKit.title("Land", 46, UiKit.LIME,
+		HORIZONTAL_ALIGNMENT_CENTER))
+	return box
 
 func _profile_card() -> Control:
 	var card := UiKit.panel(UiKit.PANEL, 12)
@@ -194,7 +204,7 @@ func _record_card() -> Control:
 func _stat_tile(value: String, title: String, color: Color) -> Control:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(UiKit.label(value, 24, color, HORIZONTAL_ALIGNMENT_LEFT))
+	box.add_child(UiKit.title(value, 24, color, HORIZONTAL_ALIGNMENT_LEFT))
 	box.add_child(UiKit.section(title))
 	return box
 
@@ -417,7 +427,7 @@ func _header(title: String, on_back: Callable) -> Control:
 		Audio.tap()
 		on_back.call())
 	row.add_child(back)
-	var label := UiKit.label(title.to_upper(), 24, UiKit.TEXT,
+	var label := UiKit.title(title, 24, UiKit.TEXT,
 		HORIZONTAL_ALIGNMENT_LEFT)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
@@ -631,10 +641,11 @@ func _build_hud() -> Control:
 	root.add_child(left)
 	var stats := VBoxContainer.new()
 	left.add_child(stats)
-	_percent_label = UiKit.label("0.00%", 34, _accent(),
+	stats.add_theme_constant_override("separation", 0)
+	_percent_label = UiKit.title("0.00%", 34, UiKit.LIME,
 		HORIZONTAL_ALIGNMENT_LEFT)
 	stats.add_child(_percent_label)
-	_info_label = UiKit.label("00:00", 16, UiKit.TEXT_DIM,
+	_info_label = UiKit.label("00:00", 14, UiKit.TEXT_DIM,
 		HORIZONTAL_ALIGNMENT_LEFT)
 	stats.add_child(_info_label)
 
@@ -734,11 +745,12 @@ func _board_row(place: int, row: Dictionary) -> Control:
 	rank.custom_minimum_size = Vector2(14, 0)
 	line.add_child(rank)
 
-	var dot := ColorRect.new()
-	dot.color = Palette.head(int(row["color"]))
-	dot.custom_minimum_size = Vector2(9, 9)
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(dot)
+	# Rangli chap chiziq — o'yinchini ro'yxatda darhol ajratadi.
+	var bar := ColorRect.new()
+	bar.color = Palette.head(int(row["color"]))
+	bar.custom_minimum_size = Vector2(3, 18)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(bar)
 
 	var avatar := AvatarView.new(str(row["avatar"]), 16.0)
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -763,7 +775,8 @@ func _build_pause() -> Control:
 	var inner := VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 12)
 	panel.add_child(inner)
-	inner.add_child(UiKit.label(Strings.t("pause").to_upper(), 28))
+	inner.add_child(UiKit.title(Strings.t("pause"), 28, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_CENTER))
 
 	# Ovoz sozlamalari — o'yindan chiqmasdan.
 	inner.add_child(UiKit.switch_row(Strings.t("music"), store.music_enabled,
@@ -823,7 +836,8 @@ func _build_result() -> Control:
 	inner.add_theme_constant_override("separation", 12)
 	panel.add_child(inner)
 
-	inner.add_child(UiKit.label(Strings.t("gameOver").to_upper(), 28))
+	inner.add_child(UiKit.title(Strings.t("gameOver"), 28, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_CENTER))
 	inner.add_child(UiKit.label(str(_result_data.get("reason", "")), 16,
 		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
 	if bool(_result_data.get("record", false)):

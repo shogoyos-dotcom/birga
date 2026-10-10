@@ -56,7 +56,7 @@ var color_index: int:
 	set(value): _write("color", value)
 
 var theme_id: String:
-	get: return str(_read("theme", "arcade"))
+	get: return str(_read("theme", Palette.DEFAULT_THEME))
 	set(value): _write("theme", value)
 
 ## Qaysi maydon o'ynaladi: "world", "africa", ..., "circle".

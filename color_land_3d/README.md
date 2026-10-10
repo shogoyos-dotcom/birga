@@ -62,7 +62,7 @@ Tayyor:
 - Android APK quriladi (arm64-v8a) va ishga tushishi tekshirilgan.
 - **Menyu, sozlamalar, profil, pauza, natija va do'kon** ekranlari —
   "Arcade Grid" uslubida, kod bilan quriladi.
-- **Sozlamalar**: rang, arena uslubi (5 ta), qiyinlik, til (5 ta),
+- **Sozlamalar**: rang, arena uslubi (6 ta), qiyinlik, til (5 ta),
   musiqa/ovoz/vibratsiya va ularning **balandligi**, **kuy tanlovi**
   (4 ta), poytaxt va naqsh kalitlari, kichik xarita, rekordni
   tozalash.
@@ -330,7 +330,7 @@ scripts/
     avatar_atlas.gd      belgilar teksturasi va joylashuvi
     trail_ribbons.gd     izlar lentasi
     capital_marks.gd     poytaxt ustunlari (MultiMesh)
-    palette.gd           ranglar va 5 arena uslubi
+    palette.gd           ranglar va 6 arena uslubi
     game_view.gd         sahna, kamera, boshqaruv
   app/          # sozlamalar, matnlar, profil, ovoz, do'kon
   ui/           # ekranlar, komponentlar, avatar, kichik xarita
@@ -342,10 +342,53 @@ tools/          # skrinshot, sinov va o'lchov vositalari
 tool/           # xarita, kuy va emoji shriftini generatsiya qilish
 ```
 
+## Ko'rinish: "Neon Arcade"
+
+Interfeysning butun ko'rinishi `scripts/ui/ui_kit.gd` da — bitta
+faylda. O'yin qoidalari, ekranlar tuzilishi va maydon mantig'i
+bunga bog'liq emas: hamma komponentning nomi va parametri
+o'zgarmagani uchun ekranlar kodi umuman tegilmay yangi ko'rinishga
+o'tdi.
+
+| Nima | Qanday |
+| --- | --- |
+| Fon | To'q binafsha `#120726`, panellar `#241b52` |
+| Urg'u | Limon `#d8ff3e`, malina `#ff3d9a`, ko'k `#2e9bff`, binafsha `#9b4be0`, sariq `#ffd23f` |
+| Tugma | `StyleBoxFlat.skew = 0.23` — qiyshaygan to'rtburchak; matn qiyshaymaydi, chunki Godot uni stildan alohida chizadi |
+| "Rels" | O'sha stilning soyasi: `shadow_offset = (0, 5)`, o'lchami nol — tugma ostida yorqin chiziq bo'lib ko'rinadi. Och rangli tugmada limon ko'rinmaydi, shuning uchun malina qo'yiladi |
+| Sarlavha | Exo 2 qalin kursiv, katta harflar — `UiKit.title()` |
+| Matn | Rubik Medium |
+
+### Nega Exo 2 va Rubik
+
+Dizayn namunasidagi Chakra Petch va Barlow **kirill harflarini
+bilmaydi** — ruscha va qozoqcha matn zaxira shriftga tushib,
+butunlay boshqacha ko'rinardi. Exo 2 va Rubik o'sha texno-kursiv
+ko'rinishni beradi va kirillni ham qoplaydi. Topilmagan belgi
+baribir DejaVuSans dan olinadi.
+
+Bitta kamchilik: `_display_font` va `_bold_font` statik
+o'zgaruvchilarda turadi, shuning uchun Godot chiqishda "2 resurs
+hali ishlatilmoqda" deb ogohlantiradi. Bu faqat yopilish paytida
+va faqat vositalarda ko'rinadi; shriftni statikdan olib tashlasa,
+`fallbacks` ro'yxati yo'qolish xavfi bor.
+
+### "Color Lands" arena uslubi
+
+Oltinchi uslub qo'shildi va standart qilib qo'yildi: och muz rangli
+maydon (`cfe6f7`), chuqur indigo okean, to'yingan hudud ranglari.
+Qolgan beshtasi joyida — sozlamalardan tanlanadi.
+
+Ochiq maydonda oq yozuv yo'qoladi, shuning uchun shahar nomlari,
+nuqtalari va konturi uslubga bog'landi: `Palette.on_land()`,
+`on_land_dim()`, `on_land_outline()`, `city_dot()`. Ochiq maydonda
+to'q siyoh va qalin oq kontur (14px), to'q maydonda aksincha.
+
 ## Shriftlar
 
-Interfeys DejaVuSans bilan chiziladi, emoji va bayroqlar esa
-NotoColorEmoji bilan.
+Interfeys Rubik bilan, sarlavhalar Exo 2 bilan chiziladi; emoji va
+bayroqlar esa NotoColorEmoji bilan. Ikkalasi ham kirillni biladi,
+qolgan belgilar DejaVuSans dan olinadi.
 
 Ikki tuzoq bor:
 
