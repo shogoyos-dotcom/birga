@@ -7,14 +7,22 @@ extends RefCounted
 
 const PATH := "res://data/strings.json"
 
-const CODES: PackedStringArray = ["uz", "en", "ru", "tr", "kk"]
-const NATIVE_NAMES: PackedStringArray = [
-	"O'zbekcha", "English", "Русский", "Türkçe", "Қазақша",
+const CODES: PackedStringArray = [
+	"en", "ru", "uz", "tr", "kk", "es", "pt", "fr", "de", "id",
+	"zh", "ja", "ko", "hi", "ar",
 ]
+const NATIVE_NAMES: PackedStringArray = [
+	"English", "Русский", "O'zbekcha", "Türkçe", "Қазақша",
+	"Español", "Português", "Français", "Deutsch", "Bahasa Indonesia",
+	"简体中文", "日本語", "한국어", "हिन्दी", "العربية",
+]
+
+## Noma'lum til uchun zaxira.
+const DEFAULT_LANGUAGE := "en"
 
 static var _all: Dictionary = {}
 static var _current: Dictionary = {}
-static var _code: String = "uz"
+static var _code: String = DEFAULT_LANGUAGE
 
 static func _load_all() -> void:
 	if not _all.is_empty():
@@ -32,7 +40,7 @@ static func _load_all() -> void:
 static func set_language(code: String) -> void:
 	_load_all()
 	if not _all.has(code):
-		code = "uz"
+		code = DEFAULT_LANGUAGE
 	_code = code
 	_current = _all[code]
 
@@ -42,7 +50,7 @@ static func language() -> String:
 ## Tizim tiliga moslashtiradi (til hali tanlanmagan bo'lsa).
 static func detect_language() -> String:
 	var locale := OS.get_locale_language()
-	return locale if CODES.has(locale) else "uz"
+	return locale if CODES.has(locale) else DEFAULT_LANGUAGE
 
 static func native_name(code: String) -> String:
 	var i := CODES.find(code)

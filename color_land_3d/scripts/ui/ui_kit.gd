@@ -30,9 +30,18 @@ const SKEW := 0.23
 const FONT_PATH := "res://assets/fonts/Rubik-Medium.ttf"
 const BOLD_FONT_PATH := "res://assets/fonts/Rubik-Bold.ttf"
 const DISPLAY_FONT_PATH := "res://assets/fonts/Exo2-BoldItalic.ttf"
-## Rubik va Exo 2 kirill harflarini biladi, lekin hamma belgini emas —
-## topilmagani DejaVuSans dan olinadi.
+## Rubik va Exo 2 lotin va kirillni biladi, lekin hamma belgini emas —
+## topilmagani quyidagi zaxiralardan olinadi. Arabcha DejaVuSans da
+## bor; xitoy, yapon, koreys va hind yozuvlari uchun Noto shriftlari
+## **faqat ishlatiladigan belgilarga** qisqartirilgan (`tool/`):
+## to'rtalasi birgalikda 294 KB.
 const FALLBACK_FONT_PATH := "res://assets/fonts/DejaVuSans.ttf"
+const SCRIPT_FONT_PATHS: PackedStringArray = [
+	"res://assets/fonts/NotoSC.ttf",
+	"res://assets/fonts/NotoJP.ttf",
+	"res://assets/fonts/NotoKR.ttf",
+	"res://assets/fonts/NotoDevanagari.ttf",
+]
 const EMOJI_FONT_PATH := "res://assets/fonts/NotoColorEmoji.ttf"
 
 static var _fonts_ready := false
@@ -63,6 +72,10 @@ static func ensure_fonts() -> void:
 	var spares: Array[Font] = []
 	if spare != null and spare != base:
 		spares.append(spare)
+	for path: String in SCRIPT_FONT_PATHS:
+		var extra: Font = load(path)
+		if extra != null:
+			spares.append(extra)
 	if emoji != null:
 		spares.append(emoji)
 	base.fallbacks = spares
@@ -256,7 +269,7 @@ static func switch_row(title: String, value: bool, on_toggle: Callable,
 	row.add_child(name_label)
 
 	var toggle := Button.new()
-	toggle.text = "ON" if value else "OFF"
+	toggle.text = Strings.t("switchOn") if value else Strings.t("switchOff")
 	toggle.custom_minimum_size = Vector2(80, 40)
 	toggle.add_theme_font_size_override("font_size", 14)
 	var on_font := bold_font()

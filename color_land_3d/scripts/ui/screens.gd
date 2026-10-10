@@ -28,6 +28,7 @@ var services := ContinueServices.new()
 var _screen: Screen = Screen.MENU
 var _root: Control
 var _percent_label: Label
+var _coin_label: Label
 var _info_label: Label
 var _board: VBoxContainer
 var _result_data := {}
@@ -76,6 +77,7 @@ func _rebuild() -> void:
 	_minimap = null
 	_flash = null
 	_percent_label = null
+	_coin_label = null
 	match _screen:
 		Screen.MENU: _root = _build_menu()
 		Screen.SETTINGS: _root = _build_settings()
@@ -648,6 +650,10 @@ func _build_hud() -> Control:
 	_info_label = UiKit.label("00:00", 14, UiKit.TEXT_DIM,
 		HORIZONTAL_ALIGNMENT_LEFT)
 	stats.add_child(_info_label)
+	# Shu o'yinda yo'lda yig'ilgan tanga.
+	_coin_label = UiKit.label("\u25C9 0", 15, UiKit.GOLD,
+		HORIZONTAL_ALIGNMENT_LEFT)
+	stats.add_child(_coin_label)
 
 	var pause := UiKit.icon_button("⏸")
 	pause.anchor_left = 1.0
@@ -719,12 +725,16 @@ func toast(text: String) -> void:
 
 ## HUD ni yangilaydi. `rows` — [{name, avatar, color, percent, is_human}].
 func update_hud(percent: float, kills: int, elapsed: float, rank: int,
-		alive: int, rows: Array, marker: Vector2 = Vector2.ZERO) -> void:
+		alive: int, rows: Array, marker: Vector2 = Vector2.ZERO,
+		coins: int = 0) -> void:
 	if _screen != Screen.HUD or _percent_label == null:
 		return
+	if _coin_label != null and is_instance_valid(_coin_label):
+		_coin_label.text = "%s %d" % ["\u25C9", coins]
 	_percent_label.text = "%.2f%%" % percent
-	_info_label.text = "%s   %d kill   %d/%d" % [
-		_clock(elapsed), kills, rank, alive]
+	# "kill" so'zi ilgari kodda qotib qolgan edi — endi tarjimadan.
+	_info_label.text = "%s   %d %s   %d/%d" % [
+		_clock(elapsed), kills, Strings.t("kills").to_lower(), rank, alive]
 	if _minimap != null and is_instance_valid(_minimap):
 		_minimap.marker = marker
 
@@ -822,10 +832,10 @@ func _build_pause() -> Control:
 # ——— Natija ———
 
 func set_result(percent: float, kills: int, elapsed: float, reason: String,
-		is_record: bool) -> void:
+		is_record: bool, reward: Dictionary = {}) -> void:
 	_result_data = {
 		"percent": percent, "kills": kills, "elapsed": elapsed,
-		"reason": reason, "record": is_record,
+		"reason": reason, "record": is_record, "reward": reward,
 	}
 
 func _build_result() -> Control:
@@ -842,6 +852,11 @@ func _build_result() -> Control:
 		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
 	if bool(_result_data.get("record", false)):
 		inner.add_child(UiKit.label("★ " + Strings.t("newRecord"), 18, UiKit.GOLD))
+
+	# Shu o'yinda topilgan tanga — qayerdan kelgani ochiq yozilgan.
+	var reward: Dictionary = _result_data.get("reward", {})
+	if not reward.is_empty():
+		inner.add_child(_coin_card(reward))
 
 	var tiles := HBoxContainer.new()
 	tiles.add_theme_constant_override("separation", 18)
@@ -884,6 +899,41 @@ func _build_result() -> Control:
 	inner.add_child(to_menu)
 	box.add_child(panel)
 	return root
+
+## Natija ekranidagi tanga kartasi.
+func _coin_card(reward: Dictionary) -> Control:
+	var card := UiKit.panel(Color(UiKit.SURFACE, 0.8), 13)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	card.add_child(box)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var name_label := UiKit.label(Strings.t("coinsEarned"), 14,
+		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(name_label)
+	head.add_child(UiKit.title("+%d" % int(reward.get("total", 0)), 22,
+		UiKit.GOLD, HORIZONTAL_ALIGNMENT_RIGHT))
+	box.add_child(head)
+
+	var parts: Array = [
+		[Strings.t("time"), int(reward.get("run", 0))],
+		[Strings.t("territory"), int(reward.get("territory", 0))],
+		[Strings.t("kills"), int(reward.get("kills", 0))],
+		[Strings.t("coinsPicked"), int(reward.get("pickups", 0))],
+	]
+	for part: Array in parts:
+		if int(part[1]) <= 0:
+			continue
+		var row := HBoxContainer.new()
+		var title := UiKit.label(str(part[0]), 12, UiKit.TEXT_FAINT,
+			HORIZONTAL_ALIGNMENT_LEFT)
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(title)
+		row.add_child(UiKit.label("+%d" % int(part[1]), 12, UiKit.TEXT_DIM))
+		box.add_child(row)
+	return card
 
 # ——— Do'kon ———
 

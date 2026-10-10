@@ -62,7 +62,7 @@ Tayyor:
 - Android APK quriladi (arm64-v8a) va ishga tushishi tekshirilgan.
 - **Menyu, sozlamalar, profil, pauza, natija va do'kon** ekranlari —
   "Arcade Grid" uslubida, kod bilan quriladi.
-- **Sozlamalar**: rang, arena uslubi (6 ta), qiyinlik, til (5 ta),
+- **Sozlamalar**: rang, arena uslubi (6 ta), qiyinlik, til (15 ta),
   musiqa/ovoz/vibratsiya va ularning **balandligi**, **kuy tanlovi**
   (4 ta), poytaxt va naqsh kalitlari, kichik xarita, rekordni
   tozalash.
@@ -342,6 +342,58 @@ tools/          # skrinshot, sinov va o'lchov vositalari
 tool/           # xarita, kuy va emoji shriftini generatsiya qilish
 ```
 
+## Pul tizimi
+
+Modullar `scripts/money/` da, o'yin mantig'idan butunlay alohida.
+
+```
+monetization_config.gd   hamma balans qiymati — bitta fayl
+currency_manager.gd      tanga va gem (avtoyuklanadi: Wallet)
+reward_manager.gd        o'yin natijasidan tanga hisoblaydi
+logic/coin_field.gd      xaritadagi tangalar (sof mantiq)
+render/city_coins.gd     tangalarni chizadi
+```
+
+**Balans bitta faylda.** `MonetizationConfig` dagi qiymatlar
+loyihaning boshqa joyida takrorlanmaydi — balansni o'zgartirish
+uchun o'yin kodiga tegilmaydi.
+
+**Hamyon himoyasi.** Balans manfiy bo'lmaydi, yuqori chegarasi bor,
+har o'zgarish jurnalga yoziladi (id, vaqt, tur, miqdor), va bir
+`transaction_id` ikki marta qabul qilinmaydi — kunlik mukofot yoki
+reklama mukofoti takror berilmaydi. `user://wallet.cfg` —
+sozlamalardan alohida fayl.
+
+**Bir o'yindan qancha tushadi.** Vaqt 10–100, hudud 10–500,
+raqiblar 25–150, yo'lda yig'ilgan tangalar. Jami 3000 bilan
+cheklangan. Odatdagi o'yin 60–250 tanga beradi.
+
+### Xaritadagi tangalar
+
+Har shaharda bitta tanga: kattaligi ham, qiymati ham **aholi
+soniga** qarab (kvadrat ildiz bilan — kichik shahar ham ko'rinadi).
+Eng kichigi 1 tanga, eng kattasi 25.
+
+Tanga o'yin qoidalariga tegmaydi: tezlik, to'qnashuv va hudud
+egallash o'zgarmaydi — faqat mukofot qo'shiladi. Shuning uchun
+yig'ish `game_view.gd` da, `game_world.gd` da emas.
+
+Aylanish va tebranish **shaderda**: 1113 ta tanga bitta
+`MultiMesh` va har kadrda hech narsa yangilanmaydi. Tanga
+olinganda faqat o'sha nusxaning o'lchami nolga tushadi.
+
+Tanga to'liq aylanmaydi, chayqaladi (±54°) — aks holda yarim
+vaqt qirrasi bilan turib ko'rinmay qolardi. Metall emas: bu
+sahnada aks etadigan muhit yo'q, metall qoralashib ketardi.
+
+### Hali qilinmagan
+
+`ShopManager`, `DailyRewardManager`, `MissionManager`,
+`AdManager` / `AdMobManager`, `PurchaseManager` (NO ADS) va
+analitika hali yo'q. Reklama bo'yicha hozirgi holat: majburiy
+reklama ham, banner ham yo'q; bitta ixtiyoriy mukofotli reklama
+`ContinueServices` namunasida turadi.
+
 ## Ko'rinish: "Neon Arcade"
 
 Interfeysning butun ko'rinishi `scripts/ui/ui_kit.gd` da — bitta
@@ -358,6 +410,47 @@ o'tdi.
 | "Rels" | O'sha stilning soyasi: `shadow_offset = (0, 5)`, o'lchami nol — tugma ostida yorqin chiziq bo'lib ko'rinadi. Och rangli tugmada limon ko'rinmaydi, shuning uchun malina qo'yiladi |
 | Sarlavha | Exo 2 qalin kursiv, katta harflar — `UiKit.title()` |
 | Matn | Rubik Medium |
+
+### 15 til
+
+`data/strings.json` da 15 til × 130 kalit:
+
+| | |
+| --- | --- |
+| Lotin | English · O'zbekcha · Türkçe · Español · Português · Français · Deutsch · Bahasa Indonesia |
+| Kirill | Русский · Қазақша |
+| Boshqa yozuvlar | 简体中文 · 日本語 · 한국어 · हिन्दी · العربية |
+
+Yangi til qo'shish: `tool/add_languages.py` ga blok qo'shiladi,
+o'yin kodiga tegilmaydi. Test hamma tilda kalitlar to'plami bir
+xilligini tekshiradi.
+
+Birinchi ochilishda qurilma tili aniqlanadi; ro'yxatda bo'lmasa
+**inglizcha**. Tanlov `user://settings.cfg` ga saqlanadi.
+
+Arabcha o'ngdan chapga yoziladi va harflar ulanadi — buni Godot
+o'zi (HarfBuzz) qiladi, qo'shimcha kod kerak emas.
+
+**Yo'l-yo'lakay topilgan xato:** o'yin ichida HUD qatoridagi
+"kill" so'zi va tugmalardagi "ON"/"OFF" kodda qotib qolgan edi —
+til almashsa ham inglizcha qolardi. Ikkalasi ham endi
+tarjimadan keladi.
+
+### Yozuvlar uchun shriftlar
+
+Rubik va Exo 2 lotin bilan kirillni qoplaydi, arabcha DejaVuSans
+da bor. Xitoy, yapon, koreys va hind yozuvlari uchun Noto
+shriftlari **faqat ishlatiladigan belgilarga** qisqartirilgan:
+
+| Shrift | To'liq | Qisqartirilgan |
+| --- | --- | --- |
+| Noto Sans SC | 10.3 MB | 62 KB |
+| Noto Sans JP | 5.4 MB | 73 KB |
+| Noto Sans KR | 5.9 MB | 34 KB |
+| Noto Sans Devanagari | 214 KB | 125 KB |
+
+Jami 294 KB. Yangi tarjima qo'shilsa shriftlarni qayta
+qisqartirish kerak, aks holda yangi belgi chiqmaydi.
 
 ### Nega Exo 2 va Rubik
 

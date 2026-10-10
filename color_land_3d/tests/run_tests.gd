@@ -20,9 +20,123 @@ func _initialize() -> void:
 	_test_country(t)
 	_test_strings(t)
 	_test_paint(t)
+	_test_money(t)
 	quit(0 if t.report() else 1)
 
 # ——— Chizish qatlami ———
+
+# ——— Tanga, gem va mukofot ———
+
+func _test_money(t: TestRunner) -> void:
+	t.group("pul tizimi")
+
+	t.test("balans manfiy bo'lmaydi", func() -> void:
+		var w := CurrencyManager.new()
+		w.reset()
+		t.equal(w.get_coins(), 0, "boshida nol")
+		t.check(not w.remove_coins(10), "yo'q pulni yechib bo'lmaydi")
+		t.equal(w.get_coins(), 0, "balans o'zgarmadi")
+		w.add_coins(100, "test")
+		t.check(w.remove_coins(100), "bor pul yechiladi")
+		t.equal(w.get_coins(), 0, "nolga tushdi")
+		t.equal(w.add_coins(-5, "test"), 0, "manfiy qo'shilmaydi")
+		w.reset()
+		w.free()
+	)
+
+	t.test("bir mukofot ikki marta berilmaydi", func() -> void:
+		var w := CurrencyManager.new()
+		w.reset()
+		t.equal(w.add_coins(250, "daily", "daily-2026-01-01"), 250, "birinchi marta")
+		t.equal(w.add_coins(250, "daily", "daily-2026-01-01"), 0, "ikkinchi marta yo'q")
+		t.equal(w.get_coins(), 250, "balans bir marta oshdi")
+		t.check(w.has_transaction("daily-2026-01-01"), "jurnalda bor")
+		t.check(not w.has_transaction("daily-2026-01-02"), "boshqasi yo'q")
+		w.reset()
+		w.free()
+	)
+
+	t.test("hamyon diskka saqlanadi", func() -> void:
+		var w := CurrencyManager.new()
+		w.reset()
+		w.add_coins(640, "run")
+		w.add_gems(12, "gift")
+		w.free()
+		var again := CurrencyManager.new()
+		t.equal(again.get_coins(), 640, "tanga qaytdi")
+		t.equal(again.get_gems(), 12, "gem qaytdi")
+		again.reset()
+		again.free()
+	)
+
+	t.test("mukofot chegaradan chiqmaydi", func() -> void:
+		var small := RewardManager.run_reward(0.0, 0.0, 0)
+		t.equal(int(small["total"]), MonetizationConfig.RUN_MIN,
+			"bo'sh o'yin eng kamini beradi")
+		var big := RewardManager.run_reward(10000.0, 100.0, 100)
+		t.check(int(big["total"]) <= MonetizationConfig.RUN_COIN_CAP,
+			"yuqori chegara ushlab turadi")
+		t.check(int(big["territory"]) <= MonetizationConfig.TERRITORY_MAX,
+			"hudud mukofoti chegarada")
+		t.check(int(big["kills"]) <= MonetizationConfig.KILL_MAX,
+			"kill mukofoti chegarada")
+	)
+
+	t.test("mukofot o'sib boradi", func() -> void:
+		var low := int(RewardManager.run_reward(30.0, 2.0, 0)["total"])
+		var mid := int(RewardManager.run_reward(90.0, 10.0, 1)["total"])
+		var high := int(RewardManager.run_reward(170.0, 30.0, 4)["total"])
+		t.check(low < mid and mid < high, "yaxshiroq o'yin ko'proq beradi")
+	)
+
+	t.test("kunlik kirish aylanmasi", func() -> void:
+		t.equal(RewardManager.daily_login(1), MonetizationConfig.DAILY_LOGIN[0],
+			"1-kun")
+		t.equal(RewardManager.daily_login(7), MonetizationConfig.DAILY_LOGIN[6],
+			"7-kun")
+		t.equal(RewardManager.daily_login(8), MonetizationConfig.DAILY_LOGIN[0],
+			"8-kun boshidan")
+		t.equal(RewardManager.daily_login(0), 0, "noto'g'ri kun — nol")
+	)
+
+	t.test("shahar tangasi aholiga qarab", func() -> void:
+		# `land` bo'sh bo'lsa butun panjara o'ynaladi.
+		var grid := GameGrid.new(40, 40)
+		var places: Array = [
+			{"name": "Katta", "x": 5, "y": 5, "pop": 10_000_000, "cap": 1},
+			{"name": "Kichik", "x": 20, "y": 20, "pop": 5_000, "cap": 0},
+		]
+		var field := CoinField.new()
+		field.build(places, grid)
+		t.equal(field.size(), 2, "ikki shahar")
+		var big: int = field.coins[0]["value"]
+		var small: int = field.coins[1]["value"]
+		t.check(big > small, "katta shaharda ko'proq tanga")
+		t.equal(big, MonetizationConfig.CITY_COIN_MAX, "eng kattasi to'liq")
+		t.check(small >= MonetizationConfig.CITY_COIN_MIN, "eng kichigi ham bor")
+	)
+
+	t.test("tanga bir marta olinadi", func() -> void:
+		# `land` bo'sh bo'lsa butun panjara o'ynaladi.
+		var grid := GameGrid.new(40, 40)
+		var field := CoinField.new()
+		field.build([{"name": "A", "x": 10, "y": 10, "pop": 1000, "cap": 0}], grid)
+		var value: int = field.coins[0]["value"]
+		t.equal(field.collect(10.5, 10.5), value, "ustidan o'tganda olinadi")
+		t.equal(field.collect(10.5, 10.5), 0, "ikkinchi marta yo'q")
+		t.equal(field.collected(), value, "jami to'g'ri")
+		t.equal(field.flush_taken().size(), 1, "chizuvchiga bitta indeks")
+		t.equal(field.flush_taken().size(), 0, "ro'yxat bo'shadi")
+	)
+
+	t.test("uzoqdagi tanga olinmaydi", func() -> void:
+		# `land` bo'sh bo'lsa butun panjara o'ynaladi.
+		var grid := GameGrid.new(40, 40)
+		var field := CoinField.new()
+		field.build([{"name": "A", "x": 10, "y": 10, "pop": 1000, "cap": 0}], grid)
+		t.equal(field.collect(20.0, 20.0), 0, "radius tashqarisida")
+		t.equal(field.taken_count(), 0, "hech nima olinmadi")
+	)
 
 func _test_paint(t: TestRunner) -> void:
 	t.group("egalik teksturasi")

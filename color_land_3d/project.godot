@@ -18,6 +18,8 @@ boot_splash/show_image=false
 Audio="*res://scripts/app/audio.gd"
 Net="*res://scripts/net/net_link.gd"
 Board="*res://scripts/app/leaderboard.gd"
+; Tanga va gem hisobi — o'yin mantig'idan alohida.
+Wallet="*res://scripts/money/currency_manager.gd"
 
 [display]
 

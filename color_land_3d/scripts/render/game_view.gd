@@ -30,6 +30,7 @@ const ARENA_SHADER := preload("res://scripts/render/arena.gdshader")
 const AvatarAtlasNode := preload("res://scripts/render/avatar_atlas.gd")
 const TrailRibbonsNode := preload("res://scripts/render/trail_ribbons.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
+const CityCoinsNode := preload("res://scripts/render/city_coins.gd")
 
 var world: GameWorld
 var paint: PaintLayer
@@ -40,6 +41,9 @@ var _avatars: Node
 var _trails: MeshInstance3D
 var _arena_material: ShaderMaterial
 var _capitals: MultiMeshInstance3D
+## Shaharlar ustidagi tangalar: mantiq va chizuvchi.
+var _coin_field := CoinField.new()
+var _coins: MultiMeshInstance3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
 var _hud_timer := 0.0
@@ -78,6 +82,8 @@ func _ready() -> void:
 	add_child(_trails)
 	_capitals = CapitalMarksNode.new()
 	add_child(_capitals)
+	_coins = CityCoinsNode.new()
+	add_child(_coins)
 
 	store = SettingsStore.load_store()
 	Strings.set_language(store.language if not store.language.is_empty()
@@ -376,9 +382,16 @@ var _capitals_map := ""
 
 func _build_capitals() -> void:
 	if _capitals_map == world.config.map_id:
+		_build_coins()
 		return
 	_capitals_map = world.config.map_id
 	_capitals.build(world.places, world.grid)
+	_build_coins()
+
+## Har o'yin boshida tangalar qaytadan to'kiladi.
+func _build_coins() -> void:
+	_coin_field.build(world.places, world.grid)
+	_coins.build(_coin_field)
 
 ## Bosh — o'yinchi rangidagi shar; ustida uning belgisi turadi.
 const HEAD_RADIUS := 1.35
@@ -432,6 +445,7 @@ func _process(delta: float) -> void:
 	paint.sync()
 	# Shahar nomlari kamera atrofida almashib turadi.
 	_capitals.update_focus(Vector2(world.human().x, world.human().y), delta)
+	_collect_coins()
 	_sync_heads()
 	_follow_camera(delta)
 
@@ -458,6 +472,21 @@ func _handle_events() -> void:
 					Audio.kill()
 					ui.flash(UiKit.MINT, 0.16)
 
+## O'yinchi tanga ustidan o'tsa yig'ib oladi.
+##
+## Faqat odam o'yinchi yig'adi: tanga mukofot, botlarga kerak emas.
+## Hisob o'yin qoidalariga tegmaydi — tezlik ham, hudud ham
+## o'zgarmaydi.
+func _collect_coins() -> void:
+	if not _match_running:
+		return
+	var p := world.human()
+	if not p.alive:
+		return
+	if _coin_field.collect(p.x, p.y) > 0:
+		_coins.take(_coin_field.flush_taken())
+		Audio.capture()
+
 func _end_match() -> void:
 	_set_playing(false)
 	_dragging = false
@@ -466,8 +495,12 @@ func _end_match() -> void:
 	var is_record := store.submit_result(percent, p.kills)
 	# Natija onlayn reytingga ham yuboriladi (server sozlangan bo'lsa).
 	Board.submit(store, percent, p.kills)
+	# Tanga: o'yin natijasidan hisoblanadi va hamyonga qo'shiladi.
+	var reward := RewardManager.run_reward(world.elapsed, percent, p.kills,
+		_coin_field.collected())
+	Wallet.add_coins(int(reward["total"]), "run")
 	ui.set_result(percent, p.kills, world.elapsed,
-		Strings.death_reason(p.death_cause), is_record)
+		Strings.death_reason(p.death_cause), is_record, reward)
 	ui.show_screen(ui.Screen.RESULT)
 
 
@@ -591,7 +624,8 @@ func _refresh_hud() -> void:
 	ui.update_hud(
 		world.percent_of(p), p.kills, world.elapsed,
 		world.rank_of(p), world.alive_count(), _leaderboard(),
-		Vector2(p.x / world.grid.width, p.y / world.grid.height))
+		Vector2(p.x / world.grid.width, p.y / world.grid.height),
+		_coin_field.collected())
 
 ## Top-5 reyting.
 func _leaderboard() -> Array:
