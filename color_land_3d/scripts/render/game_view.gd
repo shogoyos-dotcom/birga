@@ -382,7 +382,7 @@ func _build_capitals() -> void:
 	if _capitals_map == world.config.map_id:
 		return
 	_capitals_map = world.config.map_id
-	_capitals.build(world.capitals, world.grid)
+	_capitals.build(world.places, world.grid)
 
 ## Bosh — o'yinchi rangidagi shar; ustida uning belgisi turadi.
 const HEAD_RADIUS := 1.35
@@ -544,6 +544,7 @@ func show_screen_for_demo(name: String) -> void:
 		"profile": ui.show_screen(ui.Screen.PROFILE)
 		"pause": ui.show_screen(ui.Screen.PAUSE)
 		"shop": ui.open_shop(ui.Screen.MENU)
+		"maps": ui.open_maps("play")
 		"room": ui.open_room(false)
 		"board": ui.open_board()
 		"result":

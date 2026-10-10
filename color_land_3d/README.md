@@ -21,9 +21,9 @@ Tayyor:
   orqali).
 - **Onlayn reyting** — shahar, davlat, materik va dunyo bo'yicha.
   Server `server/leaderboard.py` da (faqat standart kutubxona).
+- **Maydon o'yin boshlanishida tanlanadi** — sozlamalardan emas.
 - **O'z rasmingiz** — avatar va hudud uchun telefondan rasm yuklash
   mumkin.
-- **Shahar nomlari** arena ustida yoziladi (yaqindagilari ko'rinadi).
 - **Sakkizta maydon**: dunyo xaritasi, oltita materik (Afrika, Osiyo,
   Yevropa, Shimoliy va Janubiy Amerika, Okeaniya) va erkin doira
   maydon. Sozlamalardan tanlanadi.
@@ -33,10 +33,13 @@ Tayyor:
 - **Orollar ulangan**: juda kichik orollar olib tashlanadi, qolganlari
   esa eng qisqa suv oralig'i bo'ylab ko'prik bilan materikka ulanadi —
   xaritaning hamma yeriga yetib borish mumkin.
-- **Qirg'oq silliq**: geometriya o'yin panjarasidan emas, uch barobar
-  maydaroq va silliqlangan niqobdan quriladi. Mantiq niqobi ham
-  o'shandan olinadi — ko'rinadigan va yuriladigan quruqlik aynan bir
-  xil.
+- **Qirg'oq zinapoyasiz**: arena geometriyasi generatorda hisoblanadi.
+  Quruqlikning uzluksiz maydoni 0.5 sathida kesiladi (marching squares
+  + chiziqli interpolatsiya), shuning uchun chegara katakka yopishmaydi
+  va haqiqiy egri chiziq bo'ladi. O'yin faqat tayyor uchburchaklarni
+  o'qiydi — dunyo arenasi 37 ms da quriladi.
+- **Shahar nomlari**: Natural Earth 1:50m dan barcha davlat
+  poytaxtlari va yirik shaharlar (dunyo xaritasida 1113 ta).
 - **Hududlar va izlar** — arena ustidagi tekstura (har katak bir
   piksel). Minglab katak o'zgarsa ham geometriya qayta qurilmaydi,
   faqat o'zgargan piksellar yangilanadi. Chegaralar **shaderda**
@@ -255,9 +258,10 @@ pip install  # kerak emas, faqat standart kutubxona
 python3 tool/make_maps.py
 ```
 
-Har maydon uchun `data/maps/<id>.bin` yoziladi: mantiq niqobi va uch
-barobar maydaroq silliqlangan chizish niqobi. Poytaxtlar
-`data/maps/index.json` da.
+Har maydon uchun `data/maps/<id>.bin` yoziladi (siqilgan): mantiq
+niqobi va tayyor arena geometriyasi — ustki yuza uchburchaklari hamda
+devor kesmalari, 1/64 katak aniqligida. Shaharlar
+`data/maps/index.json` da. Jami 428 KB.
 
 Flutter (2D) varianti hamon `../color_land/tool/make_world_map.py` dan
 foydalanadi — u tegilmagan.

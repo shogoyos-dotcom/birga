@@ -18,7 +18,8 @@ signal continue_with_ticket
 signal host_pressed
 signal join_pressed(address: String)
 
-enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD }
+enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD,
+	MAPS }
 
 var store: SettingsStore
 ## Belet va reklama xizmati (hozircha namuna).
@@ -52,6 +53,8 @@ var _room_status := ""
 var _board_scope := "world"
 var _board_rows: Array = []
 var _board_note := ""
+## Maydon tanlagandan keyin nima qilinadi: "play" yoki "host".
+var _maps_then := "play"
 
 func setup(p_store: SettingsStore) -> void:
 	store = p_store
@@ -83,6 +86,7 @@ func _rebuild() -> void:
 		Screen.SHOP: _root = _build_shop()
 		Screen.ROOM: _root = _build_room()
 		Screen.BOARD: _root = _build_board()
+		Screen.MAPS: _root = _build_maps()
 	add_child(_root)
 
 func _accent() -> Color:
@@ -119,7 +123,7 @@ func _build_menu() -> Control:
 	var play := UiKit.button(Strings.t("modeBots"), _accent(), true)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
-		play_pressed.emit())
+		open_maps("play"))
 	box.add_child(play)
 	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 13, UiKit.TEXT_FAINT))
 
@@ -237,24 +241,6 @@ func _build_settings() -> Control:
 			settings_changed.emit()
 			_rebuild(), _accent()))
 	box.add_child(look)
-
-	# Maydon
-	var arena := UiKit.panel()
-	var arena_box := VBoxContainer.new()
-	arena_box.add_theme_constant_override("separation", 10)
-	arena.add_child(arena_box)
-	arena_box.add_child(UiKit.section(Strings.t("arena")))
-	var maps := WorldMap.ids()
-	var map_names := PackedStringArray()
-	for map_id: String in maps:
-		map_names.append(Strings.map_name(map_id))
-	arena_box.add_child(UiKit.chips(map_names, maps.find(store.map_id),
-		func(index: int) -> void:
-			Audio.tap()
-			store.map_id = maps[index]
-			settings_changed.emit()
-			_rebuild(), _accent()))
-	box.add_child(arena)
 
 	# O'yin
 	var game := UiKit.panel()
@@ -924,6 +910,47 @@ func _watch_ad(then_continue: bool) -> void:
 	_rebuild()
 	toast("%s: +%d" % [Strings.t("ticketsAdded"), reward])
 
+# ——— Maydon tanlash ———
+
+## Maydon tanlash ekranini ochadi. `then` — "play" yoki "host".
+func open_maps(then: String) -> void:
+	_maps_then = then
+	show_screen(Screen.MAPS)
+
+func _build_maps() -> Control:
+	var root := UiKit.overlay()
+	var box := UiKit.centered_column(root, 460)
+	box.add_child(_header(Strings.t("chooseArena"), func() -> void:
+		show_screen(Screen.MENU)))
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	for map_id: String in WorldMap.ids():
+		grid.add_child(_map_tile(map_id))
+	box.add_child(grid)
+	return root
+
+## Bitta maydon tugmasi: nomi va tanlanganligi.
+func _map_tile(map_id: String) -> Control:
+	var chosen := map_id == store.map_id
+	var button := UiKit.button(
+		Strings.map_name(map_id), _accent() if chosen else UiKit.SURFACE)
+	button.custom_minimum_size = Vector2(0, 64)
+	button.add_theme_font_size_override("font_size", 17)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not chosen:
+		button.add_theme_color_override("font_color", UiKit.TEXT)
+	button.pressed.connect(func() -> void:
+		Audio.tap()
+		store.map_id = map_id
+		if _maps_then == "host":
+			host_pressed.emit()
+		else:
+			play_pressed.emit())
+	return button
+
 # ——— Onlayn reyting ———
 
 func open_board() -> void:
@@ -1042,7 +1069,7 @@ func _build_room() -> Control:
 		var create := UiKit.button(Strings.t("createRoom"), UiKit.MINT)
 		create.pressed.connect(func() -> void:
 			Audio.tap()
-			host_pressed.emit())
+			open_maps("host"))
 		inner.add_child(create)
 		inner.add_child(UiKit.section(Strings.t("joinRoom")))
 		inner.add_child(_address_row(Strings.t("roomCode"),

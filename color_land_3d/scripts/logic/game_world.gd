@@ -14,9 +14,9 @@ var players: Array[PlayerState] = []
 var elapsed: float = 0.0
 ## O'yinchi ID -> rang indeksi.
 var color_index_by_id := PackedByteArray()
-## Xaritadagi poytaxtlar: {name, code, x, y, pop}. Chizish qatlami
-## ularni arena ustiga belgi qilib qo'yadi.
-var capitals: Array[Dictionary] = []
+## Xaritadagi shaharlar: {name, code, x, y, pop, cap}. Chizish qatlami
+## ularni arena ustiga nom va belgi qilib qo'yadi.
+var places: Array[Dictionary] = []
 ## Yuklangan maydon — arena geometriyasi uning silliqlangan niqobidan
 ## quriladi.
 var map: WorldMap
@@ -34,7 +34,7 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 		map = WorldMap.load_map(config.map_id)
 		if map.ok:
 			land = map.land
-			capitals = map.capitals
+			places = map.places
 			config.grid_width = map.width
 			config.grid_height = map.height
 		else:

@@ -519,34 +519,44 @@ func _test_world_map(t: TestRunner) -> void:
 			t.check(map.ok, "o'qildi: " + map_id)
 			t.equal(map.land.size(), map.width * map.height,
 				"mantiq niqobi to'liq: " + map_id)
-			t.equal(map.render_land.size(),
-				map.render_width * map.render_height,
-				"chizish niqobi to'liq: " + map_id)
-			t.equal(map.render_width, map.width * map.scale,
-				"chizish niqobi maydaroq: " + map_id)
+			t.greater(map.top_points.size(), 30,
+				"ustki yuza uchburchaklari: " + map_id)
+			t.equal(map.top_points.size() % 3, 0,
+				"uchburchaklar to'liq: " + map_id)
+			t.greater(map.wall_points.size(), 10,
+				"devor kesmalari: " + map_id)
+			t.equal(map.wall_points.size() % 2, 0,
+				"kesmalar to'liq: " + map_id)
 			var share: float = float(map.land_cells) / float(map.land.size())
 			t.greater(share, 0.1, "quruqlik ulushi: " + map_id)
 			t.less(share, 0.95, "quruqlik ulushi: " + map_id)
 	)
 
-	t.test("ko'rinadigan va yuriladigan quruqlik bir xil", func() -> void:
-		# Mantiq niqobi silliqlangan niqobdan olinadi: ko'rinmas yerda
-		# yurib qolish ham, kirib bo'lmaydigan burun ham bo'lmasligi
+	t.test("geometriya xarita ichida qoladi", func() -> void:
+		# Chegara uzluksiz maydondan olinadi, shuning uchun u
+		# kataklarga yopishmaydi — lekin xaritadan chiqib ketmasligi
 		# kerak.
 		var map := WorldMap.load_map("world")
-		var bad := 0
-		var full: int = map.scale * map.scale
-		for y in map.height:
-			for x in map.width:
-				var count := 0
-				for sy in range(y * map.scale, (y + 1) * map.scale):
-					var base: int = sy * map.render_width + x * map.scale
-					for sx in map.scale:
-						count += map.render_land[base + sx]
-				var walkable: bool = map.land[y * map.width + x] == 1
-				if walkable != (count * 2 >= full):
-					bad += 1
-		t.equal(bad, 0, "mos kelmagan katak")
+		var outside := 0
+		for p: Vector2 in map.top_points:
+			if p.x < -0.6 or p.y < -0.6 \
+					or p.x > map.width + 0.6 or p.y > map.height + 0.6:
+				outside += 1
+		t.equal(outside, 0, "chegaradan chiqqan nuqta")
+	)
+
+	t.test("shaharlar quruqlikda va poytaxtlar belgilangan", func() -> void:
+		var map := WorldMap.load_map("world")
+		t.greater(map.places.size(), 900, "dunyoda shaharlar ko'p")
+		var water := 0
+		var capitals := 0
+		for c in map.places:
+			if not map.is_land(int(c["x"]), int(c["y"])):
+				water += 1
+			if int(c.get("cap", 0)) == 1:
+				capitals += 1
+		t.equal(water, 0, "suvda qolgan shahar")
+		t.greater(capitals, 150, "davlat poytaxtlari")
 	)
 
 	t.test("doira maydon kod bilan quriladi", func() -> void:
@@ -558,20 +568,10 @@ func _test_world_map(t: TestRunner) -> void:
 		t.greater(share, 0.6, "doira maydonning katta qismini egallaydi")
 	)
 
-	t.test("poytaxtlar xarita ichida va quruqlikda", func() -> void:
-		var map := WorldMap.load_map("world")
-		t.greater(map.capitals.size(), 150)
-		var bad := 0
-		for c in map.capitals:
-			if not map.is_land(int(c["x"]), int(c["y"])):
-				bad += 1
-		t.equal(bad, 0, "suvda qolgan poytaxtlar")
-	)
-
 	t.test("mashhur poytaxtlar to'g'ri joyda", func() -> void:
 		var map := WorldMap.load_map("world")
 		var by_name := {}
-		for c in map.capitals:
+		for c in map.places:
 			by_name[c["name"]] = c
 		var tashkent: Dictionary = by_name["Tashkent"]
 		var ba: Dictionary = by_name["Buenos Aires"]

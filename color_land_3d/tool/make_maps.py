@@ -26,6 +26,7 @@ Natija:
 """
 import collections
 import json
+import zlib
 import math
 import os
 import sys
@@ -37,11 +38,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.environ.get('NE_CACHE', os.path.join(HERE, '..', 'build', 'naturalearth'))
 OUT = os.path.join(HERE, '..', 'data', 'maps')
 
-## Chizish niqobi mantiq niqobidan shuncha marta maydaroq.
-SCALE = 3
+## Maydon to'ri o'yin panjarasidan shuncha marta maydaroq.
+## Chegara shu to'rda chiziqli interpolatsiya bilan topiladi.
+SUB = 2
 
-## Silliqlash bo'sag'asi: aynan yarim — quruqlik maydoni saqlanadi.
-THRESHOLD = 0.5
+## Chegara sathi.
+ISO = 0.5
+
+## Koordinatalar shuncha ulushda yoziladi (1/64 katak).
+FIXED = 64
 
 ## Har maydonda taxminan shuncha quruqlik katagi bo'lsin.
 TARGET_LAND = 26000
@@ -354,18 +359,6 @@ def dilate(mask, w, h, radius):
     return out
 
 
-def trim_render(render, keep, w, h, scale):
-    """Olib tashlangan oroldan qolgan silliq chetlarni tozalaydi."""
-    near = dilate(keep, w, h, 2)
-    hw = w * scale
-    for sy in range(h * scale):
-        row = sy * hw
-        cy = (sy // scale) * w
-        for sx in range(hw):
-            if render[row + sx] and not near[cy + sx // scale]:
-                render[row + sx] = 0
-
-
 def box_blur(field, w, h, radius):
     """Yugurib boruvchi yig'indi bilan kvadrat silliqlash (ikki o'q)."""
     out = [0.0] * (w * h)
@@ -392,55 +385,186 @@ def box_blur(field, w, h, radius):
     return done
 
 
-def smooth(land, w, h, scale):
-    """Chizish niqobi: `scale` barobar maydaroq va silliqlangan.
+def build_field(land, w, h, sub):
+    """Quruqlikning uzluksiz maydoni: 0 — suv, 1 — quruqlik.
 
-    Uch marta kvadrat silliqlash taxminan gauss yadrosini beradi
-    (sigma ~ bir katak). Shuning uchun qirg'oqdagi bir kataklik
-    zinapoyalar ham yo'qoladi, nafaqat burchaklar.
+    Niqob `sub` barobar maydaroq to'rga ko'chiriladi va uch marta
+    kvadrat silliqlash bilan yumshatiladi (taxminan gauss, sigma ~ bir
+    katak). Chegara shu maydonning 0.5 sathidan olinadi — shuning
+    uchun u katakka yopishmaydi va silliq egri chiziq bo'ladi.
     """
-    hw, hh = w * scale, h * scale
-    field = [0.0] * (hw * hh)
+    fw, fh = w * sub, h * sub
+    field = [0.0] * (fw * fh)
     for y in range(h):
         row = y * w
         for x in range(w):
             if not land[row + x]:
                 continue
-            for sy in range(y * scale, (y + 1) * scale):
-                base = sy * hw + x * scale
-                for sx in range(scale):
+            for sy in range(y * sub, (y + 1) * sub):
+                base = sy * fw + x * sub
+                for sx in range(sub):
                     field[base + sx] = 1.0
-
     for _ in range(3):
-        field = box_blur(field, hw, hh, scale)
-
-    out = bytearray(hw * hh)
-    for i, v in enumerate(field):
-        if v >= THRESHOLD:
-            out[i] = 1
-    return out, hw, hh
+        field = box_blur(field, fw, fh, sub)
+    return field, fw, fh
 
 
-def logic_from(render, w, h, scale):
-    """Mantiq niqobi silliqlangan niqobdan olinadi.
-
-    Shunda ko'rinadigan quruqlik bilan yuriladigan quruqlik aynan bir
-    xil bo'ladi: ko'rinmas yerda yurib qolish ham, ko'rinib turib
-    kirib bo'lmaydigan burun ham bo'lmaydi.
-    """
-    hw = w * scale
-    half = scale * scale / 2.0
+def logic_from_field(field, fw, w, h, sub):
+    """Mantiq niqobi: katak markazidagi qiymat 0.5 dan katta bo'lsa
+    quruqlik. Ko'rinadigan chegara ham shu sathdan olingani uchun ikkisi
+    bir-biriga mos tushadi."""
     land = bytearray(w * h)
+    half = sub // 2
     for y in range(h):
         for x in range(w):
-            count = 0
-            for sy in range(y * scale, (y + 1) * scale):
-                base = sy * hw + x * scale
-                for sx in range(scale):
-                    count += render[base + sx]
-            if count >= half:
+            if field[(y * sub + half) * fw + x * sub + half] >= ISO:
                 land[y * w + x] = 1
     return land
+
+
+def stamp_field(field, fw, fh, x0, y0, x1, y1, radius, sub):
+    """Maydonga quruqlik yo'li chizadi (ko'prik)."""
+    fx0, fy0 = (x0 + 0.5) * sub, (y0 + 0.5) * sub
+    fx1, fy1 = (x1 + 0.5) * sub, (y1 + 0.5) * sub
+    r = radius * sub
+    steps = int(max(abs(fx1 - fx0), abs(fy1 - fy0))) + 1
+    for s in range(steps + 1):
+        cx = fx0 + (fx1 - fx0) * s / steps
+        cy = fy0 + (fy1 - fy0) * s / steps
+        ri = int(math.ceil(r))
+        for dy in range(-ri, ri + 1):
+            yy = int(cy) + dy
+            if yy < 0 or yy >= fh:
+                continue
+            for dx in range(-ri, ri + 1):
+                if dx * dx + dy * dy > r * r:
+                    continue
+                xx = int(cx) + dx
+                if 0 <= xx < fw:
+                    field[yy * fw + xx] = 1.0
+
+
+def clear_field(field, fw, fh, keep, w, h, sub):
+    """Olib tashlangan oroldan qolgan maydonni nolga tushiradi."""
+    near = dilate(keep, w, h, 2)
+    for fy in range(fh):
+        cy = (fy // sub) * w
+        row = fy * fw
+        for fx in range(fw):
+            if field[row + fx] > 0.0 and not near[cy + fx // sub]:
+                field[row + fx] = 0.0
+
+
+# ——— Marching squares: maydondan silliq geometriya ———
+
+def contour_mesh(field, fw, fh, sub):
+    """Maydonning 0.5 sathidan arena geometriyasini quradi.
+
+    Har kvadrat (to'rtta qo'shni namuna) ichida quruqlik qismi
+    ko'pburchak bo'lib chiqariladi; chiziq kvadrat qirralarini
+    **chiziqli interpolatsiya** bilan kesadi, shuning uchun chegara
+    katakka yopishmaydi va zinapoya bo'lmaydi.
+
+    To'liq ichkaridagi kvadratlar qator bo'ylab birlashtiriladi
+    (greedy), aks holda uchburchaklar soni behuda ko'payardi.
+
+    Natija: (ustki uchburchaklar, devor kesmalari) — ikkalasi ham
+    katak birligidagi (x, z) juftliklar ro'yxati.
+    """
+    scale = 1.0 / sub
+    tris = []
+    walls = []
+
+    def value(x, y):
+        return field[y * fw + x]
+
+    def point(x, y):
+        return ((x + 0.5) * scale, (y + 0.5) * scale)
+
+    def cross(ax, ay, bx, by):
+        va, vb = value(ax, ay), value(bx, by)
+        t = 0.5 if vb == va else (ISO - va) / (vb - va)
+        t = min(1.0, max(0.0, t))
+        pa, pb = point(ax, ay), point(bx, by)
+        return (pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t)
+
+    for y in range(fh - 1):
+        x = 0
+        while x < fw - 1:
+            corners = ((x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1))
+            inside = [value(cx, cy) >= ISO for cx, cy in corners]
+            if all(inside):
+                # To'liq ichkarida: qatordagi ketma-ket kvadratlarni
+                # bitta to'rtburchakka birlashtiramiz.
+                end = x
+                while end < fw - 1 and value(end, y) >= ISO \
+                        and value(end + 1, y) >= ISO \
+                        and value(end + 1, y + 1) >= ISO \
+                        and value(end, y + 1) >= ISO:
+                    end += 1
+                a = point(x, y)
+                b = point(end, y)
+                c = point(end, y + 1)
+                d = point(x, y + 1)
+                tris.append((a, b, c))
+                tris.append((a, c, d))
+                x = end
+                continue
+            if not any(inside):
+                x += 1
+                continue
+
+            poly = []          # (nuqta, chegara ustidami)
+            for i in range(4):
+                j = (i + 1) % 4
+                if inside[i]:
+                    poly.append((point(*corners[i]), False))
+                if inside[i] != inside[j]:
+                    poly.append((cross(*corners[i], *corners[j]), True))
+
+            saddle = inside[0] == inside[2] and inside[1] == inside[3] \
+                and inside[0] != inside[1]
+            middle = sum(value(cx, cy) for cx, cy in corners) / 4.0
+            if saddle and ((inside[0] and middle < ISO)
+                           or (inside[1] and middle < ISO)):
+                # Egar holati: ikki burchak alohida uchburchak bo'ladi,
+                # aks holda ko'pburchak o'zini kesib o'tardi.
+                parts = [poly[0:3], poly[3:6]]
+            else:
+                parts = [poly]
+
+            for part in parts:
+                if len(part) < 3:
+                    continue
+                for k in range(1, len(part) - 1):
+                    tris.append((part[0][0], part[k][0], part[k + 1][0]))
+                for k in range(len(part)):
+                    cur = part[k]
+                    nxt = part[(k + 1) % len(part)]
+                    if cur[1] and nxt[1]:
+                        walls.append((cur[0], nxt[0]))
+            x += 1
+    return tris, walls
+
+
+def pack_mesh(tris, walls):
+    """Geometriyani ixcham ikkilik ko'rinishga keltiradi.
+
+    Koordinatalar 1/64 katak aniqligida uint16 bo'lib yoziladi — bu
+    ko'z ilg'amaydigan aniqlik, lekin hajmni ikki barobar kamaytiradi.
+    """
+    out = bytearray()
+    out += len(tris).to_bytes(4, 'little')
+    for tri in tris:
+        for px, py in tri:
+            out += int(round(px * FIXED)).to_bytes(2, 'little')
+            out += int(round(py * FIXED)).to_bytes(2, 'little')
+    out += len(walls).to_bytes(4, 'little')
+    for a, b in walls:
+        for px, py in (a, b):
+            out += int(round(px * FIXED)).to_bytes(2, 'little')
+            out += int(round(py * FIXED)).to_bytes(2, 'little')
+    return bytes(out)
 
 
 def pack(bits):
@@ -470,8 +594,13 @@ def nearest_land(land, w, h, x, y, radius=5):
     return None
 
 
-def capitals_for(places, land, box, w, h):
-    """Maydon chegarasiga tushadigan poytaxtlar."""
+def places_for(places, land, box, w, h):
+    """Maydon ichidagi shaharlar: poytaxtlar va yirik shaharlar.
+
+    Natural Earth 1:50m ro'yxatida 1251 shahar bor — barcha davlat
+    poytaxtlari va dunyodagi yirik shaharlar. Suvga tushib qolgani
+    eng yaqin quruqlikka suriladi.
+    """
     lon0, lon1, lat0, lat1 = box
     sx = w / (lon1 - lon0)
     sy = h / (lat1 - lat0)
@@ -479,8 +608,6 @@ def capitals_for(places, land, box, w, h):
     rows = []
     for f in places['features']:
         p = f['properties']
-        if 'capital' not in str(p.get('featurecla', '')).lower():
-            continue
         lon, lat = f['geometry']['coordinates'][:2]
         lon = shift(lon, lon0, lon1)
         if not (lon0 <= lon <= lon1 and lat0 <= lat <= lat1):
@@ -497,28 +624,31 @@ def capitals_for(places, land, box, w, h):
             'code': code if len(code) == 2 and code.isalpha() else '',
             'x': spot[0], 'y': spot[1],
             'pop': int(p.get('pop_max') or 0),
+            # 1 — davlat poytaxti: unga ustun ham qo'yiladi.
+            'cap': 1 if int(p.get('adm0cap') or 0) == 1 else 0,
         })
-    rows.sort(key=lambda c: (-c['pop'], c['name']))
+    rows.sort(key=lambda c: (-c['cap'], -c['pop'], c['name']))
     return rows
 
 
-def write_map(spec, w, h, land, render, hw, hh):
+def write_map(spec, w, h, land, mesh):
     os.makedirs(OUT, exist_ok=True)
-    header = (b'CLM3'
-              + w.to_bytes(2, 'little') + h.to_bytes(2, 'little')
-              + SCALE.to_bytes(1, 'little') + b'\0'
-              + hw.to_bytes(2, 'little') + hh.to_bytes(2, 'little'))
-    blob = header + pack(land) + pack(render)
+    body = (w.to_bytes(2, 'little') + h.to_bytes(2, 'little')
+            + pack(land) + mesh)
+    # Godot "DEFLATE" rejimi zlib sarlavhasi bilan ishlaydi va ochilgan
+    # hajmni oldindan biladi — shuning uchun hajm faylga yoziladi.
+    blob = (b'CLM4' + len(body).to_bytes(4, 'little')
+            + zlib.compress(body, 9))
     path = os.path.join(OUT, spec['id'] + '.bin')
     with open(path, 'wb') as f:
         f.write(blob)
-    return len(blob)
+    return len(blob), len(body)
 
 
 def main():
     land_data = fetch('ne_110m_land.geojson')
     country_data = fetch('ne_110m_admin_0_countries.geojson')
-    places = fetch('ne_110m_populated_places_simple.geojson')
+    places = fetch('ne_50m_populated_places_simple.geojson')
 
     index = []
     total_bytes = 0
@@ -529,54 +659,52 @@ def main():
         w, h, raw, _ = grid_for(
             polys, box, spec.get('target', TARGET_LAND))
         drop_small(raw, w, h, MIN_ISLAND)
-        render, hw, hh = smooth(raw, w, h, SCALE)
-        land = logic_from(render, w, h, SCALE)
 
-        # Ko'prik silliqlashdan **keyin** chiziladi: aks holda
-        # silliqlash uni yupqalatib uzib qo'yardi. Chizish niqobiga
-        # mayda panjarada chiziladi, shuning uchun ko'prik ham silliq.
+        field, fw, fh = build_field(raw, w, h, SUB)
+        land = logic_from_field(field, fw, w, h, SUB)
+
+        # Orollarni ulaydigan ko'priklar maydonga chiziladi, shuning
+        # uchun ular ham silliq chetga ega bo'ladi.
         bridges, dead, label = plan_bridges(
             land, w, h, spec.get('max_bridge', MAX_BRIDGE))
         for x0, y0, x1, y1 in bridges:
-            stamp_line(land, w, h, x0, y0, x1, y1, BRIDGE_RADIUS)
-            stamp_line(render, hw, hh,
-                       x0 * SCALE + SCALE // 2, y0 * SCALE + SCALE // 2,
-                       x1 * SCALE + SCALE // 2, y1 * SCALE + SCALE // 2,
-                       BRIDGE_RADIUS * SCALE)
+            stamp_field(field, fw, fh, x0, y0, x1, y1, BRIDGE_RADIUS, SUB)
         dropped = 0
         if dead:
+            keep = bytearray(land)
             for i in range(w * h):
                 if land[i] and label[i] in dead:
-                    land[i] = 0
+                    keep[i] = 0
                     dropped += 1
-            trim_render(render, land, w, h, SCALE)
-        land = logic_from(render, w, h, SCALE)
+            clear_field(field, fw, fh, keep, w, h, SUB)
+        land = logic_from_field(field, fw, w, h, SUB)
 
-        # Oxirgi tozalash: silliqlashdan keyin ajralib qolgan mayda
-        # bo'lak qolsa, u ham olib tashlanadi — xaritaning hamma yeri
-        # bir-biriga ulangan bo'lishi kerak.
-        label, sizes = components(land, w, h)
+        # Oxirgi tozalash: ajralib qolgan mayda bo'lak ham ketsin.
+        comp, sizes = components(land, w, h)
         if len(sizes) > 1:
-            main = max(sizes, key=lambda k: sizes[k])
+            main_part = max(sizes, key=lambda k: sizes[k])
+            keep = bytearray(land)
             for i in range(w * h):
-                if land[i] and label[i] != main:
-                    land[i] = 0
+                if land[i] and comp[i] != main_part:
+                    keep[i] = 0
                     dropped += 1
-            trim_render(render, land, w, h, SCALE)
-            land = logic_from(render, w, h, SCALE)
+            clear_field(field, fw, fh, keep, w, h, SUB)
+            land = logic_from_field(field, fw, w, h, SUB)
 
+        tris, walls = contour_mesh(field, fw, fh, SUB)
+        rows = places_for(places, land, box, w, h)
         count = sum(land)
-        caps = capitals_for(places, land, box, w, h)
         _, parts = components(land, w, h)
-        print(f'    {len(bridges)} ko\'prik, {dropped} katak olib '
-              f'tashlandi, {len(parts)} bo\'lak, quruqlik {count}')
-        size = write_map(spec, w, h, land, render, hw, hh)
+        size, raw_size = write_map(spec, w, h, land, pack_mesh(tris, walls))
         total_bytes += size
-        print(f'    {size / 1024:.0f} KB, {len(caps)} poytaxt')
+        print(f'    {len(bridges)} ko\'prik, {dropped} katak tashlandi, '
+              f'{len(parts)} bo\'lak, quruqlik {count}')
+        print(f'    {len(tris)} uchburchak, {len(walls)} devor, '
+              f'{size / 1024:.0f} KB (siqilmagan {raw_size / 1024:.0f} KB), '
+              f'{len(rows)} shahar')
         index.append({
             'id': spec['id'], 'name': spec['name'],
-            'width': w, 'height': h, 'scale': SCALE,
-            'land': count, 'capitals': caps,
+            'width': w, 'height': h, 'land': count, 'places': rows,
         })
 
     # Davlat -> materik: onlayn reyting uchun kerak.
