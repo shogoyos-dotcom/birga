@@ -112,6 +112,9 @@ godot --path . --script res://tools/uitest.gd
 
 # Maydon bo'yicha xotira va tugunlar soni.
 godot --path . --script res://tools/memtest.gd
+
+# Kadr sakrashi: qaysi amal qancha vaqt oladi.
+godot --headless --path . --script res://tools/spiketest.gd
 ```
 
 `playtest.gd` quyidagilarni qidiradi: suvda yurib ketgan o'yinchi,
