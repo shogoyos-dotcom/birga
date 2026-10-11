@@ -182,7 +182,11 @@
     "tabEffectsHint": "Halqani yopib hudud egallaganingizda chiqadigan effekt.",
     "tabSpecialHint": "Pulga sotilmaydigan nishonlar — ularni faqat rekord ochadi.",
     "cosmeticNote": "Faqat ko‘rinish. Tezlik, o‘lcham va egallash kuchi hammada bir xil.",
-    "wornSet": "Sizning ko‘rinishingiz"
+    "wornSet": "Sizning ko‘rinishingiz",
+    "themePaper": "Paper",
+    "sideLeft": "Chapda",
+    "sideRight": "O‘ngda",
+    "sideOff": "O‘chiq"
   },
   "en": {
     "adNotReady": "Ad is not ready yet",
@@ -367,7 +371,11 @@
     "tabEffectsHint": "What bursts out when you close a loop and take land.",
     "tabSpecialHint": "Badges that money cannot buy — only your records open them.",
     "cosmeticNote": "Looks only. Speed, size and capture power are the same for everyone.",
-    "wornSet": "Your look"
+    "wornSet": "Your look",
+    "themePaper": "Paper",
+    "sideLeft": "Left",
+    "sideRight": "Right",
+    "sideOff": "Off"
   },
   "ru": {
     "adNotReady": "Реклама ещё не готова",
@@ -552,7 +560,11 @@
     "tabEffectsHint": "Что вспыхивает, когда вы замыкаете петлю и забираете землю.",
     "tabSpecialHint": "Знаки, которые не продаются: их открывают только рекорды.",
     "cosmeticNote": "Только внешний вид. Скорость, размер и сила захвата у всех одинаковы.",
-    "wornSet": "Ваш облик"
+    "wornSet": "Ваш облик",
+    "themePaper": "Paper",
+    "sideLeft": "Слева",
+    "sideRight": "Справа",
+    "sideOff": "Выкл"
   },
   "tr": {
     "adNotReady": "Reklam henüz hazır değil",
@@ -737,7 +749,11 @@
     "tabEffectsHint": "Halkayı kapatıp toprak aldığınızda ne patlar.",
     "tabSpecialHint": "Parayla alınmayan rozetler — sadece rekorlar açar.",
     "cosmeticNote": "Yalnızca görünüm. Hız, boyut ve ele geçirme gücü herkeste aynı.",
-    "wornSet": "Görünümünüz"
+    "wornSet": "Görünümünüz",
+    "themePaper": "Paper",
+    "sideLeft": "Solda",
+    "sideRight": "Sağda",
+    "sideOff": "Kapalı"
   },
   "kk": {
     "adNotReady": "Жарнама әлі дайын емес",
@@ -922,7 +938,11 @@
     "tabEffectsHint": "Шеңберді жауып, жер алғанда не шашырайды.",
     "tabSpecialHint": "Ақшаға сатылмайтын белгілер — оларды тек рекорд ашады.",
     "cosmeticNote": "Тек сыртқы түрі. Жылдамдық, өлшем және басып алу күші бәрінде бірдей.",
-    "wornSet": "Сіздің келбетіңіз"
+    "wornSet": "Сіздің келбетіңіз",
+    "themePaper": "Paper",
+    "sideLeft": "Солда",
+    "sideRight": "Оңда",
+    "sideOff": "Өшірулі"
   },
   "es": {
     "adNotReady": "El anuncio aún no está listo",
@@ -1107,7 +1127,11 @@
     "tabEffectsHint": "Lo que estalla al cerrar el circuito y conquistar terreno.",
     "tabSpecialHint": "Distintivos que no se compran: solo tus récords los abren.",
     "cosmeticNote": "Solo apariencia. Velocidad, tamaño y poder de captura son iguales para todos.",
-    "wornSet": "Tu aspecto"
+    "wornSet": "Tu aspecto",
+    "themePaper": "Paper",
+    "sideLeft": "Izquierda",
+    "sideRight": "Derecha",
+    "sideOff": "Apagado"
   },
   "pt": {
     "adNotReady": "O anúncio ainda não está pronto",
@@ -1292,7 +1316,11 @@
     "tabEffectsHint": "O que explode quando você fecha o laço e toma terreno.",
     "tabSpecialHint": "Emblemas que não se compram: só os seus recordes os abrem.",
     "cosmeticNote": "Apenas aparência. Velocidade, tamanho e poder de captura são iguais para todos.",
-    "wornSet": "Seu visual"
+    "wornSet": "Seu visual",
+    "themePaper": "Paper",
+    "sideLeft": "Esquerda",
+    "sideRight": "Direita",
+    "sideOff": "Desligado"
   },
   "fr": {
     "adNotReady": "La pub n'est pas encore prête",
@@ -1477,7 +1505,11 @@
     "tabEffectsHint": "Ce qui jaillit quand vous bouclez la boucle et prenez du terrain.",
     "tabSpecialHint": "Des insignes qui ne s’achètent pas : seuls vos records les ouvrent.",
     "cosmeticNote": "Apparence seulement. Vitesse, taille et puissance de capture sont identiques pour tous.",
-    "wornSet": "Votre allure"
+    "wornSet": "Votre allure",
+    "themePaper": "Paper",
+    "sideLeft": "Gauche",
+    "sideRight": "Droite",
+    "sideOff": "Désactivé"
   },
   "de": {
     "adNotReady": "Werbung ist noch nicht bereit",
@@ -1662,7 +1694,11 @@
     "tabEffectsHint": "Was aufblitzt, wenn du die Schleife schließt und Land nimmst.",
     "tabSpecialHint": "Abzeichen, die man nicht kaufen kann — nur Rekorde öffnen sie.",
     "cosmeticNote": "Nur Optik. Tempo, Größe und Eroberungskraft sind für alle gleich.",
-    "wornSet": "Dein Look"
+    "wornSet": "Dein Look",
+    "themePaper": "Paper",
+    "sideLeft": "Links",
+    "sideRight": "Rechts",
+    "sideOff": "Aus"
   },
   "id": {
     "adNotReady": "Iklan belum siap",
@@ -1847,7 +1883,11 @@
     "tabEffectsHint": "Yang meletup saat Anda menutup lingkaran dan merebut wilayah.",
     "tabSpecialHint": "Lencana yang tak bisa dibeli — hanya rekor yang membukanya.",
     "cosmeticNote": "Hanya tampilan. Kecepatan, ukuran, dan kekuatan merebut sama untuk semua.",
-    "wornSet": "Tampilan Anda"
+    "wornSet": "Tampilan Anda",
+    "themePaper": "Paper",
+    "sideLeft": "Kiri",
+    "sideRight": "Kanan",
+    "sideOff": "Mati"
   },
   "zh": {
     "adNotReady": "广告还没准备好",
@@ -2032,7 +2072,11 @@
     "tabEffectsHint": "合围成功、占下土地时迸发的特效。",
     "tabSpecialHint": "买不到的徽章，只有纪录才能解锁。",
     "cosmeticNote": "仅改变外观。速度、体积与占地能力对所有人相同。",
-    "wornSet": "你的外观"
+    "wornSet": "你的外观",
+    "themePaper": "Paper",
+    "sideLeft": "左侧",
+    "sideRight": "右侧",
+    "sideOff": "关闭"
   },
   "ja": {
     "adNotReady": "広告はまだ準備中です",
@@ -2217,7 +2261,11 @@
     "tabEffectsHint": "輪を閉じて陣地を取ったときに弾ける演出。",
     "tabSpecialHint": "お金では買えない記章。記録だけが解放します。",
     "cosmeticNote": "見た目だけです。速度・大きさ・占領力は全員同じ。",
-    "wornSet": "あなたの見た目"
+    "wornSet": "あなたの見た目",
+    "themePaper": "Paper",
+    "sideLeft": "左",
+    "sideRight": "右",
+    "sideOff": "オフ"
   },
   "ko": {
     "adNotReady": "광고가 아직 준비되지 않았습니다",
@@ -2402,7 +2450,11 @@
     "tabEffectsHint": "고리를 닫고 땅을 차지할 때 터지는 연출입니다.",
     "tabSpecialHint": "돈으로 살 수 없는 휘장. 기록만이 열어 줍니다.",
     "cosmeticNote": "겉모습만 바뀝니다. 속도와 크기, 점령력은 모두 같습니다.",
-    "wornSet": "내 모습"
+    "wornSet": "내 모습",
+    "themePaper": "Paper",
+    "sideLeft": "왼쪽",
+    "sideRight": "오른쪽",
+    "sideOff": "끄기"
   },
   "hi": {
     "adNotReady": "विज्ञापन अभी तैयार नहीं है",
@@ -2587,7 +2639,11 @@
     "tabEffectsHint": "जब आप घेरा पूरा कर ज़मीन लेते हैं तब फूटने वाला असर।",
     "tabSpecialHint": "पैसे से न मिलने वाले निशान — इन्हें सिर्फ़ रिकॉर्ड खोलते हैं।",
     "cosmeticNote": "सिर्फ़ दिखावट। रफ़्तार, आकार और कब्ज़े की ताक़त सबके लिए समान है।",
-    "wornSet": "आपका रूप"
+    "wornSet": "आपका रूप",
+    "themePaper": "Paper",
+    "sideLeft": "बाएँ",
+    "sideRight": "दाएँ",
+    "sideOff": "बंद"
   },
   "ar": {
     "adNotReady": "الإعلان غير جاهز بعد",
@@ -2772,6 +2828,10 @@
     "tabEffectsHint": "ما ينفجر عند إغلاق الحلقة والاستيلاء على الأرض.",
     "tabSpecialHint": "شارات لا تُشترى — سجلاتك وحدها تفتحها.",
     "cosmeticNote": "المظهر فقط. السرعة والحجم وقوة الاستيلاء متساوية للجميع.",
-    "wornSet": "مظهرك"
+    "wornSet": "مظهرك",
+    "themePaper": "Paper",
+    "sideLeft": "يسار",
+    "sideRight": "يمين",
+    "sideOff": "إيقاف"
   }
 }

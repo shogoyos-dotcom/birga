@@ -29,9 +29,14 @@ var services := ContinueServices.new()
 
 var _screen: Screen = Screen.MENU
 var _root: Control
-var _percent_label: Label
+## HUD tugunlari — har kadrda emas, taymer bo'yicha yangilanadi.
+var _progress: Control
+var _progress_fill: Panel
+var _progress_text: Label
+var _kill_capsule: PanelContainer
+var _coin_capsule: PanelContainer
+var _kill_label: Label
 var _coin_label: Label
-var _info_label: Label
 var _board: VBoxContainer
 var _result_data := {}
 var _flag_query := ""
@@ -80,7 +85,10 @@ func _rebuild() -> void:
 	# HUD tugunlari yangi ekranda yo'q — ularga murojaat qilinmasin.
 	_minimap = null
 	_flash = null
-	_percent_label = null
+	_progress = null
+	_progress_fill = null
+	_progress_text = null
+	_kill_label = null
 	_coin_label = null
 	match _screen:
 		Screen.MENU: _root = _build_menu()
@@ -107,12 +115,12 @@ func _build_menu() -> Control:
 	# Hamyon: o'yinda topilgan tanga shu yerda ko'rinadi.
 	var purse := HBoxContainer.new()
 	purse.add_theme_constant_override("separation", 8)
-	purse.add_child(_purse_chip("\u25C9", Wallet.get_coins(), UiKit.GOLD))
-	purse.add_child(_purse_chip("\u2726", Wallet.get_gems(), UiKit.BLUE))
+	purse.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
+	purse.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	purse.add_child(spacer)
-	purse.add_child(_purse_chip("\U01F39F", store.tickets, UiKit.MINT))
+	purse.add_child(_purse_chip("ticket", store.tickets, UiKit.GREEN))
 	box.add_child(purse)
 
 	var top := HBoxContainer.new()
@@ -167,15 +175,9 @@ func _build_menu() -> Control:
 	box.add_child(board)
 	return root
 
-## Hamyondagi bitta qiymat: belgi va son.
+## Hamyondagi bitta qiymat: chizilgan belgi va son.
 func _purse_chip(icon: String, value: int, tint: Color) -> Control:
-	var chip := UiKit.panel(Color(UiKit.SURFACE, 0.86), 9)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	row.add_child(UiKit.label(icon, 16, tint))
-	row.add_child(UiKit.label(_short(value), 16, UiKit.TEXT))
-	chip.add_child(row)
-	return chip
+	return UiKit.capsule(icon, _short(value), tint)
 
 ## Katta sonni qisqartiradi: 12 400 -> 12.4K.
 static func _short(value: int) -> String:
@@ -282,10 +284,22 @@ func _record_card() -> Control:
 		str(store.best_kills), Strings.t("kills"), UiKit.CORAL))
 	return row.get_parent()
 
+## Statistika katagi. Son oq rangda: rangli son ko'k fonda
+## o'qilmasdi, `color` esa endi faqat belgi uchun qoladi.
 func _stat_tile(value: String, title: String, color: Color) -> Control:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(UiKit.title(value, 24, color, HORIZONTAL_ALIGNMENT_LEFT))
+	box.add_theme_constant_override("separation", 0)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	var dot := ColorRect.new()
+	dot.color = color
+	dot.custom_minimum_size = Vector2(6, 24)
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(dot)
+	head.add_child(UiKit.title(value, 24, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	box.add_child(head)
 	box.add_child(UiKit.section(title))
 	return box
 
@@ -439,10 +453,15 @@ func _build_settings() -> Control:
 			Audio.tap()
 			view_changed.emit()
 			_rebuild(), _accent()))
-	view_box.add_child(UiKit.switch_row(Strings.t("minimapLabel"),
-		store.show_minimap, func(value: bool) -> void:
-			store.show_minimap = value
+	view_box.add_child(UiKit.label(Strings.t("minimapLabel"), 17, UiKit.INK,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	var sides := SettingsStore.MINIMAP_SIDES
+	var side_names := PackedStringArray([
+		Strings.t("sideLeft"), Strings.t("sideRight"), Strings.t("sideOff")])
+	view_box.add_child(UiKit.chips(side_names,
+		sides.find(store.minimap_side), func(index: int) -> void:
 			Audio.tap()
+			store.minimap_side = sides[index]
 			view_changed.emit()
 			_rebuild(), _accent()))
 	box.add_child(view)
@@ -718,29 +737,30 @@ func _build_hud() -> Control:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_flash)
 
-	var left := UiKit.panel(Color(UiKit.PANEL, 0.92), 12)
-	left.position = Vector2(16, 16)
-	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(left)
-	var stats := VBoxContainer.new()
-	left.add_child(stats)
-	stats.add_theme_constant_override("separation", 0)
-	_percent_label = UiKit.title("0.00%", 34, UiKit.LIME,
-		HORIZONTAL_ALIGNMENT_LEFT)
-	stats.add_child(_percent_label)
-	_info_label = UiKit.label("00:00", 14, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT)
-	stats.add_child(_info_label)
-	# Shu o'yinda yo'lda yig'ilgan tanga.
-	_coin_label = UiKit.label("\u25C9 0", 15, UiKit.GOLD,
-		HORIZONTAL_ALIGNMENT_LEFT)
-	stats.add_child(_coin_label)
+	# Yuqorida: egallangan foiz chizig'i, oxirida 100% yulduzi.
+	_progress = UiKit.progress_bar(0.0, _accent(), store.best_percent)
+	_progress_fill = _progress.find_child("Fill", true, false) as Panel
+	_progress_text = _progress.find_child("Value", true, false) as Label
+	_progress.anchor_right = 1.0
+	_progress.offset_left = 16
+	_progress.offset_right = -96
+	_progress.offset_top = 14
+	root.add_child(_progress)
+
+	var star := GameIcon.new("star", 40.0, UiKit.YELLOW)
+	star.anchor_left = 1.0
+	star.anchor_right = 1.0
+	star.offset_left = -136
+	star.offset_right = -96
+	star.offset_top = 20
+	star.offset_bottom = 60
+	root.add_child(star)
 
 	# "\u23F8" hech bir shriftda yo'q — tugma bo'sh ko'rinardi.
 	var pause := UiKit.icon_button("\u275A\u275A")
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
-	pause.position = Vector2(-74, 16)
+	pause.position = Vector2(-84, 12)
 	pause.pressed.connect(func() -> void:
 		Audio.tap()
 		# Ekranni o'zimiz almashtirmaymiz: avval o'yin to'xtashi
@@ -748,29 +768,53 @@ func _build_hud() -> Control:
 		pause_pressed.emit())
 	root.add_child(pause)
 
-	var board_panel := UiKit.panel(Color(UiKit.PANEL, 0.92), 10)
-	board_panel.anchor_left = 1.0
-	board_panel.anchor_right = 1.0
-	board_panel.position = Vector2(-186, 80)
-	board_panel.custom_minimum_size = Vector2(170, 0)
-	board_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(board_panel)
+	# Chapda: o'ldirishlar va shu o'yinda yig'ilgan tanga.
+	var stats := VBoxContainer.new()
+	stats.add_theme_constant_override("separation", 8)
+	stats.position = Vector2(16, 82)
+	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(stats)
+	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 44)
+	stats.add_child(_kill_capsule)
+	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 44)
+	stats.add_child(_coin_capsule)
+	_kill_label = _capsule_label(_kill_capsule)
+	_coin_label = _capsule_label(_coin_capsule)
+
+	# O'ngda: eng kuchli uchtasi va o'yinchining o'z qatori.
 	_board = VBoxContainer.new()
-	_board.add_theme_constant_override("separation", 3)
-	board_panel.add_child(_board)
+	_board.add_theme_constant_override("separation", 7)
+	_board.anchor_left = 1.0
+	_board.anchor_right = 1.0
+	_board.offset_left = -250
+	_board.offset_right = -12
+	_board.offset_top = 96
+	_board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_board)
 
 	_minimap = null
-	if store.show_minimap and _minimap_texture != null:
-		var map_panel := UiKit.panel(Color(UiKit.PANEL, 0.92), 8)
+	if store.minimap_side != "off" and _minimap_texture != null:
+		var map_panel := UiKit.panel(Color(UiKit.TEXT, 0.9), 6)
 		map_panel.anchor_top = 1.0
 		map_panel.anchor_bottom = 1.0
 		map_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		map_panel.position = Vector2(16, -16)
+		if store.minimap_side == "right":
+			map_panel.anchor_left = 1.0
+			map_panel.anchor_right = 1.0
+			map_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+			map_panel.position = Vector2(-16, -16)
+		else:
+			map_panel.position = Vector2(16, -16)
 		map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_minimap = MiniMap.new(_minimap_texture, _accent())
 		map_panel.add_child(_minimap)
 		root.add_child(map_panel)
 	return root
+
+## Kapsuladagi son yozuvini topadi — keyin uni yangilab turamiz.
+static func _capsule_label(shell: PanelContainer) -> Label:
+	var row := shell.get_child(0) as HBoxContainer
+	return row.get_child(1) as Label
 
 ## Kichik xarita uchun egalik teksturasini beradi (arena qurilgandan
 ## keyin bir marta chaqiriladi).
@@ -807,57 +851,105 @@ func toast(text: String) -> void:
 	tween.tween_property(panel, "modulate:a", 0.0, 0.4)
 	tween.tween_callback(panel.queue_free)
 
-## HUD ni yangilaydi. `rows` — [{name, avatar, color, percent, is_human}].
+## HUD ni yangilaydi. `rows` — [{place, name, avatar, color,
+## percent, is_human}].
 func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 		alive: int, rows: Array, marker: Vector2 = Vector2.ZERO,
 		coins: int = 0) -> void:
-	if _screen != Screen.HUD or _percent_label == null:
+	if _screen != Screen.HUD or _progress == null:
 		return
+	if _progress_fill != null and is_instance_valid(_progress_fill):
+		_progress_fill.anchor_right = clampf(percent / 100.0, 0.02, 1.0)
+	if _progress_text != null and is_instance_valid(_progress_text):
+		_progress_text.text = "%d%%" % int(round(percent))
+	if _kill_label != null and is_instance_valid(_kill_label):
+		_kill_label.text = str(kills)
 	if _coin_label != null and is_instance_valid(_coin_label):
-		_coin_label.text = "%s %d" % ["\u25C9", coins]
-	_percent_label.text = "%.2f%%" % percent
-	# "kill" so'zi ilgari kodda qotib qolgan edi — endi tarjimadan.
-	_info_label.text = "%s   %d %s   %d/%d" % [
-		_clock(elapsed), kills, Strings.t("kills").to_lower(), rank, alive]
+		_coin_label.text = str(coins)
 	if _minimap != null and is_instance_valid(_minimap):
 		_minimap.marker = marker
 
 	for child in _board.get_children():
 		child.queue_free()
-	_board.add_child(UiKit.section(Strings.t("leaderboard")))
-	for i in rows.size():
-		_board.add_child(_board_row(i + 1, rows[i]))
+	for row: Dictionary in rows:
+		_board.add_child(_board_row(row))
 
-func _board_row(place: int, row: Dictionary) -> Control:
+## Reyting qatori: dumaloq avatar, o'rin nishoni va o'yinchi
+## rangidagi foiz tasmasi. Birinchi o'rinda boshida toj turadi.
+##
+## Avatar va nishon [Control] ichida turadi, [PanelContainer] da
+## emas: konteyner bolalarini o'zi joylashtiradi va ankerlarni
+## e'tiborsiz qoldiradi — nishon butun katakni egallab olardi.
+func _board_row(row: Dictionary) -> Control:
+	var place := int(row["place"])
+	var tint := Palette.head(int(row["color"]))
 	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", 5)
+	line.add_theme_constant_override("separation", -16)
+	line.alignment = BoxContainer.ALIGNMENT_END
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var is_human: bool = row["is_human"]
 
-	var rank := UiKit.label(str(place), 12,
-		UiKit.BLUE if is_human else UiKit.TEXT_FAINT)
-	rank.custom_minimum_size = Vector2(14, 0)
-	line.add_child(rank)
+	var face := Control.new()
+	face.custom_minimum_size = Vector2(58, 58)
+	face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# Rangli chap chiziq — o'yinchini ro'yxatda darhol ajratadi.
-	var bar := ColorRect.new()
-	bar.color = Palette.head(int(row["color"]))
-	bar.custom_minimum_size = Vector2(3, 18)
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(bar)
+	var disc := Panel.new()
+	disc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	disc.add_theme_stylebox_override("panel",
+		UiKit.style(tint.lightened(0.5), 29, UiKit.OUTLINE, 0))
+	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	face.add_child(disc)
 
-	var avatar := AvatarView.new(str(row["avatar"]), 16.0)
+	var avatar := AvatarView.new(str(row["avatar"]), 44.0)
+	avatar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar.offset_left = 7
+	avatar.offset_top = 7
+	avatar.offset_right = -7
+	avatar.offset_bottom = -7
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_child(avatar)
+	face.add_child(avatar)
 
-	var name_label := UiKit.label(str(row["name"]), 13,
-		UiKit.TEXT if is_human else UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT)
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.clip_text = true
-	line.add_child(name_label)
+	# O'rin nishoni — avatarning chap pastida.
+	var badge := Panel.new()
+	badge.add_theme_stylebox_override("panel", UiKit.style(
+		UiKit.YELLOW if place == 1 else UiKit.TEXT, 14, UiKit.OUTLINE, 0))
+	badge.anchor_top = 1.0
+	badge.anchor_bottom = 1.0
+	badge.offset_left = -4
+	badge.offset_right = 24
+	badge.offset_top = -28
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var number := UiKit.title(str(place), 16, UiKit.INK,
+		HORIZONTAL_ALIGNMENT_CENTER)
+	number.set_anchors_preset(Control.PRESET_FULL_RECT)
+	number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	number.add_theme_constant_override("outline_size", 0)
+	badge.add_child(number)
+	face.add_child(badge)
 
-	line.add_child(UiKit.label("%.1f%%" % float(row["percent"]), 13,
-		UiKit.TEXT if is_human else UiKit.TEXT_DIM))
+	if place == 1:
+		var crown := GameIcon.new("crown", 30.0, UiKit.YELLOW)
+		crown.anchor_left = 0.5
+		crown.anchor_right = 0.5
+		crown.offset_left = -15
+		crown.offset_right = 15
+		crown.offset_top = -24
+		crown.offset_bottom = 6
+		face.add_child(crown)
+
+	var tape := PanelContainer.new()
+	var tape_box := UiKit.style(tint, 16, UiKit.OUTLINE, 6)
+	tape_box.content_margin_left = 30
+	tape_box.content_margin_right = 12
+	tape.add_theme_stylebox_override("panel", tape_box)
+	tape.custom_minimum_size = Vector2(124, 44)
+	tape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tape.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tape.add_child(UiKit.title("%.2f%%" % float(row["percent"]), 20,
+		UiKit.TEXT, HORIZONTAL_ALIGNMENT_RIGHT))
+
+	line.add_child(face)
+	line.add_child(tape)
 	return line
 
 # ——— Pauza ———
@@ -1035,9 +1127,9 @@ func _build_shop() -> Control:
 	var purse := HBoxContainer.new()
 	purse.add_theme_constant_override("separation", 10)
 	purse.alignment = BoxContainer.ALIGNMENT_CENTER
-	purse.add_child(_purse_chip("\u25C9", Wallet.get_coins(), UiKit.GOLD))
-	purse.add_child(_purse_chip("\u2726", Wallet.get_gems(), UiKit.BLUE))
-	purse.add_child(_purse_chip("\U01F39F", store.tickets, UiKit.MINT))
+	purse.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
+	purse.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
+	purse.add_child(_purse_chip("ticket", store.tickets, UiKit.GREEN))
 	box.add_child(purse)
 
 	box.add_child(_daily_card())

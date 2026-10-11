@@ -38,6 +38,9 @@ var paint: PaintLayer
 var config := GameConfig.new()
 
 var _heads: Array[MeshInstance3D] = []
+## Bosh ustidagi yorliqlar: ism va foiz.
+var _name_tags: Array[Label3D] = []
+var _percent_tags: Array[Label3D] = []
 var _avatars: Node
 var _trails: MeshInstance3D
 var _arena_material: ShaderMaterial
@@ -356,6 +359,8 @@ func _clear_scene() -> void:
 	for head in _heads:
 		head.queue_free()
 	_heads.clear()
+	_name_tags.clear()
+	_percent_tags.clear()
 
 ## Arena geometriyasi faqat maydonga bog'liq: o'yindan o'yinga
 ## o'zgarmaydi va qayta qurilmaydi. Maydon almashtirilgandagina
@@ -466,8 +471,37 @@ func _build_players() -> void:
 		if halo != null:
 			head.add_child(halo)
 
+		# Ism va foiz yorliqlari boshning bolasi: bosh qimirlasa
+		# ular ham ergashadi, alohida joylashtirish shart emas.
+		var name_tag := _tag(p.player_name, 46, Color.WHITE)
+		name_tag.position = Vector3(0.0, HEAD_RADIUS * 2.9, 0.0)
+		head.add_child(name_tag)
+		_name_tags.append(name_tag)
+		var percent_tag := _tag("", 52, Palette.head(p.color_index))
+		percent_tag.position = Vector3(0.0, HEAD_RADIUS * 2.0, 0.0)
+		head.add_child(percent_tag)
+		_percent_tags.append(percent_tag)
+
 		players_root.add_child(head)
 		_heads.append(head)
+
+## Bosh ustidagi yorliq: oq matn, to'q ko'k kontur, doim kameraga
+## qarab turadi.
+func _tag(text: String, size: int, tint: Color) -> Label3D:
+	var tag := Label3D.new()
+	tag.text = text
+	tag.font = UiKit.display_font()
+	tag.font_size = size
+	tag.outline_size = maxi(8, size / 4)
+	tag.modulate = tint
+	tag.outline_modulate = UiKit.INK
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.no_depth_test = true
+	tag.render_priority = 2
+	tag.outline_render_priority = 1
+	tag.pixel_size = 0.022
+	tag.shaded = false
+	return tag
 
 ## Bosh materiali: rang o'yinchiniki, pardoz esa do'kondan.
 ##
@@ -716,7 +750,24 @@ func revive_human_for_demo() -> void:
 		_set_playing(true)
 		ui.show_screen(ui.Screen.HUD)
 
+## Yorliq shuncha katakdan narida ko'rinmaydi — aks holda ekran
+## uzoqdagi o'yinchilarning ismlari bilan to'lib ketardi.
+const TAG_RANGE := 54.0
+
+func _refresh_tags() -> void:
+	var eye := Vector2(world.human().x, world.human().y)
+	for i in world.players.size():
+		if i >= _percent_tags.size():
+			break
+		var p := world.players[i]
+		var near := p.alive and Vector2(p.x, p.y).distance_to(eye) < TAG_RANGE
+		_name_tags[i].visible = near
+		_percent_tags[i].visible = near
+		if near:
+			_percent_tags[i].text = "%.1f%%" % world.grid.percent_of(p.id)
+
 func _refresh_hud() -> void:
+	_refresh_tags()
 	var p := world.human()
 	ui.update_hud(
 		world.percent_of(p), p.kills, world.elapsed,
@@ -725,18 +776,27 @@ func _refresh_hud() -> void:
 		_coin_field.collected())
 
 ## Top-5 reyting.
+## Reyting: eng kuchli uchtasi va o'yinchining o'z qatori.
+##
+## O'yinchi uchlikka kirmasa ham o'z o'rnini ko'rib tursin —
+## shuning uchun uning qatori har doim oxiriga qo'shiladi.
 func _leaderboard() -> Array:
 	var sorted := world.players.duplicate()
 	sorted.sort_custom(func(a: PlayerState, b: PlayerState) -> bool:
 		return world.grid.territory_of(a.id) > world.grid.territory_of(b.id))
+	var human_id := world.human().id
 	var rows: Array = []
-	for i in mini(5, sorted.size()):
+	for i in sorted.size():
 		var p: PlayerState = sorted[i]
+		var mine := p.id == human_id
+		if i >= 3 and not mine:
+			continue
 		rows.append({
+			"place": i + 1,
 			"name": p.player_name,
 			"avatar": p.avatar,
 			"color": p.color_index,
 			"percent": world.grid.percent_of(p.id),
-			"is_human": not p.is_bot,
+			"is_human": mine,
 		})
 	return rows

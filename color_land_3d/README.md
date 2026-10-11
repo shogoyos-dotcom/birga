@@ -433,6 +433,51 @@ tekshirilmaydi: headless rejimda RenderingServer soxta bo'lib,
 nusxa matritsalarini saqlamaydi va o'qiganda doim birlik matritsa
 qaytaradi.
 
+## Interfeys uslubi
+
+Uslubning uch qoidasi butun o'yinda bir xil va `ui/ui_kit.gd` da
+bir joyda turadi:
+
+1. **Qalin to'q ko'k kontur** (`UiKit.INK`, 4 px) — har tugma,
+   karta va matn atrofida.
+2. **Pastki poydevor** — tugma ostidagi to'qroq qavat
+   (`style_solid`). Bosilganda poydevor pasayadi.
+3. **Ustki yaltirash** — tugmaning yuqorisidagi oq yo'l.
+
+Ranglar: menyu foni ko'k gradient (`BG` -> `BG_LOW`), o'yin
+maydoni och yalpiz (`FIELD`, "paper" uslubi), tugmalar sariq,
+yashil va qizil.
+
+**Belgilar rasm fayli emas** — `ui/game_icon.gd` ularni kod bilan
+chizadi (tanga, bosh suyagi, kristall, yulduz, toj, chipta).
+Avval emoji ishlatilgan edi: rangli emoji shrifti o'lchamga yomon
+moslashadi, rangini o'zgartirib bo'lmaydi va u boshqa
+mahsulotning belgisi.
+
+**Sarlavha shrifti — Nunito ExtraBold.** Lilita One va Fredoka
+qaralgan edi, lekin ikkalasida ham **kirill yo'q** (Google Fonts
+pastki to'plamlari bilan tekshirildi), o'yinda esa rus va qozoq
+tillari bor. Matn shrifti Rubik bo'lib qoladi — unda arabcha ham
+bor.
+
+**Tanlangan chip doim yashil.** Avval u o'yinchining o'z rangida
+edi va ko'k fonda tanlangani bilinmasdi.
+
+### HUD
+
+| Joy | Nima |
+| --- | --- |
+| Yuqorida | egallangan foiz chizig'i, oxirida 100% yulduzi, eng yaxshi natija belgisi |
+| Chapda | bosh suyagi (o'ldirishlar) va tanga kapsulalari |
+| O'ngda | eng kuchli uchtasi **va o'yinchining o'z qatori** |
+| Pastda | kichik xarita — chap, o'ng yoki o'chiq (`minimap_side`) |
+| Maydonda | har o'yinchi ustida ism va foiz (`Label3D`, 54 katakgacha) |
+
+Reyting qatoridagi avatar va nishon `Control` ichida turadi,
+`PanelContainer` da emas: konteyner bolalarini o'zi
+joylashtiradi va ankerlarni e'tiborsiz qoldiradi — nishon butun
+katakni egallab olardi.
+
 ### Hudud chegarasi ko'pburchak bo'lib ko'rinardi
 
 Kataklarga tushirilgan doira o'z o'qlari yonida uzun **to'g'ri**

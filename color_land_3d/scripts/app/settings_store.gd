@@ -88,9 +88,26 @@ var show_flags: bool:
 	set(value): _write("flags", value)
 
 ## HUD da kichik xarita ko'rinadimi.
+##
+## Eski kalit: faqat bor/yo'q edi. Endi tomoni ham tanlanadi,
+## shuning uchun [member minimap_side] asosiy kalit bo'ldi va bu
+## xossa unga ishora qiladi.
 var show_minimap: bool:
-	get: return bool(_read("minimap", true))
-	set(value): _write("minimap", value)
+	get: return minimap_side != "off"
+	set(value): minimap_side = "left" if value else "off"
+
+## Kichik xarita qaysi tomonda: "left", "right" yoki "off".
+var minimap_side: String:
+	get:
+		var saved := str(_read("minimap_side", ""))
+		if MINIMAP_SIDES.has(saved):
+			return saved
+		# Eski sozlamadan ko'chirish.
+		return "left" if bool(_read("minimap", true)) else "off"
+	set(value):
+		_write("minimap_side", value if MINIMAP_SIDES.has(value) else "left")
+
+const MINIMAP_SIDES: PackedStringArray = ["left", "right", "off"]
 
 # ——— Profil ———
 

@@ -59,10 +59,15 @@ func _process(_delta: float) -> bool:
 		3:
 			_view.revive_human_for_demo()
 			if _view.world.elapsed > MonetizationConfig.CITY_COIN_RESPAWN + 2.0:
-				print("%.0f soniyada: xaritadan ketgan %d, hisob %d"
+				print("%.0f soniyada: xaritadan ketgan %d / %d, hisob %d"
 					% [_view.world.elapsed, field.taken_count(),
-						field.collected()])
-				var ok: bool = int(field.taken_count()) == 0 \
+						field.size(), field.collected()])
+				# Hammasi qaytishi shart emas: 30 soniya ichida
+				# botlar yangi hudud egallaydi va ayrim tangani
+				# darhol olib qo'yadi. Muhimi — deyarli hammasi
+				# qaytdi va hisob o'zgarmadi.
+				var left := int(field.taken_count())
+				var ok: bool = left * 20 < int(field.size()) \
 					and int(field.collected()) == _value
 				print("NOSOZLIK TOPILMADI" if ok else "NOSOZLIK BOR")
 				quit(0 if ok else 1)
