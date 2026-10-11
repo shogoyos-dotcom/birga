@@ -18,8 +18,15 @@ boot_splash/show_image=false
 Audio="*res://scripts/app/audio.gd"
 Net="*res://scripts/net/net_link.gd"
 Board="*res://scripts/app/leaderboard.gd"
-; Tanga va gem hisobi — o'yin mantig'idan alohida.
+; Pul tizimi. Har modul o'z ishini qiladi va bir-biriga
+; bog'lanmaydi; o'yin mantig'i ularning hech biriga tegmaydi.
+Metrics="*res://scripts/money/analytics.gd"
 Wallet="*res://scripts/money/currency_manager.gd"
+Purchases="*res://scripts/money/purchase_manager.gd"
+Shop="*res://scripts/money/shop_manager.gd"
+Daily="*res://scripts/money/daily_reward_manager.gd"
+Missions="*res://scripts/money/mission_manager.gd"
+Ads="*res://scripts/money/ad_manager.gd"
 
 [display]
 

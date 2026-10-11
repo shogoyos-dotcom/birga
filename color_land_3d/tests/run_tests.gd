@@ -6,7 +6,10 @@ const MapHelpers := preload("res://tests/map_helpers.gd")
 ## Headless test kiruvchi nuqtasi:
 ##   godot --headless --script res://tests/run_tests.gd
 
-func _initialize() -> void:
+## Testlar birinchi kadrda ishlaydi, `_initialize` da emas:
+## avtoyuklanadigan modullar (Wallet, Shop, Missions va hokazo)
+## faqat daraxt tiklangandan keyin paydo bo'ladi.
+func _process(_delta: float) -> bool:
 	var t := TestRunner.new()
 	_test_capture(t)
 	_test_death_rules(t)
@@ -21,9 +24,209 @@ func _initialize() -> void:
 	_test_strings(t)
 	_test_paint(t)
 	_test_money(t)
+	_test_shop(t)
+	_test_daily(t)
+	_test_missions(t)
+	_test_purchases(t)
 	quit(0 if t.report() else 1)
+	return true
 
 # ——— Chizish qatlami ———
+
+# ——— Do'kon ———
+
+func _test_shop(t: TestRunner) -> void:
+	var shop := root.get_node("/root/Shop")
+	var wallet := root.get_node("/root/Wallet")
+	t.group("do'kon")
+	shop.reset()
+	wallet.reset()
+
+	t.test("katalog to'rt bo'limga bo'lingan", func() -> void:
+		for cat: String in [ShopManager.SKINS, ShopManager.TRAILS,
+				ShopManager.EFFECTS, ShopManager.SPECIAL]:
+			t.check(not (shop.catalogue(cat) as Array).is_empty(), "bo'lim bo'sh emas: " + cat)
+	)
+
+	t.test("bepul element boshidan ochiq", func() -> void:
+		t.check(shop.owns("skin_classic"), "oddiy ko'rinish bor")
+		t.equal(shop.worn_in(ShopManager.SKINS), "skin_classic", "kiyilgan")
+	)
+
+	t.test("puli yetmasa sotilmaydi", func() -> void:
+		wallet.reset()
+		t.equal(shop.buy("skin_glow"), "poor", "pul yo'q")
+		t.check(not shop.owns("skin_glow"), "element berilmadi")
+	)
+
+	t.test("sotib olinganda pul yechiladi", func() -> void:
+		wallet.reset()
+		wallet.add_coins(1000, "test")
+		t.equal(shop.buy("skin_glow"), "ok", "sotildi")
+		t.equal(wallet.get_coins(), 600, "400 tanga yechildi")
+		t.check(shop.owns("skin_glow"), "element bor")
+		t.equal(shop.worn_in(ShopManager.SKINS), "skin_glow", "darhol kiyildi")
+		t.equal(shop.buy("skin_glow"), "owned", "ikkinchi marta sotilmaydi")
+		t.equal(wallet.get_coins(), 600, "pul ikki marta yechilmadi")
+	)
+
+	t.test("shartli element pulga ochilmaydi", func() -> void:
+		wallet.reset()
+		wallet.add_coins(5000, "test")
+		t.equal(shop.buy("special_pioneer", 5.0, 0), "locked", "rekord yetmaydi")
+		t.equal(shop.buy("special_pioneer", 25.0, 0), "ok", "rekord yetdi")
+		t.equal(wallet.get_coins(), 5000, "bepul — pul yechilmadi")
+	)
+
+	t.test("kosmetika o'yinga ta'sir qilmaydi", func() -> void:
+		# Katalogda tezlik, zarar yoki hudud kuchini o'zgartiradigan
+		# maydon bo'lmasligi kerak.
+		var banned := ["speed", "power", "size", "damage", "bonus"]
+		for item: Dictionary in ShopManager.ITEMS:
+			for key: String in item:
+				t.check(not banned.has(key),
+					"%s da o'yinga ta'sir qiluvchi maydon yo'q" % item["id"])
+	)
+	shop.reset()
+	wallet.reset()
+
+# ——— Kunlik sovg'a ———
+
+func _test_daily(t: TestRunner) -> void:
+	var daily := root.get_node("/root/Daily")
+	var wallet := root.get_node("/root/Wallet")
+	t.group("kunlik sovg'a")
+	daily.reset()
+	wallet.reset()
+
+	t.test("birinchi kun 100 tanga", func() -> void:
+		t.equal(daily.next_day(), 1, "birinchi kun")
+		t.equal(daily.reward_for_today(), MonetizationConfig.DAILY_LOGIN[0],
+			"jadvaldagi qiymat")
+		var got: Dictionary = daily.claim()
+		t.check(bool(got["ok"]), "olindi")
+		t.equal(wallet.get_coins(), MonetizationConfig.DAILY_LOGIN[0],
+			"hamyonga tushdi")
+	)
+
+	t.test("bir kunda ikki marta olinmaydi", func() -> void:
+		var before: int = wallet.get_coins()
+		var again: Dictionary = daily.claim()
+		t.check(not bool(again["ok"]), "ikkinchi marta yo'q")
+		t.equal(wallet.get_coins(), before, "hamyon o'zgarmadi")
+		t.check(daily.claimed_today(), "bugun olingan deb belgilandi")
+	)
+
+	t.test("reklama mukofotni ikki barobar qiladi", func() -> void:
+		daily.reset()
+		wallet.reset()
+		var got: Dictionary = daily.claim(true)
+		t.equal(int(got["amount"]),
+			int(round(MonetizationConfig.DAILY_LOGIN[0]
+				* MonetizationConfig.DAILY_REWARD_MULTIPLIER)),
+			"ikki barobar")
+	)
+
+	t.test("aylanma yetti kundan keyin qaytadan", func() -> void:
+		t.equal(RewardManager.daily_login(8), RewardManager.daily_login(1),
+			"8-kun 1-kunga teng")
+	)
+	daily.reset()
+	wallet.reset()
+
+# ——— Kunlik topshiriqlar ———
+
+func _test_missions(t: TestRunner) -> void:
+	var missions := root.get_node("/root/Missions")
+	var wallet := root.get_node("/root/Wallet")
+	t.group("kunlik topshiriqlar")
+	missions.reset()
+	wallet.reset()
+
+	t.test("har kuni uchta topshiriq", func() -> void:
+		var list: Array = missions.today_missions()
+		t.equal(list.size(), MissionManager.PER_DAY, "uchta")
+		var ids := {}
+		for m: Dictionary in list:
+			ids[m["id"]] = true
+		t.equal(ids.size(), MissionManager.PER_DAY, "takrorlanmaydi")
+	)
+
+	t.test("ro'yxat kun davomida o'zgarmaydi", func() -> void:
+		var first: Array = missions.today_missions()
+		var second: Array = missions.today_missions()
+		for i in first.size():
+			t.equal(str(first[i]["id"]), str(second[i]["id"]),
+				"%d-topshiriq o'sha" % i)
+	)
+
+	t.test("bajarilganda mukofot bir marta beriladi", func() -> void:
+		missions.reset()
+		wallet.reset()
+		# Hamma turni bajarib yuboradigan katta natija.
+		var done: Array = missions.report(100.0, 50, 50, 600.0, 5000)
+		t.check(not done.is_empty(), "kamida bittasi bajarildi")
+		var earned: int = wallet.get_coins()
+		t.check(earned > 0, "mukofot tushdi")
+		missions.report(100.0, 50, 50, 600.0, 5000)
+		t.equal(wallet.get_coins(), earned, "ikkinchi marta berilmaydi")
+	)
+
+	t.test("yarim bajarilgan topshiriq mukofot bermaydi", func() -> void:
+		missions.reset()
+		wallet.reset()
+		missions.report(1.0, 0, 0, 1.0, 0)
+		for m: Dictionary in (missions.today_missions() as Array):
+			if int(m["target"]) > 1:
+				t.check(not bool(m["completed"]),
+					"%s hali bajarilmagan" % m["id"])
+	)
+	missions.reset()
+	wallet.reset()
+
+# ——— Xaridlar va reklama ———
+
+func _test_purchases(t: TestRunner) -> void:
+	var purchases := root.get_node("/root/Purchases")
+	var ads := root.get_node("/root/Ads")
+	t.group("xarid va reklama")
+	purchases.reset()
+
+	t.test("NO ADS boshida yo'q", func() -> void:
+		t.check(not purchases.has_no_ads(), "sotib olinmagan")
+	)
+
+	t.test("NO ADS majburiy reklamani o'chiradi", func() -> void:
+		t.check(purchases.purchase_no_ads(), "xarid o'tdi")
+		t.check(purchases.has_no_ads(), "endi bor")
+		t.check(not ads.can_show_interstitial(),
+			"majburiy reklama chiqmaydi")
+		t.check(purchases.purchase_no_ads(), "ikkinchi marta ham ok")
+	)
+
+	t.test("NO ADS banner ko'rsatmaydi", func() -> void:
+		ads.show_banner(true)
+		t.check(not ads.banner_visible(), "banner yashirin")
+	)
+
+	t.test("mukofotli reklama NO ADS dan keyin ham qoladi", func() -> void:
+		# Uni o'yinchi o'zi bosadi, shuning uchun o'chirilmaydi.
+		t.check(MonetizationConfig.REWARDED_ENABLED, "yoqiq")
+	)
+
+	t.test("majburiy reklama oraliqsiz chiqmaydi", func() -> void:
+		purchases.reset()
+		t.check(not ads.can_show_interstitial(),
+			"o'yin soni yetmagan")
+	)
+
+	t.test("faqat sinov reklama ID lari", func() -> void:
+		var ids := AdMobManager.unit_ids()
+		for key: String in ids:
+			t.check(str(ids[key]).begins_with("ca-app-pub-3940256099942544"),
+				"%s — Google ning sinov bloki" % key)
+	)
+	purchases.reset()
 
 # ——— Tanga, gem va mukofot ———
 

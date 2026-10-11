@@ -345,14 +345,54 @@ tool/           # xarita, kuy va emoji shriftini generatsiya qilish
 ## Pul tizimi
 
 Modullar `scripts/money/` da, o'yin mantig'idan butunlay alohida.
+Har biri o'z ishini qiladi va o'z faylida saqlanadi.
 
-```
-monetization_config.gd   hamma balans qiymati — bitta fayl
-currency_manager.gd      tanga va gem (avtoyuklanadi: Wallet)
-reward_manager.gd        o'yin natijasidan tanga hisoblaydi
-logic/coin_field.gd      xaritadagi tangalar (sof mantiq)
-render/city_coins.gd     tangalarni chizadi
-```
+| Modul | Avtoyuklash | Saqlanadi |
+| --- | --- | --- |
+| `monetization_config.gd` | — | hamma balans qiymati, bitta fayl |
+| `analytics.gd` | `Metrics` | xotirada (tashqariga yuborilmaydi) |
+| `currency_manager.gd` | `Wallet` | `user://wallet.cfg` |
+| `reward_manager.gd` | — | holatsiz, faqat hisob |
+| `shop_manager.gd` | `Shop` | `user://shop.cfg` |
+| `daily_reward_manager.gd` | `Daily` | `user://daily.cfg` |
+| `mission_manager.gd` | `Missions` | `user://missions.cfg` |
+| `purchase_manager.gd` | `Purchases` | `user://purchases.cfg` |
+| `ad_manager.gd` | `Ads` | holatsiz |
+| `admob_manager.gd` | — | SDK bilan yagona aloqa nuqtasi |
+| `logic/coin_field.gd` | — | xaritadagi tangalar (sof mantiq) |
+| `render/city_coins.gd` | — | tangalarni chizadi |
+
+**Bitta tuzoq.** Avtoyuklangan modullar bir-birini kompilyatsiya
+paytida ko'rmaydi (`--script` rejimida global nom hali yo'q),
+shuning uchun ular daraxtdan ish paytida olinadi:
+`_wallet()`, `_metrics()`, `_purchases()`.
+
+### Reklama qoidalari
+
+Reklama SDK si bilan faqat `admob_manager.gd` gaplashadi; o'yin
+kodi `AdManager` dan nariga o'tmaydi. Shuning uchun SDK
+almashtirilsa bitta fayl o'zgaradi.
+
+* mukofotli reklama **hech qachon o'z-o'zidan** chiqmaydi —
+  o'yinchi tugmani bosishi shart;
+* mukofot faqat video **to'liq ko'rilgani** tasdiqlangandan keyin
+  beriladi; xato bo'lsa hech narsa olinmaydi va hech narsa
+  yo'qolmaydi;
+* majburiy reklama va banner hozir **o'chiq**
+  (`INTERSTITIAL_ENABLED`, `BANNER_ENABLED`);
+* NO ADS olinsa majburiy reklama va banner umuman yo'q, lekin
+  mukofotli video qoladi — uni o'yinchi o'zi xohlaydi;
+* ishlab chiqishda faqat Google ning **sinov** reklama ID lari;
+  haqiqiylari `RELEASE_UNIT_IDS` ga do'konga chiqarishdan oldin
+  yoziladi. Test buni tekshiradi.
+
+### Kosmetika o'yinga ta'sir qilmaydi
+
+Katalogdagi hech bir element tezlik, to'qnashuv o'lchami, hudud
+egallash kuchi yoki botlarning xatti-harakatini o'zgartirmaydi —
+sotiladigani faqat ko'rinish. Buni test ham tekshiradi: katalogda
+`speed`, `power`, `size`, `damage`, `bonus` nomli maydon bo'lsa
+test yiqiladi.
 
 **Balans bitta faylda.** `MonetizationConfig` dagi qiymatlar
 loyihaning boshqa joyida takrorlanmaydi — balansni o'zgartirish
@@ -413,7 +453,7 @@ o'tdi.
 
 ### 15 til
 
-`data/strings.json` da 15 til × 130 kalit:
+`data/strings.json` da 15 til × 177 kalit:
 
 | | |
 | --- | --- |
@@ -430,6 +470,16 @@ Birinchi ochilishda qurilma tili aniqlanadi; ro'yxatda bo'lmasa
 
 Arabcha o'ngdan chapga yoziladi va harflar ulanadi — buni Godot
 o'zi (HarfBuzz) qiladi, qo'shimcha kod kerak emas.
+
+**Shahar nomlari** ham tarjima qilinadi: ma'lumot Natural Earth
+ning o'zidan keladi (`NAME_RU`, `NAME_ZH`, ...). To'liq
+`ne_50m_populated_places` faylida 12 til bor — o'zbekcha va
+qozoqcha yo'q, ular inglizchada qoladi. `tool/make_maps.py` faqat
+**inglizchadan farq qiladigan** nomlarni `data/city_names.json`
+ga yozadi, shuning uchun fayl 235 KB.
+
+Kosmetika nomlari (Classic, Neon, Prism...) ataylab tarjima
+qilinmaydi — ular o'yin atamasi.
 
 **Yo'l-yo'lakay topilgan xato:** o'yin ichida HUD qatoridagi
 "kill" so'zi va tugmalardagi "ON"/"OFF" kodda qotib qolgan edi —

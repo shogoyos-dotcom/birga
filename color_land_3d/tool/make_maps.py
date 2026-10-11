@@ -37,6 +37,11 @@ BASE = ('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/'
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.environ.get('NE_CACHE', os.path.join(HERE, '..', 'build', 'naturalearth'))
 OUT = os.path.join(HERE, '..', 'data', 'maps')
+DATA = os.path.join(HERE, '..', 'data')
+
+## Tarjima qilingan shahar nomlari: til -> {inglizcha: mahalliy}.
+## `places_for` to'ldiradi, `main` faylga yozadi.
+CITY_NAMES = {}
 
 ## Maydon to'ri o'yin panjarasidan shuncha marta maydaroq.
 ## Chegara shu to'rda chiziqli interpolatsiya bilan topiladi.
@@ -594,6 +599,24 @@ def nearest_land(land, w, h, x, y, radius=5):
     return None
 
 
+## Shahar nomi tarjimalari: o'yin tili -> Natural Earth maydoni.
+##
+## O'zbekcha va qozoqcha bu ro'yxatda yo'q — ular inglizchada
+## qoladi. Qolgan 12 til Natural Earth ning o'z ma'lumotidan keladi.
+CITY_NAME_FIELDS = {
+    'ru': 'NAME_RU', 'tr': 'NAME_TR', 'es': 'NAME_ES', 'pt': 'NAME_PT',
+    'fr': 'NAME_FR', 'de': 'NAME_DE', 'id': 'NAME_ID', 'zh': 'NAME_ZH',
+    'ja': 'NAME_JA', 'ko': 'NAME_KO', 'hi': 'NAME_HI', 'ar': 'NAME_AR',
+}
+
+
+def prop(p, key):
+    """Maydonni katta-kichik harfga qarab olmasdan o'qiydi."""
+    if key in p:
+        return p[key]
+    return p.get(key.lower(), p.get(key.upper()))
+
+
 def places_for(places, land, box, w, h):
     """Maydon ichidagi shaharlar: poytaxtlar va yirik shaharlar.
 
@@ -618,15 +641,21 @@ def places_for(places, land, box, w, h):
         if spot is None or spot in taken:
             continue
         taken.add(spot)
-        code = (p.get('iso_a2') or '').strip().upper()
+        code = (prop(p, 'ISO_A2') or '').strip().upper()
+        name = prop(p, 'NAMEASCII') or prop(p, 'NAME')
         rows.append({
-            'name': p.get('nameascii') or p.get('name'),
+            'name': name,
             'code': code if len(code) == 2 and code.isalpha() else '',
             'x': spot[0], 'y': spot[1],
-            'pop': int(p.get('pop_max') or 0),
+            'pop': int(prop(p, 'POP_MAX') or 0),
             # 1 — davlat poytaxti: unga ustun ham qo'yiladi.
-            'cap': 1 if int(p.get('adm0cap') or 0) == 1 else 0,
+            'cap': 1 if int(prop(p, 'ADM0CAP') or 0) == 1 else 0,
         })
+        for code2, field in CITY_NAME_FIELDS.items():
+            other = (prop(p, field) or '').strip()
+            # Inglizchadan farq qilmasa yozilmaydi — fayl kichik qolsin.
+            if other and other != name:
+                CITY_NAMES.setdefault(code2, {})[name] = other
     rows.sort(key=lambda c: (-c['cap'], -c['pop'], c['name']))
     return rows
 
@@ -648,7 +677,9 @@ def write_map(spec, w, h, land, mesh):
 def main():
     land_data = fetch('ne_110m_land.geojson')
     country_data = fetch('ne_110m_admin_0_countries.geojson')
-    places = fetch('ne_50m_populated_places_simple.geojson')
+    # To'liq ro'yxat: unda shahar nomlarining tarjimalari ham bor
+    # (NAME_RU, NAME_ZH, ...). "simple" variantida faqat inglizchasi.
+    places = fetch('ne_50m_populated_places.geojson')
 
     index = []
     total_bytes = 0
@@ -722,6 +753,17 @@ def main():
     with open(os.path.join(OUT, 'index.json'), 'w') as f:
         json.dump({'maps': index}, f, ensure_ascii=False,
                   separators=(',', ':'))
+
+    # Shahar nomlari tarjimasi — alohida fayl: u xaritalar orasida
+    # umumiy va faqat kerak bo'lgan til yuklanadi.
+    names_path = os.path.join(DATA, 'city_names.json')
+    with open(names_path, 'w') as f:
+        json.dump({k: dict(sorted(v.items())) for k, v in
+                   sorted(CITY_NAMES.items())}, f, ensure_ascii=False,
+                  separators=(',', ':'))
+    print('shahar nomlari: ' + ', '.join(
+        f'{k} {len(v)}' for k, v in sorted(CITY_NAMES.items()))
+        + f' ({os.path.getsize(names_path) / 1024:.0f} KB)')
     print(f'jami {total_bytes / 1024:.0f} KB')
     return 0
 

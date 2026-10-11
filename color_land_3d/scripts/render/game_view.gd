@@ -43,6 +43,8 @@ var _arena_material: ShaderMaterial
 var _capitals: MultiMeshInstance3D
 ## Shaharlar ustidagi tangalar: mantiq va chizuvchi.
 var _coin_field := CoinField.new()
+## Shu o'yinda nechta marta hudud egallandi — kunlik topshiriq uchun.
+var _captures := 0
 var _coins: MultiMeshInstance3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
@@ -88,6 +90,7 @@ func _ready() -> void:
 	store = SettingsStore.load_store()
 	Strings.set_language(store.language if not store.language.is_empty()
 		else Strings.detect_language())
+	CityNames.use(Strings.language())
 	Palette.set_theme(store.theme_id)
 	Audio.apply(store)
 
@@ -120,6 +123,7 @@ func _config_from_store() -> GameConfig:
 
 ## Yangi o'yin: dunyo, arena va o'yinchilar qaytadan quriladi.
 func _new_match() -> void:
+	_captures = 0
 	config = _config_from_store()
 	world = MatchBuilder.create(
 		config, store.color_index, _player_name(), store.avatar, 0,
@@ -298,6 +302,9 @@ func _apply_view_settings() -> void:
 	if _arena_material != null:
 		_arena_material.set_shader_parameter(
 			"avatar_alpha", AVATAR_ALPHA if store.show_flags else 0.0)
+	# Til o'zgargan bo'lsa shahar nomlari qayta tuziladi; maydon
+	# o'sha-o'sha bo'lsa bu chaqiriq darhol qaytadi.
+	_build_capitals()
 	_capitals.enabled = store.show_capitals
 	_capitals.names_visible = store.show_city_names
 	ui.set_minimap(paint.texture if store.show_minimap else null)
@@ -381,10 +388,14 @@ func _build_arena() -> void:
 var _capitals_map := ""
 
 func _build_capitals() -> void:
-	if _capitals_map == world.config.map_id:
+	# Til o'zgarsa nomlar ham qayta tuziladi, shuning uchun kalitda
+	# maydon bilan birga til ham turadi.
+	CityNames.use(Strings.language())
+	var key := world.config.map_id + "/" + Strings.language()
+	if _capitals_map == key:
 		_build_coins()
 		return
-	_capitals_map = world.config.map_id
+	_capitals_map = key
 	_capitals.build(world.places, world.grid)
 	_build_coins()
 
@@ -465,6 +476,7 @@ func _handle_events() -> void:
 					# Egallangan hududdagi shaharlarning tangasi
 					# o'yinchiga o'tadi. Faqat odam o'yinchi yig'adi:
 					# tanga — mukofot, botlarga kerak emas.
+					_captures += 1
 					if _coin_field.collect_cells(event["cells"]) > 0:
 						_coins.take(_coin_field.flush_taken())
 			"death":
@@ -488,6 +500,14 @@ func _end_match() -> void:
 	var reward := RewardManager.run_reward(world.elapsed, percent, p.kills,
 		_coin_field.collected())
 	Wallet.add_coins(int(reward["total"]), "run")
+	Metrics.send(Analytics.COIN_EARNED, {"amount": int(reward["total"])})
+	# Kunlik topshiriqlar shu natijadan hisoblanadi.
+	var finished := Missions.report(percent, p.kills, _captures,
+		world.elapsed, _coin_field.collected())
+	if not finished.is_empty():
+		ui.toast(Strings.t("missionDone"))
+	# Majburiy reklama oralig'i shu yerda sanaladi (hozircha o'chiq).
+	Ads.note_run_finished()
 	ui.set_result(percent, p.kills, world.elapsed,
 		Strings.death_reason(p.death_cause), is_record, reward)
 	ui.show_screen(ui.Screen.RESULT)

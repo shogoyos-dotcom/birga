@@ -117,7 +117,8 @@ func build(places: Array, grid: GameGrid) -> int:
 		var weight := sqrt(float(c.get("pop", 0)) / top_pop)
 		var capital: bool = int(c.get("cap", 0)) == 1
 		rows.append({
-			"name": str(c.get("name", "")),
+			# Nom o'yin tilida: tarjimasi bo'lmasa inglizchasi.
+			"name": CityNames.of(str(c.get("name", ""))),
 			"at": Vector2(x + 0.5, y + 0.5),
 			"weight": clampf(weight, 0.0, 1.0),
 			"cap": capital,

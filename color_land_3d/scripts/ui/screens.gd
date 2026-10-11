@@ -47,6 +47,8 @@ var _ad_busy := false
 var _reset_armed := false
 ## Do'kondan qaytganda qaysi ekranga qaytiladi.
 var _shop_return: Screen = Screen.MENU
+## Do'kondagi ochiq bo'lim.
+var _shop_tab := ShopManager.SKINS
 ## Xona ekrani: internetdagi server (`true`) yoki mahalliy tarmoq.
 var _room_online := false
 var _room_status := ""
@@ -312,6 +314,8 @@ func _build_settings() -> Control:
 			var code: String = Strings.CODES[index]
 			store.language = code
 			Strings.set_language(code)
+			# Xaritadagi shahar nomlari ham shu tilga o'tsin.
+			view_changed.emit()
 			_rebuild(), _accent()))
 	box.add_child(game)
 
@@ -974,14 +978,9 @@ func open_shop(from: Screen) -> void:
 
 func _build_shop() -> Control:
 	var root := UiKit.overlay()
-	var box := UiKit.centered_column(root, 420)
+	var box := UiKit.centered_column(root, 440)
 	box.add_child(_header(Strings.t("shop"), func() -> void:
 		show_screen(_shop_return)))
-
-	var panel := UiKit.panel()
-	var inner := VBoxContainer.new()
-	inner.add_theme_constant_override("separation", 10)
-	panel.add_child(inner)
 
 	var purse := HBoxContainer.new()
 	purse.add_theme_constant_override("separation", 10)
@@ -989,28 +988,283 @@ func _build_shop() -> Control:
 	purse.add_child(_purse_chip("\u25C9", Wallet.get_coins(), UiKit.GOLD))
 	purse.add_child(_purse_chip("\u2726", Wallet.get_gems(), UiKit.BLUE))
 	purse.add_child(_purse_chip("\U01F39F", store.tickets, UiKit.MINT))
-	inner.add_child(purse)
-	inner.add_child(UiKit.label(Strings.t("demoPurchaseNote"), 13,
-		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
+	box.add_child(purse)
 
-	inner.add_child(UiKit.section(Strings.t("buyTickets")))
-	for pack: Dictionary in services.packs():
-		inner.add_child(_pack_row(pack))
-
-	inner.add_child(UiKit.section(Strings.t("watchAd")))
-	var ad := UiKit.button(Strings.t("watchAd"), UiKit.GOLD)
-	ad.pressed.connect(func() -> void:
-		Audio.tap()
-		_watch_ad(false))
-	inner.add_child(ad)
+	box.add_child(_daily_card())
+	box.add_child(_missions_card())
+	box.add_child(_cosmetics_card())
+	box.add_child(_tickets_card())
+	box.add_child(_no_ads_card())
 
 	var close := UiKit.ghost_button(Strings.t("close"))
 	close.pressed.connect(func() -> void:
 		Audio.tap()
 		show_screen(_shop_return))
-	inner.add_child(close)
-	box.add_child(panel)
+	box.add_child(close)
 	return root
+
+## Kunlik sovg'a: bugungi kun, miqdor va olish tugmasi.
+func _daily_card() -> Control:
+	var card := UiKit.panel()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("dailyReward")))
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_child(UiKit.title("%s %d" % [Strings.t("streakDay"),
+		Daily.next_day()], 20, UiKit.TEXT))
+	left.add_child(UiKit.label("\u25C9 %d" % Daily.reward_for_today(), 15,
+		UiKit.GOLD, HORIZONTAL_ALIGNMENT_LEFT))
+	row.add_child(left)
+	box.add_child(row)
+
+	if Daily.claimed_today():
+		box.add_child(UiKit.label(Strings.t("comeBackTomorrow"), 13,
+			UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER, true))
+		return card
+	var take := UiKit.button(Strings.t("claim"), UiKit.LIME)
+	take.pressed.connect(func() -> void:
+		Audio.tap()
+		_claim_daily(false))
+	box.add_child(take)
+	# Reklama ixtiyoriy: o'yinchi o'zi bosadi.
+	var twice := UiKit.ghost_button(Strings.t("doubleReward"), UiKit.GOLD)
+	twice.pressed.connect(func() -> void:
+		Audio.tap()
+		_claim_daily(true))
+	box.add_child(twice)
+	return card
+
+func _claim_daily(with_ad: bool) -> void:
+	if _ad_busy:
+		return
+	if with_ad:
+		_ad_busy = true
+		var result: Dictionary = await Ads.show_rewarded(
+			AdManager.Reward.DAILY_REWARD_MULTIPLIER)
+		_ad_busy = false
+		if not bool(result["ok"]):
+			toast(Strings.t(str(result["error"])))
+			return
+	var got: Dictionary = Daily.claim(with_ad)
+	if not bool(got["ok"]):
+		toast(Strings.t("claimed"))
+		return
+	_rebuild()
+	toast("\u25C9 +%d" % int(got["amount"]))
+
+## Kunlik topshiriqlar: uchta qator, har birida chiziq va mukofot.
+func _missions_card() -> Control:
+	var card := UiKit.panel()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("missions")))
+	for mission: Dictionary in Missions.today_missions():
+		box.add_child(_mission_row(mission))
+	return card
+
+## Topshiriq matni turi va maqsadidan yig'iladi — har bir
+## topshiriqqa alohida tarjima kerak emas.
+static func _mission_title(mission: Dictionary) -> String:
+	var key := "mission" + str(mission["kind"]).capitalize()
+	return Strings.t(key) % str(mission["target"])
+
+func _mission_row(mission: Dictionary) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 5)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var done: bool = bool(mission["completed"])
+	var title := UiKit.label(_mission_title(mission), 14,
+		UiKit.TEXT_DIM if done else UiKit.TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	head.add_child(UiKit.label("\u25C9 %d" % int(mission["reward"]), 13,
+		UiKit.GOLD))
+	box.add_child(head)
+
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(0, 8)
+	bar.show_percentage = false
+	bar.max_value = int(mission["target"])
+	bar.value = int(mission["progress"])
+	var back := UiKit.style(UiKit.SURFACE, 4, 1, 0)
+	bar.add_theme_stylebox_override("background", back)
+	bar.add_theme_stylebox_override("fill",
+		UiKit.style(UiKit.LIME if done else UiKit.BLUE, 4, 0, 0))
+	box.add_child(bar)
+
+	box.add_child(UiKit.label("%d / %d" % [int(mission["progress"]),
+		int(mission["target"])], 11, UiKit.TEXT_FAINT,
+		HORIZONTAL_ALIGNMENT_RIGHT))
+	return box
+
+## Kosmetika: bo'limlar va elementlar.
+func _cosmetics_card() -> Control:
+	var card := UiKit.panel()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	card.add_child(box)
+
+	var tabs: Array[String] = [ShopManager.SKINS, ShopManager.TRAILS,
+		ShopManager.EFFECTS, ShopManager.SPECIAL]
+	var labels := PackedStringArray()
+	for tab: String in tabs:
+		labels.append(Strings.t("tab" + tab.capitalize()))
+	box.add_child(UiKit.chips(labels, tabs.find(_shop_tab),
+		func(index: int) -> void:
+			Audio.tap()
+			_shop_tab = tabs[index]
+			_rebuild(), _accent()))
+
+	for item: Dictionary in Shop.catalogue(_shop_tab):
+		box.add_child(_item_row(item))
+	return card
+
+const RARITY_TINT: Array[Color] = [
+	Color("9a93bd"), Color("45e8ff"), Color("c06bff"), Color("ffd23f"),
+]
+
+func _item_row(item: Dictionary) -> Control:
+	var row := UiKit.panel(Color(UiKit.SURFACE, 0.8), 11)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 10)
+	row.add_child(line)
+
+	var rarity := int(item["rarity"])
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 3)
+	left.add_child(UiKit.label(Strings.t(str(item["name"])), 15, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	var tint: Color = RARITY_TINT[clampi(rarity, 0, 3)]
+	var tags := HBoxContainer.new()
+	tags.add_theme_constant_override("separation", 7)
+	tags.add_child(UiKit.label(Strings.t(_rarity_key(rarity)), 11, tint,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	tags.add_child(UiKit.label(_price_text(item), 11, UiKit.TEXT_FAINT,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	left.add_child(tags)
+	line.add_child(left)
+	line.add_child(_item_button(item))
+	return row
+
+static func _rarity_key(rarity: int) -> String:
+	match rarity:
+		ShopManager.Rarity.RARE: return "rarityRare"
+		ShopManager.Rarity.EPIC: return "rarityEpic"
+		ShopManager.Rarity.LEGENDARY: return "rarityLegendary"
+		_: return "rarityCommon"
+
+func _price_text(item: Dictionary) -> String:
+	var coins := int(item["coins"])
+	var gems := int(item["gems"])
+	if coins > 0:
+		return "\u25C9 %d" % coins
+	if gems > 0:
+		return "\u2726 %d" % gems
+	var rule := str(item.get("unlock", ""))
+	if rule.begins_with("percent:"):
+		return Strings.t("needPercent") % rule.substr(8)
+	if rule.begins_with("kills:"):
+		return Strings.t("needKills") % rule.substr(6)
+	return ""
+
+func _item_button(item: Dictionary) -> Control:
+	var id := str(item["id"])
+	if Shop.worn_in(str(item["cat"])) == id:
+		var worn := UiKit.ghost_button(Strings.t("wornItem"), UiKit.TEXT_FAINT)
+		worn.custom_minimum_size = Vector2(118, 46)
+		worn.disabled = true
+		return worn
+	if Shop.owns(id):
+		var put_on := UiKit.button(Strings.t("wearItem"), UiKit.MINT)
+		put_on.custom_minimum_size = Vector2(118, 46)
+		put_on.pressed.connect(func() -> void:
+			Audio.tap()
+			Shop.wear(id)
+			_rebuild())
+		return put_on
+	if not ShopManager.unlocked_by(item, store.best_percent, store.best_kills):
+		var locked := UiKit.ghost_button(Strings.t("lockedItem"), UiKit.TEXT_FAINT)
+		locked.custom_minimum_size = Vector2(118, 46)
+		locked.disabled = true
+		return locked
+	var buy := UiKit.button(Strings.t("buyItem"), _accent())
+	buy.custom_minimum_size = Vector2(118, 46)
+	buy.pressed.connect(func() -> void:
+		Audio.tap()
+		_buy_item(id))
+	return buy
+
+func _buy_item(id: String) -> void:
+	var result := Shop.buy(id, store.best_percent, store.best_kills)
+	match result:
+		"ok":
+			_rebuild()
+			toast(Strings.t("wornItem"))
+		"poor":
+			toast(Strings.t("purchaseFailed"))
+		"locked":
+			toast(Strings.t("lockedItem"))
+
+## Belet to'plamlari va mukofotli reklama.
+func _tickets_card() -> Control:
+	var card := UiKit.panel()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("buyTickets")))
+	box.add_child(UiKit.label(Strings.t("demoPurchaseNote"), 12,
+		UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER, true))
+	for pack: Dictionary in services.packs():
+		box.add_child(_pack_row(pack))
+	var ad := UiKit.ghost_button(Strings.t("watchAd"), UiKit.GOLD)
+	ad.pressed.connect(func() -> void:
+		Audio.tap()
+		_watch_ad(false))
+	box.add_child(ad)
+	return card
+
+## Reklamani o'chirish.
+func _no_ads_card() -> Control:
+	var card := UiKit.panel()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("noAds")))
+	box.add_child(UiKit.label(Strings.t("noAdsNote"), 12, UiKit.TEXT_FAINT,
+		HORIZONTAL_ALIGNMENT_CENTER, true))
+	if Purchases.has_no_ads():
+		box.add_child(UiKit.label("\u2713 " + Strings.t("adsRemoved"), 15,
+			UiKit.MINT, HORIZONTAL_ALIGNMENT_CENTER))
+		return card
+	var buy := UiKit.button(Strings.t("noAds"), UiKit.VIOLET)
+	buy.pressed.connect(func() -> void:
+		Audio.tap()
+		if Purchases.purchase_no_ads():
+			_rebuild()
+			toast(Strings.t("adsRemoved"))
+		else:
+			toast(Strings.t("purchaseFailed")))
+	box.add_child(buy)
+	var restore := UiKit.ghost_button(Strings.t("restorePurchases"),
+		UiKit.TEXT_DIM)
+	restore.pressed.connect(func() -> void:
+		Audio.tap()
+		var found: int = Purchases.restore_purchases()
+		if found > 0:
+			_rebuild()
+			toast(Strings.t("adsRemoved"))
+		else:
+			toast(Strings.t("nothingToRestore")))
+	box.add_child(restore)
+	return card
 
 ## Bitta belet to'plami qatori. Eng foydali to'plam ajratib ko'rsatiladi.
 func _pack_row(pack: Dictionary) -> Control:
@@ -1038,15 +1292,17 @@ func _buy(pack_id: String) -> void:
 func _watch_ad(then_continue: bool) -> void:
 	if _ad_busy:
 		return
-	var reward := services.show_rewarded()
-	if reward <= 0:
-		toast(Strings.t("adNotReady"))
-		return
 	_ad_busy = true
-	# Namuna reklama: haqiqiy videoning o'rniga qisqa kutish.
-	await get_tree().create_timer(0.6).timeout
-	services.preload_ad()
+	# Reklama AdManager orqali: o'yin kodi SDK ni bilmaydi.
+	var result: Dictionary = await Ads.show_rewarded(
+		AdManager.Reward.CONTINUE_RUN if then_continue
+		else AdManager.Reward.BONUS_COINS)
 	_ad_busy = false
+	if not bool(result["ok"]):
+		# Xato bo'lsa hech narsa olinmaydi va hech narsa yo'qolmaydi.
+		toast(Strings.t(str(result["error"])))
+		return
+	var reward := ContinueServices.AD_REWARD
 	store.add_tickets(reward)
 	if then_continue:
 		continue_with_ticket.emit()
