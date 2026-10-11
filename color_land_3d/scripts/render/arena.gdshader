@@ -35,6 +35,17 @@ uniform vec2 avatar_grid = vec2(8.0, 4.0);
 uniform float avatar_alpha : hint_range(0.0, 1.0) = 0.9;
 uniform float surface_roughness : hint_range(0.0, 1.0) = 0.9;
 
+// Ovoz oynasining radiusi (katak) va kengligi.
+//
+// Kataklarga tushirilgan doira o'z o'qlari yonida uzun **to'g'ri**
+// qatorlarga aylanadi: masalan 13 katak radiusli doirada 4 katakli
+// tekis qism bo'ladi. Radiusi 1.5 katak bo'lgan oyna bunday
+// qatorni yumshata olmaydi — faqat burchaklarini kesadi, va
+// chegara ko'pburchak bo'lib ko'rinadi. Shuning uchun oyna
+// to'g'ri qatordan kengroq bo'lishi kerak.
+const int VOTE_R = 3;
+const int VOTE_W = 2 * VOTE_R;
+
 // Kubik B-splayn: markazdagi katak ustun turadi, uzoqdagisi asta
 // so'nadi — shuning uchun chegara silliq, rang esa toza chiqadi.
 float weight_of(float x) {
@@ -47,6 +58,22 @@ float weight_of(float x) {
 		return t * t * t / 6.0;
 	}
 	return 0.0;
+}
+
+// Ovoz og'irligi: tor va keng splayn yig'indisi.
+//
+// Tor splayn (±2 katak) markazdagi katakni ustun qilib turadi —
+// bir katak kengligidagi tilim ham ekranda qolishi kerak, aks
+// holda egallangan yer ko'rinmay qolardi. Keng splayn (±VOTE_R)
+// esa uzun to'g'ri qatorlarni yumshatadi.
+//
+// WIDE_MIX — keng qismning ulushi. Markazdagi katakning ulushi
+// 0.667*(1+k) / (1 + 1.506*k) ga teng; u 0.5 dan oshib turishi
+// uchun k 1.9 dan kichik bo'lishi shart.
+const float WIDE_MIX = 0.7;
+
+float vote_weight(float x) {
+	return weight_of(x) + WIDE_MIX * weight_of(x * (2.0 / float(VOTE_R)));
 }
 
 vec4 cell_texel(vec2 cell) {
@@ -127,18 +154,22 @@ void fragment() {
 		shade = with_avatar(near_owner[0],
 			color_of(near_owner[0]), cell_pos);
 	} else {
-		// ——— Hudud: 4x4 katak bo'yicha ovoz berish.
-		float wx[4];
-		float wy[4];
-		for (int i = 0; i < 4; i++) {
-			wx[i] = weight_of(float(i) - 1.0 - f.x);
-			wy[i] = weight_of(float(i) - 1.0 - f.y);
+		// ——— Hudud: VOTE_W x VOTE_W katak bo'yicha ovoz berish.
+		//
+		// Og'irlik kubik B-splayn, lekin argumenti siqilgan:
+		// splayn ±2 da tugaydi, oyna esa ±VOTE_R gacha boradi.
+		float wx[VOTE_W];
+		float wy[VOTE_W];
+		for (int i = 0; i < VOTE_W; i++) {
+			float at = float(i - VOTE_R + 1);
+			wx[i] = vote_weight(at - f.x);
+			wy[i] = vote_weight(at - f.y);
 		}
 		float score[4] = float[](0.0, 0.0, 0.0, 0.0);
-		for (int j = 0; j < 4; j++) {
-			for (int i = 0; i < 4; i++) {
-				int owner = int(cell_texel(
-					base + vec2(float(i) - 1.0, float(j) - 1.0)).r
+		for (int j = 0; j < VOTE_W; j++) {
+			for (int i = 0; i < VOTE_W; i++) {
+				int owner = int(cell_texel(base + vec2(
+					float(i - VOTE_R + 1), float(j - VOTE_R + 1))).r
 					* 255.0 + 0.5);
 				if (owner == WATER) {
 					continue;

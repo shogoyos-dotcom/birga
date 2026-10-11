@@ -128,6 +128,10 @@ godot --headless --path . --script res://tools/pausetest.gd
 # Tanga: olinadi, yo'qoladi va 30 soniyadan keyin qaytadi.
 godot --headless --path . --script res://tools/cointest.gd
 
+# Hudud chegarasi: aniq shakl chiziladi va silliqligi o'lchanadi.
+# "bench" bersangiz — shaderning kadr narxi o'lchanadi.
+godot --path . --script res://tools/edgetest.gd -- res://build/edge.png
+
 # Maydon bo'yicha xotira va tugunlar soni.
 godot --path . --script res://tools/memtest.gd
 
@@ -428,6 +432,49 @@ esa tanga qaytib qolardi.
 tekshirilmaydi: headless rejimda RenderingServer soxta bo'lib,
 nusxa matritsalarini saqlamaydi va o'qiganda doim birlik matritsa
 qaytaradi.
+
+### Hudud chegarasi ko'pburchak bo'lib ko'rinardi
+
+Kataklarga tushirilgan doira o'z o'qlari yonida uzun **to'g'ri**
+qatorlarga aylanadi: 13 katak radiusli doirada 4 katakli tekis
+qism bo'ladi. Ovoz oynasining radiusi esa 1.5 katak edi — bunday
+qatorni yumshata olmaydi, faqat burchaklarini kesadi. Shuning
+uchun chegara ko'pburchakka o'xshab qolardi.
+
+Oyna 4x4 dan **6x6** ga kengaytirildi, lekin og'irlik ikki
+splayn yig'indisi:
+
+```
+w(x) = kubik(x) + WIDE_MIX * kubik(x * 2/VOTE_R)
+```
+
+Tor splayn markazdagi katakni ustun qilib turadi, keng splayn esa
+uzun to'g'ri qatorlarni yumshatadi. `WIDE_MIX` ni oshirsa chegara
+silliqroq, lekin **bir katak kengligidagi tilim yo'qoladi** —
+egallangan yer ekranda ko'rinmay qoladi. Markazdagi katakning
+ulushi `0.667*(1+k) / (1 + 1.506*k)`, u 0.5 dan oshib turishi
+shart.
+
+O'lchov (`tools/edgetest.gd`: aniq doira chiziladi, chetining
+ideal egri chiziqdan chetlashishi va 1/2/3 katakli tilimlar
+ko'rinishi sanaladi):
+
+| Oyna | Chet rms | 1 katakli tilim |
+| --- | --- | --- |
+| 4x4 (avvalgi) | 0.98 px | bor |
+| 6x6, k = 0.7 | **0.73 px** | **bor** |
+| 6x6, k = 1.0 | 0.66 px | yo'q |
+| 8x8, k = 1.4 | 0.56 px | yo'q |
+
+Tanlangan: 6x6, `WIDE_MIX = 0.7`.
+
+**Narxi.** Keng oyna faqat **chegara piksellarida** ishlaydi: eng
+yaqin 4 katak bir xil bo'lsa tez yo'l qoladi. Eng yomon holatda
+(butun ekran 9 katakli yamoqlarga bo'lingan sahna, `edgetest.gd
+-- bench`) kadr 195.9 ms dan 222.3 ms ga chiqdi — +13%. Konteynerda
+videokarta yo'q (llvmpipe protsessorda chizadi), shuning uchun bu
+son telefonniki emas; lekin ikki variant bir xil sahnada
+solishtirilgan.
 
 ### Iz qirg'oqda zinapoya bo'lib qolardi
 
