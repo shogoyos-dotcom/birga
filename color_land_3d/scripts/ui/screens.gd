@@ -100,6 +100,17 @@ func _build_menu() -> Control:
 	var root := UiKit.overlay()
 	var box := UiKit.centered_column(root)
 
+	# Hamyon: o'yinda topilgan tanga shu yerda ko'rinadi.
+	var purse := HBoxContainer.new()
+	purse.add_theme_constant_override("separation", 8)
+	purse.add_child(_purse_chip("\u25C9", Wallet.get_coins(), UiKit.GOLD))
+	purse.add_child(_purse_chip("\u2726", Wallet.get_gems(), UiKit.BLUE))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	purse.add_child(spacer)
+	purse.add_child(_purse_chip("\U01F39F", store.tickets, UiKit.MINT))
+	box.add_child(purse)
+
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
 	var tickets := UiKit.ghost_button(
@@ -150,6 +161,24 @@ func _build_menu() -> Control:
 		open_board())
 	box.add_child(board)
 	return root
+
+## Hamyondagi bitta qiymat: belgi va son.
+func _purse_chip(icon: String, value: int, tint: Color) -> Control:
+	var chip := UiKit.panel(Color(UiKit.SURFACE, 0.86), 9)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(UiKit.label(icon, 16, tint))
+	row.add_child(UiKit.label(_short(value), 16, UiKit.TEXT))
+	chip.add_child(row)
+	return chip
+
+## Katta sonni qisqartiradi: 12 400 -> 12.4K.
+static func _short(value: int) -> String:
+	if value >= 1_000_000:
+		return "%.1fM" % (value / 1_000_000.0)
+	if value >= 10_000:
+		return "%.1fK" % (value / 1000.0)
+	return str(value)
 
 ## O'yin nomi — ikki qator, ikkinchisi limon rangda.
 func _logo() -> Control:
@@ -655,7 +684,8 @@ func _build_hud() -> Control:
 		HORIZONTAL_ALIGNMENT_LEFT)
 	stats.add_child(_coin_label)
 
-	var pause := UiKit.icon_button("⏸")
+	# "\u23F8" hech bir shriftda yo'q — tugma bo'sh ko'rinardi.
+	var pause := UiKit.icon_button("\u275A\u275A")
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
 	pause.position = Vector2(-74, 16)
@@ -953,8 +983,13 @@ func _build_shop() -> Control:
 	inner.add_theme_constant_override("separation", 10)
 	panel.add_child(inner)
 
-	inner.add_child(UiKit.label(
-		"%d %s" % [store.tickets, Strings.t("tickets")], 28, UiKit.GOLD))
+	var purse := HBoxContainer.new()
+	purse.add_theme_constant_override("separation", 10)
+	purse.alignment = BoxContainer.ALIGNMENT_CENTER
+	purse.add_child(_purse_chip("\u25C9", Wallet.get_coins(), UiKit.GOLD))
+	purse.add_child(_purse_chip("\u2726", Wallet.get_gems(), UiKit.BLUE))
+	purse.add_child(_purse_chip("\U01F39F", store.tickets, UiKit.MINT))
+	inner.add_child(purse)
 	inner.add_child(UiKit.label(Strings.t("demoPurchaseNote"), 13,
 		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
 

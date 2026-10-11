@@ -445,7 +445,6 @@ func _process(delta: float) -> void:
 	paint.sync()
 	# Shahar nomlari kamera atrofida almashib turadi.
 	_capitals.update_focus(Vector2(world.human().x, world.human().y), delta)
-	_collect_coins()
 	_sync_heads()
 	_follow_camera(delta)
 
@@ -463,6 +462,11 @@ func _handle_events() -> void:
 				if int(event["player"]) == human_id:
 					Audio.capture()
 					ui.flash(Palette.head(world.human().color_index), 0.18)
+					# Egallangan hududdagi shaharlarning tangasi
+					# o'yinchiga o'tadi. Faqat odam o'yinchi yig'adi:
+					# tanga — mukofot, botlarga kerak emas.
+					if _coin_field.collect_cells(event["cells"]) > 0:
+						_coins.take(_coin_field.flush_taken())
 			"death":
 				if int(event["player"]) == human_id:
 					_cleared_on_death = event["cleared"]
@@ -471,21 +475,6 @@ func _handle_events() -> void:
 				elif int(event["killer"]) == human_id:
 					Audio.kill()
 					ui.flash(UiKit.MINT, 0.16)
-
-## O'yinchi tanga ustidan o'tsa yig'ib oladi.
-##
-## Faqat odam o'yinchi yig'adi: tanga mukofot, botlarga kerak emas.
-## Hisob o'yin qoidalariga tegmaydi — tezlik ham, hudud ham
-## o'zgarmaydi.
-func _collect_coins() -> void:
-	if not _match_running:
-		return
-	var p := world.human()
-	if not p.alive:
-		return
-	if _coin_field.collect(p.x, p.y) > 0:
-		_coins.take(_coin_field.flush_taken())
-		Audio.capture()
 
 func _end_match() -> void:
 	_set_playing(false)

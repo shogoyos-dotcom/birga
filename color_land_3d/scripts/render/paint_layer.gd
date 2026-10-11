@@ -8,12 +8,22 @@ extends RefCounted
 ## qayta qurilmaydi. Faqat o'zgargan kataklar qayta bo'yaladi.
 ##
 ## Ikkita tekstura tayyorlanadi:
-##  * [index_texture] — R: hudud egasi, G: iz egasi. Arena shaderi shuni
-##    o'qib chegaralarni silliq chizadi;
+##  * [index_texture] — R: hudud egasi ([constant WATER] — suv),
+##    G: iz egasi. Arena shaderi shuni o'qib chegaralarni silliq
+##    chizadi;
 ##  * [texture] — tayyor ranglar; kichik xarita shuni ko'rsatadi.
 
 ## Rang jadvali o'lchami: 0 — egasiz, 1..255 — hudud, 256..511 — iz.
 const PALETTE_SIZE := 512
+
+## Suv kataklarining belgisi egalik kanalida.
+##
+## Shaderdagi ovoz berish 4x4 oynadan foydalanadi; qirg'oqda oynaga
+## suv kataklari ham tushadi va ular "egasiz" bo'lib ovoz berardi —
+## natijada hudud rangini qirg'oq bo'ylab oq hoshiya kesib o'tardi.
+## Endi suv alohida belgilanadi va ovoz berishda umuman qatnashmaydi.
+## O'yinchi ID lari 1..16 oralig'ida, shuning uchun 255 bo'sh turadi.
+const WATER := 255
 
 var image: Image
 var texture: ImageTexture
@@ -66,8 +76,11 @@ func _paint(x: int, y: int, i: int) -> void:
 	var trail: int = _grid.trail_cells[i]
 	var index: int = 256 + trail if trail != 0 else own
 	image.set_pixel(x, y, _colors[index])
-	# Shaderga ID lar 0..1 oralig'ida uzatiladi.
-	index_image.set_pixel(x, y, Color(own / 255.0, trail / 255.0, 0.0, 1.0))
+	# Shaderga ID lar 0..1 oralig'ida uzatiladi; suv alohida
+	# belgilanadi, chunki u ovoz berishda qatnashmasligi kerak.
+	var mark: int = WATER if not _grid.is_land_index(i) else own
+	index_image.set_pixel(x, y,
+		Color(mark / 255.0, trail / 255.0, 0.0, 1.0))
 
 ## Panjaradagi o'zgarishlarni teksturaga ko'chiradi.
 ## O'zgargan katak sonini qaytaradi.
@@ -88,4 +101,5 @@ func index_at(x: int, y: int) -> int:
 	var trail := int(round(texel.g * 255.0))
 	if trail != 0:
 		return 256 + trail
-	return int(round(texel.r * 255.0))
+	var own := int(round(texel.r * 255.0))
+	return 0 if own == WATER else own

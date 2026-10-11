@@ -122,19 +122,21 @@ func _test_money(t: TestRunner) -> void:
 		var field := CoinField.new()
 		field.build([{"name": "A", "x": 10, "y": 10, "pop": 1000, "cap": 0}], grid)
 		var value: int = field.coins[0]["value"]
-		t.equal(field.collect(10.5, 10.5), value, "ustidan o'tganda olinadi")
-		t.equal(field.collect(10.5, 10.5), 0, "ikkinchi marta yo'q")
+		var cell := PackedInt32Array([10 * 40 + 10])
+		t.equal(field.collect_cells(cell), value, "hudud egallanganda olinadi")
+		t.equal(field.collect_cells(cell), 0, "ikkinchi marta yo'q")
 		t.equal(field.collected(), value, "jami to'g'ri")
 		t.equal(field.flush_taken().size(), 1, "chizuvchiga bitta indeks")
 		t.equal(field.flush_taken().size(), 0, "ro'yxat bo'shadi")
 	)
 
-	t.test("uzoqdagi tanga olinmaydi", func() -> void:
+	t.test("egallanmagan shahardagi tanga qoladi", func() -> void:
 		# `land` bo'sh bo'lsa butun panjara o'ynaladi.
 		var grid := GameGrid.new(40, 40)
 		var field := CoinField.new()
 		field.build([{"name": "A", "x": 10, "y": 10, "pop": 1000, "cap": 0}], grid)
-		t.equal(field.collect(20.0, 20.0), 0, "radius tashqarisida")
+		t.equal(field.collect_cells(PackedInt32Array([20 * 40 + 20])), 0,
+			"boshqa katak — tanga tegmaydi")
 		t.equal(field.taken_count(), 0, "hech nima olinmadi")
 	)
 

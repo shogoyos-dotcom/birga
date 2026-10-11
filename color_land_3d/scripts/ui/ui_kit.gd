@@ -166,8 +166,8 @@ static func section(text: String) -> Label:
 static func button(text: String, color: Color, big: bool = false) -> Button:
 	var b := Button.new()
 	b.text = text.to_upper()
-	b.custom_minimum_size = Vector2(0, 64 if big else 54)
-	b.add_theme_font_size_override("font_size", 23 if big else 18)
+	b.custom_minimum_size = Vector2(0, 74 if big else 62)
+	b.add_theme_font_size_override("font_size", 26 if big else 20)
 	var font := display_font()
 	if font != null:
 		b.add_theme_font_override("font", font)
@@ -217,11 +217,11 @@ static func ghost_button(text: String, color: Color = LIME) -> Button:
 ## Kichik dumaloq tugma (orqaga, pauza).
 static func icon_button(text: String) -> Button:
 	var b := button(text, PANEL)
-	b.custom_minimum_size = Vector2(52, 52)
-	b.add_theme_font_size_override("font_size", 20)
+	b.custom_minimum_size = Vector2(62, 62)
+	b.add_theme_font_size_override("font_size", 25)
 	b.add_theme_font_override("font", ThemeDB.fallback_font)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
-		var box := style(SURFACE if state != "hover" else PANEL, 26, 2, 4)
+		var box := style(SURFACE if state != "hover" else PANEL, 31, 2, 4)
 		box.border_color = Color(1, 1, 1, 0.26)
 		b.add_theme_stylebox_override(state, box)
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color",
@@ -238,8 +238,8 @@ static func chips(values: PackedStringArray, selected: int,
 	for i in values.size():
 		var chip := Button.new()
 		chip.text = values[i]
-		chip.add_theme_font_size_override("font_size", 15)
-		chip.custom_minimum_size = Vector2(0, 42)
+		chip.add_theme_font_size_override("font_size", 16)
+		chip.custom_minimum_size = Vector2(0, 48)
 		var is_on := i == selected
 		var ink := Color("1a0f36") if (is_on and accent.get_luminance() > 0.52) \
 			else (Color.WHITE if is_on else TEXT_DIM)
@@ -270,8 +270,8 @@ static func switch_row(title: String, value: bool, on_toggle: Callable,
 
 	var toggle := Button.new()
 	toggle.text = Strings.t("switchOn") if value else Strings.t("switchOff")
-	toggle.custom_minimum_size = Vector2(80, 40)
-	toggle.add_theme_font_size_override("font_size", 14)
+	toggle.custom_minimum_size = Vector2(88, 46)
+	toggle.add_theme_font_size_override("font_size", 15)
 	var on_font := bold_font()
 	if on_font != null:
 		toggle.add_theme_font_override("font", on_font)
@@ -391,7 +391,9 @@ static func overlay(dim: bool = true) -> Control:
 		else Control.MOUSE_FILTER_IGNORE
 	if dim:
 		var shade := ColorRect.new()
-		shade.color = Color(0.047, 0.027, 0.125, 0.88)
+		# Fon o'yin maydonini ko'rsatib tursin, lekin matnni
+		# to'sib qo'ymasin.
+		shade.color = Color(0.106, 0.066, 0.212, 0.74)
 		shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(shade)
@@ -405,8 +407,9 @@ static func centered_column(root: Control, max_width: int = 460) -> VBoxContaine
 		margin.add_theme_constant_override("margin_" + side, 20)
 	root.add_child(margin)
 
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Barmoq bilan surib aylantirish uchun — oddiy ScrollContainer da
+	# bosilgan tugma surish hodisasini yeb qo'yadi.
+	var scroll := DragScroll.new()
 	margin.add_child(scroll)
 
 	var center := CenterContainer.new()

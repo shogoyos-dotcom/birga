@@ -14,6 +14,12 @@ render_mode diffuse_lambert, specular_disabled;
 //  * Avatar — g'olib chiqqan egannikki, uning hududiga moslab
 //    cho'ziladi va aynan shu hudud ichida ko'rinadi.
 
+// Suv kataklarining belgisi egalik kanalida (PaintLayer.WATER).
+// Ular ovoz berishda qatnashmaydi: aks holda qirg'oqda 4x4 oynaga
+// tushgan suv "egasiz" bo'lib ovoz berar va hudud rangini oq
+// hoshiya kesib o'tardi.
+const int WATER = 255;
+
 // R — hudud egasi (0..255). G (iz) bu yerda ishlatilmaydi: iz
 // o'yinchining uzluksiz yo'li bo'yicha alohida lenta bo'lib chiziladi,
 // chunki kataklardan chizilgan chiziq to'lqinli ko'rinadi.
@@ -91,6 +97,20 @@ void fragment() {
 	int near_owner[4] = int[](
 		int(t00.r * 255.0 + 0.5), int(t10.r * 255.0 + 0.5),
 		int(t01.r * 255.0 + 0.5), int(t11.r * 255.0 + 0.5));
+	// Suv nomzod bo'lolmaydi: eng yaqin katak suv bo'lsa, uning
+	// o'rniga quruqlikdagi qo'shnisi olinadi.
+	int land_pick = 0;
+	for (int k = 0; k < 4; k++) {
+		if (near_owner[k] != WATER) {
+			land_pick = near_owner[k];
+			break;
+		}
+	}
+	for (int k = 0; k < 4; k++) {
+		if (near_owner[k] == WATER) {
+			near_owner[k] = land_pick;
+		}
+	}
 
 	// Bir ekran pikseliga nechta katak to'g'ri keladi — chegarani
 	// shunga qarab yumshatamiz.
@@ -120,6 +140,9 @@ void fragment() {
 				int owner = int(cell_texel(
 					base + vec2(float(i) - 1.0, float(j) - 1.0)).r
 					* 255.0 + 0.5);
+				if (owner == WATER) {
+					continue;
+				}
 				float w = wx[i] * wy[j];
 				for (int k = 0; k < 4; k++) {
 					if (near_owner[k] == owner) {
