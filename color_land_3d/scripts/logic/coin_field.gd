@@ -8,6 +8,14 @@ extends RefCounted
 ## tushadi. Shuning uchun tanga yig'ish o'yinning asosiy
 ## harakatini kuchaytiradi — chetga og'dirmaydi.
 ##
+## Uchta qoida shundan kelib chiqadi:
+##  * **o'z hududingdagi tangani ololmaysan** — egallash faqat
+##    yangi kataklarni qamraydi, o'zingniki esa yangi emas;
+##  * **raqib sening yeringga kirib olib keta oladi** — u o'sha
+##    kataklarni egallaganda tanga uniki bo'ladi;
+##  * olingan tanga [constant MonetizationConfig.CITY_COIN_RESPAWN]
+##    soniyadan keyin shaharda qayta paydo bo'ladi.
+##
 ## Sof mantiq — Godot tugunlariga bog'liq emas, shuning uchun
 ## headless testdan o'tadi. Chizish `render/city_coins.gd` da.
 ##
@@ -18,6 +26,15 @@ extends RefCounted
 var coins: Array = []
 var _taken := 0
 var _collected := 0
+## O'yin boshlanganidan beri o'tgan vaqt (soniya).
+var _clock := 0.0
+## Qaytishini kutayotgan tangalar: [{index, at}], vaqt bo'yicha
+## tartiblangan — hammasining kutish muddati bir xil, shuning
+## uchun navbat o'z-o'zidan tartibda qoladi.
+var _waiting: Array = []
+## Qaytib kelgan tangalar indeksi — chizuvchi shular bo'yicha
+## yangilanadi.
+var _returned := PackedInt32Array()
 ## Oxirgi `flush_taken()` dan beri olingan tangalar indeksi —
 ## chizuvchi shular bo'yicha yangilanadi, butun ro'yxatni emas.
 var _dirty := PackedInt32Array()
@@ -31,6 +48,9 @@ func build(places: Array, grid: GameGrid) -> void:
 	coins.clear()
 	_taken = 0
 	_collected = 0
+	_clock = 0.0
+	_waiting.clear()
+	_returned.clear()
 	_dirty.clear()
 	_by_cell.clear()
 	var top := 1.0
@@ -54,6 +74,7 @@ func build(places: Array, grid: GameGrid) -> void:
 func size() -> int:
 	return coins.size()
 
+## Hozir xaritada yo'q tangalar soni.
 func taken_count() -> int:
 	return _taken
 
@@ -61,9 +82,14 @@ func taken_count() -> int:
 func collected() -> int:
 	return _collected
 
-## Egallangan kataklardagi tangalarni yig'adi va qiymatini
-## qaytaradi. Olinganlari ikkinchi marta hisoblanmaydi.
-func collect_cells(cells: PackedInt32Array) -> int:
+## Egallangan kataklardagi tangalarni oladi va qiymatini qaytaradi.
+##
+## `score` yolg'on bo'lsa tanga xaritadan yo'qoladi, lekin hisobga
+## qo'shilmaydi — uni raqib olib ketgan bo'ladi.
+##
+## Ro'yxatda faqat **yangi** egallangan kataklar bo'ladi, shuning
+## uchun o'z hududingdagi tanga bu yerga tushmaydi.
+func collect_cells(cells: PackedInt32Array, score: bool = true) -> int:
 	var got := 0
 	for cell: int in cells:
 		var index: int = _by_cell.get(cell, -1)
@@ -76,8 +102,33 @@ func collect_cells(cells: PackedInt32Array) -> int:
 		got += int(coin["value"])
 		_taken += 1
 		_dirty.append(index)
-	_collected += got
+		_waiting.append({
+			"index": index,
+			"at": _clock + MonetizationConfig.CITY_COIN_RESPAWN,
+		})
+	if score:
+		_collected += got
 	return got
+
+## Soatni oldinga suradi va muddati yetgan tangalarni qaytaradi.
+##
+## Natija — qayta paydo bo'lgan tangalar indeksi; chizuvchi
+## shulardan foydalanadi.
+func advance(delta: float) -> PackedInt32Array:
+	_clock += delta
+	_returned.clear()
+	while not _waiting.is_empty() \
+			and float((_waiting[0] as Dictionary)["at"]) <= _clock:
+		var row: Dictionary = _waiting.pop_front()
+		var index := int(row["index"])
+		(coins[index] as Dictionary)["taken"] = false
+		_taken -= 1
+		_returned.append(index)
+	return _returned
+
+## Qaytishini kutayotgan tangalar soni.
+func waiting_count() -> int:
+	return _waiting.size()
 
 ## Oxirgi chaqiriqdan beri olingan tangalar indeksini qaytaradi va
 ## ro'yxatni bo'shatadi.

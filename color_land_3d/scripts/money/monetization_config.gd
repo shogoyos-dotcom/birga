@@ -58,8 +58,10 @@ const DAILY_LOGIN: PackedInt32Array = [100, 150, 200, 300, 500, 750, 1000]
 ## oraliqda bo'ladi.
 const CITY_COIN_MIN := 1
 const CITY_COIN_MAX := 25
-## Tangani olish radiusi (katak).
-const CITY_COIN_RADIUS := 1.6
+## Olingan tanga shuncha soniyadan keyin shaharda qayta paydo
+## bo'ladi. Shu sabab xaritaning bir joyida uzoq turish foydasiz:
+## tanga qaytguncha boshqa yerdan yer egallash kerak.
+const CITY_COIN_RESPAWN := 30.0
 
 # ——— Chegaralar ———
 

@@ -24,6 +24,8 @@ func _process(_delta: float) -> bool:
 	_test_strings(t)
 	_test_paint(t)
 	_test_money(t)
+	_test_coins(t)
+	_test_trail_smoothing(t)
 	_test_shop(t)
 	_test_daily(t)
 	_test_missions(t)
@@ -32,6 +34,145 @@ func _process(_delta: float) -> bool:
 	return true
 
 # ——— Chizish qatlami ———
+
+# ——— Xaritadagi tangalar ———
+
+func _test_coins(t: TestRunner) -> void:
+	t.group("shahar tangalari")
+
+	var grid := MapHelpers.grid_from(PackedStringArray([
+		"......",
+		"......",
+		"......",
+		"......",
+	]))
+	var places: Array = [
+		{"x": 1, "y": 1, "pop": 1000},
+		{"x": 4, "y": 2, "pop": 100},
+	]
+	var cell_a := 1 * grid.width + 1
+	var cell_b := 2 * grid.width + 4
+
+	t.test("har shaharda bitta tanga", func() -> void:
+		var field := CoinField.new()
+		field.build(places, grid)
+		t.equal(field.size(), 2, "ikki shahar")
+		t.equal(field.taken_count(), 0, "boshida hammasi joyida")
+	)
+
+	t.test("egallangan katakdagi tanga olinadi", func() -> void:
+		var field := CoinField.new()
+		field.build(places, grid)
+		var got := field.collect_cells(PackedInt32Array([cell_a]))
+		t.check(got > 0, "qiymati bor: %d" % got)
+		t.equal(field.collected(), got, "hisobga yozildi")
+		t.equal(field.taken_count(), 1, "xaritadan yo'qoldi")
+		t.equal(field.collect_cells(PackedInt32Array([cell_a])), 0,
+			"ikkinchi marta olinmaydi")
+	)
+
+	t.test("raqib olsa hisobga yozilmaydi", func() -> void:
+		# Raqib mening yerimga kirib tangani olib ketishi mumkin:
+		# tanga xaritadan yo'qoladi, lekin menga tushmaydi.
+		var field := CoinField.new()
+		field.build(places, grid)
+		var got := field.collect_cells(PackedInt32Array([cell_b]), false)
+		t.check(got > 0, "tanga olindi")
+		t.equal(field.collected(), 0, "mening hisobim o'zgarmadi")
+		t.equal(field.taken_count(), 1, "xaritadan yo'qoldi")
+	)
+
+	t.test("tanga 30 soniyadan keyin qaytadi", func() -> void:
+		var field := CoinField.new()
+		field.build(places, grid)
+		var first := field.collect_cells(PackedInt32Array([cell_a]))
+		t.equal(field.waiting_count(), 1, "navbatda turibdi")
+		t.check(field.advance(
+			MonetizationConfig.CITY_COIN_RESPAWN - 1.0).is_empty(),
+			"muddatidan oldin qaytmaydi")
+		t.equal(field.taken_count(), 1, "hali yo'q")
+		var back := field.advance(2.0)
+		t.equal(back.size(), 1, "qaytdi")
+		t.equal(field.taken_count(), 0, "xaritada yana bor")
+		t.equal(field.collect_cells(PackedInt32Array([cell_a])), first,
+			"qaytgach yana olinadi")
+	)
+
+	t.test("o'z hududingdagi tanga olinmaydi", func() -> void:
+		# Egallash faqat **yangi** kataklarni qaytaradi, shuning
+		# uchun o'zingniki bo'lgan shahar ro'yxatga tushmaydi.
+		var own := MapHelpers.grid_from(PackedStringArray([
+			"111111",
+			"111111",
+			"111111",
+			"111111",
+		]))
+		var capture := TerritoryCapturer.new(own)
+		var result := capture.capture(1, PackedInt32Array())
+		t.equal((result["cells"] as PackedInt32Array).size(), 0,
+			"o'z yeri qayta egallanmaydi")
+	)
+
+# ——— Iz lentasini silliqlash ———
+
+const TrailRibbonsScript := preload("res://scripts/render/trail_ribbons.gd")
+
+func _test_trail_smoothing(t: TestRunner) -> void:
+	t.group("iz silliqligi")
+
+	# Qirg'oq bo'ylab yurgandagi zinapoya: bir katak o'ngga, bir
+	# katak pastga.
+	var stair := PackedVector2Array()
+	for i in 12:
+		stair.append(Vector2(float(i), floor(i / 2.0)))
+	var smooth: Array = TrailRibbonsScript.smooth_all(stair)
+
+	t.test("zinapoya yumshaydi", func() -> void:
+		t.equal(smooth.size(), stair.size(), "nuqtalar soni o'zgarmadi")
+		var was := _wobble(stair)
+		var now := _wobble(_packed(smooth))
+		t.check(now < was * 0.4, "tishlari kamaydi: %.3f -> %.3f" % [was, now])
+	)
+
+	t.test("iz o'z joyidan ketmaydi", func() -> void:
+		for i in stair.size():
+			var at: Vector2 = smooth[i]
+			t.check(at.distance_to(stair[i])
+					<= TrailRibbonsScript.SMOOTH_LIMIT + 0.001,
+				"%d-nuqta chegarada" % i)
+		t.check((smooth[0] as Vector2).is_equal_approx(stair[0]),
+			"boshi joyida")
+		t.check((smooth[smooth.size() - 1] as Vector2).is_equal_approx(
+			stair[stair.size() - 1]), "oxiri joyida")
+	)
+
+	t.test("to'g'ri chiziq o'zgarmaydi", func() -> void:
+		var line := PackedVector2Array([
+			Vector2(0, 0), Vector2(10, 0), Vector2(20, 0)])
+		var out: Array = TrailRibbonsScript.smooth_all(line)
+		for i in line.size():
+			t.check((out[i] as Vector2).is_equal_approx(line[i]),
+				"%d-nuqta joyida" % i)
+	)
+
+## Oddiy massivni Packed ga o'tkazadi — o'lchov uchun.
+static func _packed(rows: Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for v: Vector2 in rows:
+		out.append(v)
+	return out
+
+## Chiziqning "tishliligi": qo'shni kesmalar yo'nalishi qanchalik
+## o'zgaradi. Kichik son — silliqroq.
+static func _wobble(path: PackedVector2Array) -> float:
+	var sum := 0.0
+	for i in range(1, path.size() - 1):
+		var a: Vector2 = path[i] - path[i - 1]
+		var b: Vector2 = path[i + 1] - path[i]
+		if a.length() < 1e-6 or b.length() < 1e-6:
+			continue
+		sum += absf(a.normalized().angle_to(b.normalized()))
+	return sum
 
 # ——— Do'kon ———
 

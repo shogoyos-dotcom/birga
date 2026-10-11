@@ -84,6 +84,14 @@ func take(indices: PackedInt32Array) -> void:
 			multimesh.set_instance_transform(i, Transform3D(
 				Basis().scaled(Vector3.ZERO), Vector3.ZERO))
 
+## Qayta paydo bo'lgan tangalarni o'z o'lchamiga qaytaradi.
+func give_back(indices: PackedInt32Array) -> void:
+	if multimesh == null:
+		return
+	for i: int in indices:
+		if i >= 0 and i < multimesh.instance_count:
+			multimesh.set_instance_transform(i, _at(i))
+
 func _at(index: int) -> Transform3D:
 	var coin: Dictionary = _field.coins[index]
 	var radius: float = lerpf(MIN_RADIUS, MAX_RADIUS, float(coin["weight"]))

@@ -520,8 +520,16 @@ func _halo_for(p: PlayerState) -> MeshInstance3D:
 
 func _process(delta: float) -> void:
 	if _match_running:
+		# Tanga soati dunyo soatidan yuradi: `world.update()` juda
+		# uzun kadrni qisqartiradi, shuning uchun xom `delta` ni
+		# ishlatsak ikki soat bir-biridan uzoqlashib ketardi.
+		var was := world.elapsed
 		world.update(delta)
 		_handle_events()
+		# Olingan tangalar shaharlarda qayta paydo bo'ladi.
+		var back := _coin_field.advance(world.elapsed - was)
+		if not back.is_empty():
+			_coins.give_back(back)
 	# Mehmonda holat uy egasidan keladi, lekin o'lim baribir shu yerda
 	# seziladi — natija oynasi ochiladi.
 	if _playing and not world.human().alive:
@@ -543,18 +551,22 @@ func _handle_events() -> void:
 	for event in world.drain_events():
 		match event["type"]:
 			"capture":
-				if int(event["player"]) == human_id:
+				# Egallangan hududdagi shaharlarning tangasi
+				# egallagan o'yinchiga o'tadi — raqib sening
+				# yeringga kirib olib keta oladi. Faqat odam
+				# o'yinchinikisi hisobga yoziladi.
+				var mine := int(event["player"]) == human_id
+				if mine:
 					Audio.capture()
 					ui.flash(Palette.head(world.human().color_index), 0.18)
 					_burst.burst(Vector3(world.human().x,
 						ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS,
 						world.human().y))
-					# Egallangan hududdagi shaharlarning tangasi
-					# o'yinchiga o'tadi. Faqat odam o'yinchi yig'adi:
-					# tanga — mukofot, botlarga kerak emas.
 					_captures += 1
-					if _coin_field.collect_cells(event["cells"]) > 0:
-						_coins.take(_coin_field.flush_taken())
+				_coin_field.collect_cells(event["cells"], mine)
+				var taken := _coin_field.flush_taken()
+				if not taken.is_empty():
+					_coins.take(taken)
 			"death":
 				if int(event["player"]) == human_id:
 					_cleared_on_death = event["cleared"]

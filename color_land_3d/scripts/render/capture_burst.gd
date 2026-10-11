@@ -28,7 +28,12 @@ func _ready() -> void:
 
 ## Do'kondan tanlangan effektni o'rnatadi.
 func apply_cosmetics(tint: Color) -> void:
-	var look := Cosmetics.effect(Shop.worn_in(ShopManager.EFFECTS))
+	# Avtoyuklangan nom `--script` rejimida yo'q — daraxtdan olinadi.
+	var shop := get_node_or_null("/root/Shop")
+	var id := "fx_none"
+	if shop != null:
+		id = str(shop.worn_in(ShopManager.EFFECTS))
+	var look := Cosmetics.effect(id)
 	_enabled = int(look["count"]) > 0
 	if not _enabled:
 		emitting = false

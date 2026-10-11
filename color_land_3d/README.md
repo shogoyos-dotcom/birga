@@ -125,6 +125,9 @@ godot --path . --script res://tools/uitest.gd
 # Pauza: dunyo to'xtaydimi va yig'ilgan tanga joyida qoladimi.
 godot --headless --path . --script res://tools/pausetest.gd
 
+# Tanga: olinadi, yo'qoladi va 30 soniyadan keyin qaytadi.
+godot --headless --path . --script res://tools/cointest.gd
+
 # Maydon bo'yicha xotira va tugunlar soni.
 godot --path . --script res://tools/memtest.gd
 
@@ -398,6 +401,63 @@ sotiladigani faqat ko'rinish. Buni test ham tekshiradi: katalogda
 test yiqiladi. Ko'rinish jadvali (`money/cosmetics.gd`) ham xuddi
 shu tekshiruvdan o'tadi — shuning uchun effektning zarracha
 tezligi `speed` emas, `fly` deb ataladi.
+
+### Tanga qoidalari
+
+Tanga **hududni egallaganda** olinadi — ustidan yurganda emas.
+Shundan uch narsa kelib chiqadi, va uchalasi ham bitta joydan:
+egallash faqat **yangi** kataklarni qaytaradi
+(`TerritoryCapturer._claim` o'ziniki bo'lgan katakni o'tkazib
+yuboradi).
+
+* **O'z hududingdagi tangani ololmaysan.** U yangi katak emas.
+* **Raqib sening yeringga kirib olib keta oladi.** U o'sha
+  kataklarni egallaganda tanga uniki bo'ladi. Avval tangani faqat
+  odam o'yinchi yig'ardi — bot egallagan shaharda tanga turaverardi.
+* **Olingan tanga 30 soniyadan keyin qaytadi**
+  (`MonetizationConfig.CITY_COIN_RESPAWN`). Shuning uchun bir
+  joyda o'tirish foydasiz: tanga qaytguncha boshqa yerdan yer
+  egallash kerak.
+
+Tanga soati **dunyo soatidan** yuradi, xom `delta` dan emas:
+`GameWorld.update()` juda uzun kadrni 0.25 soniyaga qisqartiradi,
+shuning uchun ikki soat bir-biridan uzoqlashib ketardi — pauzada
+esa tanga qaytib qolardi.
+
+`tools/cointest.gd` shuni tekshiradi. Chizuvchi (MultiMesh) u yerda
+tekshirilmaydi: headless rejimda RenderingServer soxta bo'lib,
+nusxa matritsalarini saqlamaydi va o'qiganda doim birlik matritsa
+qaytaradi.
+
+### Iz qirg'oqda zinapoya bo'lib qolardi
+
+Qirg'oq bo'ylab yurganda suvga qaragan o'q to'siladi: o'yinchi bir
+oz gorizontal, keyin bir oz vertikal siljiydi va yo'l zinapoya
+bo'lib qolardi (`GameWorld._move` o'qlarni alohida tekshiradi).
+
+Tuzatish faqat **chizishda**: `trail_ribbons.gd` yo'lni lenta
+qurishdan oldin tekislaydi. To'qnashuv va hudud baribir kataklar
+bo'yicha hisoblanadi, shuning uchun qoidalar o'zgarmadi. Har nuqta
+asl joyidan 0.45 katakdan uzoqqa ketmaydi (lentaning yarim kengligi
+0.575), shuning uchun lenta o'z kataklari ustida qoladi va ataylab
+qilingan keskin burilish yo'qolmaydi.
+
+**Narxi o'lchandi.** Butun yo'lni har kadrda tekislash qimmat: 30
+o'yinli sinovda bir kadrda jami 164 nuqta (o'rtacha), eng ko'pi
+855. Shuncha nuqta uchun 8 o'tish 1.28 ms oladi — kadr byudjetining
+bir qismi. Silliqlash mahalliy (bir o'tishda o'zgarish bitta nuqta
+nariga ko'chadi), shuning uchun har kadrda faqat oxirgi 24 nuqta
+qayta hisoblanadi:
+
+| Yo'l uzunligi | Butun yo'l | Oyna |
+| --- | --- | --- |
+| 164 nuqta | 0.248 ms | 0.038 ms |
+| 400 nuqta | 0.601 ms | 0.040 ms |
+| 855 nuqta | 1.278 ms | 0.037 ms |
+
+Natija yo'l uzunligiga bog'liq emas. Kesh oddiy `Array` da
+saqlanadi: `PackedVector2Array` nusxa bilan ishlaydi
+(copy-on-write) va har kadrda yuzlab nuqta ko'chirilardi.
 
 ### Pauza (ikki xato, o'lchab topilgan)
 
