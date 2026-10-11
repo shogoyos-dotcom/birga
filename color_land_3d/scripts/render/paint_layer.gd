@@ -14,7 +14,7 @@ extends RefCounted
 ##  * [texture] — tayyor ranglar; kichik xarita shuni ko'rsatadi.
 
 ## Rang jadvali o'lchami: 0 — egasiz, 1..255 — hudud, 256..511 — iz.
-const PALETTE_SIZE := 512
+const PALETTE_SIZE := 768
 
 ## Suv kataklarining belgisi egalik kanalida.
 ##
@@ -35,9 +35,15 @@ var palette_texture: ImageTexture
 
 var _grid: GameGrid
 var _colors: PackedColorArray
+## O'yinchi ID -> skin nomi.
+var _skins := PackedStringArray()
 
-func _init(grid: GameGrid, color_index_by_id: PackedByteArray) -> void:
+## `skin_by_id` — har o'yinchining hudud naqshi (skin nomi).
+## Bo'sh bo'lsa hudud tekis rangda qoladi.
+func _init(grid: GameGrid, color_index_by_id: PackedByteArray,
+		skin_by_id: PackedStringArray = PackedStringArray()) -> void:
 	_grid = grid
+	_skins = skin_by_id
 	image = Image.create_empty(grid.width, grid.height, false, Image.FORMAT_RGBA8)
 	index_image = Image.create_empty(
 		grid.width, grid.height, false, Image.FORMAT_RG8)
@@ -47,19 +53,39 @@ func _init(grid: GameGrid, color_index_by_id: PackedByteArray) -> void:
 	index_texture = ImageTexture.create_from_image(index_image)
 	palette_texture = ImageTexture.create_from_image(palette_image)
 
-## O'yinchi ranglarini oldindan hisoblaydi: 0 — egasiz, 1..255 — hudud,
-## 256..511 — o'sha ID ning izi.
+## O'yinchi ranglarini oldindan hisoblaydi.
 ##
-## Rang jadvali to'liq noshaffof: shaffof piksel qop-qora bo'lib
-## qolardi.
+## Jadvalning tuzilishi:
+##  * `0` — egasiz quruqlik;
+##  * `1..255` — hudud rangi (skinga tortilgan);
+##  * `256..511` — o'sha ID ning naqsh va hoshiya rangi;
+##  * `512..767` — naqsh raqami, **alfa** kanalida.
+##
+## Hammasi bitta 768x1 teksturada: yangi shader parametri kerak
+## emas.
 func _rebuild_colors(color_index_by_id: PackedByteArray) -> void:
 	_colors = PackedColorArray()
 	_colors.resize(PALETTE_SIZE)
 	_colors[0] = Palette.land()
 	for id in range(1, 256):
 		var ci: int = color_index_by_id[id]
-		_colors[id] = Palette.territory(ci)
-		_colors[256 + id] = Palette.trail(ci)
+		var skin := _skins[id] if id < _skins.size() else ""
+		# Hudud rangi skinga tortiladi — tarvuz qizil, muz moviy
+		# bo'ladi. O'yinchining o'z rangi butunlay yo'qolmaydi:
+		# aralashma shar pardozidagidek (`blend`), shuning uchun
+		# maydonda kim kimligi baribir bilinadi.
+		var base := Palette.territory(ci)
+		if not skin.is_empty():
+			base = Cosmetics.skin_color(base, Cosmetics.skin(skin))
+		_colors[id] = base
+		var accent := Cosmetics.accent_of(skin)
+		accent.a = 1.0
+		_colors[256 + id] = accent
+		# Naqsh raqami **alfada**: rang kanallari `source_color`
+		# bilan o'qiladi va sRGB dan chiziqliga o'giriladi — butun
+		# son undan omon chiqmaydi. Alfa esa o'girilmaydi.
+		_colors[512 + id] = Color(1.0, 1.0, 1.0,
+			Cosmetics.pattern_of(skin) / 255.0)
 	palette_image = Image.create_empty(
 		PALETTE_SIZE, 1, false, Image.FORMAT_RGBA8)
 	for i in PALETTE_SIZE:

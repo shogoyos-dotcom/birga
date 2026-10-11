@@ -478,6 +478,53 @@ Reyting qatoridagi avatar va nishon `Control` ichida turadi,
 joylashtiradi va ankerlarni e'tiborsiz qoldiradi — nishon butun
 katakni egallab olardi.
 
+## Hudud va iz grafikasi
+
+**Maydon yoritilmaydi.** Arena ustki yuzasi `unshaded`: multfilm
+uslubida maydon tekis rangda bo'lishi kerak. Yoritilganda och
+rang (masalan `#eafbf4`) quyosh ostida oqarib ketardi va hudud
+ranglari ham xira chiqardi. Yon devorlar yoritilgan bo'lib
+qoladi — 3D hajm shundan bilinadi.
+
+**Tuman o'chirildi.** O'lchov: hudud rangi `(222,53,100)` bo'lishi
+kerak edi, ekranda esa `(237,155,181)` chiqardi — tuman rangni
+osmon rangiga qarab yuvib yuborardi. Tuman o'chirilgach rang
+deyarli aniq chiqadi (qolgan farq ~6%).
+
+**Skin hududni bo'yaydi.** Har skinning o'z rangi va naqshi bor:
+tarvuz qizil, urug'li, chetida yashil po'st. Rang o'yinchining
+o'z rangiga **tortiladi** (`blend` 0.5–0.55), butunlay
+almashtirilmaydi — maydonda kim kimligi bilinib tursin.
+
+| Jadval katagi | Nima |
+| --- | --- |
+| `1..255` | hudud rangi (skinga tortilgan) |
+| `256..511` | naqsh va hoshiya rangi |
+| `512..767` | naqsh raqami, **alfa** kanalida |
+
+Naqsh raqami ataylab alfada: rang kanallari `source_color` bilan
+sRGB dan chiziqliga o'giriladi va butun son ularda omon qolmaydi.
+
+**Hoshiya** faqat chegara piksellarida hisoblanadi: ichkarida eng
+yaqin to'rt katak bir xil va tez yo'l ishlaydi, demak hoshiya
+chegaradan nariga o'tmaydi.
+
+**Iz oq chetli:** lenta ikki marta chiziladi — avval kengroq oq,
+ustiga rangli.
+
+**Yetakchida toj** — bosh ustida, doim kameraga qaraydi. Teksturasi
+kod bilan chiziladi, rasm fayli emas.
+
+### Ochiq masala: maydondagi kulrang yo'l
+
+Maydon bo'ylab yumshoq kulrang yo'l ko'rinadi. O'lchandi: u arena
+ustki yuzasidan keladi (shaderni qizilga majburlaganda yo'qoladi),
+lekin tuman, soya, okean, devor materiali va hududdagi avatar —
+hammasi birma-bir o'chirib ko'rildi, hech biri sabab emas. Rangi
+quruqlik rangining aynan 0.67 ulushi. Bu **avvaldan bor** edi (shu
+bosqichdan oldingi holatda ham chiqadi), shuning uchun hozircha
+qoldirildi.
+
 ### Hudud chegarasi ko'pburchak bo'lib ko'rinardi
 
 Kataklarga tushirilgan doira o'z o'qlari yonida uzun **to'g'ri**

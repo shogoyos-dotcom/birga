@@ -1,5 +1,10 @@
 shader_type spatial;
-render_mode diffuse_lambert, specular_disabled;
+// Yuza **yoritilmaydi**: multfilm uslubida maydon tekis rangda
+// bo'lishi kerak. Yoritilganda och rang (masalan #eafbf4) quyosh
+// ostida oqarib ketardi va hudud ranglari ham xira chiqardi.
+// Yon devorlar alohida material bilan yoritiladi — 3D hajm
+// shundan bilinadi.
+render_mode unshaded;
 
 // Arena ustki yuzasi: hudud, iz va avatar.
 //
@@ -72,6 +77,11 @@ float weight_of(float x) {
 // uchun k 1.9 dan kichik bo'lishi shart.
 const float WIDE_MIX = 0.7;
 
+// Hudud chetidagi hoshiya kengligi (ovoz birligida; 0.35 taxminan
+// bir katak). Hoshiya skinning urg'u rangida bo'ladi — tarvuzda
+// yashil po'st, muzda och moviy.
+const float RIM_WIDTH = 0.80;
+
 float vote_weight(float x) {
 	return weight_of(x) + WIDE_MIX * weight_of(x * (2.0 / float(VOTE_R)));
 }
@@ -82,9 +92,84 @@ vec4 cell_texel(vec2 cell) {
 	return textureLod(index_tex, (cell + vec2(0.5)) / grid_size, 0.0);
 }
 
-vec3 color_of(int index) {
+vec4 palette_of(int index) {
 	return textureLod(palette_tex,
-		vec2((float(index) + 0.5) / 512.0, 0.5), 0.0).rgb;
+		vec2((float(index) + 0.5) / 768.0, 0.5), 0.0);
+}
+
+vec3 color_of(int index) {
+	return palette_of(index).rgb;
+}
+
+// ——— Hudud naqshlari ———
+//
+// Naqsh raqami rang jadvalining 512+ID katagidan, **alfa**
+// kanalidan o'qiladi (0 — tekis): rang kanallari sRGB dan
+// chiziqliga o'giriladi va butun son ularda omon qolmaydi.
+// Naqsh o'yinchining o'z rangi ustiga chiziladi, shuning uchun
+// maydonda kim kimligi baribir bilinadi.
+
+float hash21(vec2 p) {
+	p = fract(p * vec2(123.34, 456.21));
+	p += dot(p, p + 45.32);
+	return fract(p.x * p.y);
+}
+
+// Katak to'rida tasodifiy joylashgan dog'lar. `density` — dog'
+// qanchalik katta, `cell` — naqsh to'rining qadami.
+float blobs(vec2 at, float cell_size, float radius, float seed) {
+	vec2 grid_at = at / cell_size;
+	vec2 base = floor(grid_at);
+	float best = 1.0;
+	for (int j = -1; j <= 1; j++) {
+		for (int i = -1; i <= 1; i++) {
+			vec2 cell = base + vec2(float(i), float(j));
+			vec2 jitter = vec2(hash21(cell + seed),
+				hash21(cell + seed + 7.1));
+			float d = length(grid_at - (cell + 0.2 + jitter * 0.6));
+			best = min(best, d);
+		}
+	}
+	return 1.0 - smoothstep(radius, radius + 0.12, best);
+}
+
+vec3 skin_shade(int owner, vec3 base, vec2 at) {
+	int pattern = int(palette_of(512 + owner).a * 255.0 + 0.5);
+	if (pattern == 0) {
+		return base;
+	}
+	vec3 accent = color_of(256 + owner);
+	float mask = 0.0;
+	if (pattern == 1) {
+		// Urug'lar — tarvuz.
+		mask = blobs(at, 5.0, 0.11, 0.0);
+	} else if (pattern == 2) {
+		// Mayda rangli chiziqchalar — donut sepmasi.
+		vec2 turned = vec2(at.x + at.y, at.y - at.x) * 0.5;
+		mask = blobs(turned, 4.5, 0.1, 3.0)
+			+ blobs(turned + 2.0, 4.5, 0.08, 9.0) * 0.8;
+	} else if (pattern == 3) {
+		// Muz yoriqlari — to'rsimon chiziqlar.
+		vec2 cell = at / 9.0;
+		vec2 edge = abs(fract(cell + vec2(sin(cell.y), cos(cell.x)) * 0.2)
+			- 0.5);
+		mask = 1.0 - smoothstep(0.03, 0.07, min(edge.x, edge.y));
+	} else if (pattern == 4) {
+		// Lava cho'g'i — yirik, yumshoq dog'lar.
+		mask = blobs(at, 10.0, 0.3, 1.0) * 0.75;
+	} else if (pattern == 5) {
+		// Yulduzlar — mayda, siyrak.
+		mask = blobs(at, 6.0, 0.06, 5.0);
+	} else if (pattern == 6) {
+		// Barglar — cho'zilgan dog'lar.
+		mask = blobs(at * vec2(1.0, 1.9), 8.0, 0.2, 2.0);
+	} else {
+		// Sitrus bo'laklari — markazdan tarqalgan nurlar.
+		float a = atan(at.y - 40.0, at.x - 40.0);
+		mask = 1.0 - smoothstep(0.05, 0.12, abs(fract(a * 2.4) - 0.5));
+		mask *= 0.5;
+	}
+	return mix(base, accent, clamp(mask, 0.0, 1.0) * 0.9);
 }
 
 // Hudud rangiga o'sha egannikki avatarni qo'shadi.
@@ -152,7 +237,8 @@ void fragment() {
 		// tanlaydi (uning ulushi har doim yarmidan ko'p) — qolgan 12
 		// katakni o'qishning hojati yo'q.
 		shade = with_avatar(near_owner[0],
-			color_of(near_owner[0]), cell_pos);
+			skin_shade(near_owner[0], color_of(near_owner[0]), cell_pos),
+			cell_pos);
 	} else {
 		// ——— Hudud: VOTE_W x VOTE_W katak bo'yicha ovoz berish.
 		//
@@ -198,10 +284,26 @@ void fragment() {
 		}
 
 		shade = with_avatar(near_owner[best],
-			color_of(near_owner[best]), cell_pos);
+			skin_shade(near_owner[best], color_of(near_owner[best]),
+				cell_pos), cell_pos);
+		// Hudud chetidagi hoshiya: chegaraga yaqin joy skin
+		// rangida bo'yaladi. Faqat shu yerda hisoblanadi —
+		// ichkarida eng yaqin to'rt katak bir xil va tez yo'l
+		// ishlaydi, demak hoshiya chegaradan nariga o'tmaydi.
+		float gap = score[best] - score[second < 0 ? best : second];
+		if (near_owner[best] > 0 && gap < RIM_WIDTH) {
+			vec3 rim = color_of(256 + near_owner[best]);
+			shade = mix(rim, shade, smoothstep(0.0, RIM_WIDTH, gap));
+		}
 		if (second >= 0) {
 			vec3 other = with_avatar(near_owner[second],
-				color_of(near_owner[second]), cell_pos);
+				skin_shade(near_owner[second],
+					color_of(near_owner[second]), cell_pos), cell_pos);
+			float gap2 = score[second] - score[best];
+			if (near_owner[second] > 0 && -gap2 < RIM_WIDTH) {
+				vec3 rim2 = color_of(256 + near_owner[second]);
+				other = mix(rim2, other, smoothstep(0.0, RIM_WIDTH, -gap2));
+			}
 			float lead = (score[best] - score[second]) / pixel;
 			shade = mix(other, shade, clamp(0.5 + 0.5 * lead, 0.5, 1.0));
 		}

@@ -83,8 +83,12 @@ var show_city_names: bool:
 	set(value): _write("city_names", value)
 
 ## Hudud ustida avatar (bayroq) naqshi ko'rinadimi.
+## Hudud ustida o'yinchi avatari ko'rinadimi.
+##
+## Boshlang'ich holat — **o'chiq**: hudud endi skin naqshi bilan
+## bo'yaladi va ulkan avatar uni bosib ketardi.
 var show_flags: bool:
-	get: return bool(_read("flags", true))
+	get: return bool(_read("flags", false))
 	set(value): _write("flags", value)
 
 ## HUD da kichik xarita ko'rinadimi.

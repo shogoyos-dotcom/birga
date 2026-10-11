@@ -186,7 +186,12 @@
     "themePaper": "Paper",
     "sideLeft": "Chapda",
     "sideRight": "O‘ngda",
-    "sideOff": "O‘chiq"
+    "sideOff": "O‘chiq",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "en": {
     "adNotReady": "Ad is not ready yet",
@@ -375,7 +380,12 @@
     "themePaper": "Paper",
     "sideLeft": "Left",
     "sideRight": "Right",
-    "sideOff": "Off"
+    "sideOff": "Off",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "ru": {
     "adNotReady": "Реклама ещё не готова",
@@ -564,7 +574,12 @@
     "themePaper": "Paper",
     "sideLeft": "Слева",
     "sideRight": "Справа",
-    "sideOff": "Выкл"
+    "sideOff": "Выкл",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "tr": {
     "adNotReady": "Reklam henüz hazır değil",
@@ -753,7 +768,12 @@
     "themePaper": "Paper",
     "sideLeft": "Solda",
     "sideRight": "Sağda",
-    "sideOff": "Kapalı"
+    "sideOff": "Kapalı",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "kk": {
     "adNotReady": "Жарнама әлі дайын емес",
@@ -942,7 +962,12 @@
     "themePaper": "Paper",
     "sideLeft": "Солда",
     "sideRight": "Оңда",
-    "sideOff": "Өшірулі"
+    "sideOff": "Өшірулі",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "es": {
     "adNotReady": "El anuncio aún no está listo",
@@ -1131,7 +1156,12 @@
     "themePaper": "Paper",
     "sideLeft": "Izquierda",
     "sideRight": "Derecha",
-    "sideOff": "Apagado"
+    "sideOff": "Apagado",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "pt": {
     "adNotReady": "O anúncio ainda não está pronto",
@@ -1320,7 +1350,12 @@
     "themePaper": "Paper",
     "sideLeft": "Esquerda",
     "sideRight": "Direita",
-    "sideOff": "Desligado"
+    "sideOff": "Desligado",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "fr": {
     "adNotReady": "La pub n'est pas encore prête",
@@ -1509,7 +1544,12 @@
     "themePaper": "Paper",
     "sideLeft": "Gauche",
     "sideRight": "Droite",
-    "sideOff": "Désactivé"
+    "sideOff": "Désactivé",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "de": {
     "adNotReady": "Werbung ist noch nicht bereit",
@@ -1698,7 +1738,12 @@
     "themePaper": "Paper",
     "sideLeft": "Links",
     "sideRight": "Rechts",
-    "sideOff": "Aus"
+    "sideOff": "Aus",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "id": {
     "adNotReady": "Iklan belum siap",
@@ -1887,7 +1932,12 @@
     "themePaper": "Paper",
     "sideLeft": "Kiri",
     "sideRight": "Kanan",
-    "sideOff": "Mati"
+    "sideOff": "Mati",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "zh": {
     "adNotReady": "广告还没准备好",
@@ -2076,7 +2126,12 @@
     "themePaper": "Paper",
     "sideLeft": "左侧",
     "sideRight": "右侧",
-    "sideOff": "关闭"
+    "sideOff": "关闭",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "ja": {
     "adNotReady": "広告はまだ準備中です",
@@ -2265,7 +2320,12 @@
     "themePaper": "Paper",
     "sideLeft": "左",
     "sideRight": "右",
-    "sideOff": "オフ"
+    "sideOff": "オフ",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "ko": {
     "adNotReady": "광고가 아직 준비되지 않았습니다",
@@ -2454,7 +2514,12 @@
     "themePaper": "Paper",
     "sideLeft": "왼쪽",
     "sideRight": "오른쪽",
-    "sideOff": "끄기"
+    "sideOff": "끄기",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "hi": {
     "adNotReady": "विज्ञापन अभी तैयार नहीं है",
@@ -2643,7 +2708,12 @@
     "themePaper": "Paper",
     "sideLeft": "बाएँ",
     "sideRight": "दाएँ",
-    "sideOff": "बंद"
+    "sideOff": "बंद",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   },
   "ar": {
     "adNotReady": "الإعلان غير جاهز بعد",
@@ -2832,6 +2902,11 @@
     "themePaper": "Paper",
     "sideLeft": "يسار",
     "sideRight": "يمين",
-    "sideOff": "إيقاف"
+    "sideOff": "إيقاف",
+    "skinMelon": "Melon",
+    "skinOrange": "Citrus",
+    "skinDonut": "Donut",
+    "skinForest": "Forest",
+    "skinGalaxy": "Galaxy"
   }
 }

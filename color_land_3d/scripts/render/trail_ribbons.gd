@@ -12,8 +12,9 @@ extends MeshInstance3D
 ## o'yinchida odatda o'nlab emas, bir nechta nuqta bo'ladi va lentani
 ## har kadrda qaytadan qurish arzon.
 
-## Lenta kengligi (katak).
+## Lenta kengligi (katak) va uning oq hoshiyasi.
 const WIDTH := 1.15
+const EDGE := 0.42
 
 ## Arena yuzasidan balandligi — z-fighting bo'lmasin.
 const LIFT := 0.07
@@ -25,6 +26,8 @@ var _materials: Array[StandardMaterial3D] = []
 var _human_id := -1
 var _human_look: Dictionary = Cosmetics.TRAILS["trail_plain"]
 var _human_material: StandardMaterial3D = null
+## Izning oq hoshiyasi — hamma o'yinchi uchun bitta material.
+var _edge_material: StandardMaterial3D = null
 
 func _ready() -> void:
 	mesh = _mesh
@@ -52,6 +55,14 @@ func setup(world: GameWorld) -> void:
 		# tomoni ham chiziladi.
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		_materials.append(mat)
+	if _edge_material == null:
+		# Oq hoshiya hamma iz uchun bitta material — iz rangidan
+		# qat'i nazar bir xil.
+		_edge_material = StandardMaterial3D.new()
+		_edge_material.albedo_color = Color(1, 1, 1, 0.95)
+		_edge_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_edge_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_edge_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_human_id = world.human().id
 	_smooth_cache.clear()
 	apply_cosmetics()
@@ -87,7 +98,10 @@ func _process(_delta: float) -> void:
 		return
 	for p in _world.players:
 		if p.alive and p.trail_path.size() >= 2:
-			_add_ribbon(p)
+			# Avval kengroq oq lenta, ustiga rangli — iz oq
+			# chetli bo'lib chiqadi.
+			_add_ribbon(p, true)
+			_add_ribbon(p, false)
 
 ## Iz lentasini silliqlash: nechta marta o'tiladi va har o'tishda
 ## nuqta qo'shnilarining o'rtasiga qanchalik tortiladi.
@@ -169,20 +183,22 @@ func _smoothed(p: PlayerState) -> Array:
 	_smooth_cache[p.id] = out
 	return out
 
-func _add_ribbon(p: PlayerState) -> void:
+func _add_ribbon(p: PlayerState, edge: bool) -> void:
 	var path := _smoothed(p)
 	# Pardozli iz faqat odam o'yinchida; botlarniki oddiy qoladi.
-	var fancy := p.id == _human_id and _human_material != null
-	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP,
-		_human_material if fancy else _materials[p.color_index])
+	var fancy := not edge and p.id == _human_id and _human_material != null
+	var material: StandardMaterial3D = _edge_material if edge \
+		else (_human_material if fancy else _materials[p.color_index])
+	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP, material)
+	var half := (WIDTH + (EDGE if edge else 0.0)) * 0.5
 	var base := Palette.trail(p.color_index)
-	var y := ArenaBuilder.LAND_HEIGHT + LIFT
+	var y := ArenaBuilder.LAND_HEIGHT + LIFT + (0.0 if edge else 0.012)
 	var last := maxi(path.size() - 1, 1)
 	for i in path.size():
 		# Burchakda ikki kesmaning o'rtacha yo'nalishi olinadi, shunda
 		# lenta uzilmaydi.
 		var dir := _direction(path, i)
-		var side := Vector2(-dir.y, dir.x) * (WIDTH * 0.5)
+		var side := Vector2(-dir.y, dir.x) * half
 		var point: Vector2 = path[i]
 		if fancy:
 			_mesh.surface_set_color(Cosmetics.trail_color(

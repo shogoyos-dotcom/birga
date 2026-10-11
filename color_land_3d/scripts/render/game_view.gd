@@ -40,6 +40,9 @@ var config := GameConfig.new()
 var _heads: Array[MeshInstance3D] = []
 ## Bosh ustidagi yorliqlar: ism va foiz.
 var _name_tags: Array[Label3D] = []
+## Yetakchining tojlari — har o'yinchida bor, lekin faqat
+## birinchi o'rindagisi ko'rinadi.
+var _crowns: Array[Sprite3D] = []
 var _percent_tags: Array[Label3D] = []
 var _avatars: Node
 var _trails: MeshInstance3D
@@ -361,6 +364,7 @@ func _clear_scene() -> void:
 	_heads.clear()
 	_name_tags.clear()
 	_percent_tags.clear()
+	_crowns.clear()
 
 ## Arena geometriyasi faqat maydonga bog'liq: o'yindan o'yinga
 ## o'zgarmaydi va qayta qurilmaydi. Maydon almashtirilgandagina
@@ -377,7 +381,8 @@ func _build_arena() -> void:
 			world.map.id, int(built["quads"]),
 			Time.get_ticks_msec() - started])
 
-	paint = PaintLayer.new(world.grid, world.color_index_by_id)
+	paint = PaintLayer.new(world.grid, world.color_index_by_id,
+		_skins_by_id())
 	_apply_sky()
 
 	# Ustki yuza: ranglarni shader hisoblaydi. Oddiy "nearest" filtrda
@@ -422,6 +427,22 @@ func _build_capitals() -> void:
 		return
 	_capitals_map = key
 	_capitals.build(world.places, world.grid)
+
+## Har o'yinchining hudud naqshi.
+##
+## Odam o'yinchiniki — do'kondan tanlangani. Botlarga ID bo'yicha
+## turg'un naqsh beriladi: maydon rang-barang bo'ladi, lekin
+## o'yindan o'yinga o'zgarib ketmaydi.
+func _skins_by_id() -> PackedStringArray:
+	var out := PackedStringArray()
+	out.resize(256)
+	var worn := Shop.worn_in(ShopManager.SKINS)
+	var pool: Array = Cosmetics.SKIN_LOOK.keys()
+	var human_id := world.human().id
+	for p in world.players:
+		out[p.id] = worn if p.id == human_id \
+			else str(pool[p.id % pool.size()])
+	return out
 
 ## Har o'yin boshida tangalar qaytadan to'kiladi.
 ##
@@ -482,8 +503,54 @@ func _build_players() -> void:
 		head.add_child(percent_tag)
 		_percent_tags.append(percent_tag)
 
+		var crown := Sprite3D.new()
+		crown.texture = _crown_texture()
+		crown.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		crown.shaded = false
+		crown.no_depth_test = true
+		crown.render_priority = 3
+		crown.pixel_size = 0.028
+		crown.position = Vector3(0.0, HEAD_RADIUS * 1.55, 0.0)
+		crown.visible = false
+		head.add_child(crown)
+		_crowns.append(crown)
+
 		players_root.add_child(head)
 		_heads.append(head)
+
+## Toj teksturasi — bir marta chiziladi va hamma o'yinchi
+## ishlatadi. Rasm fayli emas: belgi [GameIcon] dagidek kod bilan.
+func _crown_texture() -> ImageTexture:
+	if _crown_image != null:
+		return _crown_image
+	const SIZE := 48
+	var image := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	# Toj silueti: pastki tasma va uchta tish.
+	var shape := PackedVector2Array([
+		Vector2(0.08, 0.80), Vector2(0.08, 0.26), Vector2(0.30, 0.52),
+		Vector2(0.50, 0.16), Vector2(0.70, 0.52), Vector2(0.92, 0.26),
+		Vector2(0.92, 0.80)])
+	for y in SIZE:
+		for x in SIZE:
+			var at := Vector2(x + 0.5, y + 0.5) / float(SIZE)
+			if not Geometry2D.is_point_in_polygon(at, shape):
+				continue
+			# Chetga yaqin piksel — kontur.
+			var edge := _near_edge(at, shape)
+			image.set_pixel(x, y, UiKit.INK if edge else UiKit.YELLOW)
+	_crown_image = ImageTexture.create_from_image(image)
+	return _crown_image
+
+var _crown_image: ImageTexture
+
+## Nuqta ko'pburchak chetiga yaqinmi (kontur uchun).
+static func _near_edge(at: Vector2, shape: PackedVector2Array) -> bool:
+	for step: Vector2 in [Vector2(0.05, 0), Vector2(-0.05, 0),
+			Vector2(0, 0.05), Vector2(0, -0.05)]:
+		if not Geometry2D.is_point_in_polygon(at + step, shape):
+			return true
+	return false
 
 ## Bosh ustidagi yorliq: oq matn, to'q ko'k kontur, doim kameraga
 ## qarab turadi.
@@ -756,6 +823,15 @@ const TAG_RANGE := 54.0
 
 func _refresh_tags() -> void:
 	var eye := Vector2(world.human().x, world.human().y)
+	# Yetakchi o'yin davomida almashadi, shuning uchun toj har
+	# yangilashda qaytadan topiladi.
+	var leader := 0
+	var best := -1
+	for i in world.players.size():
+		var owned := world.grid.territory_of(world.players[i].id)
+		if owned > best:
+			best = owned
+			leader = i
 	for i in world.players.size():
 		if i >= _percent_tags.size():
 			break
@@ -763,6 +839,7 @@ func _refresh_tags() -> void:
 		var near := p.alive and Vector2(p.x, p.y).distance_to(eye) < TAG_RANGE
 		_name_tags[i].visible = near
 		_percent_tags[i].visible = near
+		_crowns[i].visible = p.alive and i == leader
 		if near:
 			_percent_tags[i].text = "%.1f%%" % world.grid.percent_of(p.id)
 

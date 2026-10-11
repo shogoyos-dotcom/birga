@@ -256,6 +256,24 @@ func _test_shop(t: TestRunner) -> void:
 		t.equal(head.a, 1.0, "boshi to'liq")
 	)
 
+	t.test("naqsh raqami jadvalga tushadi", func() -> void:
+		# Skin hudud naqshini belgilaydi; raqam 512+ID katakning
+		# alfasida keladi.
+		var grid := GameGrid.new(4, 4)
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var skins := PackedStringArray()
+		skins.resize(256)
+		skins[3] = "skin_melon"
+		var paint := PaintLayer.new(grid, colors, skins)
+		var stored := int(round(
+			paint.palette_image.get_pixel(512 + 3, 0).a * 255.0))
+		t.equal(stored, Cosmetics.pattern_of("skin_melon"),
+			"tarvuz naqshi")
+		t.equal(int(round(paint.palette_image.get_pixel(512 + 4, 0).a
+			* 255.0)), 0, "skinsiz o'yinchi tekis")
+	)
+
 	t.test("kosmetika o'yinga ta'sir qilmaydi", func() -> void:
 		# Katalogda tezlik, zarar yoki hudud kuchini o'zgartiradigan
 		# maydon bo'lmasligi kerak.
@@ -552,14 +570,17 @@ func _test_paint(t: TestRunner) -> void:
 		t.equal(paint.index_at(4, 4), 7)
 	)
 
-	t.test("rang jadvali to'liq noshaffof", func() -> void:
+	t.test("rang jadvalining rang qismi noshaffof", func() -> void:
+		# 0..511 — ranglar: shaffof piksel qop-qora bo'lib qolardi.
+		# 512..767 — naqsh raqami, u **alfada** saqlanadi, shuning
+		# uchun u yerda alfa 1 dan kichik bo'lishi normal.
 		var grid := GameGrid.new(4, 4)
 		var colors := PackedByteArray()
 		colors.resize(256)
 		var paint := PaintLayer.new(grid, colors)
 		t.equal(paint.palette_image.get_width(), PaintLayer.PALETTE_SIZE)
 		var clear := 0
-		for i in PaintLayer.PALETTE_SIZE:
+		for i in 512:
 			if paint.palette_image.get_pixel(i, 0).a < 1.0:
 				clear += 1
 		t.equal(clear, 0, "shaffof rang yo'q")
