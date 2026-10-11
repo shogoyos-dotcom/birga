@@ -155,6 +155,7 @@ func _build_menu() -> Control:
 	box.add_child(online)
 
 	box.add_child(_profile_card())
+	box.add_child(_worn_card())
 	box.add_child(_record_card())
 
 	var board := UiKit.ghost_button(Strings.t("onlineBoard"), UiKit.BLUE)
@@ -222,6 +223,51 @@ func _profile_card() -> Control:
 		show_screen(Screen.PROFILE))
 	row.add_child(edit)
 	return card
+
+## Kiyilgan kosmetika — menyuda ko'rinib tursin.
+##
+## Avval do'konda sotib olingan narsa hech qayerda ko'rinmasdi:
+## u faqat saqlanardi. Endi menyuda shar, iz va effekt namunasi
+## turadi, ustiga bosilsa do'kon ochiladi.
+func _worn_card() -> Control:
+	var card := UiKit.panel(UiKit.PANEL, 12)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("wornSet")))
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	for cat: String in [ShopManager.SKINS, ShopManager.TRAILS,
+			ShopManager.EFFECTS, ShopManager.SPECIAL]:
+		var id := Shop.worn_in(cat)
+		# Maxsus nishon ochilmagan bo'lsa, bo'sh katak chizilmaydi.
+		if id.is_empty():
+			continue
+		row.add_child(_worn_tile(cat, id))
+	box.add_child(row)
+
+	# Do'kon menyudan ochiq ko'rinsin: avval unga faqat "beletlar"
+	# tugmasi orqali kirilardi va uni topish qiyin edi.
+	var open := UiKit.button(Strings.t("shop"), UiKit.GOLD)
+	open.pressed.connect(func() -> void:
+		Audio.tap()
+		open_shop(Screen.MENU))
+	box.add_child(open)
+	return card
+
+## Bitta kiyilgan element: namunasi va tagida nomi.
+func _worn_tile(category: String, id: String) -> Control:
+	var tile := VBoxContainer.new()
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tile.add_theme_constant_override("separation", 4)
+	var frame := UiKit.panel(UiKit.SURFACE, 5)
+	frame.add_child(CosmeticView.new(category, id, _accent(), 48.0))
+	tile.add_child(frame)
+	var item := ShopManager.item_by_id(id)
+	tile.add_child(UiKit.label(
+		Strings.t(str(item.get("name", ""))), 12, UiKit.TEXT_DIM))
+	return tile
 
 func _record_card() -> Control:
 	var card := UiKit.panel(UiKit.PANEL, 14)
@@ -1105,10 +1151,14 @@ func _mission_row(mission: Dictionary) -> Control:
 	return box
 
 ## Kosmetika: bo'limlar va elementlar.
+##
+## Har bo'limning tagida bir qator izoh turadi — nima sotilayotgani
+## nomidan ko'rinmasligi mumkin. Har element esa o'z ko'rinishi
+## bilan chiziladi ([CosmeticView]).
 func _cosmetics_card() -> Control:
 	var card := UiKit.panel()
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 12)
 	card.add_child(box)
 
 	var tabs: Array[String] = [ShopManager.SKINS, ShopManager.TRAILS,
@@ -1120,10 +1170,14 @@ func _cosmetics_card() -> Control:
 		func(index: int) -> void:
 			Audio.tap()
 			_shop_tab = tabs[index]
-			_rebuild(), _accent()))
+			_rebuild(), _accent(), 58, 18))
+	box.add_child(UiKit.label(Strings.t("tab" + _shop_tab.capitalize()
+		+ "Hint"), 14, UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT, true))
 
 	for item: Dictionary in Shop.catalogue(_shop_tab):
 		box.add_child(_item_row(item))
+	box.add_child(UiKit.label(Strings.t("cosmeticNote"), 12,
+		UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER, true))
 	return card
 
 const RARITY_TINT: Array[Color] = [
@@ -1131,23 +1185,28 @@ const RARITY_TINT: Array[Color] = [
 ]
 
 func _item_row(item: Dictionary) -> Control:
-	var row := UiKit.panel(Color(UiKit.SURFACE, 0.8), 11)
+	var row := UiKit.panel(Color(UiKit.SURFACE, 0.8), 13)
 	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", 10)
+	line.add_theme_constant_override("separation", 12)
 	row.add_child(line)
+
+	var frame := UiKit.panel(UiKit.BG, 5)
+	frame.add_child(CosmeticView.new(str(item["cat"]), str(item["id"]),
+		_accent()))
+	line.add_child(frame)
 
 	var rarity := int(item["rarity"])
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation", 3)
-	left.add_child(UiKit.label(Strings.t(str(item["name"])), 15, UiKit.TEXT,
+	left.add_theme_constant_override("separation", 4)
+	left.add_child(UiKit.label(Strings.t(str(item["name"])), 19, UiKit.TEXT,
 		HORIZONTAL_ALIGNMENT_LEFT))
 	var tint: Color = RARITY_TINT[clampi(rarity, 0, 3)]
 	var tags := HBoxContainer.new()
-	tags.add_theme_constant_override("separation", 7)
-	tags.add_child(UiKit.label(Strings.t(_rarity_key(rarity)), 11, tint,
+	tags.add_theme_constant_override("separation", 9)
+	tags.add_child(UiKit.label(Strings.t(_rarity_key(rarity)), 13, tint,
 		HORIZONTAL_ALIGNMENT_LEFT))
-	tags.add_child(UiKit.label(_price_text(item), 11, UiKit.TEXT_FAINT,
+	tags.add_child(UiKit.label(_price_text(item), 13, UiKit.TEXT_FAINT,
 		HORIZONTAL_ALIGNMENT_LEFT))
 	left.add_child(tags)
 	line.add_child(left)
@@ -1175,16 +1234,19 @@ func _price_text(item: Dictionary) -> String:
 		return Strings.t("needKills") % rule.substr(6)
 	return ""
 
+## Do'kon tugmasining o'lchami — barmoq bemalol tegadigan katta.
+const ITEM_BUTTON := Vector2(150, 62)
+
 func _item_button(item: Dictionary) -> Control:
 	var id := str(item["id"])
 	if Shop.worn_in(str(item["cat"])) == id:
 		var worn := UiKit.ghost_button(Strings.t("wornItem"), UiKit.TEXT_FAINT)
-		worn.custom_minimum_size = Vector2(118, 46)
+		worn.custom_minimum_size = ITEM_BUTTON
 		worn.disabled = true
 		return worn
 	if Shop.owns(id):
 		var put_on := UiKit.button(Strings.t("wearItem"), UiKit.MINT)
-		put_on.custom_minimum_size = Vector2(118, 46)
+		put_on.custom_minimum_size = ITEM_BUTTON
 		put_on.pressed.connect(func() -> void:
 			Audio.tap()
 			Shop.wear(id)
@@ -1192,11 +1254,11 @@ func _item_button(item: Dictionary) -> Control:
 		return put_on
 	if not ShopManager.unlocked_by(item, store.best_percent, store.best_kills):
 		var locked := UiKit.ghost_button(Strings.t("lockedItem"), UiKit.TEXT_FAINT)
-		locked.custom_minimum_size = Vector2(118, 46)
+		locked.custom_minimum_size = ITEM_BUTTON
 		locked.disabled = true
 		return locked
 	var buy := UiKit.button(Strings.t("buyItem"), _accent())
-	buy.custom_minimum_size = Vector2(118, 46)
+	buy.custom_minimum_size = ITEM_BUTTON
 	buy.pressed.connect(func() -> void:
 		Audio.tap()
 		_buy_item(id))

@@ -392,7 +392,42 @@ Katalogdagi hech bir element tezlik, to'qnashuv o'lchami, hudud
 egallash kuchi yoki botlarning xatti-harakatini o'zgartirmaydi —
 sotiladigani faqat ko'rinish. Buni test ham tekshiradi: katalogda
 `speed`, `power`, `size`, `damage`, `bonus` nomli maydon bo'lsa
-test yiqiladi.
+test yiqiladi. Ko'rinish jadvali (`money/cosmetics.gd`) ham xuddi
+shu tekshiruvdan o'tadi — shuning uchun effektning zarracha
+tezligi `speed` emas, `fly` deb ataladi.
+
+### Sotib olingan narsa qayerda ko'rinadi
+
+Avval do'kon faqat **saqlardi**: sotib olingan ko'rinish hech
+qayerda chizilmasdi. Endi `ShopManager.worn_in()` to'rt joyda
+o'qiladi.
+
+| Bo'lim | Qayerda ko'rinadi | Fayl |
+| --- | --- | --- |
+| Ko'rinish | sharning rangi va yaltirashi | `render/game_view.gd` |
+| Iz | lentaning rangi va so'nishi | `render/trail_ribbons.gd` |
+| Effekt | hudud egallaganda zarrachalar | `render/capture_burst.gd` |
+| Maxsus | bosh atrofidagi halqa | `render/game_view.gd` |
+
+Chizish qiymatlari bitta jadvalda — `money/cosmetics.gd`. Do'kon
+ro'yxati, menyudagi "Sizning ko'rinishingiz" kartasi va 3D sahna
+hammasi shu jadvaldan o'qiydi, shuning uchun namuna bilan haqiqiy
+ko'rinish bir-biriga mos tushadi.
+
+Ikki narsani bilib qo'yish kerak:
+
+* **Rang sotilmaydi.** Shar va iz doim o'yinchining o'z rangida
+  qoladi, pardoz esa shu rang ustiga aralashadi (`blend` 0.12–0.45).
+  Aks holda maydonda kim kimligi bilinmay qolardi.
+* **Shar asosan avatar bilan yopiq.** Bosh ustidagi belgi sharning
+  deyarli hammasini qoplaydi, shuning uchun pardoz chekkada hoshiya
+  bo'lib ko'rinadi. Belgini kichraytirish esa o'yinning avvalgi
+  ko'rinishini o'zgartirardi — shuning uchun tegilmadi. Eng yaxshi
+  ko'rinadigani: iz, halqa va effekt.
+
+Qo'shuvchi (additive) aralashma sinab ko'rildi va **olib
+tashlandi**: "Color Lands" maydonining quruqligi deyarli oq, oqqa
+yorug'lik qo'shib bo'lmaydi — neon iz ko'rinmay qolardi.
 
 **Balans bitta faylda.** `MonetizationConfig` dagi qiymatlar
 loyihaning boshqa joyida takrorlanmaydi — balansni o'zgartirish

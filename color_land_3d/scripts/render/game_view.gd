@@ -31,6 +31,7 @@ const AvatarAtlasNode := preload("res://scripts/render/avatar_atlas.gd")
 const TrailRibbonsNode := preload("res://scripts/render/trail_ribbons.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 const CityCoinsNode := preload("res://scripts/render/city_coins.gd")
+const CaptureBurstNode := preload("res://scripts/render/capture_burst.gd")
 
 var world: GameWorld
 var paint: PaintLayer
@@ -46,6 +47,8 @@ var _coin_field := CoinField.new()
 ## Shu o'yinda nechta marta hudud egallandi — kunlik topshiriq uchun.
 var _captures := 0
 var _coins: MultiMeshInstance3D
+## Hudud egallaganda chiqadigan effekt (do'kondan tanlanadi).
+var _burst: CPUParticles3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
 var _hud_timer := 0.0
@@ -86,6 +89,8 @@ func _ready() -> void:
 	add_child(_capitals)
 	_coins = CityCoinsNode.new()
 	add_child(_coins)
+	_burst = CaptureBurstNode.new()
+	add_child(_burst)
 
 	store = SettingsStore.load_store()
 	Strings.set_language(store.language if not store.language.is_empty()
@@ -408,6 +413,8 @@ func _build_coins() -> void:
 const HEAD_RADIUS := 1.35
 
 func _build_players() -> void:
+	# Egallash effekti ham do'kondan olinadi — har o'yin boshida.
+	_burst.apply_cosmetics(Palette.head(world.human().color_index))
 	var ball := SphereMesh.new()
 	ball.radius = HEAD_RADIUS
 	ball.height = HEAD_RADIUS * 2.0
@@ -418,15 +425,7 @@ func _build_players() -> void:
 	for p in world.players:
 		var head := MeshInstance3D.new()
 		head.mesh = ball
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Palette.head(p.color_index)
-		mat.roughness = 0.6
-		# O'yinchining o'zi biroz yaltiraydi — raqiblardan ajralib tursin.
-		if not p.is_bot:
-			mat.emission_enabled = true
-			mat.emission = Palette.head(p.color_index)
-			mat.emission_energy_multiplier = 0.45
-		head.set_surface_override_material(0, mat)
+		head.set_surface_override_material(0, _head_material(p))
 
 		# Belgi sharning ustida, doim kameraga qarab turadi.
 		var glyph := Sprite3D.new()
@@ -442,8 +441,62 @@ func _build_players() -> void:
 		glyph.pixel_size = HEAD_RADIUS * 2.1 / float(_avatars.TILE)
 		head.add_child(glyph)
 
+		# Maxsus nishon kiyilgan bo'lsa — bosh ustida halqa.
+		var halo := _halo_for(p)
+		if halo != null:
+			head.add_child(halo)
+
 		players_root.add_child(head)
 		_heads.append(head)
+
+## Bosh materiali: rang o'yinchiniki, pardoz esa do'kondan.
+##
+## Pardoz faqat **ko'rinish** — shar o'lchami ham, to'qnashuv ham
+## o'zgarmaydi, shuning uchun do'kon o'yin qoidalariga tegmaydi.
+func _head_material(p: PlayerState) -> StandardMaterial3D:
+	var base := Palette.head(p.color_index)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = base
+	mat.roughness = 0.6
+	# O'yinchining o'zi biroz yaltiraydi — raqiblardan ajralib tursin.
+	if p.is_bot:
+		return mat
+	mat.emission_enabled = true
+	mat.emission = base
+	mat.emission_energy_multiplier = 0.45
+	if p.id != world.human().id:
+		return mat
+	var look := Cosmetics.skin(Shop.worn_in(ShopManager.SKINS))
+	mat.albedo_color = Cosmetics.skin_color(base, look)
+	mat.roughness = float(look["rough"])
+	mat.metallic = float(look["metal"])
+	mat.emission = mat.albedo_color
+	# Nur me'yorida: to'liq kuchda shar oqarib ketadi va rangi
+	# bilinmay qoladi.
+	mat.emission_energy_multiplier = 0.45 + 0.40 * float(look["glow"])
+	return mat
+
+## Maxsus nishon halqasi; nishon kiyilmagan bo'lsa — null.
+func _halo_for(p: PlayerState) -> MeshInstance3D:
+	if p.id != world.human().id:
+		return null
+	var tint := Cosmetics.halo(Shop.worn_in(ShopManager.SPECIAL))
+	if tint.a <= 0.0:
+		return null
+	var torus := TorusMesh.new()
+	torus.inner_radius = HEAD_RADIUS * 1.15
+	torus.outer_radius = HEAD_RADIUS * 1.42
+	torus.rings = 24
+	torus.ring_segments = 6
+	var ring := MeshInstance3D.new()
+	ring.mesh = torus
+	ring.position = Vector3(0.0, -HEAD_RADIUS * 0.72, 0.0)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring.set_surface_override_material(0, mat)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return ring
 
 func _process(delta: float) -> void:
 	if _match_running:
@@ -473,6 +526,9 @@ func _handle_events() -> void:
 				if int(event["player"]) == human_id:
 					Audio.capture()
 					ui.flash(Palette.head(world.human().color_index), 0.18)
+					_burst.burst(Vector3(world.human().x,
+						ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS,
+						world.human().y))
 					# Egallangan hududdagi shaharlarning tangasi
 					# o'yinchiga o'tadi. Faqat odam o'yinchi yig'adi:
 					# tanga — mukofot, botlarga kerak emas.

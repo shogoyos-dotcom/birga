@@ -230,16 +230,20 @@ static func icon_button(text: String) -> Button:
 	return b
 
 ## Tanlov chiplari qatori. Tanlangan indeks bilan signal beradi.
+##
+## `height` va `font_size` berilmasa odatdagi o'lcham olinadi; do'kon
+## bo'limlari kattaroq chiplar so'raydi.
 static func chips(values: PackedStringArray, selected: int,
-		on_select: Callable, accent: Color = BLUE) -> FlowContainer:
+		on_select: Callable, accent: Color = BLUE, height: int = 48,
+		font_size: int = 16) -> FlowContainer:
 	var row := HFlowContainer.new()
 	row.add_theme_constant_override("h_separation", 8)
 	row.add_theme_constant_override("v_separation", 8)
 	for i in values.size():
 		var chip := Button.new()
 		chip.text = values[i]
-		chip.add_theme_font_size_override("font_size", 16)
-		chip.custom_minimum_size = Vector2(0, 48)
+		chip.add_theme_font_size_override("font_size", font_size)
+		chip.custom_minimum_size = Vector2(0, height)
 		var is_on := i == selected
 		var ink := Color("1a0f36") if (is_on and accent.get_luminance() > 0.52) \
 			else (Color.WHITE if is_on else TEXT_DIM)

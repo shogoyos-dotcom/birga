@@ -78,6 +78,43 @@ func _test_shop(t: TestRunner) -> void:
 		t.equal(wallet.get_coins(), 5000, "bepul — pul yechilmadi")
 	)
 
+	t.test("har bir element chiziladi", func() -> void:
+		# Ko'rinish jadvalida yozuvi yo'q element do'konda bo'sh
+		# katak bo'lib ko'rinardi.
+		for item: Dictionary in ShopManager.ITEMS:
+			var id := str(item["id"])
+			match str(item["cat"]):
+				ShopManager.SKINS:
+					t.check(Cosmetics.SKINS.has(id), "pardozi bor: " + id)
+				ShopManager.TRAILS:
+					t.check(Cosmetics.TRAILS.has(id), "izi bor: " + id)
+				ShopManager.EFFECTS:
+					t.check(Cosmetics.EFFECTS.has(id), "effekti bor: " + id)
+				_:
+					t.check(Cosmetics.SPECIAL.has(id), "nishoni bor: " + id)
+	)
+
+	t.test("ko'rinish jadvalida o'yin qiymati yo'q", func() -> void:
+		# Pardoz faqat chizishga ta'sir qiladi: tezlik yoki kuch
+		# nomli kalit paydo bo'lsa, qoida buzilgan bo'ladi.
+		var banned_look := ["speed", "power", "size", "damage", "bonus",
+			"radius", "turn"]
+		for table: Dictionary in [Cosmetics.SKINS, Cosmetics.TRAILS,
+				Cosmetics.EFFECTS, Cosmetics.SPECIAL]:
+			for id: String in table:
+				for key: String in (table[id] as Dictionary):
+					t.check(not banned_look.has(key),
+						"%s da o'yin qiymati yo'q" % id)
+	)
+
+	t.test("iz rangi dumidan boshigacha to'liq bo'ladi", func() -> void:
+		var look: Dictionary = Cosmetics.trail("trail_spark")
+		var tail := Cosmetics.trail_color(Color("8ad0ff"), look, 0.0)
+		var head := Cosmetics.trail_color(Color("8ad0ff"), look, 1.0)
+		t.check(tail.a < head.a, "dumi shaffofroq")
+		t.equal(head.a, 1.0, "boshi to'liq")
+	)
+
 	t.test("kosmetika o'yinga ta'sir qilmaydi", func() -> void:
 		# Katalogda tezlik, zarar yoki hudud kuchini o'zgartiradigan
 		# maydon bo'lmasligi kerak.

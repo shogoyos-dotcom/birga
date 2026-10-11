@@ -13,7 +13,7 @@ var _out := "res://build/shot_3d.png"
 var _seconds := 6.0
 var _elapsed := 0.0
 ## "play" (standart), "menu", "settings", "profile", "pause", "shop",
-## "result".
+## "result", "trail", "burst".
 var _mode := "play"
 ## Tekshirish uchun avatar, masalan "flag:UZ".
 var _avatar := ""
@@ -24,6 +24,8 @@ var _map := ""
 ## o'yin o'zi tanlagan joyda qoladi.
 var _at := ""
 var _opened := false
+## "burst" rejimida effekt oxirgi marta qaysi qadamda chaqirilgan.
+var _burst_step := -1
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -69,7 +71,7 @@ func _drive() -> void:
 		view.set_map_for_demo(_map)
 	if not _avatar.is_empty() and view.has_method("set_avatar_for_demo"):
 		view.set_avatar_for_demo(_avatar)
-	if _mode != "play" and _mode != "trail":
+	if _mode != "play" and _mode != "trail" and _mode != "burst":
 		# Ekran bir marta ochiladi: har kadrda qayta ochilsa, serverdan
 		# kelgan javob darhol o'chib ketardi.
 		if not _opened:
@@ -85,6 +87,21 @@ func _drive() -> void:
 			p.y = float(parts[1])
 			view._place_camera_instantly()
 		_at = ""
+	if _mode == "burst":
+		# Egallash effektini kutib o'tirmaymiz: u qisqa, tasodifan
+		# kadrga tushishi qiyin. Shuning uchun qo'lda chaqiriladi —
+		# har kadrda emas, aks holda zarrachalar har safar boshidan
+		# boshlanib, hech qachon tarqalmaydi.
+		# Zarrachalarning umri qisqa, shuning uchun effekt oxirgi
+		# kadrlardan oldin bir marta chaqiriladi — shunda u
+		# skrinshotga albatta tushadi.
+		if _frames_left <= 3 and _burst_step < 0:
+			_burst_step = 1
+			var p: Object = view.world.human()
+			view._burst.burst(Vector3(p.x,
+				ArenaBuilder.LAND_HEIGHT + view.HEAD_RADIUS, p.y))
+		view.steer_human(_elapsed * 0.55)
+		return
 	if _mode == "trail":
 		# Diagonal to'g'ri chiziq — zinapoya eng yomon ko'rinadigan
 		# holat; iz tekis chiqyaptimi, shu bilan tekshiriladi.

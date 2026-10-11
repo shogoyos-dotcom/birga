@@ -176,7 +176,13 @@
     "wearItem": "Kiyish",
     "withTicket": "Belet bilan",
     "wornItem": "Kiyilgan",
-    "you": "Siz"
+    "you": "Siz",
+    "tabSkinsHint": "Sharingiz maydonda qanday ko‘rinadi. Rang o‘zingizniki qoladi.",
+    "tabTrailsHint": "Hududingizdan tashqarida orqangizda qoladigan lenta.",
+    "tabEffectsHint": "Halqani yopib hudud egallaganingizda chiqadigan effekt.",
+    "tabSpecialHint": "Pulga sotilmaydigan nishonlar — ularni faqat rekord ochadi.",
+    "cosmeticNote": "Faqat ko‘rinish. Tezlik, o‘lcham va egallash kuchi hammada bir xil.",
+    "wornSet": "Sizning ko‘rinishingiz"
   },
   "en": {
     "adNotReady": "Ad is not ready yet",
@@ -355,7 +361,13 @@
     "wearItem": "Wear",
     "withTicket": "Use a ticket",
     "wornItem": "Worn",
-    "you": "You"
+    "you": "You",
+    "tabSkinsHint": "How your ball looks on the field. The colour stays yours.",
+    "tabTrailsHint": "The ribbon you leave behind while outside your land.",
+    "tabEffectsHint": "What bursts out when you close a loop and take land.",
+    "tabSpecialHint": "Badges that money cannot buy — only your records open them.",
+    "cosmeticNote": "Looks only. Speed, size and capture power are the same for everyone.",
+    "wornSet": "Your look"
   },
   "ru": {
     "adNotReady": "Реклама ещё не готова",
@@ -534,7 +546,13 @@
     "wearItem": "Надеть",
     "withTicket": "Билетом",
     "wornItem": "Надето",
-    "you": "Вы"
+    "you": "Вы",
+    "tabSkinsHint": "Как выглядит ваш шар на поле. Цвет остаётся вашим.",
+    "tabTrailsHint": "Лента, которая тянется за вами вне вашей земли.",
+    "tabEffectsHint": "Что вспыхивает, когда вы замыкаете петлю и забираете землю.",
+    "tabSpecialHint": "Знаки, которые не продаются: их открывают только рекорды.",
+    "cosmeticNote": "Только внешний вид. Скорость, размер и сила захвата у всех одинаковы.",
+    "wornSet": "Ваш облик"
   },
   "tr": {
     "adNotReady": "Reklam henüz hazır değil",
@@ -713,7 +731,13 @@
     "wearItem": "Giy",
     "withTicket": "Bilet ile",
     "wornItem": "Giyili",
-    "you": "Sen"
+    "you": "Sen",
+    "tabSkinsHint": "Topunuzun sahadaki görünümü. Renk sizin kalır.",
+    "tabTrailsHint": "Kendi toprağınızın dışındayken arkanızda kalan şerit.",
+    "tabEffectsHint": "Halkayı kapatıp toprak aldığınızda ne patlar.",
+    "tabSpecialHint": "Parayla alınmayan rozetler — sadece rekorlar açar.",
+    "cosmeticNote": "Yalnızca görünüm. Hız, boyut ve ele geçirme gücü herkeste aynı.",
+    "wornSet": "Görünümünüz"
   },
   "kk": {
     "adNotReady": "Жарнама әлі дайын емес",
@@ -892,7 +916,13 @@
     "wearItem": "Кию",
     "withTicket": "Билетпен",
     "wornItem": "Киілген",
-    "you": "Сіз"
+    "you": "Сіз",
+    "tabSkinsHint": "Шарыңыз алаңда қалай көрінеді. Түс өзіңіздікі қалады.",
+    "tabTrailsHint": "Өз жеріңізден тыс жерде артыңызда қалатын таспа.",
+    "tabEffectsHint": "Шеңберді жауып, жер алғанда не шашырайды.",
+    "tabSpecialHint": "Ақшаға сатылмайтын белгілер — оларды тек рекорд ашады.",
+    "cosmeticNote": "Тек сыртқы түрі. Жылдамдық, өлшем және басып алу күші бәрінде бірдей.",
+    "wornSet": "Сіздің келбетіңіз"
   },
   "es": {
     "adNotReady": "El anuncio aún no está listo",
@@ -1071,7 +1101,13 @@
     "wearItem": "Equipar",
     "withTicket": "Usar un ticket",
     "wornItem": "Equipado",
-    "you": "Tú"
+    "you": "Tú",
+    "tabSkinsHint": "Cómo se ve tu bola en el campo. El color sigue siendo tuyo.",
+    "tabTrailsHint": "La estela que dejas fuera de tu territorio.",
+    "tabEffectsHint": "Lo que estalla al cerrar el circuito y conquistar terreno.",
+    "tabSpecialHint": "Distintivos que no se compran: solo tus récords los abren.",
+    "cosmeticNote": "Solo apariencia. Velocidad, tamaño y poder de captura son iguales para todos.",
+    "wornSet": "Tu aspecto"
   },
   "pt": {
     "adNotReady": "O anúncio ainda não está pronto",
@@ -1250,7 +1286,13 @@
     "wearItem": "Equipar",
     "withTicket": "Usar um tíquete",
     "wornItem": "Equipado",
-    "you": "Você"
+    "you": "Você",
+    "tabSkinsHint": "Como sua bola aparece no campo. A cor continua sendo sua.",
+    "tabTrailsHint": "O rastro que você deixa fora do seu território.",
+    "tabEffectsHint": "O que explode quando você fecha o laço e toma terreno.",
+    "tabSpecialHint": "Emblemas que não se compram: só os seus recordes os abrem.",
+    "cosmeticNote": "Apenas aparência. Velocidade, tamanho e poder de captura são iguais para todos.",
+    "wornSet": "Seu visual"
   },
   "fr": {
     "adNotReady": "La pub n'est pas encore prête",
@@ -1429,7 +1471,13 @@
     "wearItem": "Équiper",
     "withTicket": "Utiliser un ticket",
     "wornItem": "Équipé",
-    "you": "Toi"
+    "you": "Toi",
+    "tabSkinsHint": "L’aspect de votre boule sur le terrain. La couleur reste la vôtre.",
+    "tabTrailsHint": "La traînée que vous laissez hors de votre territoire.",
+    "tabEffectsHint": "Ce qui jaillit quand vous bouclez la boucle et prenez du terrain.",
+    "tabSpecialHint": "Des insignes qui ne s’achètent pas : seuls vos records les ouvrent.",
+    "cosmeticNote": "Apparence seulement. Vitesse, taille et puissance de capture sont identiques pour tous.",
+    "wornSet": "Votre allure"
   },
   "de": {
     "adNotReady": "Werbung ist noch nicht bereit",
@@ -1608,7 +1656,13 @@
     "wearItem": "Anlegen",
     "withTicket": "Ticket einlösen",
     "wornItem": "Angelegt",
-    "you": "Du"
+    "you": "Du",
+    "tabSkinsHint": "Wie deine Kugel im Feld aussieht. Die Farbe bleibt deine.",
+    "tabTrailsHint": "Die Spur, die du außerhalb deines Gebiets hinterlässt.",
+    "tabEffectsHint": "Was aufblitzt, wenn du die Schleife schließt und Land nimmst.",
+    "tabSpecialHint": "Abzeichen, die man nicht kaufen kann — nur Rekorde öffnen sie.",
+    "cosmeticNote": "Nur Optik. Tempo, Größe und Eroberungskraft sind für alle gleich.",
+    "wornSet": "Dein Look"
   },
   "id": {
     "adNotReady": "Iklan belum siap",
@@ -1787,7 +1841,13 @@
     "wearItem": "Pakai",
     "withTicket": "Pakai tiket",
     "wornItem": "Dipakai",
-    "you": "Kamu"
+    "you": "Kamu",
+    "tabSkinsHint": "Tampilan bola Anda di arena. Warnanya tetap milik Anda.",
+    "tabTrailsHint": "Jejak yang Anda tinggalkan di luar wilayah sendiri.",
+    "tabEffectsHint": "Yang meletup saat Anda menutup lingkaran dan merebut wilayah.",
+    "tabSpecialHint": "Lencana yang tak bisa dibeli — hanya rekor yang membukanya.",
+    "cosmeticNote": "Hanya tampilan. Kecepatan, ukuran, dan kekuatan merebut sama untuk semua.",
+    "wornSet": "Tampilan Anda"
   },
   "zh": {
     "adNotReady": "广告还没准备好",
@@ -1966,7 +2026,13 @@
     "wearItem": "装备",
     "withTicket": "使用门票",
     "wornItem": "已装备",
-    "you": "你"
+    "you": "你",
+    "tabSkinsHint": "你的小球在场上的样子。颜色仍然是你的。",
+    "tabTrailsHint": "离开自己领地时身后拖出的轨迹。",
+    "tabEffectsHint": "合围成功、占下土地时迸发的特效。",
+    "tabSpecialHint": "买不到的徽章，只有纪录才能解锁。",
+    "cosmeticNote": "仅改变外观。速度、体积与占地能力对所有人相同。",
+    "wornSet": "你的外观"
   },
   "ja": {
     "adNotReady": "広告はまだ準備中です",
@@ -2145,7 +2211,13 @@
     "wearItem": "装備",
     "withTicket": "チケットを使う",
     "wornItem": "装備中",
-    "you": "あなた"
+    "you": "あなた",
+    "tabSkinsHint": "フィールドでのボールの見た目。色はそのままです。",
+    "tabTrailsHint": "自分の陣地の外で後ろに残る軌跡。",
+    "tabEffectsHint": "輪を閉じて陣地を取ったときに弾ける演出。",
+    "tabSpecialHint": "お金では買えない記章。記録だけが解放します。",
+    "cosmeticNote": "見た目だけです。速度・大きさ・占領力は全員同じ。",
+    "wornSet": "あなたの見た目"
   },
   "ko": {
     "adNotReady": "광고가 아직 준비되지 않았습니다",
@@ -2324,7 +2396,13 @@
     "wearItem": "착용",
     "withTicket": "티켓 사용",
     "wornItem": "착용 중",
-    "you": "나"
+    "you": "나",
+    "tabSkinsHint": "필드에서 공이 보이는 모습. 색은 그대로입니다.",
+    "tabTrailsHint": "자기 땅 밖에서 뒤에 남는 자취입니다.",
+    "tabEffectsHint": "고리를 닫고 땅을 차지할 때 터지는 연출입니다.",
+    "tabSpecialHint": "돈으로 살 수 없는 휘장. 기록만이 열어 줍니다.",
+    "cosmeticNote": "겉모습만 바뀝니다. 속도와 크기, 점령력은 모두 같습니다.",
+    "wornSet": "내 모습"
   },
   "hi": {
     "adNotReady": "विज्ञापन अभी तैयार नहीं है",
@@ -2503,7 +2581,13 @@
     "wearItem": "पहनें",
     "withTicket": "टिकट इस्तेमाल करें",
     "wornItem": "पहना",
-    "you": "आप"
+    "you": "आप",
+    "tabSkinsHint": "मैदान में आपकी गेंद कैसी दिखती है। रंग आपका ही रहता है।",
+    "tabTrailsHint": "अपने इलाके के बाहर पीछे छूटने वाली लकीर।",
+    "tabEffectsHint": "जब आप घेरा पूरा कर ज़मीन लेते हैं तब फूटने वाला असर।",
+    "tabSpecialHint": "पैसे से न मिलने वाले निशान — इन्हें सिर्फ़ रिकॉर्ड खोलते हैं।",
+    "cosmeticNote": "सिर्फ़ दिखावट। रफ़्तार, आकार और कब्ज़े की ताक़त सबके लिए समान है।",
+    "wornSet": "आपका रूप"
   },
   "ar": {
     "adNotReady": "الإعلان غير جاهز بعد",
@@ -2682,6 +2766,12 @@
     "wearItem": "ارتداء",
     "withTicket": "استخدم تذكرة",
     "wornItem": "مُرتدى",
-    "you": "أنت"
+    "you": "أنت",
+    "tabSkinsHint": "شكل كرتك في الملعب. يبقى اللون لك.",
+    "tabTrailsHint": "الأثر الذي تتركه خارج أرضك.",
+    "tabEffectsHint": "ما ينفجر عند إغلاق الحلقة والاستيلاء على الأرض.",
+    "tabSpecialHint": "شارات لا تُشترى — سجلاتك وحدها تفتحها.",
+    "cosmeticNote": "المظهر فقط. السرعة والحجم وقوة الاستيلاء متساوية للجميع.",
+    "wornSet": "مظهرك"
   }
 }
