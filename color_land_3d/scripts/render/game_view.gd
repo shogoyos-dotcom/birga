@@ -104,6 +104,7 @@ func _ready() -> void:
 		_start_dedicated_server()
 		return
 	ui.play_pressed.connect(_on_play)
+	ui.pause_pressed.connect(_on_pause)
 	ui.resume_pressed.connect(_on_resume)
 	ui.menu_pressed.connect(_on_menu)
 	ui.settings_changed.connect(_on_settings_changed)
@@ -140,6 +141,7 @@ func _new_match() -> void:
 	_build_arena()
 	_build_players()
 	_build_capitals()
+	_build_coins()
 	_apply_view_settings()
 	_place_camera_instantly()
 
@@ -285,6 +287,20 @@ func _on_play() -> void:
 	ui.show_screen(ui.Screen.HUD)
 	_apply_view_settings()
 
+## Pauza: o'yin to'xtaydi.
+##
+## Avval pauza faqat oynani ochardi, dunyo esa orqada hisoblanishda
+## davom etardi — o'yinchi menyuda turganda ham oldinga yurib,
+## raqib iziga urilib o'lib qolishi mumkin edi.
+##
+## Tarmoq o'yinida uy egasi hisoblashni to'xtatmaydi: xonadagi
+## boshqalar uchun o'yin davom etishi kerak. Buni [method
+## _set_playing] o'zi hal qiladi.
+func _on_pause() -> void:
+	_set_playing(false)
+	_dragging = false
+	ui.show_screen(ui.Screen.PAUSE)
+
 func _on_resume() -> void:
 	_set_playing(true)
 	ui.show_screen(ui.Screen.HUD)
@@ -398,13 +414,17 @@ func _build_capitals() -> void:
 	CityNames.use(Strings.language())
 	var key := world.config.map_id + "/" + Strings.language()
 	if _capitals_map == key:
-		_build_coins()
 		return
 	_capitals_map = key
 	_capitals.build(world.places, world.grid)
-	_build_coins()
 
 ## Har o'yin boshida tangalar qaytadan to'kiladi.
+##
+## Faqat [method _new_match] dan chaqiriladi. Avval u shahar
+## nomlari bilan birga qurilardi, nomlar esa ko'rinish sozlamasi
+## o'zgarganda ham qayta tuzilardi — shuning uchun pauzadan
+## qaytgach yig'ilgan tangalar nolga tushib, xaritadagi hamma
+## tanga qaytadan paydo bo'lardi.
 func _build_coins() -> void:
 	_coin_field.build(world.places, world.grid)
 	_coins.build(_coin_field)
@@ -638,7 +658,7 @@ func show_screen_for_demo(name: String) -> void:
 		"menu": ui.show_screen(ui.Screen.MENU)
 		"settings": ui.show_screen(ui.Screen.SETTINGS)
 		"profile": ui.show_screen(ui.Screen.PROFILE)
-		"pause": ui.show_screen(ui.Screen.PAUSE)
+		"pause": _on_pause()
 		"shop": ui.open_shop(ui.Screen.MENU)
 		"maps": ui.open_maps("play")
 		"room": ui.open_room(false)

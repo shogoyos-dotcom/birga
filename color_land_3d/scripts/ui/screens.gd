@@ -6,6 +6,8 @@ extends CanvasLayer
 ## shunda til yoki rang o'zgarsa hamma joy darhol yangilanadi.
 
 signal play_pressed
+## Pauza tugmasi bosildi — o'yin to'xtashi kerak.
+signal pause_pressed
 signal resume_pressed
 signal menu_pressed
 signal settings_changed
@@ -741,7 +743,9 @@ func _build_hud() -> Control:
 	pause.position = Vector2(-74, 16)
 	pause.pressed.connect(func() -> void:
 		Audio.tap()
-		show_screen(Screen.PAUSE))
+		# Ekranni o'zimiz almashtirmaymiz: avval o'yin to'xtashi
+		# kerak, shuning uchun qaror `GameView` da qabul qilinadi.
+		pause_pressed.emit())
 	root.add_child(pause)
 
 	var board_panel := UiKit.panel(Color(UiKit.PANEL, 0.92), 10)

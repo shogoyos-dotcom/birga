@@ -122,6 +122,9 @@ godot --headless --path . --script res://tools/playtest.gd -- 30 90
 # Barcha ekranlar, maydonlar, uslublar va tillar ketma-ket ochiladi.
 godot --path . --script res://tools/uitest.gd
 
+# Pauza: dunyo to'xtaydimi va yig'ilgan tanga joyida qoladimi.
+godot --headless --path . --script res://tools/pausetest.gd
+
 # Maydon bo'yicha xotira va tugunlar soni.
 godot --path . --script res://tools/memtest.gd
 
@@ -395,6 +398,33 @@ sotiladigani faqat ko'rinish. Buni test ham tekshiradi: katalogda
 test yiqiladi. Ko'rinish jadvali (`money/cosmetics.gd`) ham xuddi
 shu tekshiruvdan o'tadi — shuning uchun effektning zarracha
 tezligi `speed` emas, `fly` deb ataladi.
+
+### Pauza (ikki xato, o'lchab topilgan)
+
+`tools/pausetest.gd` ikkalasini ham ushlaydi.
+
+**Pauza to'xtatmasdi.** HUD dagi tugma faqat oynani ochardi —
+`GameView` bundan xabar topmasdi va dunyo orqada hisoblanishda
+davom etardi. O'yinchi menyuda turgan paytda oldinga yurib, raqib
+iziga urilib o'lib qolardi. Endi tugma `pause_pressed` signalini
+yuboradi va `GameView` o'zi to'xtatadi. Tarmoq o'yinida uy egasi
+to'xtamaydi: xonadagi boshqalar uchun o'yin davom etishi kerak —
+buni `_set_playing()` hal qiladi.
+
+**Pauzadan qaytgach tangalar nolga tushardi.** `_build_capitals()`
+oxirida `_build_coins()` turardi, `_apply_view_settings()` esa
+nomlarni qaytadan tuzardi (til almashishi uchun qo'shilgan edi) va
+u pauzadan qaytishda ham chaqirilardi. Natijada `CoinField.build()`
+hisobni nolga qaytarib, xaritadagi hamma tangani qaytadan to'kardi.
+Endi tangalar faqat `_new_match()` da to'kiladi.
+
+O'lchov (pauzada 3 soniya turib):
+
+| | Avval | Hozir |
+| --- | --- | --- |
+| Pauzada o'tgan o'yin vaqti | 1.25 s | 0.00 s |
+| Pauzada o'yinchi siljishi | 9.6 katak | 0.0 katak |
+| Yig'ilgan tanga (oldin -> keyin) | 3 -> 0 | 4930 -> 4930 |
 
 ### Sotib olingan narsa qayerda ko'rinadi
 
