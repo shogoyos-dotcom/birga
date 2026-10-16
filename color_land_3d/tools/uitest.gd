@@ -24,6 +24,7 @@ func _build_steps() -> void:
 		["do'kon", func() -> void: _view.show_screen_for_demo("shop")],
 		["xona", func() -> void: _view.show_screen_for_demo("room")],
 		["reyting", func() -> void: _view.show_screen_for_demo("board")],
+		["jihozlar", func() -> void: _view.show_screen_for_demo("gear")],
 		["maydon tanlash", func() -> void: _view.show_screen_for_demo("maps")],
 		["o'yin boshlandi", func() -> void: _view._on_play()],
 		["boshqaruv", func() -> void: _view.steer_human(0.7)],

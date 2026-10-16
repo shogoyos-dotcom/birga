@@ -281,6 +281,61 @@ static func ghost_button(text: String, color: Color = YELLOW) -> Button:
 	b.add_theme_constant_override("outline_size", 0)
 	return b
 
+## Bosh tugma — katta dumaloq, o'rtasida matn.
+##
+## Menyuda bitta shunaqa tugma bo'ladi: o'yinchi nimani bosishini
+## bir qarashda bilsin.
+static func round_button(text: String, color: Color,
+		diameter: int = 150) -> Button:
+	var b := Button.new()
+	b.text = text.to_upper()
+	b.custom_minimum_size = Vector2(diameter, diameter)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", maxi(22, diameter / 5))
+	var font := display_font()
+	if font != null:
+		b.add_theme_font_override("font", font)
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		var bg := color
+		var lift := LIFT + 3
+		match state:
+			"pressed":
+				bg = color.darkened(0.08)
+				lift = 3
+			"hover":
+				bg = color.lightened(0.08)
+		b.add_theme_stylebox_override(state,
+			style_solid(bg, diameter / 2, lift, 6))
+	_ink_text(b)
+	_gloss(b, 16)
+	return b
+
+## Pastki qatordagi tugma: ustida belgi, tagida nomi.
+##
+## Belgi tugmaning **bolasi** bo'lib qo'shiladi — Button matndan
+## boshqa bolani joylashtirmaydi, shuning uchun ustiga qo'yiladi
+## va sichqonchani o'tkazib yuboradi.
+static func tab_button(icon: String, text: String,
+		tint: Color = YELLOW) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 76)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		var bg := PANEL.lightened(0.1) if state == "hover" else PANEL
+		b.add_theme_stylebox_override(state,
+			style_solid(bg, 18, 2 if state == "pressed" else 5, 4))
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 1)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mark := GameIcon.new(icon, 28.0, tint)
+	mark.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(mark)
+	box.add_child(label(text, 12, TEXT))
+	b.add_child(box)
+	return b
+
 ## Dumaloq tugma (orqaga, pauza, sozlama).
 static func icon_button(text: String) -> Button:
 	var b := Button.new()

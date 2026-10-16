@@ -377,6 +377,9 @@ Har biri o'z ishini qiladi va o'z faylida saqlanadi.
 | `logic/pickup_field.gd` | — | yo'ldagi tanga va sferalar (sof mantiq) |
 | `render/pickup_marks.gd` | — | ularni chizadi |
 | `money/upgrade_manager.gd` | `Upgrades` | kuchaytirgich darajalari |
+| `logic/country_path.gd` | — | mamlakatlar ro'yxati va ochko (sof mantiq) |
+| `app/country_store.gd` | `Journey` | yo'ldagi o'rin, saqlanadi |
+| `ui/country_view.gd` | — | mamlakat shaklini to'ldirib chizadi |
 
 **Bitta tuzoq.** Avtoyuklangan modullar bir-birini kompilyatsiya
 paytida ko'rmaydi (`--script` rejimida global nom hali yo'q),
@@ -761,6 +764,53 @@ Bonus ham umumiy chegaraga (`RUN_COIN_CAP`) bo'ysunadi:
 `RewardManager.run_reward()` uni hisobga qo'shib, keyin
 cheklaydi.
 
+### Mamlakatlar yo'li
+
+Bosh menyuning markazida — "dunyoni egalla" yo'li. Har o'yindan
+keyin ochko yig'iladi, nishonga yetganda navbatdagi mamlakat
+egallangan hisoblanadi va yangisi ochiladi.
+
+Birinchi mamlakat — **O'zbekiston**, keyin qo'shnilar, so'ng
+dunyo: 28 ta mamlakat (`tool/make_country_shapes.py`, Natural
+Earth 1:110m, CC0). Nishon: birinchisida 120 ochko, har
+keyingisida 70 ga ko'p.
+
+Bir o'yin: 1% maydon = 10 ochko, bitta o'ldirish = 5 ochko, eng
+kami 5 ochko. Demak 3% lik o'yin O'zbekistonni to'rt o'yinda
+yopadi.
+
+Shakllar Duglas-Pyoker usuli bilan soddalashtirilgan (halqada
+44 nuqtagacha) va 0..1 kvadratiga keltirilgan — `CountryView`
+hech narsa hisoblamasdan chizaveradi. Fayl 21 KB.
+
+To'lish **pastdan yuqoriga** boradi: shakl `Geometry2D.
+intersect_polygons` bilan kesiladi. To'lmagan qismi **och**
+rangda — avval u to'q ko'k edi va shakl teskari o'qilardi.
+
+Ortib qolgan ochko yo'qolmaydi: mamlakat yopilganda qoldiq
+keyingisiga o'tadi, shuning uchun juda yaxshi o'yin bir vaqtda
+ikkita mamlakatni yopishi mumkin.
+
+### Bosh menyu
+
+Menyu bitta gapni aytadi: "hozir qaysi yurtni egallayapsan".
+Qolgani pastki qatordagi to'rt tugmaga bo'lingan — do'kon,
+jihozlar, reyting, profil.
+
+| joyi | nima |
+|---|---|
+| yuqorida | avatar, tanga, kristall, reklamasiz, sozlama |
+| markazda | logotip va mamlakat kartasi |
+| pastda | katta sariq dumaloq tugma, keyin do'st/onlayn |
+| eng pastda | to'rtta bo'lim tugmasi |
+
+**Jihozlar** ekrani (`Screen.GEAR`) kuchaytirgichlar,
+kiyilgan ko'rinish va rekordni oladi. Avval bularning hammasi
+menyuda turardi va menyu juda uzun edi.
+
+Och rangli kartalardagi matn **to'q ko'k** (`UiKit.INK`):
+oq-xira matn och fonda o'qilmasdi.
+
 ### Natija ekrani
 
 Rekord bo'lsa sarlavha o'rniga yashil lenta chiqadi — natijaning
@@ -989,6 +1039,9 @@ Maydonlar — [Natural Earth](https://www.naturalearthdata.com/) 1:110m
 ```bash
 pip install  # kerak emas, faqat standart kutubxona
 python3 tool/make_maps.py
+
+# Mamlakatlar yo'lining shakllari (data/country_shapes.json, 21 KB)
+python3 tool/make_country_shapes.py
 ```
 
 Har maydon uchun `data/maps/<id>.bin` yoziladi (siqilgan): mantiq

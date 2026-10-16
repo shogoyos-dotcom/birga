@@ -21,7 +21,7 @@ signal host_pressed
 signal join_pressed(address: String)
 
 enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD,
-	MAPS }
+	MAPS, GEAR }
 
 var store: SettingsStore
 ## Belet va reklama xizmati (hozircha namuna).
@@ -101,6 +101,7 @@ func _rebuild() -> void:
 		Screen.ROOM: _root = _build_room()
 		Screen.BOARD: _root = _build_board()
 		Screen.MAPS: _root = _build_maps()
+		Screen.GEAR: _root = _build_gear()
 	add_child(_root)
 
 func _accent() -> Color:
@@ -112,69 +113,193 @@ func _build_menu() -> Control:
 	var root := UiKit.overlay()
 	var box := UiKit.centered_column(root)
 
-	# Hamyon: o'yinda topilgan tanga shu yerda ko'rinadi.
-	var purse := HBoxContainer.new()
-	purse.add_theme_constant_override("separation", 8)
-	purse.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
-	purse.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	purse.add_child(spacer)
-	purse.add_child(_purse_chip("ticket", store.tickets, UiKit.GREEN))
-	box.add_child(purse)
-
-	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 10)
-	var tickets := UiKit.ghost_button(
-		"%d %s" % [store.tickets, Strings.t("tickets")], UiKit.GOLD)
-	tickets.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tickets.pressed.connect(func() -> void:
-		Audio.tap()
-		open_shop(Screen.MENU))
-	top.add_child(tickets)
-	var settings := UiKit.icon_button("⚙")
-	settings.pressed.connect(func() -> void:
-		Audio.tap()
-		show_screen(Screen.SETTINGS))
-	top.add_child(settings)
-	box.add_child(top)
-
-	box.add_child(UiKit.spacer(8))
+	box.add_child(_top_bar())
+	box.add_child(UiKit.spacer(2))
 	box.add_child(_logo())
-	box.add_child(UiKit.label(Strings.t("rulesShort"), 17, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_CENTER, true))
-	box.add_child(UiKit.spacer(8))
+	# Markazda — mamlakatlar yo'li. Menyuning asosiy gapi shu:
+	# "hozir qaysi yurtni egallayapsan".
+	box.add_child(_journey_card())
 
-	var play := UiKit.button(Strings.t("modeBots"), _accent(), true)
+	box.add_child(UiKit.spacer(6))
+	var play := UiKit.round_button(Strings.t("play"), UiKit.YELLOW, 158)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
 		open_maps("play"))
 	box.add_child(play)
-	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 13, UiKit.TEXT_FAINT))
+	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 13,
+		UiKit.TEXT_FAINT))
 
-	var friends := UiKit.ghost_button(Strings.t("modeFriends"), UiKit.MINT)
-	friends.pressed.connect(func() -> void:
+	var modes := HBoxContainer.new()
+	modes.add_theme_constant_override("separation", 10)
+	for row: Array in [
+			[Strings.t("modeFriends"), UiKit.MINT, false],
+			[Strings.t("modeOnline"), UiKit.GOLD, true]]:
+		var online: bool = row[2]
+		var b := UiKit.ghost_button(str(row[0]), row[1] as Color)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func() -> void:
+			Audio.tap()
+			open_room(online))
+		modes.add_child(b)
+	box.add_child(modes)
+
+	box.add_child(UiKit.spacer(6))
+	box.add_child(_tab_bar())
+	return root
+
+## Yuqoridagi qator: avatar, hamyon va sozlamalar.
+func _top_bar() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+
+	var face := UiKit.icon_button("")
+	face.custom_minimum_size = Vector2(62, 62)
+	face.add_child(_avatar_mark(44.0))
+	face.pressed.connect(func() -> void:
 		Audio.tap()
-		open_room(false))
-	box.add_child(friends)
+		show_screen(Screen.PROFILE))
+	row.add_child(face)
 
-	var online := UiKit.ghost_button(Strings.t("modeOnline"), UiKit.GOLD)
-	online.pressed.connect(func() -> void:
+	row.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
+	row.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
+
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(gap)
+
+	# Reklama o'chirilgan bo'lsa nishon ham kerak emas.
+	if not Purchases.has_no_ads():
+		var no_ads := UiKit.icon_button("")
+		no_ads.custom_minimum_size = Vector2(62, 62)
+		no_ads.add_child(GameIcon.new("noads", 34.0, UiKit.YELLOW))
+		no_ads.pressed.connect(func() -> void:
+			Audio.tap()
+			open_shop(Screen.MENU))
+		row.add_child(no_ads)
+
+	var settings := UiKit.icon_button("")
+	settings.custom_minimum_size = Vector2(62, 62)
+	settings.add_child(GameIcon.new("gear", 34.0, UiKit.SURFACE))
+	settings.pressed.connect(func() -> void:
 		Audio.tap()
-		open_room(true))
-	box.add_child(online)
+		show_screen(Screen.SETTINGS))
+	row.add_child(settings)
+	return row
 
-	box.add_child(_profile_card())
+## Avatar belgisi — tugmaning ustiga qo'yiladi.
+func _avatar_mark(span: float) -> Control:
+	var mark := AvatarView.new(store.avatar, span, store.avatar_image)
+	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return mark
+
+## Mamlakatlar yo'li: shakl, nomi va to'lish chizig'i.
+func _journey_card() -> Control:
+	var card := UiKit.panel(UiKit.PANEL, 12)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("journey")))
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	box.add_child(row)
+
+	var country := Journey.current()
+	var frame := UiKit.panel(UiKit.SURFACE, 6)
+	frame.add_child(CountryView.new(country, 110.0, Journey.percent(),
+		UiKit.GREEN))
+	row.add_child(frame)
+
+	var text := VBoxContainer.new()
+	text.add_theme_constant_override("separation", 4)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text.add_child(UiKit.title(
+		Profile.country_name(str(country.get("code", ""))), 22,
+		UiKit.TEXT))
+	text.add_child(UiKit.label("%d / %d %s"
+		% [Journey.points(), Journey.goal(), Strings.t("points")],
+		14, UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	var line := _thin_bar(Journey.percent(), UiKit.GREEN)
+	text.add_child(line)
+	text.add_child(UiKit.label(Strings.t("journeyDone")
+		% [Journey.done_count(), Journey.countries.size()],
+		12, UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_LEFT))
+	row.add_child(text)
+	return card
+
+## Ingichka to'lish chizig'i (kartalar ichida).
+func _thin_bar(percent: float, tint: Color) -> Control:
+	var shell := PanelContainer.new()
+	shell.add_theme_stylebox_override("panel",
+		UiKit.style(UiKit.PANEL.darkened(0.25), 9, 3, 3))
+	shell.custom_minimum_size = Vector2(0, 20)
+	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lane := Control.new()
+	lane.clip_contents = true
+	shell.add_child(lane)
+	var fill := Panel.new()
+	fill.name = "Fill"
+	fill.add_theme_stylebox_override("panel", UiKit.style(tint, 7, 0, 0))
+	fill.anchor_bottom = 1.0
+	fill.anchor_right = clampf(percent / 100.0, 0.0, 1.0)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lane.add_child(fill)
+	return shell
+
+## Pastki qator: do'kon, jihozlar, reyting, profil.
+func _tab_bar() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	for item: Array in [
+			["bag", Strings.t("shop"), UiKit.YELLOW, Screen.SHOP],
+			["bolt", Strings.t("tabGear"), UiKit.RED, Screen.GEAR],
+			["trophy", Strings.t("leaderboard"), UiKit.BG_LOW,
+				Screen.BOARD],
+			["person", Strings.t("profile"), UiKit.GREEN,
+				Screen.PROFILE]]:
+		var target: Screen = item[3]
+		var tab := UiKit.tab_button(str(item[0]), str(item[1]),
+			item[2] as Color)
+		tab.pressed.connect(func() -> void:
+			Audio.tap()
+			if target == Screen.SHOP:
+				open_shop(Screen.MENU)
+			elif target == Screen.BOARD:
+				open_board()
+			else:
+				show_screen(target))
+		row.add_child(tab)
+	return row
+
+## Jihozlar ekrani: kuchaytirgichlar, kiyilgan ko'rinish va rekord.
+##
+## Avval bularning hammasi bosh menyuda turardi va menyu juda
+## uzun edi — endi menyu bitta gapni aytadi, qolgani shu yerda.
+func _build_gear() -> Control:
+	var root := UiKit.overlay()
+	var box := UiKit.centered_column(root)
+	box.add_child(_back_row(Strings.t("tabGear"), Screen.MENU))
 	box.add_child(_power_card())
 	box.add_child(_worn_card())
 	box.add_child(_record_card())
-
-	var board := UiKit.ghost_button(Strings.t("onlineBoard"), UiKit.BLUE)
-	board.pressed.connect(func() -> void:
-		Audio.tap()
-		open_board())
-	box.add_child(board)
 	return root
+
+## Sarlavha va orqaga tugmasi.
+func _back_row(title: String, to: Screen) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var back := UiKit.icon_button("<")
+	back.pressed.connect(func() -> void:
+		Audio.tap()
+		show_screen(to))
+	row.add_child(back)
+	var head := UiKit.title(title, 26, UiKit.TEXT)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(head)
+	return row
 
 ## Kuchaytirgichlar kartasi: uchta qator, har birining darajasi
 ## **tanga** evaziga oshadi.
@@ -1088,10 +1213,12 @@ func _build_pause() -> Control:
 # ——— Natija ———
 
 func set_result(percent: float, kills: int, elapsed: float, reason: String,
-		is_record: bool, reward: Dictionary = {}) -> void:
+		is_record: bool, reward: Dictionary = {},
+		journey: Dictionary = {}) -> void:
 	_result_data = {
 		"percent": percent, "kills": kills, "elapsed": elapsed,
 		"reason": reason, "record": is_record, "reward": reward,
+		"journey": journey,
 	}
 
 func _build_result() -> Control:
@@ -1143,6 +1270,11 @@ func _build_result() -> Control:
 	if not reward.is_empty():
 		inner.add_child(_coin_card(reward))
 
+	# Mamlakatlar yo'li: shakl eski darajadan yangisiga to'ladi.
+	var journey: Dictionary = _result_data.get("journey", {})
+	if not journey.is_empty():
+		inner.add_child(_journey_result(journey))
+
 	# Davom etishning ikki yo'li: belet yoki mukofotli reklama.
 	if store.tickets > 0:
 		var ticket := UiKit.button(
@@ -1185,8 +1317,10 @@ func _coin_card(reward: Dictionary) -> Control:
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
+	# Karta och rangda, shuning uchun matn to'q ko'k: oq-xira
+	# matn bu fonda o'qilmasdi.
 	var name_label := UiKit.label(Strings.t("coinsEarned"), 14,
-		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		UiKit.INK, HORIZONTAL_ALIGNMENT_LEFT)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_label)
 	head.add_child(UiKit.title("+%d" % int(reward.get("total", 0)), 22,
@@ -1204,11 +1338,12 @@ func _coin_card(reward: Dictionary) -> Control:
 		if int(part[1]) <= 0:
 			continue
 		var row := HBoxContainer.new()
-		var title := UiKit.label(str(part[0]), 12, UiKit.TEXT_FAINT,
+		var faint := Color(UiKit.INK, 0.7)
+		var title := UiKit.label(str(part[0]), 12, faint,
 			HORIZONTAL_ALIGNMENT_LEFT)
 		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(title)
-		row.add_child(UiKit.label("+%d" % int(part[1]), 12, UiKit.TEXT_DIM))
+		row.add_child(UiKit.label("+%d" % int(part[1]), 12, UiKit.INK))
 		box.add_child(row)
 	return card
 
@@ -1245,6 +1380,52 @@ func _result_tile(icon: String, value: String, title: String,
 	box.add_child(head)
 	box.add_child(UiKit.label(title, 12, UiKit.TEXT_FAINT))
 	return box
+
+## Natijadagi mamlakat qatori: shakli eski darajadan yangisiga
+## to'lib boradi, yonida nechta ochko qo'shilgani yoziladi.
+func _journey_result(journey: Dictionary) -> Control:
+	var card := UiKit.panel(Color(UiKit.SURFACE, 0.8), 10)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	card.add_child(row)
+
+	var country: Dictionary = journey.get("country", {})
+	var before := float(journey.get("before", 0.0))
+	var after := float(journey.get("after", before))
+	# Shakl to'q ko'k ramkada: och kartada och kontur yo'qolib
+	# ketardi.
+	var frame := UiKit.panel(UiKit.PANEL, 5)
+	var shape := CountryView.new(country, 58.0, before, UiKit.GREEN)
+	frame.add_child(shape)
+	row.add_child(frame)
+
+	var text := VBoxContainer.new()
+	text.add_theme_constant_override("separation", 0)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var done: Array = journey.get("done", [])
+	if done.is_empty():
+		text.add_child(UiKit.label(
+			Profile.country_name(str(country.get("code", ""))), 16,
+			UiKit.INK, HORIZONTAL_ALIGNMENT_LEFT))
+	else:
+		text.add_child(UiKit.label(Strings.t("countryDone")
+			% Profile.country_name(str(done[0])), 16,
+			UiKit.GREEN.darkened(0.35), HORIZONTAL_ALIGNMENT_LEFT, true))
+	text.add_child(UiKit.label("+%d %s"
+		% [int(journey.get("gained", 0)), Strings.t("points")], 13,
+		Color(UiKit.INK, 0.7), HORIZONTAL_ALIGNMENT_LEFT))
+	row.add_child(text)
+
+	# Mamlakat tugagan bo'lsa chiziq oxirigacha to'ladi, keyin
+	# yangi mamlakat noldan boshlanadi — shuning uchun to'lish
+	# 100 gacha boradi va o'sha yerda qoladi.
+	var target: float = 100.0 if not done.is_empty() else after
+	var tween := shape.create_tween()
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tween.tween_method(shape.set_percent, before, target,
+		RESULT_FILL_TIME)
+	return card
 
 ## Maydon chizig'i noldan o'sib boradi va son ham birga sanaladi.
 ##

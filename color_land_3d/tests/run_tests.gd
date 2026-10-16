@@ -33,6 +33,7 @@ func _process(_delta: float) -> bool:
 	_test_pickups(t)
 	_test_upgrades(t)
 	_test_shield(t)
+	_test_journey(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -206,6 +207,91 @@ func _test_pickups(t: TestRunner) -> void:
 			9999.0, 90.0, 99, 9999, 9999)
 		t.equal(int(huge["total"]), MonetizationConfig.RUN_COIN_CAP,
 			"chegarada to'xtadi")
+	)
+
+# ——— Mamlakatlar yo'li ———
+
+const JourneyScript := preload("res://scripts/app/country_store.gd")
+
+func _test_journey(t: TestRunner) -> void:
+	t.group("mamlakatlar yo'li")
+
+	t.test("ro'yxat o'qiladi va Oʻzbekiston birinchi", func() -> void:
+		var all := CountryPath.load_all()
+		t.check(all.size() >= 20, "%d ta mamlakat" % all.size())
+		t.equal(str((all[0] as Dictionary)["code"]), "UZ",
+			"birinchisi — Oʻzbekiston")
+		var goals_grow := true
+		for i in range(1, all.size()):
+			if int((all[i] as Dictionary)["goal"]) \
+					<= int((all[i - 1] as Dictionary)["goal"]):
+				goals_grow = false
+		t.check(goals_grow, "nishon har safar kattalashadi")
+	)
+
+	t.test("har shaklda nuqta bor va 0..1 ichida", func() -> void:
+		var bad := 0
+		var empty := 0
+		for row: Dictionary in CountryPath.load_all():
+			var rings := CountryPath.rings_of(row)
+			if rings.is_empty():
+				empty += 1
+			for ring: PackedVector2Array in rings:
+				if ring.size() < 3:
+					empty += 1
+				for p: Vector2 in ring:
+					if p.x < -0.001 or p.x > 1.001 \
+							or p.y < -0.001 or p.y > 1.001:
+						bad += 1
+		t.equal(empty, 0, "bo'sh shakl yo'q")
+		t.equal(bad, 0, "hamma nuqta kvadrat ichida")
+	)
+
+	t.test("ochko hududdan va o'ldirishdan yig'iladi", func() -> void:
+		t.equal(CountryPath.points_for(0.0, 0), CountryPath.POINTS_MIN,
+			"yomon o'yin ham bir oz beradi")
+		t.equal(CountryPath.points_for(5.0, 0), 50, "5% -> 50")
+		t.equal(CountryPath.points_for(5.0, 2), 60, "ikki kill -> +10")
+		t.check(CountryPath.points_for(-3.0, -1) > 0, "manfiy natija xavfsiz")
+	)
+
+	t.test("nishonga yetganda keyingi mamlakatga o'tadi", func() -> void:
+		var journey: Node = JourneyScript.new()
+		journey.reset()
+		var first := str(journey.current()["code"])
+		var goal: int = journey.goal()
+		var result: Dictionary = journey.add(goal - 1)
+		t.equal(journey.index(), 0, "hali o'sha yerda")
+		t.check(result["done"].is_empty(), "hech narsa tugamadi")
+		result = journey.add(5)
+		t.equal(result["done"].size(), 1, "mamlakat yopildi")
+		t.equal(str(result["done"][0]), first, "yopilgani — birinchisi")
+		t.equal(journey.index(), 1, "keyingisiga o'tdi")
+		t.equal(journey.points(), 4, "ortgan ochko yo'qolmadi")
+		journey.reset()
+		journey.free()
+	)
+
+	t.test("juda katta natija bir nechtasini yopadi", func() -> void:
+		var journey: Node = JourneyScript.new()
+		journey.reset()
+		var result: Dictionary = journey.add(100000)
+		t.check(result["done"].size() >= 3,
+			"%d ta yopildi" % result["done"].size())
+		t.equal(journey.percent(), 100.0, "oxirida chiziq to'la")
+		journey.reset()
+		journey.free()
+	)
+
+	t.test("foiz 0 dan 100 gacha", func() -> void:
+		var journey: Node = JourneyScript.new()
+		journey.reset()
+		t.equal(journey.percent(), 0.0, "boshida nol")
+		journey.add(journey.goal() / 2)
+		t.check(journey.percent() > 40.0 and journey.percent() < 60.0,
+			"yarmi: %.1f%%" % journey.percent())
+		journey.reset()
+		journey.free()
 	)
 
 # ——— Kuchaytirgichlar ———

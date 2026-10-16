@@ -28,6 +28,7 @@ Daily="*res://scripts/money/daily_reward_manager.gd"
 Missions="*res://scripts/money/mission_manager.gd"
 Ads="*res://scripts/money/ad_manager.gd"
 Upgrades="*res://scripts/money/upgrade_manager.gd"
+Journey="*res://scripts/app/country_store.gd"
 
 [display]
 

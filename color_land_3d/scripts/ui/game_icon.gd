@@ -12,7 +12,7 @@ extends Control
 
 enum Kind {
 	SKULL, COIN, GEM, STAR, CROWN, TICKET, BOLT, MAGNET, SACK, SHIELD,
-	CLOCK,
+	CLOCK, NOADS, BAG, TROPHY, PERSON, GEAR,
 }
 
 const NAMES := {
@@ -20,6 +20,8 @@ const NAMES := {
 	"star": Kind.STAR, "crown": Kind.CROWN, "ticket": Kind.TICKET,
 	"bolt": Kind.BOLT, "magnet": Kind.MAGNET, "sack": Kind.SACK,
 	"shield": Kind.SHIELD, "clock": Kind.CLOCK,
+	"noads": Kind.NOADS, "bag": Kind.BAG, "trophy": Kind.TROPHY,
+	"person": Kind.PERSON, "gear": Kind.GEAR,
 }
 
 var kind: Kind = Kind.COIN
@@ -47,6 +49,11 @@ func _draw() -> void:
 		Kind.SACK: _sack()
 		Kind.SHIELD: _shield()
 		Kind.CLOCK: _clock()
+		Kind.NOADS: _no_ads()
+		Kind.BAG: _bag()
+		Kind.TROPHY: _trophy()
+		Kind.PERSON: _person()
+		Kind.GEAR: _gear()
 		_: _coin()
 
 ## Hamma belgi 0..1 kvadratida chiziladi, shuning uchun qalinlik
@@ -186,3 +193,60 @@ func _clock() -> void:
 	draw_line(Vector2(0.5, 0.54), Vector2(0.68, 0.62), UiKit.INK, LINE)
 	# Ustidagi tugma.
 	draw_rect(Rect2(0.42, 0.02, 0.16, 0.1), UiKit.INK, true)
+
+## Reklamasiz: ekrancha va uni kesib o'tgan qizil chiziq.
+func _no_ads() -> void:
+	draw_rect(Rect2(0.06, 0.2, 0.88, 0.6), UiKit.INK, true)
+	draw_rect(Rect2(0.06 + LINE, 0.2 + LINE,
+		0.88 - LINE * 2.0, 0.6 - LINE * 2.0), tint, true)
+	# Ichidagi ikki yo'l — "matn" o'rnida.
+	for y: float in [0.38, 0.54]:
+		draw_rect(Rect2(0.22, y, 0.56, 0.08), UiKit.INK, true)
+	draw_line(Vector2(0.12, 0.86), Vector2(0.88, 0.14), UiKit.INK, 0.17)
+	draw_line(Vector2(0.12, 0.86), Vector2(0.88, 0.14), UiKit.RED, 0.1)
+
+## Xalta — do'kon.
+func _bag() -> void:
+	draw_rect(Rect2(0.1, 0.34, 0.8, 0.58), UiKit.INK, true)
+	draw_rect(Rect2(0.1 + LINE, 0.34 + LINE,
+		0.8 - LINE * 2.0, 0.58 - LINE * 2.0), tint, true)
+	# Dastasi.
+	draw_arc(Vector2(0.5, 0.36), 0.2, PI, TAU, 18, UiKit.INK, LINE * 1.6)
+
+## Kubok — reyting.
+func _trophy() -> void:
+	var cup := PackedVector2Array([
+		Vector2(0.24, 0.12), Vector2(0.76, 0.12), Vector2(0.68, 0.54),
+		Vector2(0.32, 0.54)])
+	draw_colored_polygon(_grown(cup, Vector2(0.5, 0.33), 1.14), UiKit.INK)
+	draw_colored_polygon(cup, tint)
+	# Oyog'i va poydevori.
+	draw_rect(Rect2(0.44, 0.54, 0.12, 0.2), UiKit.INK, true)
+	draw_rect(Rect2(0.26, 0.74, 0.48, 0.14), UiKit.INK, true)
+	draw_rect(Rect2(0.26 + LINE, 0.74 + LINE * 0.5,
+		0.48 - LINE * 2.0, 0.14 - LINE), tint, true)
+
+## Odam — profil.
+func _person() -> void:
+	draw_circle(Vector2(0.5, 0.3), 0.22, UiKit.INK)
+	draw_circle(Vector2(0.5, 0.3), 0.22 - LINE, tint)
+	var body := PackedVector2Array([
+		Vector2(0.16, 0.95), Vector2(0.22, 0.66), Vector2(0.78, 0.66),
+		Vector2(0.84, 0.95)])
+	draw_colored_polygon(_grown(body, Vector2(0.5, 0.8), 1.1), UiKit.INK)
+	draw_colored_polygon(body, tint)
+
+## Tishli g'ildirak — sozlamalar.
+func _gear() -> void:
+	# Tishlar: sakkizta to'rtburchak aylana bo'ylab buriladi.
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		var at := Vector2(0.5, 0.5) + Vector2(cos(a), sin(a)) * 0.38
+		var tooth := PackedVector2Array()
+		for corner: Vector2 in [Vector2(-0.1, -0.13), Vector2(0.1, -0.13),
+				Vector2(0.08, 0.13), Vector2(-0.08, 0.13)]:
+			tooth.append(at + corner.rotated(a + PI * 0.5))
+		draw_colored_polygon(tooth, UiKit.INK)
+	draw_circle(Vector2(0.5, 0.5), 0.38, UiKit.INK)
+	draw_circle(Vector2(0.5, 0.5), 0.38 - LINE, tint)
+	draw_circle(Vector2(0.5, 0.5), 0.15, UiKit.INK)

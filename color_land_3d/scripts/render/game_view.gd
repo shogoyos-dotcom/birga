@@ -809,8 +809,19 @@ func _end_match() -> void:
 		ui.toast(Strings.t("missionDone"))
 	# Majburiy reklama oralig'i shu yerda sanaladi (hozircha o'chiq).
 	Ads.note_run_finished()
+	# Mamlakatlar yo'li shu natijadan oldinga siljiydi.
+	var journey := get_node_or_null("/root/Journey")
+	var moved: Dictionary = {}
+	if journey != null:
+		# Natija ekrani eski holatni ko'rsatib, keyin o'sib borsin.
+		moved = {
+			"before": float(journey.percent()),
+			"country": journey.current(),
+		}
+		moved.merge(journey.report(percent, p.kills))
+		moved["after"] = float(journey.percent())
 	ui.set_result(percent, p.kills, world.elapsed,
-		Strings.death_reason(p.death_cause), is_record, reward)
+		Strings.death_reason(p.death_cause), is_record, reward, moved)
 	ui.show_screen(ui.Screen.RESULT)
 
 
@@ -888,9 +899,23 @@ func show_screen_for_demo(name: String) -> void:
 		"maps": ui.open_maps("play")
 		"room": ui.open_room(false)
 		"board": ui.open_board()
+		"gear": ui.show_screen(ui.Screen.GEAR)
 		"result":
+			# Namuna natija: mukofot va mamlakat yo'li ham
+			# ko'rinsin, aks holda ekranning yarmi tekshirilmay
+			# qolardi.
+			var journey := get_node_or_null("/root/Journey")
+			var moved: Dictionary = {}
+			if journey != null:
+				moved = {
+					"country": journey.current(),
+					"before": float(journey.percent()),
+					"after": minf(float(journey.percent()) + 18.0, 100.0),
+					"gained": 123, "done": [],
+				}
 			ui.set_result(12.34, 3, 95.0,
-				Strings.death_reason(PlayerState.DeathCause.TRAIL_HIT), true)
+				Strings.death_reason(PlayerState.DeathCause.TRAIL_HIT), true,
+				RewardManager.run_reward(95.0, 12.34, 3, 40, 15), moved)
 			ui.show_screen(ui.Screen.RESULT)
 
 ## Skrinshot vositasi uchun: reyting serveri manzilini qo'yadi.
