@@ -20,7 +20,7 @@ func _init(p_hero: Dictionary, p_unlocked: bool, p_selected: bool,
 	is_selected = p_selected
 	progress = p_progress
 	target = p_target
-	custom_minimum_size = Vector2(104, 138)
+	custom_minimum_size = Vector2(130, 168)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 func _draw() -> void:
@@ -110,21 +110,21 @@ func _draw_hero_shape(id: String, center: Vector2, color: Color) -> void:
 		"hero_melon":
 			# Tarvuz bo'lagi
 			var melon := PackedVector2Array([
-				center + Vector2(-28, 12),
-				center + Vector2(28, 12),
-				center + Vector2(0, -26)
+				center + Vector2(-34, 14),
+				center + Vector2(34, 14),
+				center + Vector2(0, -30)
 			])
 			# Yashil po'choq
-			draw_line(center + Vector2(-30, 14), center + Vector2(30, 14), Color("2f7d32"), 5.0)
+			draw_line(center + Vector2(-36, 16), center + Vector2(36, 16), Color("2f7d32"), 6.0)
 			# Qizil ichi
 			draw_colored_polygon(melon, color)
 			# Urug'lar
-			draw_circle(center + Vector2(-8, 2), 2.0, UiKit.INK)
-			draw_circle(center + Vector2(8, 2), 2.0, UiKit.INK)
-			draw_circle(center + Vector2(0, -10), 2.0, UiKit.INK)
+			draw_circle(center + Vector2(-10, 2), 2.5, UiKit.INK)
+			draw_circle(center + Vector2(10, 2), 2.5, UiKit.INK)
+			draw_circle(center + Vector2(0, -12), 2.5, UiKit.INK)
 		_:
 			# Izometrik kub
-			var s: float = 24.0
+			var s: float = 30.0
 			# Ustki tomon
 			var top := PackedVector2Array([
 				center + Vector2(0, -s * 0.9),
@@ -150,6 +150,6 @@ func _draw_hero_shape(id: String, center: Vector2, color: Color) -> void:
 			draw_colored_polygon(left, color.darkened(0.2))
 			draw_colored_polygon(right, color)
 			# Kontur
-			draw_polyline(top, UiKit.INK, 1.8)
-			draw_polyline(left, UiKit.INK, 1.8)
-			draw_polyline(right, UiKit.INK, 1.8)
+			draw_polyline(top, UiKit.INK, 2.2)
+			draw_polyline(left, UiKit.INK, 2.2)
+			draw_polyline(right, UiKit.INK, 2.2)

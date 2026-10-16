@@ -52,7 +52,7 @@ const MINT := GREEN
 ## Kontur qalinligi (piksel).
 const OUTLINE := 4
 ## Tugma ostidagi poydevor balandligi.
-const LIFT := 8
+const LIFT := 10
 
 const FONT_PATH := "res://assets/fonts/Rubik-Medium.ttf"
 const BOLD_FONT_PATH := "res://assets/fonts/Rubik-Bold.ttf"
@@ -152,7 +152,7 @@ static func style(bg: Color, radius: int = 18, border: int = OUTLINE,
 ##
 ## `lift` — poydevor balandligi; bosilgan tugmada u kichrayadi va matn
 ## pastga suriladi, shuning uchun tugma 3D bosilgandek ko'rinadi.
-static func style_solid(bg: Color, radius: int = 20, lift: int = LIFT,
+static func style_solid(bg: Color, radius: int = 22, lift: int = LIFT,
 		margin: int = 14) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
@@ -167,9 +167,9 @@ static func style_solid(bg: Color, radius: int = 20, lift: int = LIFT,
 
 	if lift > 0:
 		# To'q 3D soya (drop shadow): tugma atrofidagi chuqurlik va hajm
-		box.shadow_color = Color(0.04, 0.08, 0.22, 0.45)
-		box.shadow_size = 6
-		box.shadow_offset = Vector2(0, lift * 0.5 + 2)
+		box.shadow_color = Color(0.04, 0.08, 0.22, 0.50)
+		box.shadow_size = 8
+		box.shadow_offset = Vector2(0, lift * 0.5 + 3)
 	return box
 
 static func panel(bg: Color = PANEL, margin: int = 16) -> PanelContainer:
@@ -228,38 +228,39 @@ static func section(text: String) -> Label:
 	return l
 
 # ——— Tugmalar ———
-
+ 
 ## Asosiy tugma: katta, yumaloq, qalin 3D poydevorli va yaltiroq.
 static func button(text: String, color: Color, big: bool = false) -> Button:
 	var b := Button.new()
 	b.text = text.to_upper()
-	var height := 92 if big else 78
+	var height := 104 if big else 88
 	b.custom_minimum_size = Vector2(0, height)
-	b.add_theme_font_size_override("font_size", 28 if big else 22)
+	b.add_theme_font_size_override("font_size", 30 if big else 24)
 	var font := display_font()
 	if font != null:
 		b.add_theme_font_override("font", font)
 	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var bg := color
-		var lift := LIFT + (3 if big else 1)
+		var lift := LIFT + (4 if big else 2)
 		var m_top := 14
 		match state:
 			"pressed":
 				bg = color.darkened(0.08)
-				lift = 2
-				m_top = 18
+				lift = 3
+				m_top = 22
 			"hover":
 				bg = color.lightened(0.08)
 			"disabled":
 				bg = SURFACE.darkened(0.12)
-				lift = 3
-		var box := style_solid(bg, 22, lift, 14)
-		box.content_margin_left = 20
-		box.content_margin_right = 20
+				lift = 4
+		var box := style_solid(bg, 24, lift, 16)
+		box.content_margin_left = 22
+		box.content_margin_right = 22
 		box.content_margin_top = m_top
 		b.add_theme_stylebox_override(state, box)
 	_ink_text(b)
-	_gloss(b, 14 if big else 11, 16)
+	b.add_theme_constant_override("outline_size", 10)
+	_gloss(b, 16 if big else 13, 18)
 	return b
 
 ## Matn: oq, atrofida to'q ko'k kontur — har qanday rang ustida
@@ -276,69 +277,69 @@ static func _ink_text(b: Button) -> void:
 static func ghost_button(text: String, color: Color = YELLOW) -> Button:
 	var b := Button.new()
 	b.text = text.to_upper()
-	b.custom_minimum_size = Vector2(0, 74)
-	b.add_theme_font_size_override("font_size", 20)
+	b.custom_minimum_size = Vector2(0, 86)
+	b.add_theme_font_size_override("font_size", 22)
 	var font := display_font()
 	if font != null:
 		b.add_theme_font_override("font", font)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
 		var bg := color
-		var lift := LIFT + 1
-		var m_top := 12
+		var lift := LIFT + 2
+		var m_top := 13
 		match state:
 			"pressed":
 				bg = color.darkened(0.1)
-				lift = 2
-				m_top = 16
+				lift = 3
+				m_top = 18
 			"hover":
 				bg = color.lightened(0.08)
-		var box := style_solid(bg, 22, lift, 12)
-		box.content_margin_left = 18
-		box.content_margin_right = 18
+		var box := style_solid(bg, 24, lift, 14)
+		box.content_margin_left = 20
+		box.content_margin_right = 20
 		box.content_margin_top = m_top
 		b.add_theme_stylebox_override(state, box)
 	_ink_text(b)
-	_gloss(b, 12, 14)
+	_gloss(b, 14, 16)
 	return b
 
 ## Bosh tugma — katta 3D bo'rtgan dumaloq, o'rtasida matn va yuqorisida yaltiroq doira.
 static func round_button(text: String, color: Color,
-		diameter: int = 208) -> Button:
+		diameter: int = 240) -> Button:
 	var b := Button.new()
 	b.text = text.to_upper()
 	b.custom_minimum_size = Vector2(diameter, diameter)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	b.add_theme_font_size_override("font_size", maxi(28, int(diameter / 5.2)))
+	b.add_theme_font_size_override("font_size", maxi(32, int(diameter / 5.0)))
 	var font := display_font()
 	if font != null:
 		b.add_theme_font_override("font", font)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
 		var bg := color
-		var lift := LIFT + 6
-		var m_top := 6
+		var lift := LIFT + 8
+		var m_top := 8
 		match state:
 			"pressed":
 				bg = color.darkened(0.08)
-				lift = 3
-				m_top = 12
+				lift = 4
+				m_top = 18
 			"hover":
 				bg = color.lightened(0.08)
-		var box := style_solid(bg, diameter / 2, lift, 6)
+		var box := style_solid(bg, diameter / 2, lift, 8)
 		box.content_margin_top = m_top
 		b.add_theme_stylebox_override(state, box)
 	_ink_text(b)
-	b.add_theme_constant_override("outline_size", 10)
+	b.add_theme_constant_override("outline_size", 12)
 
 	# 3D doirasimon yaltirash (sferik shisha/konfet effekti)
 	var shine := Panel.new()
 	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shine.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	shine.offset_left = diameter * 0.22
-	shine.offset_right = -diameter * 0.22
-	shine.offset_top = diameter * 0.10
-	shine.offset_bottom = diameter * 0.28
+	shine.offset_left = diameter * 0.20
+	shine.offset_right = -diameter * 0.20
+	shine.offset_top = diameter * 0.08
+	shine.offset_bottom = diameter * 0.26
 	var shine_box := StyleBoxFlat.new()
-	shine_box.bg_color = Color(1, 1, 1, 0.40)
+	shine_box.bg_color = Color(1, 1, 1, 0.45)
 	shine_box.set_corner_radius_all(int(diameter * 0.12))
 	shine.add_theme_stylebox_override("panel", shine_box)
 	b.add_child(shine)
@@ -348,12 +349,12 @@ static func round_button(text: String, color: Color,
 static func tab_button(icon: String, text: String,
 		tint: Color = YELLOW, is_active: bool = false) -> Button:
 	var b := Button.new()
-	var height: int = 92 if is_active else 84
+	var height: int = 104 if is_active else 94
 	b.custom_minimum_size = Vector2(0, height)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var base_bg := PANEL.lightened(0.20) if is_active else PANEL
-	var lift_norm := 10 if is_active else 7
+	var base_bg := PANEL.lightened(0.22) if is_active else PANEL
+	var lift_norm := 12 if is_active else 8
 	for state: String in ["normal", "hover", "pressed", "focus"]:
 		var bg := base_bg
 		var lift := lift_norm
@@ -361,55 +362,55 @@ static func tab_button(icon: String, text: String,
 		match state:
 			"pressed":
 				bg = base_bg.darkened(0.08)
-				lift = 2
-				m_top = 4
+				lift = 3
+				m_top = 6
 			"hover":
 				bg = base_bg.lightened(0.08)
-		var box := style_solid(bg, 20, lift, 4)
+		var box := style_solid(bg, 22, lift, 6)
 		box.content_margin_top = m_top
 		b.add_theme_stylebox_override(state, box)
 
 	var box := VBoxContainer.new()
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 2)
+	box.add_theme_constant_override("separation", 3)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var icon_size: float = 34.0 if is_active else 30.0
+	var icon_size: float = 38.0 if is_active else 34.0
 	var mark := GameIcon.new(icon, icon_size, tint if not is_active else tint.lightened(0.15))
 	mark.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(mark)
 
-	var lbl := label(text, 13 if is_active else 12, TEXT if is_active else TEXT_DIM)
+	var lbl := label(text, 14 if is_active else 13, TEXT if is_active else TEXT_DIM)
 	lbl.add_theme_constant_override("outline_size", 4 if is_active else 2)
 	lbl.add_theme_color_override("font_outline_color", INK)
 	box.add_child(lbl)
 	b.add_child(box)
 
-	_gloss(b, 10, 8)
+	_gloss(b, 12, 10)
 	return b
 
 ## Dumaloq 3D tugma (orqaga, pauza, sozlama, avatar).
-static func icon_button(text: String, size: int = 74) -> Button:
+static func icon_button(text: String, size: int = 84) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(size, size)
-	b.add_theme_font_size_override("font_size", maxi(24, int(size * 0.4)))
+	b.add_theme_font_size_override("font_size", maxi(28, int(size * 0.42)))
 	b.add_theme_font_override("font", ThemeDB.fallback_font)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
 		var bg := PANEL.lightened(0.08) if state == "hover" else PANEL
-		var lift := LIFT + 1
+		var lift := LIFT + 2
 		var m_top := 0
 		match state:
 			"pressed":
 				bg = PANEL.darkened(0.08)
-				lift = 2
-				m_top = 4
+				lift = 3
+				m_top = 6
 		var box := style_solid(bg, size / 2, lift, 4)
 		box.content_margin_top = m_top
 		b.add_theme_stylebox_override(state, box)
 	_ink_text(b)
-	_gloss(b, 10, int(size * 0.22))
+	_gloss(b, 12, int(size * 0.20))
 	return b
 
 ## Tanlov chiplari qatori. Tanlangan indeks bilan signal beradi.
@@ -560,14 +561,14 @@ static func spacer(height: int) -> Control:
 static func capsule(icon: String, value: String, tint: Color = YELLOW,
 		width: int = 0) -> PanelContainer:
 	var shell := PanelContainer.new()
-	shell.add_theme_stylebox_override("panel", style_solid(TEXT, 24, 5, 6))
+	shell.add_theme_stylebox_override("panel", style_solid(TEXT, 26, 6, 8))
 	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 10)
 	shell.add_child(row)
-	row.add_child(GameIcon.new(icon, 38.0, tint))
+	row.add_child(GameIcon.new(icon, 42.0, tint))
 
-	var text := title(value, 22, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	var text := title(value, 24, INK, HORIZONTAL_ALIGNMENT_CENTER)
 	text.add_theme_constant_override("outline_size", 0)
 	text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if width > 0:
@@ -583,8 +584,8 @@ static func progress_bar(percent: float, tint: Color,
 		mark: float = -1.0) -> Control:
 	var shell := PanelContainer.new()
 	shell.add_theme_stylebox_override("panel", style_solid(PANEL.darkened(0.35),
-		20, 6, 5))
-	shell.custom_minimum_size = Vector2(0, 56)
+		24, 7, 6))
+	shell.custom_minimum_size = Vector2(0, 62)
 	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var lane := Control.new()
@@ -593,24 +594,24 @@ static func progress_bar(percent: float, tint: Color,
 
 	var fill := Panel.new()
 	fill.name = "Fill"
-	fill.add_theme_stylebox_override("panel", style(tint, 15, 0, 0))
+	fill.add_theme_stylebox_override("panel", style(tint, 17, 0, 0))
 	fill.anchor_bottom = 1.0
 	fill.anchor_right = clampf(percent / 100.0, 0.02, 1.0)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lane.add_child(fill)
 
-	var text := title("%d%%" % int(round(percent)), 22, TEXT,
+	var text := title("%d%%" % int(round(percent)), 24, TEXT,
 		HORIZONTAL_ALIGNMENT_LEFT)
 	text.name = "Value"
 	text.set_anchors_preset(Control.PRESET_FULL_RECT)
 	text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	text.position = Vector2(14, 0)
+	text.position = Vector2(16, 0)
 	lane.add_child(text)
 	if mark >= 0.0:
-		var best := label("▲", 12, YELLOW)
+		var best := label("▲", 14, YELLOW)
 		best.anchor_left = clampf(mark / 100.0, 0.0, 1.0)
 		best.anchor_top = 1.0
-		best.position = Vector2(-6, -6)
+		best.position = Vector2(-7, -7)
 		lane.add_child(best)
 	return shell
 
@@ -647,11 +648,13 @@ static func _sky_texture() -> GradientTexture2D:
 	return tex
 
 ## Markazda, cheklangan kenglikdagi, aylanuvchi ustun.
-static func centered_column(root: Control, max_width: int = 460) -> VBoxContainer:
+static func centered_column(root: Control, max_width: int = 560) -> VBoxContainer:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for side: String in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 20)
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	root.add_child(margin)
 
 	# Barmoq bilan surib aylantirish uchun — oddiy ScrollContainer da

@@ -123,21 +123,21 @@ func _build_menu() -> Control:
 	box.add_child(_journey_card())
 
 	box.add_child(UiKit.spacer(4))
-	var play := UiKit.round_button(Strings.t("play"), UiKit.YELLOW, 208)
+	var play := UiKit.round_button(Strings.t("play"), UiKit.YELLOW, 240)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
 		open_maps("play"))
 	# 3D nafas olish (breathing pulse) effekti — tugmaga hajm beradi
 	var tw := play.create_tween().set_loops()
-	tw.tween_property(play, "scale", Vector2(1.04, 1.04), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(play, "scale", Vector2(1.05, 1.05), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_property(play, "scale", Vector2(1.0, 1.0), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	play.pivot_offset = Vector2(104, 104)
+	play.pivot_offset = Vector2(120, 120)
 	box.add_child(play)
-	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 13,
+	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 14,
 		UiKit.TEXT_FAINT))
 
 	var modes := HBoxContainer.new()
-	modes.add_theme_constant_override("separation", 12)
+	modes.add_theme_constant_override("separation", 14)
 	for row: Array in [
 			[Strings.t("modeFriends"), UiKit.MINT, false],
 			[Strings.t("modeOnline"), UiKit.GOLD, true]]:
@@ -159,8 +159,8 @@ func _top_bar() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 
-	var face := UiKit.icon_button("", 74)
-	face.add_child(_avatar_mark(52.0))
+	var face := UiKit.icon_button("", 84)
+	face.add_child(_avatar_mark(60.0))
 	face.pressed.connect(func() -> void:
 		Audio.tap()
 		show_screen(Screen.PROFILE))
@@ -175,15 +175,15 @@ func _top_bar() -> Control:
 
 	# Reklama o'chirilgan bo'lsa nishon ham kerak emas.
 	if not Purchases.has_no_ads():
-		var no_ads := UiKit.icon_button("", 74)
-		no_ads.add_child(GameIcon.new("noads", 38.0, UiKit.YELLOW))
+		var no_ads := UiKit.icon_button("", 84)
+		no_ads.add_child(GameIcon.new("noads", 44.0, UiKit.YELLOW))
 		no_ads.pressed.connect(func() -> void:
 			Audio.tap()
 			show_screen(Screen.NOADS))
 		row.add_child(no_ads)
 
-	var settings := UiKit.icon_button("", 74)
-	settings.add_child(GameIcon.new("gear", 38.0, UiKit.SURFACE))
+	var settings := UiKit.icon_button("", 84)
+	settings.add_child(GameIcon.new("gear", 44.0, UiKit.SURFACE))
 	settings.pressed.connect(func() -> void:
 		Audio.tap()
 		show_screen(Screen.SETTINGS))
@@ -354,7 +354,7 @@ func _hero_tile(h: Dictionary, stats: Dictionary) -> Control:
 	var target: int = int(h.get("target", 0))
 
 	var card := Button.new()
-	card.custom_minimum_size = Vector2(110, 150)
+	card.custom_minimum_size = Vector2(136, 176)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.flat = true
 	for st in ["normal", "hover", "pressed", "focus"]:
@@ -1162,24 +1162,24 @@ func _build_hud() -> Control:
 	_progress_text = _progress.find_child("Value", true, false) as Label
 	_progress.anchor_right = 1.0
 	_progress.offset_left = 16
-	_progress.offset_right = -104
+	_progress.offset_right = -116
 	_progress.offset_top = 14
 	root.add_child(_progress)
 
-	var star := GameIcon.new("star", 40.0, UiKit.YELLOW)
+	var star := GameIcon.new("star", 44.0, UiKit.YELLOW)
 	star.anchor_left = 1.0
 	star.anchor_right = 1.0
-	star.offset_left = -148
-	star.offset_right = -108
+	star.offset_left = -164
+	star.offset_right = -120
 	star.offset_top = 22
-	star.offset_bottom = 62
+	star.offset_bottom = 66
 	root.add_child(star)
 
 	# "\u23F8" hech bir shriftda yo'q — tugma bo'sh ko'rinardi.
-	var pause := UiKit.icon_button("\u275A\u275A", 76)
+	var pause := UiKit.icon_button("\u275A\u275A", 84)
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
-	pause.position = Vector2(-92, 12)
+	pause.position = Vector2(-100, 14)
 	pause.pressed.connect(func() -> void:
 		Audio.tap()
 		# Ekranni o'zimiz almashtirmaymiz: avval o'yin to'xtashi
@@ -1190,12 +1190,12 @@ func _build_hud() -> Control:
 	# Chapda: o'ldirishlar va shu o'yinda yig'ilgan tanga.
 	var stats := VBoxContainer.new()
 	stats.add_theme_constant_override("separation", 10)
-	stats.position = Vector2(16, 86)
+	stats.position = Vector2(16, 90)
 	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(stats)
-	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 48)
+	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 54)
 	stats.add_child(_kill_capsule)
-	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 48)
+	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 54)
 	stats.add_child(_coin_capsule)
 	_kill_label = _capsule_label(_kill_capsule)
 	_coin_label = _capsule_label(_coin_capsule)
@@ -1308,37 +1308,37 @@ func _board_row(row: Dictionary) -> Control:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var face := Control.new()
-	face.custom_minimum_size = Vector2(58, 58)
+	face.custom_minimum_size = Vector2(68, 68)
 	face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var disc := Panel.new()
 	disc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	disc.add_theme_stylebox_override("panel",
-		UiKit.style_solid(tint.lightened(0.5), 29, 3, 0))
+		UiKit.style_solid(tint.lightened(0.5), 34, 4, 0))
 	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	face.add_child(disc)
 
-	var avatar := AvatarView.new(str(row["avatar"]), 44.0)
+	var avatar := AvatarView.new(str(row["avatar"]), 52.0)
 	avatar.set_anchors_preset(Control.PRESET_FULL_RECT)
-	avatar.offset_left = 7
-	avatar.offset_top = 7
-	avatar.offset_right = -7
-	avatar.offset_bottom = -7
+	avatar.offset_left = 8
+	avatar.offset_top = 8
+	avatar.offset_right = -8
+	avatar.offset_bottom = -8
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	face.add_child(avatar)
 
 	# O'rin nishoni — avatarning chap pastida.
 	var badge := Panel.new()
 	badge.add_theme_stylebox_override("panel", UiKit.style(
-		UiKit.YELLOW if place == 1 else UiKit.TEXT, 14, UiKit.OUTLINE, 0))
+		UiKit.YELLOW if place == 1 else UiKit.TEXT, 16, UiKit.OUTLINE, 0))
 	badge.anchor_top = 1.0
 	badge.anchor_bottom = 1.0
 	badge.offset_left = -4
-	badge.offset_right = 24
-	badge.offset_top = -28
+	badge.offset_right = 26
+	badge.offset_top = -30
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var number := UiKit.title(str(place), 16, UiKit.INK,
+	var number := UiKit.title(str(place), 17, UiKit.INK,
 		HORIZONTAL_ALIGNMENT_CENTER)
 	number.set_anchors_preset(Control.PRESET_FULL_RECT)
 	number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1347,24 +1347,24 @@ func _board_row(row: Dictionary) -> Control:
 	face.add_child(badge)
 
 	if place == 1:
-		var crown := GameIcon.new("crown", 30.0, UiKit.YELLOW)
+		var crown := GameIcon.new("crown", 34.0, UiKit.YELLOW)
 		crown.anchor_left = 0.5
 		crown.anchor_right = 0.5
-		crown.offset_left = -15
-		crown.offset_right = 15
-		crown.offset_top = -24
+		crown.offset_left = -17
+		crown.offset_right = 17
+		crown.offset_top = -28
 		crown.offset_bottom = 6
 		face.add_child(crown)
 
 	var tape := PanelContainer.new()
-	var tape_box := UiKit.style_solid(tint, 16, 4, 6)
-	tape_box.content_margin_left = 30
-	tape_box.content_margin_right = 12
+	var tape_box := UiKit.style_solid(tint, 18, 5, 8)
+	tape_box.content_margin_left = 34
+	tape_box.content_margin_right = 14
 	tape.add_theme_stylebox_override("panel", tape_box)
-	tape.custom_minimum_size = Vector2(130, 48)
+	tape.custom_minimum_size = Vector2(144, 54)
 	tape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tape.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tape.add_child(UiKit.title("%.2f%%" % float(row["percent"]), 20,
+	tape.add_child(UiKit.title("%.2f%%" % float(row["percent"]), 22,
 		UiKit.TEXT, HORIZONTAL_ALIGNMENT_RIGHT))
 
 	line.add_child(face)
