@@ -59,6 +59,10 @@ var _pickup_field := PickupField.new()
 var _pickups: Node3D
 ## Shu o'yinda yo'ldan terilgan tanga.
 var _loose_coins := 0
+## Shu o'yinda olingan sferalar (qalqon va tezlik).
+var _spheres_collected := 0
+## Shu o'yinda tirilish amalga oshirilganmi.
+var _human_revived := false
 ## Tezlik kuchaytirgichi shu vaqtgacha ishlaydi (dunyo soati).
 var _boost_until := 0.0
 ## O'yinchining asl tezligi — kuchaytirgich tugagach shunga qaytadi.
@@ -363,6 +367,7 @@ func _on_continue_with_ticket() -> void:
 		ui.toast(Strings.t("noTickets"))
 		return
 	if world.revive(world.human(), _cleared_on_death):
+		_human_revived = true
 		_avatars.refresh()
 		_set_playing(true)
 		ui.show_screen(ui.Screen.HUD)
@@ -483,6 +488,8 @@ const DASH_SECONDS := 4.0
 ## joylashtiriladi.
 func _build_pickups() -> void:
 	_loose_coins = 0
+	_spheres_collected = 0
+	_human_revived = false
 	_base_speed = world.human().speed
 	# Fever: o'yin boshida qisqa vaqt tezlik oshadi. Darajasi nol
 	# bo'lsa hech narsa o'zgarmaydi.
@@ -534,11 +541,13 @@ func _collect_pickups(from: Vector2) -> void:
 				Audio.tap()
 			PickupField.Kind.SHIELD:
 				p.shield = true
+				_spheres_collected += 1
 				ui.flash(UiKit.BG_LOW, 0.14)
 				ui.toast(Strings.t("gotShield"))
 			PickupField.Kind.DASH:
 				_boost_until = maxf(_boost_until,
 					world.elapsed + DASH_SECONDS)
+				_spheres_collected += 1
 				ui.flash(UiKit.GREEN, 0.14)
 				ui.toast(Strings.t("gotDash"))
 
@@ -820,6 +829,9 @@ func _end_match() -> void:
 		}
 		moved.merge(journey.report(percent, p.kills))
 		moved["after"] = float(journey.percent())
+	var country_won: bool = moved.has("done") and not (moved["done"] as Array).is_empty()
+	var is_perfect: bool = (percent >= 99.9)
+	store.record_match_stats(p.kills, _spheres_collected, _human_revived, country_won, is_perfect)
 	ui.set_result(percent, p.kills, world.elapsed,
 		Strings.death_reason(p.death_cause), is_record, reward, moved)
 	ui.show_screen(ui.Screen.RESULT)
@@ -900,6 +912,8 @@ func show_screen_for_demo(name: String) -> void:
 		"room": ui.open_room(false)
 		"board": ui.open_board()
 		"gear": ui.show_screen(ui.Screen.GEAR)
+		"heroes": ui.show_screen(ui.Screen.HEROES)
+		"noads": ui.show_screen(ui.Screen.NOADS)
 		"result":
 			# Namuna natija: mukofot va mamlakat yo'li ham
 			# ko'rinsin, aks holda ekranning yarmi tekshirilmay

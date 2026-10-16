@@ -22,6 +22,8 @@ func _build_steps() -> void:
 		["sozlamalar", func() -> void: _view.show_screen_for_demo("settings")],
 		["profil", func() -> void: _view.show_screen_for_demo("profile")],
 		["do'kon", func() -> void: _view.show_screen_for_demo("shop")],
+		["qahramonlar", func() -> void: _view.show_screen_for_demo("heroes")],
+		["reklamasiz", func() -> void: _view.show_screen_for_demo("noads")],
 		["xona", func() -> void: _view.show_screen_for_demo("room")],
 		["reyting", func() -> void: _view.show_screen_for_demo("board")],
 		["jihozlar", func() -> void: _view.show_screen_for_demo("gear")],

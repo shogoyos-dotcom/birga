@@ -12,7 +12,8 @@ extends Control
 
 enum Kind {
 	SKULL, COIN, GEM, STAR, CROWN, TICKET, BOLT, MAGNET, SACK, SHIELD,
-	CLOCK, NOADS, BAG, TROPHY, PERSON, GEAR,
+	CLOCK, NOADS, BAG, TROPHY, PERSON, GEAR, LOCK, FLAG, HOME, HEROES,
+	CHECK, MEDAL, SPEAKER, NOTE, MAP,
 }
 
 const NAMES := {
@@ -21,7 +22,10 @@ const NAMES := {
 	"bolt": Kind.BOLT, "magnet": Kind.MAGNET, "sack": Kind.SACK,
 	"shield": Kind.SHIELD, "clock": Kind.CLOCK,
 	"noads": Kind.NOADS, "bag": Kind.BAG, "trophy": Kind.TROPHY,
-	"person": Kind.PERSON, "gear": Kind.GEAR,
+	"person": Kind.PERSON, "gear": Kind.GEAR, "lock": Kind.LOCK,
+	"flag": Kind.FLAG, "home": Kind.HOME, "heroes": Kind.HEROES,
+	"check": Kind.CHECK, "medal": Kind.MEDAL,
+	"speaker": Kind.SPEAKER, "note": Kind.NOTE, "map": Kind.MAP,
 }
 
 var kind: Kind = Kind.COIN
@@ -54,6 +58,15 @@ func _draw() -> void:
 		Kind.TROPHY: _trophy()
 		Kind.PERSON: _person()
 		Kind.GEAR: _gear()
+		Kind.LOCK: _lock()
+		Kind.FLAG: _flag()
+		Kind.HOME: _home()
+		Kind.HEROES: _heroes()
+		Kind.CHECK: _check()
+		Kind.MEDAL: _medal()
+		Kind.SPEAKER: _speaker()
+		Kind.NOTE: _note()
+		Kind.MAP: _map()
 		_: _coin()
 
 ## Hamma belgi 0..1 kvadratida chiziladi, shuning uchun qalinlik
@@ -250,3 +263,120 @@ func _gear() -> void:
 	draw_circle(Vector2(0.5, 0.5), 0.38, UiKit.INK)
 	draw_circle(Vector2(0.5, 0.5), 0.38 - LINE, tint)
 	draw_circle(Vector2(0.5, 0.5), 0.15, UiKit.INK)
+
+## Qulf — yopiq elementlar.
+func _lock() -> void:
+	# Qulf kamari (shackle).
+	draw_arc(Vector2(0.5, 0.40), 0.22, PI, TAU, 16, UiKit.INK, LINE * 2.2)
+	draw_arc(Vector2(0.5, 0.40), 0.22, PI, TAU, 16, Color("e0e6ed"), LINE * 1.2)
+	# Asosiy to'rtburchak tanasi.
+	draw_rect(Rect2(0.20, 0.42, 0.60, 0.48), UiKit.INK, true)
+	draw_rect(Rect2(0.20 + LINE, 0.42 + LINE, 0.60 - LINE * 2.0, 0.48 - LINE * 2.0), tint, true)
+	# Kalit teshigi.
+	draw_circle(Vector2(0.5, 0.60), 0.08, UiKit.INK)
+	draw_rect(Rect2(0.46, 0.60, 0.08, 0.14), UiKit.INK, true)
+
+## Bayroq — mamlakatlar.
+func _flag() -> void:
+	# Ustun.
+	draw_rect(Rect2(0.18, 0.12, 0.10, 0.78), UiKit.INK, true)
+	draw_rect(Rect2(0.18 + LINE * 0.4, 0.12 + LINE * 0.4, 0.10 - LINE * 0.8, 0.78 - LINE * 0.8), Color("e0e6ed"), true)
+	# Matosi.
+	var banner := PackedVector2Array([
+		Vector2(0.26, 0.14), Vector2(0.84, 0.26), Vector2(0.70, 0.42),
+		Vector2(0.84, 0.58), Vector2(0.26, 0.50)
+	])
+	draw_colored_polygon(_grown(banner, Vector2(0.55, 0.36), 1.14), UiKit.INK)
+	draw_colored_polygon(banner, tint)
+
+## Bosh sahifa — uy belgisi.
+func _home() -> void:
+	# Tomi.
+	var roof := PackedVector2Array([
+		Vector2(0.5, 0.12), Vector2(0.88, 0.48), Vector2(0.12, 0.48)
+	])
+	draw_colored_polygon(_grown(roof, Vector2(0.5, 0.36), 1.12), UiKit.INK)
+	draw_colored_polygon(roof, tint)
+	# Devorlari.
+	draw_rect(Rect2(0.24, 0.46, 0.52, 0.44), UiKit.INK, true)
+	draw_rect(Rect2(0.24 + LINE, 0.46, 0.52 - LINE * 2.0, 0.44 - LINE), tint, true)
+	# Eshik.
+	draw_rect(Rect2(0.42, 0.58, 0.16, 0.32), UiKit.INK, true)
+
+## Qahramonlar — niqob va ko'zlar.
+func _heroes() -> void:
+	# Niqob shakli.
+	var mask := PackedVector2Array([
+		Vector2(0.12, 0.32), Vector2(0.5, 0.24), Vector2(0.88, 0.32),
+		Vector2(0.82, 0.68), Vector2(0.5, 0.80), Vector2(0.18, 0.68)
+	])
+	draw_colored_polygon(_grown(mask, Vector2(0.5, 0.5), 1.12), UiKit.INK)
+	draw_colored_polygon(mask, tint)
+	# Katta multfilm ko'zlari.
+	draw_circle(Vector2(0.35, 0.50), 0.12, UiKit.INK)
+	draw_circle(Vector2(0.65, 0.50), 0.12, UiKit.INK)
+	draw_circle(Vector2(0.37, 0.48), 0.05, Color.WHITE)
+	draw_circle(Vector2(0.67, 0.48), 0.05, Color.WHITE)
+
+## Tasdiq (check) belgisi.
+func _check() -> void:
+	var pts := PackedVector2Array([
+		Vector2(0.16, 0.52), Vector2(0.40, 0.76), Vector2(0.86, 0.22),
+		Vector2(0.76, 0.14), Vector2(0.38, 0.62), Vector2(0.24, 0.44)
+	])
+	draw_colored_polygon(_grown(pts, Vector2(0.5, 0.45), 1.18), UiKit.INK)
+	draw_colored_polygon(pts, tint)
+
+## Medal — liga yutug'i.
+func _medal() -> void:
+	# Lentalar.
+	draw_line(Vector2(0.34, 0.14), Vector2(0.46, 0.44), UiKit.RED, LINE * 2.2)
+	draw_line(Vector2(0.66, 0.14), Vector2(0.54, 0.44), UiKit.MINT, LINE * 2.2)
+	# Medal doirasi.
+	draw_circle(Vector2(0.5, 0.62), 0.28, UiKit.INK)
+	draw_circle(Vector2(0.5, 0.62), 0.28 - LINE, tint)
+	# Yulduz markazida.
+	draw_circle(Vector2(0.5, 0.62), 0.10, UiKit.INK)
+
+## Karnay — tovush sozlamasi.
+func _speaker() -> void:
+	var box := Rect2(0.14, 0.36, 0.22, 0.28)
+	var horn := PackedVector2Array([
+		Vector2(0.34, 0.36), Vector2(0.64, 0.14),
+		Vector2(0.64, 0.86), Vector2(0.34, 0.64)
+	])
+	draw_rect(box, UiKit.INK, true)
+	draw_rect(box.grow(-LINE), tint, true)
+	draw_colored_polygon(_grown(horn, Vector2(0.49, 0.5), 1.15), UiKit.INK)
+	draw_colored_polygon(horn, tint)
+	draw_arc(Vector2(0.68, 0.5), 0.18, -PI * 0.35, PI * 0.35, 12, UiKit.INK, LINE * 1.5)
+	draw_arc(Vector2(0.68, 0.5), 0.18, -PI * 0.35, PI * 0.35, 12, tint, LINE * 0.8)
+
+## Musiqa notasi.
+func _note() -> void:
+	# Ikki nota boshi.
+	draw_circle(Vector2(0.28, 0.74), 0.14, UiKit.INK)
+	draw_circle(Vector2(0.28, 0.74), 0.14 - LINE, tint)
+	draw_circle(Vector2(0.72, 0.64), 0.14, UiKit.INK)
+	draw_circle(Vector2(0.72, 0.64), 0.14 - LINE, tint)
+	# Poyalari.
+	draw_rect(Rect2(0.38, 0.22, LINE * 1.4, 0.52), UiKit.INK, true)
+	draw_rect(Rect2(0.82, 0.14, LINE * 1.4, 0.50), UiKit.INK, true)
+	# Bog'lovchi chiziq.
+	var bar := PackedVector2Array([
+		Vector2(0.38, 0.32), Vector2(0.82 + LINE * 1.4, 0.22),
+		Vector2(0.82 + LINE * 1.4, 0.12), Vector2(0.38, 0.22)
+	])
+	draw_colored_polygon(bar, UiKit.INK)
+
+## Xarita — minimap.
+func _map() -> void:
+	var shape := PackedVector2Array([
+		Vector2(0.12, 0.26), Vector2(0.38, 0.14), Vector2(0.62, 0.26), Vector2(0.88, 0.14),
+		Vector2(0.88, 0.74), Vector2(0.62, 0.86), Vector2(0.38, 0.74), Vector2(0.12, 0.86)
+	])
+	draw_colored_polygon(_grown(shape, Vector2(0.5, 0.5), 1.12), UiKit.INK)
+	draw_colored_polygon(shape, tint)
+	draw_line(Vector2(0.38, 0.14), Vector2(0.38, 0.74), UiKit.INK, LINE)
+	draw_line(Vector2(0.62, 0.26), Vector2(0.62, 0.86), UiKit.INK, LINE)
+

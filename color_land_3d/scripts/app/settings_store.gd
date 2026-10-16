@@ -206,3 +206,86 @@ func spend_ticket() -> bool:
 
 func add_tickets(count: int) -> void:
 	_write("tickets", tickets + count)
+
+# ——— Qahramon va o'yinchi statistikasi ———
+
+## Tanlangan qahramon ID si.
+var selected_hero: String:
+	get: return str(_read("selected_hero", "hero_cube"))
+	set(value): _write("selected_hero", value)
+
+## O'yinchi unikal identifikatori ("Color-XXXXX").
+var player_id: String:
+	get:
+		var pid := str(_read("player_id", ""))
+		if pid.is_empty():
+			pid = "Color-%05d" % (randi() % 90000 + 10000)
+			_write("player_id", pid)
+		return pid
+
+var total_matches: int:
+	get: return int(_read("total_matches", 0))
+
+var total_kills: int:
+	get: return int(_read("total_kills", 0))
+
+var total_spheres: int:
+	get: return int(_read("total_spheres", 0))
+
+var total_upgrades: int:
+	get: return int(_read("total_upgrades", 0))
+
+var total_revives: int:
+	get: return int(_read("total_revives", 0))
+
+var total_countries_won: int:
+	get: return int(_read("total_countries_won", 0))
+
+var total_perfect_wins: int:
+	get: return int(_read("total_perfect_wins", 0))
+
+var daily_streak: int:
+	get: return int(_read("daily_streak", 1))
+	set(v): _write("daily_streak", v)
+
+## Liga nomi (rekord va o'yinlar bo'yicha).
+func league_name() -> String:
+	var kills := total_kills
+	var best := best_percent
+	if best >= 100.0 or kills >= 300:
+		return "leagueDiamond"
+	if best >= 50.0 or kills >= 150:
+		return "leagueGold"
+	if best >= 25.0 or kills >= 50:
+		return "leagueSilver"
+	return "leagueBronze"
+
+## Qahramonlar va profil uchun to'liq statistika lug'ati.
+func stats_dict(daily_streak: int = 0) -> Dictionary:
+	return {
+		"matches": total_matches,
+		"kills": total_kills,
+		"spheres": total_spheres,
+		"upgrades": total_upgrades,
+		"revives": total_revives,
+		"countries": total_countries_won,
+		"perfect_wins": total_perfect_wins,
+		"streak": daily_streak,
+	}
+
+## O'yin tugaganda statistikani yangilash.
+func record_match_stats(kills: int, spheres: int, revived: bool, country_won: bool, is_perfect: bool) -> void:
+	_write("total_matches", total_matches + 1)
+	_write("total_kills", total_kills + kills)
+	if spheres > 0:
+		_write("total_spheres", total_spheres + spheres)
+	if revived:
+		_write("total_revives", total_revives + 1)
+	if country_won:
+		_write("total_countries_won", total_countries_won + 1)
+	if is_perfect:
+		_write("total_perfect_wins", total_perfect_wins + 1)
+
+## Kuchaytirgich ishlatilganda sonini oshirish.
+func record_upgrade_used(count: int = 1) -> void:
+	_write("total_upgrades", total_upgrades + count)

@@ -21,7 +21,7 @@ signal host_pressed
 signal join_pressed(address: String)
 
 enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD,
-	MAPS, GEAR }
+	MAPS, GEAR, HEROES, NOADS }
 
 var store: SettingsStore
 ## Belet va reklama xizmati (hozircha namuna).
@@ -102,6 +102,8 @@ func _rebuild() -> void:
 		Screen.BOARD: _root = _build_board()
 		Screen.MAPS: _root = _build_maps()
 		Screen.GEAR: _root = _build_gear()
+		Screen.HEROES: _root = _build_heroes()
+		Screen.NOADS: _root = _build_no_ads()
 	add_child(_root)
 
 func _accent() -> Color:
@@ -174,7 +176,7 @@ func _top_bar() -> Control:
 		no_ads.add_child(GameIcon.new("noads", 34.0, UiKit.YELLOW))
 		no_ads.pressed.connect(func() -> void:
 			Audio.tap()
-			open_shop(Screen.MENU))
+			show_screen(Screen.NOADS))
 		row.add_child(no_ads)
 
 	var settings := UiKit.icon_button("")
@@ -248,17 +250,16 @@ func _thin_bar(percent: float, tint: Color) -> Control:
 	lane.add_child(fill)
 	return shell
 
-## Pastki qator: do'kon, jihozlar, reyting, profil.
+## Pastki qator: do'kon, qahramonlar, asosiy, reyting, jihozlar.
 func _tab_bar() -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	for item: Array in [
 			["bag", Strings.t("shop"), UiKit.YELLOW, Screen.SHOP],
-			["bolt", Strings.t("tabGear"), UiKit.RED, Screen.GEAR],
-			["trophy", Strings.t("leaderboard"), UiKit.BG_LOW,
-				Screen.BOARD],
-			["person", Strings.t("profile"), UiKit.GREEN,
-				Screen.PROFILE]]:
+			["heroes", Strings.t("tabHeroes"), UiKit.MINT, Screen.HEROES],
+			["home", Strings.t("tabHome"), UiKit.GOLD, Screen.MENU],
+			["trophy", Strings.t("leaderboard"), UiKit.BG_LOW, Screen.BOARD],
+			["bolt", Strings.t("tabGear"), UiKit.RED, Screen.GEAR]]:
 		var target: Screen = item[3]
 		var tab := UiKit.tab_button(str(item[0]), str(item[1]),
 			item[2] as Color)
@@ -284,7 +285,113 @@ func _build_gear() -> Control:
 	box.add_child(_power_card())
 	box.add_child(_worn_card())
 	box.add_child(_record_card())
+	box.add_child(UiKit.spacer(4))
+	box.add_child(_tab_bar())
 	return root
+
+## Qahramonlar (personajlar) ekrani — 5-bosqich.
+## 3 ustunli panjara: ochilgan va topshiriqli qulflangan qahramonlar.
+func _build_heroes() -> Control:
+	var root := UiKit.overlay()
+	var box := UiKit.centered_column(root, 460)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var back := UiKit.icon_button("<")
+	back.pressed.connect(func() -> void:
+		Audio.tap()
+		show_screen(Screen.MENU))
+	head.add_child(back)
+
+	var title := UiKit.title(Strings.t("tabHeroes"), 24, UiKit.TEXT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(title)
+
+	head.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
+	head.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
+	box.add_child(head)
+
+	var streak: int = store.daily_streak
+	var daily_node := get_node_or_null("/root/Daily")
+	if daily_node != null and daily_node.has_method("streak"):
+		streak = maxi(streak, int(daily_node.streak()))
+	var stats := store.stats_dict(streak)
+	var unlocked_count := HeroCatalog.unlocked_count(stats)
+
+	var banner := UiKit.panel(UiKit.PANEL, 12)
+	var banner_box := HBoxContainer.new()
+	banner_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	banner_box.add_theme_constant_override("separation", 10)
+	banner_box.add_child(GameIcon.new("heroes", 26.0, UiKit.YELLOW))
+	banner_box.add_child(UiKit.title("%d / %d  %s" % [
+		unlocked_count, HeroCatalog.HEROES.size(), Strings.t("tabHeroes")],
+		18, UiKit.TEXT))
+	banner.add_child(banner_box)
+	box.add_child(banner)
+
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 12)
+
+	for h: Dictionary in HeroCatalog.HEROES:
+		grid.add_child(_hero_tile(h, stats))
+	box.add_child(grid)
+
+	box.add_child(UiKit.spacer(4))
+	box.add_child(_tab_bar())
+	return root
+
+func _hero_tile(h: Dictionary, stats: Dictionary) -> Control:
+	var id: String = str(h.get("id", ""))
+	var unlocked: bool = HeroCatalog.is_unlocked(h, stats)
+	var selected: bool = (store.selected_hero == id)
+	var progress: int = HeroCatalog.current_progress(h, stats)
+	var target: int = int(h.get("target", 0))
+
+	var card := Button.new()
+	card.custom_minimum_size = Vector2(110, 150)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.flat = true
+	for st in ["normal", "hover", "pressed", "focus"]:
+		card.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+
+	var view := HeroView.new(h, unlocked, selected, progress, target)
+	view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(view)
+
+	var overlay := VBoxContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.alignment = BoxContainer.ALIGNMENT_END
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_theme_constant_override("separation", 1)
+
+	var name_label := UiKit.label(Strings.t(str(h.get("name_key", ""))), 12,
+		UiKit.INK if unlocked else UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	name_label.clip_text = true
+	overlay.add_child(name_label)
+
+	if not unlocked:
+		var task_str := "%d/%d" % [mini(progress, target), target]
+		var task_lbl := UiKit.label(task_str, 11, UiKit.MINT, HORIZONTAL_ALIGNMENT_CENTER)
+		overlay.add_child(task_lbl)
+	overlay.add_child(UiKit.spacer(3))
+	card.add_child(overlay)
+
+	card.pressed.connect(func() -> void:
+		Audio.tap()
+		if unlocked:
+			store.selected_hero = id
+			settings_changed.emit()
+			_rebuild()
+		else:
+			var msg := Strings.t(str(h.get("task_key", "taskFree")))
+			if "%d" in msg:
+				msg = msg % target
+			toast(msg))
+	return card
 
 ## Sarlavha va orqaga tugmasi.
 func _back_row(title: String, to: Screen) -> Control:
@@ -374,6 +481,7 @@ func _buy_upgrade(kind: String) -> void:
 	match Upgrades.buy(kind):
 		"ok":
 			Audio.capture()
+			store.record_upgrade_used(1)
 			show_screen(Screen.MENU)
 		"poor":
 			toast(Strings.t("purchaseFailed"))
@@ -515,203 +623,168 @@ func _player_name() -> String:
 # ——— Sozlamalar ———
 
 func _build_settings() -> Control:
-	var root := UiKit.overlay()
-	var box := UiKit.centered_column(root)
-	box.add_child(_header(Strings.t("settings"), func() -> void:
-		_reset_armed = false
-		show_screen(Screen.MENU)))
+	var root := UiKit.overlay(true)
+	var box := UiKit.centered_column(root, 440)
 
-	# Ko'rinish
-	var look := UiKit.panel()
-	var look_box := VBoxContainer.new()
-	look_box.add_theme_constant_override("separation", 10)
-	look.add_child(look_box)
-	look_box.add_child(UiKit.section(Strings.t("sectionAppearance")))
-	look_box.add_child(UiKit.label(Strings.t("chooseColor"), 16, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	var colors := HFlowContainer.new()
-	colors.add_theme_constant_override("h_separation", 8)
-	colors.add_theme_constant_override("v_separation", 8)
-	for i in Palette.color_count():
-		colors.add_child(UiKit.color_chip(i, i == store.color_index,
-			func(index: int) -> void:
-				Audio.tap()
-				store.color_index = index
-				settings_changed.emit()
-				_rebuild()))
-	look_box.add_child(colors)
-	look_box.add_child(UiKit.label(Strings.t("themeLabel"), 16, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	look_box.add_child(UiKit.chips(Strings.theme_names(),
-		Palette.ORDER.find(store.theme_id),
-		func(index: int) -> void:
-			Audio.tap()
-			store.theme_id = Palette.ORDER[index]
-			Palette.set_theme(store.theme_id)
-			settings_changed.emit()
-			_rebuild(), _accent()))
-	box.add_child(look)
+	var modal := UiKit.panel(UiKit.PANEL, 20)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 14)
+	modal.add_child(inner)
 
-	# O'yin
-	var game := UiKit.panel()
-	var game_box := VBoxContainer.new()
-	game_box.add_theme_constant_override("separation", 10)
-	game.add_child(game_box)
-	game_box.add_child(UiKit.section(Strings.t("sectionGame")))
-	game_box.add_child(UiKit.label(Strings.t("difficulty"), 16, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	var levels := PackedStringArray([
-		Strings.t("easy"), Strings.t("normal"), Strings.t("hard")])
-	var names := PackedStringArray(["easy", "normal", "hard"])
-	game_box.add_child(UiKit.chips(levels, names.find(store.difficulty_name),
-		func(index: int) -> void:
-			Audio.tap()
-			store.difficulty_name = names[index]
-			settings_changed.emit()
-			_rebuild(), _accent()))
-	game_box.add_child(UiKit.label(Strings.t("language"), 16, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	var lang_names := PackedStringArray()
-	for code: String in Strings.CODES:
-		lang_names.append(Strings.native_name(code))
-	game_box.add_child(UiKit.chips(lang_names,
-		Strings.CODES.find(Strings.language()),
-		func(index: int) -> void:
-			Audio.tap()
-			var code: String = Strings.CODES[index]
-			store.language = code
-			Strings.set_language(code)
-			# Xaritadagi shahar nomlari ham shu tilga o'tsin.
+	inner.add_child(UiKit.title(Strings.t("settings").to_upper(), 26, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_CENTER))
+
+	# 2x2 yoqish/o'chirish panjarasi (Ovoz, Musiqa, Tebranish, Mini-xarita)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+
+	# 1. Ovoz (Sound)
+	grid.add_child(_setting_toggle_tile("speaker", Strings.t("sound"),
+		store.sound_enabled, func() -> void:
+			store.sound_enabled = not store.sound_enabled
+			Audio.sound_enabled = store.sound_enabled
+			_rebuild()))
+
+	# 2. Musiqa (Music)
+	grid.add_child(_setting_toggle_tile("note", Strings.t("music"),
+		store.music_enabled, func() -> void:
+			store.music_enabled = not store.music_enabled
+			Audio.set_music_enabled(store.music_enabled)
+			_rebuild()))
+
+	# 3. Tebranish (Vibration)
+	grid.add_child(_setting_toggle_tile("bolt", Strings.t("vibration"),
+		store.vibration_enabled, func() -> void:
+			store.vibration_enabled = not store.vibration_enabled
+			Audio.vibration_enabled = store.vibration_enabled
+			_rebuild()))
+
+	# 4. Mini-xarita (Minimap)
+	var minimap_on: bool = store.minimap_side != "off"
+	grid.add_child(_setting_toggle_tile("map", Strings.t("minimap"),
+		minimap_on, func() -> void:
+			if store.minimap_side == "off":
+				store.minimap_side = "right"
+			else:
+				store.minimap_side = "off"
 			view_changed.emit()
-			_rebuild(), _accent()))
-	box.add_child(game)
+			_rebuild()))
 
-	# Ovoz
-	var audio := UiKit.panel()
-	var audio_box := VBoxContainer.new()
-	audio_box.add_theme_constant_override("separation", 10)
-	audio.add_child(audio_box)
-	audio_box.add_child(UiKit.section(Strings.t("sectionAudio")))
-	audio_box.add_child(UiKit.switch_row(Strings.t("music"),
-		store.music_enabled, func(value: bool) -> void:
-			store.music_enabled = value
-			Audio.set_music_enabled(value)
-			_rebuild(), _accent()))
-	# Balandlik — slayder bilan. O'yindan chiqmasdan darhol eshitiladi.
-	audio_box.add_child(UiKit.slider_row(Strings.t("musicVolume"),
-		store.music_volume, func(value: int) -> void:
-			store.music_volume = value
-			Audio.set_music_volume(value), _accent()))
-	# Kuy tanlovi — bosilganda darhol o'ynaydi, shunda eshitib tanlanadi.
-	audio_box.add_child(UiKit.label(Strings.t("musicTrack"), 15,
-		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT))
-	audio_box.add_child(UiKit.chips(_track_names(), _track_index(),
-		func(index: int) -> void:
-			var id: String = Audio.TRACKS[index]["id"]
-			store.music_track = id
-			if not store.music_enabled:
-				store.music_enabled = true
-				Audio.set_music_enabled(true)
-			Audio.set_track(id)
-			_rebuild(), _accent()))
-	audio_box.add_child(UiKit.spacer(2))
-	audio_box.add_child(UiKit.switch_row(Strings.t("sound"),
-		store.sound_enabled, func(value: bool) -> void:
-			store.sound_enabled = value
-			Audio.sound_enabled = value
-			Audio.tap()
-			_rebuild(), _accent()))
-	audio_box.add_child(UiKit.slider_row(Strings.t("soundVolume"),
-		store.sound_volume, func(value: int) -> void:
-			store.sound_volume = value
-			Audio.set_sound_volume(value)
-			Audio.tap(), _accent()))
-	audio_box.add_child(UiKit.switch_row(Strings.t("vibration"),
-		store.vibration_enabled, func(value: bool) -> void:
-			store.vibration_enabled = value
-			Audio.vibration_enabled = value
-			Audio.tap()
-			_rebuild(), _accent()))
-	box.add_child(audio)
+	inner.add_child(grid)
 
-	# Arena ko'rinishi — o'yin qaytadan boshlanmaydi.
-	var view := UiKit.panel()
-	var view_box := VBoxContainer.new()
-	view_box.add_theme_constant_override("separation", 10)
-	view.add_child(view_box)
-	view_box.add_child(UiKit.section(Strings.t("sectionView")))
-	view_box.add_child(UiKit.switch_row(Strings.t("showCapitals"),
-		store.show_capitals, func(value: bool) -> void:
-			store.show_capitals = value
-			Audio.tap()
-			view_changed.emit()
-			_rebuild(), _accent()))
-	view_box.add_child(UiKit.switch_row(Strings.t("showCityNames"),
-		store.show_city_names, func(value: bool) -> void:
-			store.show_city_names = value
-			Audio.tap()
-			view_changed.emit()
-			_rebuild(), _accent()))
-	view_box.add_child(UiKit.switch_row(Strings.t("showFlags"),
-		store.show_flags, func(value: bool) -> void:
-			store.show_flags = value
-			Audio.tap()
-			view_changed.emit()
-			_rebuild(), _accent()))
-	view_box.add_child(UiKit.label(Strings.t("minimapLabel"), 17, UiKit.INK,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	var sides := SettingsStore.MINIMAP_SIDES
-	var side_names := PackedStringArray([
-		Strings.t("sideLeft"), Strings.t("sideRight"), Strings.t("sideOff")])
-	view_box.add_child(UiKit.chips(side_names,
-		sides.find(store.minimap_side), func(index: int) -> void:
-			Audio.tap()
-			store.minimap_side = sides[index]
-			view_changed.emit()
-			_rebuild(), _accent()))
-	box.add_child(view)
+	# 6 ta harakat tugmasi (2 ustun)
+	var act_grid := GridContainer.new()
+	act_grid.columns = 2
+	act_grid.add_theme_constant_override("h_separation", 10)
+	act_grid.add_theme_constant_override("v_separation", 10)
 
-	# Ma'lumot: rekord ikki bosishda tozalanadi — tasodifan bosilmasin.
-	var data := UiKit.panel()
-	var data_box := VBoxContainer.new()
-	data_box.add_theme_constant_override("separation", 10)
-	data.add_child(data_box)
-	data_box.add_child(UiKit.section(Strings.t("sectionData")))
-	data_box.add_child(UiKit.label(
-		"%.2f%%   %d %s" % [store.best_percent, store.best_kills,
-			Strings.t("kills")], 18, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	data_box.add_child(UiKit.label(Strings.t("boardUrl"), 16, UiKit.TEXT_DIM,
-		HORIZONTAL_ALIGNMENT_LEFT))
-	var board_field := LineEdit.new()
-	board_field.text = store.leaderboard_url
-	board_field.placeholder_text = "http://192.168.1.5:8080"
-	board_field.add_theme_font_size_override("font_size", 16)
-	board_field.add_theme_stylebox_override("normal",
-		UiKit.style(UiKit.SURFACE, 12, 2, 10))
-	board_field.add_theme_stylebox_override("focus",
-		UiKit.style(UiKit.SURFACE, 12, 2, 10))
-	board_field.text_changed.connect(func(text: String) -> void:
-		store.leaderboard_url = text.strip_edges())
-	data_box.add_child(board_field)
+	# 1) Til
+	act_grid.add_child(_setting_action_button(
+		"%s: %s" % [Strings.t("language"), Strings.native_name(Strings.language())],
+		func() -> void:
+			var cur := Strings.CODES.find(Strings.language())
+			var next_c: String = Strings.CODES[(cur + 1) % Strings.CODES.size()]
+			store.language = next_c
+			Strings.set_language(next_c)
+			CityNames.use(next_c)
+			view_changed.emit()
+			_rebuild()))
 
-	var reset := UiKit.ghost_button(
-		Strings.t("resetRecordConfirm") if _reset_armed
-			else Strings.t("resetRecord"),
-		UiKit.CORAL if _reset_armed else UiKit.TEXT_DIM)
-	reset.pressed.connect(func() -> void:
-		Audio.tap()
-		if not _reset_armed:
-			_reset_armed = true
+	# 2) Xaridlarni tiklash
+	act_grid.add_child(_setting_action_button(
+		Strings.t("restorePurchases"),
+		func() -> void:
+			Purchases.restore()
+			toast(Strings.t("restorePurchases"))))
+
+	# 3) Ma'lumotlaringiz
+	act_grid.add_child(_setting_action_button(
+		Strings.t("yourData"),
+		func() -> void:
+			toast("ID: %s\n%s" % [store.player_id, Strings.t("yourData")])))
+
+	# 4) Yordam va qo'llab-quvvatlash
+	act_grid.add_child(_setting_action_button(
+		Strings.t("helpSupport"),
+		func() -> void:
+			toast(Strings.t("helpSupport") + ": support@colorland3d.game")))
+
+	# 5) Promokod
+	act_grid.add_child(_setting_action_button(
+		Strings.t("promoCode"),
+		func() -> void:
+			Wallet.add_coins(100, "promo")
+			toast(Strings.t("promoCode") + ": +100 🪙")
+			_rebuild()))
+
+	# 6) Hisobni tozalash / Rekordni o'chirish
+	act_grid.add_child(_setting_action_button(
+		Strings.t("resetRecordConfirm") if _reset_armed else Strings.t("resetRecord"),
+		func() -> void:
+			if not _reset_armed:
+				_reset_armed = true
+				_rebuild()
+				return
+			_reset_armed = false
+			store.reset_record()
 			_rebuild()
-			return
+			toast(Strings.t("recordReset"))))
+
+	inner.add_child(act_grid)
+
+	# Versiya
+	inner.add_child(UiKit.label("v1.0.0", 13, UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER))
+
+	# Yopish tugmasi
+	var close_btn := UiKit.button(Strings.t("close"), UiKit.YELLOW, 52)
+	close_btn.pressed.connect(func() -> void:
+		Audio.tap()
 		_reset_armed = false
-		store.reset_record()
-		_rebuild()
-		toast(Strings.t("recordReset")))
-	data_box.add_child(reset)
-	box.add_child(data)
+		show_screen(Screen.MENU))
+	inner.add_child(close_btn)
+
+	box.add_child(modal)
 	return root
+
+func _setting_toggle_tile(icon: String, title: String, is_on: bool, on_toggle: Callable) -> Control:
+	var tile := UiKit.panel(UiKit.SURFACE, 12)
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	tile.add_child(vbox)
+
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	top.add_child(GameIcon.new(icon, 24.0, UiKit.BLUE))
+	var lbl := UiKit.title(title, 16, UiKit.INK)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.clip_text = true
+	top.add_child(lbl)
+	vbox.add_child(top)
+
+	var btn := UiKit.button(
+		Strings.t("stateOn") if is_on else Strings.t("stateOff"),
+		UiKit.GREEN if is_on else UiKit.CORAL, 40)
+	btn.add_theme_font_size_override("font_size", 14)
+	btn.pressed.connect(func() -> void:
+		Audio.tap()
+		on_toggle.call())
+	vbox.add_child(btn)
+	return tile
+
+func _setting_action_button(title: String, on_press: Callable) -> Control:
+	var btn := UiKit.ghost_button(title, UiKit.TEXT)
+	btn.custom_minimum_size = Vector2(0, 48)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.add_theme_font_size_override("font_size", 13)
+	btn.clip_text = true
+	btn.pressed.connect(func() -> void:
+		Audio.tap()
+		on_press.call())
+	return btn
+
 
 ## Kuylar nomi — tanlov chiplari uchun.
 func _track_names() -> PackedStringArray:
@@ -743,75 +816,213 @@ func _header(title: String, on_back: Callable) -> Control:
 # ——— Profil ———
 
 func _build_profile() -> Control:
-	var root := UiKit.overlay()
-	var box := UiKit.centered_column(root)
-	box.add_child(_header(Strings.t("profile"), func() -> void:
-		_save_nickname()
-		show_screen(Screen.MENU)))
+	var root := UiKit.overlay(true)
+	var box := UiKit.centered_column(root, 440)
 
-	var card := UiKit.panel(UiKit.PANEL, 12)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	card.add_child(row)
-	var frame := UiKit.panel(UiKit.SURFACE, 6)
-	frame.add_child(AvatarView.new(store.avatar, 52.0, store.avatar_image))
-	row.add_child(frame)
+	var modal := UiKit.panel(UiKit.PANEL, 20)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 12)
+	modal.add_child(inner)
+
+	# Sarlavha
+	inner.add_child(UiKit.title(Strings.t("profile").to_upper(), 26, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_CENTER))
+
+	# 1. "O'yin natijalarini saqlash" kartasi (ID va Google kirish)
+	var save_card := UiKit.panel(UiKit.SURFACE, 14)
+	var save_box := VBoxContainer.new()
+	save_box.add_theme_constant_override("separation", 8)
+	save_card.add_child(save_box)
+
+	var save_head := HBoxContainer.new()
+	save_head.add_theme_constant_override("separation", 8)
+	save_head.add_child(GameIcon.new("person", 26.0, UiKit.BLUE))
+	var save_title := UiKit.title(Strings.t("saveProgress"), 18, UiKit.INK)
+	save_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	save_head.add_child(save_title)
+	save_box.add_child(save_head)
+
+	var id_lbl := UiKit.label("ID: %s" % store.player_id, 14, UiKit.INK.lightened(0.25), HORIZONTAL_ALIGNMENT_LEFT)
+	save_box.add_child(id_lbl)
+
+	var google_btn := UiKit.button(Strings.t("googleLogin"), UiKit.TEXT, 48)
+	google_btn.add_theme_color_override("font_color", UiKit.INK)
+	google_btn.pressed.connect(func() -> void:
+		Audio.tap()
+		toast(Strings.t("googleLoginHint")))
+	save_box.add_child(google_btn)
+	inner.add_child(save_card)
+
+	# Nik va avatar tahrirlash qatori
+	var edit_card := UiKit.panel(UiKit.SURFACE, 12)
+	var edit_row := HBoxContainer.new()
+	edit_row.add_theme_constant_override("separation", 10)
+	edit_card.add_child(edit_row)
+
+	var av_frame := UiKit.panel(UiKit.PANEL, 6)
+	av_frame.add_child(AvatarView.new(store.avatar, 44.0, store.avatar_image))
+	edit_row.add_child(av_frame)
 
 	_nickname_edit = LineEdit.new()
 	_nickname_edit.text = store.nickname
 	_nickname_edit.placeholder_text = Strings.t("nicknameHint")
 	_nickname_edit.max_length = Profile.MAX_NICKNAME
 	_nickname_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_nickname_edit.add_theme_font_size_override("font_size", 20)
+	_nickname_edit.add_theme_font_size_override("font_size", 18)
 	_nickname_edit.add_theme_stylebox_override("normal",
-		UiKit.style(UiKit.SURFACE, 12, 2, 10))
+		UiKit.style(UiKit.SURFACE.lightened(0.4), 10, 2, 8))
 	_nickname_edit.add_theme_stylebox_override("focus",
-		UiKit.style(UiKit.SURFACE, 12, 2, 10))
-	_nickname_edit.text_submitted.connect(func(_t: String) -> void:
-		_save_nickname())
-	row.add_child(_nickname_edit)
-	box.add_child(card)
+		UiKit.style(UiKit.SURFACE.lightened(0.4), 10, 2, 8))
+	_nickname_edit.text_changed.connect(func(text: String) -> void:
+		store.nickname = Profile.sanitize(text, Strings.t("you")))
+	edit_row.add_child(_nickname_edit)
+	inner.add_child(edit_card)
 
-	# Avatar — bosh ustidagi belgi.
-	box.add_child(UiKit.section(Strings.t("avatarLabel")))
-	var tabs := PackedStringArray([
-		Strings.t("tabEmoji"), Strings.t("tabFigure")])
-	box.add_child(UiKit.chips(tabs, _avatar_tab, func(index: int) -> void:
+	# 2. "Statistika" bo'limi (2x2 panjara)
+	inner.add_child(UiKit.section(Strings.t("statistics")))
+
+	var stats_grid := GridContainer.new()
+	stats_grid.columns = 2
+	stats_grid.add_theme_constant_override("h_separation", 10)
+	stats_grid.add_theme_constant_override("v_separation", 10)
+
+	# 1) Liga
+	stats_grid.add_child(_stat_modal_tile("medal",
+		Strings.t(store.league_name()), Strings.t("league"), UiKit.GOLD))
+	# 2) Yo'q qilishlar
+	stats_grid.add_child(_stat_modal_tile("skull",
+		str(store.total_kills), Strings.t("eliminations"), UiKit.CORAL))
+	# 3) Mamlakatlar
+	stats_grid.add_child(_stat_modal_tile("flag",
+		str(store.total_countries_won), Strings.t("countries"), UiKit.MINT))
+	# 4) 100% G'alabalar
+	stats_grid.add_child(_stat_modal_tile("star",
+		str(store.total_perfect_wins), Strings.t("perfectWins"), UiKit.YELLOW))
+
+	inner.add_child(stats_grid)
+
+	# Yopish tugmasi
+	var close_btn := UiKit.button(Strings.t("close"), UiKit.YELLOW, 54)
+	close_btn.pressed.connect(func() -> void:
 		Audio.tap()
-		_avatar_tab = index
-		_rebuild(), _accent()))
+		_save_nickname()
+		show_screen(Screen.MENU))
+	inner.add_child(close_btn)
 
-	var panel := UiKit.panel(UiKit.PANEL, 12)
-	box.add_child(panel)
-	if _avatar_tab == 0:
-		panel.add_child(_emoji_grid())
-	else:
-		panel.add_child(_figure_grid())
-	box.add_child(_photo_row(store.avatar_image, ImagePicker.AVATAR_FILE,
-		func(path: String) -> void: store.avatar_image = path))
-
-	# Bayroq — hududni egallaydi, shuning uchun alohida tanlanadi.
-	box.add_child(UiKit.section(Strings.t("cityLabel")))
-	var city := LineEdit.new()
-	city.text = store.city
-	city.placeholder_text = Strings.t("cityLabel")
-	city.max_length = 40
-	city.add_theme_font_size_override("font_size", 18)
-	city.add_theme_stylebox_override("normal",
-		UiKit.style(UiKit.SURFACE, 12, 2, 10))
-	city.add_theme_stylebox_override("focus",
-		UiKit.style(UiKit.SURFACE, 12, 2, 10))
-	city.text_changed.connect(func(text: String) -> void:
-		store.city = text.strip_edges())
-	box.add_child(city)
-
-	box.add_child(UiKit.section(Strings.t("territoryFlag")))
-	var flags := UiKit.panel(UiKit.PANEL, 12)
-	flags.add_child(_flag_grid())
-	box.add_child(flags)
-	box.add_child(_photo_row(store.flag_image, ImagePicker.FLAG_FILE,
-		func(path: String) -> void: store.flag_image = path))
+	box.add_child(modal)
 	return root
+
+func _stat_modal_tile(icon: String, value: String, label: String, tint: Color) -> Control:
+	var tile := UiKit.panel(UiKit.SURFACE, 12)
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	tile.add_child(vbox)
+
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	top.add_child(GameIcon.new(icon, 24.0, tint))
+	var val_lbl := UiKit.title(value, 20, UiKit.INK)
+	val_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	val_lbl.clip_text = true
+	top.add_child(val_lbl)
+	vbox.add_child(top)
+
+	var sub := UiKit.label(label, 12, UiKit.INK.lightened(0.25), HORIZONTAL_ALIGNMENT_LEFT)
+	sub.clip_text = true
+	vbox.add_child(sub)
+	return tile
+
+# ——— Reklamasiz oynasi (15-skrinshot) ———
+
+func _build_no_ads() -> Control:
+	var root := UiKit.overlay(true)
+	var box := UiKit.centered_column(root, 440)
+
+	var modal := UiKit.panel(UiKit.PANEL, 20)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 14)
+	modal.add_child(inner)
+
+	# Sarlavha
+	inner.add_child(UiKit.title(Strings.t("removeAdsQuestion"), 24, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_CENTER))
+
+	# Markazdagi katta noads nishoni
+	var icon_box := CenterContainer.new()
+	icon_box.custom_minimum_size = Vector2(0, 90)
+	var sentry_badge := UiKit.panel(UiKit.SURFACE, 30)
+	sentry_badge.custom_minimum_size = Vector2(88, 88)
+	sentry_badge.add_child(GameIcon.new("noads", 64.0, UiKit.YELLOW))
+	icon_box.add_child(sentry_badge)
+	inner.add_child(icon_box)
+
+	# 2 ta bandli ma'lumot kartasi
+	var info_card := UiKit.panel(UiKit.SURFACE, 14)
+	var info_box := VBoxContainer.new()
+	info_box.add_theme_constant_override("separation", 10)
+	info_card.add_child(info_box)
+
+	# 1-band
+	var row1 := HBoxContainer.new()
+	row1.add_theme_constant_override("separation", 8)
+	row1.add_child(GameIcon.new("check", 22.0, UiKit.MINT))
+	var lbl1 := UiKit.label(Strings.t("removeAdsBullet1"), 13, UiKit.INK,
+		HORIZONTAL_ALIGNMENT_LEFT, true)
+	lbl1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row1.add_child(lbl1)
+	info_box.add_child(row1)
+
+	# 2-band
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 8)
+	row2.add_child(GameIcon.new("check", 22.0, UiKit.MINT))
+	var lbl2 := UiKit.label(Strings.t("removeAdsBullet2"), 13, UiKit.INK,
+		HORIZONTAL_ALIGNMENT_LEFT, true)
+	lbl2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row2.add_child(lbl2)
+	info_box.add_child(row2)
+
+	inner.add_child(info_card)
+
+	# Sotib olish tugmalari (1 kunlik va umrbod)
+	var buy_row := HBoxContainer.new()
+	buy_row.add_theme_constant_override("separation", 10)
+
+	var btn_1d := UiKit.button("%s\n(500 🪙)" % Strings.t("oneDay"), UiKit.GREEN, 54)
+	btn_1d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_1d.pressed.connect(func() -> void:
+		Audio.tap()
+		if Wallet.spend_coins(500, "noads_1d"):
+			Purchases.set_no_ads(true)
+			toast(Strings.t("purchaseSuccess"))
+			show_screen(Screen.MENU)
+		else:
+			toast(Strings.t("purchaseFailed")))
+	buy_row.add_child(btn_1d)
+
+	var btn_forever := UiKit.button("%s\n($4.99)" % Strings.t("forever"), UiKit.YELLOW, 54)
+	btn_forever.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_forever.pressed.connect(func() -> void:
+		Audio.tap()
+		Purchases.set_no_ads(true)
+		toast(Strings.t("purchaseSuccess"))
+		show_screen(Screen.MENU))
+	buy_row.add_child(btn_forever)
+
+	inner.add_child(buy_row)
+
+	# Yopish tugmasi
+	var close_btn := UiKit.button(Strings.t("close"), UiKit.SURFACE, 50)
+	close_btn.add_theme_color_override("font_color", UiKit.INK)
+	close_btn.pressed.connect(func() -> void:
+		Audio.tap()
+		show_screen(Screen.MENU))
+	inner.add_child(close_btn)
+
+	box.add_child(modal)
+	return root
+
 
 ## "Rasm yuklash" qatori: o'yinchi o'z rasmini qo'yishi mumkin.
 func _photo_row(current: String, dest: String,

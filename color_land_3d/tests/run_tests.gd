@@ -34,6 +34,7 @@ func _process(_delta: float) -> bool:
 	_test_upgrades(t)
 	_test_shield(t)
 	_test_journey(t)
+	_test_heroes(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -1509,3 +1510,53 @@ func _test_match(t: TestRunner) -> void:
 				break
 		t.equal(bad, 0, "suvga tushmadi")
 	)
+
+# ——— Qahramonlar va 5-bosqich tizimi ———
+
+func _test_heroes(t: TestRunner) -> void:
+	t.group("5-bosqich: qahramonlar va statistika")
+
+	t.test("katalogda 21 ta qahramon bor", func() -> void:
+		t.equal(HeroCatalog.HEROES.size(), 21, "21 ta qahramon")
+	)
+
+	t.test("boshlang'ich qahramonlar ochiq", func() -> void:
+		var empty_stats := {}
+		var cube := HeroCatalog.get_hero("hero_cube")
+		var melon := HeroCatalog.get_hero("hero_melon")
+		t.check(HeroCatalog.is_unlocked(cube, empty_stats), "kub ochiq")
+		t.check(HeroCatalog.is_unlocked(melon, empty_stats), "tarvuz ochiq")
+	)
+
+	t.test("shartli qahramonlar ochilishi", func() -> void:
+		var golem := HeroCatalog.get_hero("hero_golem")
+		t.check(not HeroCatalog.is_unlocked(golem, {"streak": 2}), "2 kunda ochilmaydi")
+		t.check(HeroCatalog.is_unlocked(golem, {"streak": 3}), "3 kunda ochiladi")
+
+		var seal := HeroCatalog.get_hero("hero_seal")
+		t.check(not HeroCatalog.is_unlocked(seal, {"kills": 9}), "9 ta o'limda yopiq")
+		t.check(HeroCatalog.is_unlocked(seal, {"kills": 10}), "10 ta o'limda ochiq")
+	)
+
+	t.test("statistika va liga hisobi", func() -> void:
+		var store := SettingsStore.new()
+		t.equal(store.league_name(), "leagueBronze", "boshlang'ich liga bronza")
+		store.record_match_stats(60, 5, true, true, false)
+		t.check(store.total_kills >= 60, "kills saqlandi")
+		t.check(store.total_spheres >= 5, "sferalar saqlandi")
+		t.check(store.total_revives >= 1, "tirilish saqlandi")
+		t.check(store.total_countries_won >= 1, "mamlakatlar saqlandi")
+		t.equal(store.league_name(), "leagueSilver", "50+ kills bilan kumush liga")
+	)
+
+	t.test("HeroView vizual komponenti yaratiladi", func() -> void:
+		var cube := HeroCatalog.get_hero("hero_cube")
+		var view_unlocked := HeroView.new(cube, true, true, 0, 0)
+		t.check(view_unlocked != null, "ochilgan qahramon kartasi")
+		var golem := HeroCatalog.get_hero("hero_golem")
+		var view_locked := HeroView.new(golem, false, false, 1, 3)
+		t.check(view_locked != null, "qulflangan qahramon kartasi")
+		view_unlocked.queue_free()
+		view_locked.queue_free()
+	)
+
