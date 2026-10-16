@@ -169,17 +169,24 @@ func clear_player(id: int,
 				if owner_cells[i] == id:
 					cleared.append(i)
 					set_owner_index(i, 0)
+	clear_trail(id, trail)
+	_min_x[id] = 1 << 30
+	_min_y[id] = 1 << 30
+	_max_x[id] = -1
+	_max_y[id] = -1
+	return cleared
+
+## `id` ning iz kataklarini bo'shatadi, hududiga tegmaydi.
+##
+## Qalqon urilishni yutganda shu ishlatiladi: o'yinchi tirik
+## qoladi, lekin chizgan izi yo'qoladi.
+func clear_trail(id: int, trail: PackedInt32Array) -> void:
 	for i: int in trail:
 		if trail_cells[i] == id:
 			trail_cells[i] = 0
 			dirty_cells.append(i)
 			if net_tracking:
 				net_dirty.append(i)
-	_min_x[id] = 1 << 30
-	_min_y[id] = 1 << 30
-	_max_x[id] = -1
-	_max_y[id] = -1
-	return cleared
 
 ## Markazi (cx, cy) bo'lgan doirani to'ldiradi. Egallangan katak sonini
 ## qaytaradi.

@@ -10,11 +10,16 @@ extends Control
 ##
 ## Uslub butun o'yindagidek: to'q ko'k kontur, ichida yorqin rang.
 
-enum Kind { SKULL, COIN, GEM, STAR, CROWN, TICKET }
+enum Kind {
+	SKULL, COIN, GEM, STAR, CROWN, TICKET, BOLT, MAGNET, SACK, SHIELD,
+	CLOCK,
+}
 
 const NAMES := {
 	"skull": Kind.SKULL, "coin": Kind.COIN, "gem": Kind.GEM,
 	"star": Kind.STAR, "crown": Kind.CROWN, "ticket": Kind.TICKET,
+	"bolt": Kind.BOLT, "magnet": Kind.MAGNET, "sack": Kind.SACK,
+	"shield": Kind.SHIELD, "clock": Kind.CLOCK,
 }
 
 var kind: Kind = Kind.COIN
@@ -37,6 +42,11 @@ func _draw() -> void:
 		Kind.STAR: _star()
 		Kind.CROWN: _crown()
 		Kind.TICKET: _ticket()
+		Kind.BOLT: _bolt()
+		Kind.MAGNET: _magnet()
+		Kind.SACK: _sack()
+		Kind.SHIELD: _shield()
+		Kind.CLOCK: _clock()
 		_: _coin()
 
 ## Hamma belgi 0..1 kvadratida chiziladi, shuning uchun qalinlik
@@ -115,3 +125,64 @@ func _ticket() -> void:
 	# Chetidagi ikki o'yiq — chipta shaklini beradi.
 	for x: float in [0.06, 0.94]:
 		draw_circle(Vector2(x, 0.5), 0.1, UiKit.INK)
+
+## Chaqmoq — tezlik kuchaytirgichi.
+func _bolt() -> void:
+	var shape := PackedVector2Array([
+		Vector2(0.58, 0.06), Vector2(0.22, 0.54), Vector2(0.45, 0.54),
+		Vector2(0.38, 0.94), Vector2(0.78, 0.44), Vector2(0.53, 0.44),
+		Vector2(0.64, 0.06)])
+	draw_colored_polygon(_grown(shape, Vector2(0.5, 0.5), 1.1), UiKit.INK)
+	draw_colored_polygon(shape, tint)
+
+## Taqasimon magnit — ikki oyog'i pastga qaragan.
+func _magnet() -> void:
+	# Yarim halqa qalin yoy bilan chiziladi: ko'p burchakli
+	# shakldan toza chiqadi.
+	draw_arc(Vector2(0.5, 0.56), 0.3, PI, TAU, 24, UiKit.INK, 0.34)
+	draw_arc(Vector2(0.5, 0.56), 0.3, PI, TAU, 24, tint, 0.34 - LINE * 2.0)
+	# Oyoqlar.
+	for x: float in [0.2, 0.8]:
+		draw_rect(Rect2(x - 0.17, 0.56, 0.34, 0.3), UiKit.INK, true)
+		draw_rect(Rect2(x - 0.17 + LINE, 0.56, 0.34 - LINE * 2.0, 0.22),
+			tint, true)
+		# Uchidagi qutb — qizil-kulrang emas, to'q ko'k.
+		draw_rect(Rect2(x - 0.17, 0.78, 0.34, 0.08), UiKit.INK, true)
+
+## Tanga xaltasi — har o'yin oxiridagi qo'shimcha.
+func _sack() -> void:
+	var shape := PackedVector2Array([
+		Vector2(0.3, 0.3), Vector2(0.7, 0.3), Vector2(0.92, 0.72),
+		Vector2(0.76, 0.94), Vector2(0.24, 0.94), Vector2(0.08, 0.72)])
+	draw_colored_polygon(_grown(shape, Vector2(0.5, 0.62), 1.12), UiKit.INK)
+	draw_colored_polygon(shape, tint)
+	# Bog'ichi.
+	draw_rect(Rect2(0.28, 0.2, 0.44, 0.13), UiKit.INK, true)
+	draw_rect(Rect2(0.28 + LINE, 0.2 + LINE * 0.5,
+		0.44 - LINE * 2.0, 0.13 - LINE), tint.lightened(0.25), true)
+
+## Qalqon — xaritadagi moviy sfera.
+func _shield() -> void:
+	var shape := PackedVector2Array([
+		Vector2(0.5, 0.06), Vector2(0.92, 0.22), Vector2(0.86, 0.64),
+		Vector2(0.5, 0.95), Vector2(0.14, 0.64), Vector2(0.08, 0.22)])
+	draw_colored_polygon(_grown(shape, Vector2(0.5, 0.5), 1.08), UiKit.INK)
+	draw_colored_polygon(shape, tint)
+
+## Shaklni markazidan kattalashtiradi — kontur shu bilan chiziladi.
+static func _grown(shape: PackedVector2Array, at: Vector2,
+		scale_by: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for v: Vector2 in shape:
+		out.append(at + (v - at) * scale_by)
+	return out
+
+## Soat — o'yin davomiyligi.
+func _clock() -> void:
+	draw_circle(Vector2(0.5, 0.54), 0.44, UiKit.INK)
+	draw_circle(Vector2(0.5, 0.54), 0.44 - LINE, tint)
+	# Ikki strelka.
+	draw_line(Vector2(0.5, 0.54), Vector2(0.5, 0.3), UiKit.INK, LINE)
+	draw_line(Vector2(0.5, 0.54), Vector2(0.68, 0.62), UiKit.INK, LINE)
+	# Ustidagi tugma.
+	draw_rect(Rect2(0.42, 0.02, 0.16, 0.1), UiKit.INK, true)

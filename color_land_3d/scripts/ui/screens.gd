@@ -165,6 +165,7 @@ func _build_menu() -> Control:
 	box.add_child(online)
 
 	box.add_child(_profile_card())
+	box.add_child(_power_card())
 	box.add_child(_worn_card())
 	box.add_child(_record_card())
 
@@ -174,6 +175,85 @@ func _build_menu() -> Control:
 		open_board())
 	box.add_child(board)
 	return root
+
+## Kuchaytirgichlar kartasi: uchta qator, har birining darajasi
+## **tanga** evaziga oshadi.
+##
+## Kristall bilan oshirilmaydi — kuchaytirgich pulga emas,
+## o'ynashga beriladi, aks holda "to'lab yutish" bo'lardi.
+func _power_card() -> Control:
+	var card := UiKit.panel(UiKit.PANEL, 12)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	card.add_child(box)
+	box.add_child(UiKit.section(Strings.t("powerups")))
+	for row: Array in [
+			["fever", "bolt", "powerFever", "powerFeverInfo", UiKit.RED],
+			["magnet", "magnet", "powerMagnet", "powerMagnetInfo",
+				UiKit.BG_LOW],
+			["passive", "sack", "powerPassive", "powerPassiveInfo",
+				UiKit.YELLOW]]:
+		box.add_child(_power_row(
+			str(row[0]), str(row[1]), str(row[2]), str(row[3]),
+			row[4] as Color))
+	return card
+
+## Bitta kuchaytirgich qatori: belgi, nom, daraja nuqtalari va
+## narxi yozilgan tugma.
+func _power_row(kind: String, icon: String, name_key: String,
+		info_key: String, tint: Color) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+
+	var frame := UiKit.panel(UiKit.SURFACE, 5)
+	frame.add_child(GameIcon.new(icon, 34.0, tint))
+	row.add_child(frame)
+
+	var text := VBoxContainer.new()
+	text.add_theme_constant_override("separation", 0)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_child(UiKit.label(Strings.t(name_key), 17, UiKit.TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT))
+	text.add_child(UiKit.label(Strings.t(info_key), 12, UiKit.TEXT_FAINT,
+		HORIZONTAL_ALIGNMENT_LEFT, true))
+	text.add_child(_level_dots(Upgrades.level(kind), tint))
+	row.add_child(text)
+
+	var price := Upgrades.price(kind)
+	var button: Button
+	if price == 0:
+		button = UiKit.ghost_button(Strings.t("levelMax"), UiKit.TEXT_DIM)
+		button.disabled = true
+	else:
+		button = UiKit.button(_short(price), UiKit.GREEN)
+		button.pressed.connect(func() -> void:
+			Audio.tap()
+			_buy_upgrade(kind))
+	button.custom_minimum_size.x = 96
+	row.add_child(button)
+	return row
+
+## Daraja nuqtalari: ochilganlari rangli, qolgani xira.
+func _level_dots(level: int, tint: Color) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 5)
+	for i in UpgradeManager.MAX_LEVEL:
+		var dot := Panel.new()
+		dot.custom_minimum_size = Vector2(16, 10)
+		dot.add_theme_stylebox_override("panel", UiKit.style_solid(
+			tint if i < level else UiKit.SURFACE.darkened(0.08), 5, 0))
+		row.add_child(dot)
+	return row
+
+func _buy_upgrade(kind: String) -> void:
+	match Upgrades.buy(kind):
+		"ok":
+			Audio.capture()
+			show_screen(Screen.MENU)
+		"poor":
+			toast(Strings.t("purchaseFailed"))
+		"max":
+			toast(Strings.t("levelMax"))
 
 ## Hamyondagi bitta qiymat: chizilgan belgi va son.
 func _purse_chip(icon: String, value: int, tint: Color) -> Control:
@@ -1019,30 +1099,49 @@ func _build_result() -> Control:
 	var box := UiKit.centered_column(root, 420)
 	var panel := UiKit.panel()
 	var inner := VBoxContainer.new()
-	inner.add_theme_constant_override("separation", 12)
+	inner.add_theme_constant_override("separation", 10)
 	panel.add_child(inner)
 
-	inner.add_child(UiKit.title(Strings.t("gameOver"), 28, UiKit.TEXT,
-		HORIZONTAL_ALIGNMENT_CENTER))
-	inner.add_child(UiKit.label(str(_result_data.get("reason", "")), 16,
-		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
-	if bool(_result_data.get("record", false)):
-		inner.add_child(UiKit.label("★ " + Strings.t("newRecord"), 18, UiKit.GOLD))
+	var percent := float(_result_data.get("percent", 0.0))
+	var is_record := bool(_result_data.get("record", false))
 
-	# Shu o'yinda topilgan tanga — qayerdan kelgani ochiq yozilgan.
+	# Rekord bo'lsa sarlavha o'rniga lenta chiqadi: natijaning eng
+	# muhim gapi birinchi ko'rinadi.
+	if is_record:
+		inner.add_child(_record_ribbon())
+	else:
+		inner.add_child(UiKit.title(Strings.t("gameOver"), 28, UiKit.TEXT,
+			HORIZONTAL_ALIGNMENT_CENTER))
+	inner.add_child(UiKit.label(str(_result_data.get("reason", "")), 15,
+		UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER, true))
+
+	# Egallangan maydon — eng katta son, ustida o'sadigan chiziq.
+	# Chiziqdagi sariq uchburchak — shu kungacha eng yaxshi natija.
+	var best: float = maxf(store.best_percent, percent)
+	# Chiziq sariq: o'yinchi rangi ko'k fonda deyarli ko'rinmasdi.
+	var bar := UiKit.progress_bar(0.0, UiKit.YELLOW,
+		best if best > 0.0 else -1.0)
+	inner.add_child(bar)
+	inner.add_child(UiKit.label(
+		Strings.t("bestPercent") % store.best_percent, 12,
+		UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER))
+	_animate_bar(bar, percent)
+
+	var tiles := HBoxContainer.new()
+	tiles.add_theme_constant_override("separation", 14)
+	tiles.add_child(_result_tile("skull",
+		str(_result_data.get("kills", 0)), Strings.t("kills"), UiKit.RED))
+	tiles.add_child(_result_tile("coin",
+		str(int(_reward_total())), Strings.t("coinsFound"), UiKit.YELLOW))
+	tiles.add_child(_result_tile("clock",
+		_clock(float(_result_data.get("elapsed", 0.0))),
+		Strings.t("time"), UiKit.BG_LOW))
+	inner.add_child(tiles)
+
+	# Tanga qayerdan kelgani ochiq yozilgan.
 	var reward: Dictionary = _result_data.get("reward", {})
 	if not reward.is_empty():
 		inner.add_child(_coin_card(reward))
-
-	var tiles := HBoxContainer.new()
-	tiles.add_theme_constant_override("separation", 18)
-	tiles.add_child(_stat_tile("%.2f%%" % float(_result_data.get("percent", 0.0)),
-		Strings.t("territory"), _accent()))
-	tiles.add_child(_stat_tile(str(_result_data.get("kills", 0)),
-		Strings.t("kills"), UiKit.CORAL))
-	tiles.add_child(_stat_tile(_clock(float(_result_data.get("elapsed", 0.0))),
-		Strings.t("time"), UiKit.TEXT))
-	inner.add_child(tiles)
 
 	# Davom etishning ikki yo'li: belet yoki mukofotli reklama.
 	if store.tickets > 0:
@@ -1057,6 +1156,7 @@ func _build_result() -> Control:
 		Audio.tap()
 		_watch_ad(true))
 	inner.add_child(ad)
+
 	var shop := UiKit.ghost_button(Strings.t("buyTickets"), UiKit.TEXT_DIM)
 	shop.pressed.connect(func() -> void:
 		Audio.tap()
@@ -1098,6 +1198,7 @@ func _coin_card(reward: Dictionary) -> Control:
 		[Strings.t("territory"), int(reward.get("territory", 0))],
 		[Strings.t("kills"), int(reward.get("kills", 0))],
 		[Strings.t("coinsPicked"), int(reward.get("pickups", 0))],
+		[Strings.t("bonusRow"), int(reward.get("passive", 0))],
 	]
 	for part: Array in parts:
 		if int(part[1]) <= 0:
@@ -1110,6 +1211,62 @@ func _coin_card(reward: Dictionary) -> Control:
 		row.add_child(UiKit.label("+%d" % int(part[1]), 12, UiKit.TEXT_DIM))
 		box.add_child(row)
 	return card
+
+## Natija tangasining umumiy soni.
+func _reward_total() -> int:
+	var reward: Dictionary = _result_data.get("reward", {})
+	return int(reward.get("total", 0))
+
+## "YANGI REKORD" lentasi — yashil fonda yulduz bilan.
+func _record_ribbon() -> Control:
+	var shell := PanelContainer.new()
+	shell.add_theme_stylebox_override("panel",
+		UiKit.style_solid(UiKit.GREEN, 16))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	row.add_child(GameIcon.new("star", 26.0, UiKit.YELLOW))
+	row.add_child(UiKit.title(Strings.t("newRecord"), 24, UiKit.TEXT))
+	row.add_child(GameIcon.new("star", 26.0, UiKit.YELLOW))
+	shell.add_child(row)
+	return shell
+
+## Natijadagi bitta katak: belgi, katta son va tagida nomi.
+func _result_tile(icon: String, value: String, title: String,
+		tint: Color) -> Control:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 2)
+	var head := HBoxContainer.new()
+	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	head.add_theme_constant_override("separation", 5)
+	head.add_child(GameIcon.new(icon, 22.0, tint))
+	head.add_child(UiKit.title(value, 22, UiKit.TEXT))
+	box.add_child(head)
+	box.add_child(UiKit.label(title, 12, UiKit.TEXT_FAINT))
+	return box
+
+## Maydon chizig'i noldan o'sib boradi va son ham birga sanaladi.
+##
+## Animatsiya tugmalarni kutib turmaydi: o'yinchi xohlasa darhol
+## bosa oladi, chiziq esa orqada to'lib boraveradi.
+const RESULT_FILL_TIME := 0.7
+
+func _animate_bar(bar: Control, percent: float) -> void:
+	var fill := bar.find_child("Fill", true, false) as Panel
+	var text := bar.find_child("Value", true, false) as Label
+	if fill == null or text == null:
+		return
+	# Tween chiziqning o'ziga bog'lanadi: ekran almashganda u ham
+	# o'ladi. Ekran tugunida yaratilsa, natija ekrani yopilgandan
+	# keyin ham ishlab, bo'shatilgan tugunga murojaat qilardi.
+	var tween := fill.create_tween()
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tween.tween_method(
+		func(at: float) -> void:
+			fill.anchor_right = clampf(at / 100.0, 0.02, 1.0)
+			text.text = "%.2f%%" % at,
+		0.0, percent, RESULT_FILL_TIME)
 
 # ——— Do'kon ———
 

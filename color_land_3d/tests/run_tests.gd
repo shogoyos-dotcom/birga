@@ -30,6 +30,9 @@ func _process(_delta: float) -> bool:
 	_test_daily(t)
 	_test_missions(t)
 	_test_purchases(t)
+	_test_pickups(t)
+	_test_upgrades(t)
+	_test_shield(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -111,6 +114,198 @@ func _test_coins(t: TestRunner) -> void:
 		var result := capture.capture(1, PackedInt32Array())
 		t.equal((result["cells"] as PackedInt32Array).size(), 0,
 			"o'z yeri qayta egallanmaydi")
+	)
+
+# ——— Yo'ldagi tangalar va sferalar ———
+
+func _test_pickups(t: TestRunner) -> void:
+	t.group("yo'ldagi tangalar")
+
+	var grid := MapHelpers.grid_from(PackedStringArray([
+		"........",
+		"........",
+		"........",
+		"........",
+		"........",
+		"........",
+	]))
+
+	t.test("hammasi o'ynaladigan katakda", func() -> void:
+		var field := PickupField.new()
+		field.build(grid, 40, 7)
+		t.equal(field.size(), 40, "soni so'ralgandek")
+		var bad := 0
+		for item: Dictionary in field.items:
+			if not grid.playable(int(float(item["x"])),
+					int(float(item["y"]))):
+				bad += 1
+		t.equal(bad, 0, "hech biri suvda emas")
+	)
+
+	t.test("sferalar ham, tangalar ham bor", func() -> void:
+		var field := PickupField.new()
+		field.build(grid, 40, 7)
+		var kinds := {}
+		for item: Dictionary in field.items:
+			kinds[int(item["kind"])] = true
+		t.check(kinds.has(PickupField.Kind.COIN), "tanga bor")
+		t.check(kinds.has(PickupField.Kind.SHIELD), "qalqon bor")
+		t.check(kinds.has(PickupField.Kind.DASH), "tezlik bor")
+	)
+
+	t.test("faqat radius ichidagisi olinadi", func() -> void:
+		var field := PickupField.new()
+		field.build(grid, 1, 7)
+		var item: Dictionary = field.items[0]
+		var x := float(item["x"])
+		var y := float(item["y"])
+		t.check(field.take_near(x + 5.0, y, 1.0).is_empty(),
+			"uzoqdagisi olinmaydi")
+		t.equal(field.take_near(x + 0.5, y, 1.0).size(), 1, "yaqini olindi")
+		t.equal(field.taken_count(), 1, "xaritadan yo'qoldi")
+		t.check(field.take_near(x, y, 1.0).is_empty(),
+			"ikkinchi marta olinmaydi")
+	)
+
+	t.test("magnit radiusi kattarsa uzoqdan oladi", func() -> void:
+		var field := PickupField.new()
+		field.build(grid, 1, 7)
+		var item: Dictionary = field.items[0]
+		var far := float(item["x"]) + 2.4
+		t.check(field.take_near(far, float(item["y"]), 1.1).is_empty(),
+			"nol darajada yetib bormaydi")
+		t.equal(field.take_near(far, float(item["y"]), 3.3).size(), 1,
+			"yuqori darajada oladi")
+	)
+
+	t.test("olingan narsa boshqa joyda qaytadi", func() -> void:
+		var field := PickupField.new()
+		field.build(grid, 1, 7)
+		var item: Dictionary = field.items[0]
+		var was := Vector2(float(item["x"]), float(item["y"]))
+		field.take_near(was.x, was.y, 1.0)
+		t.check(field.advance(PickupField.RESPAWN - 1.0).is_empty(),
+			"muddatidan oldin qaytmaydi")
+		var back := field.advance(2.0)
+		t.equal(back.size(), 1, "qaytdi")
+		t.equal(field.taken_count(), 0, "xaritada yana bor")
+		var now := Vector2(float(item["x"]), float(item["y"]))
+		t.check(now != was, "joyi almashdi: %s -> %s" % [was, now])
+	)
+
+	t.test("natijaga passiv bonus qo'shiladi", func() -> void:
+		var plain := RewardManager.run_reward(60.0, 10.0, 2, 5, 0)
+		var bonus := RewardManager.run_reward(60.0, 10.0, 2, 5, 30)
+		t.equal(int(bonus["passive"]), 30, "qator ko'rinadi")
+		t.equal(int(bonus["total"]), int(plain["total"]) + 30,
+			"umumiy songa qo'shildi")
+	)
+
+	t.test("bonus ham chegaradan oshmaydi", func() -> void:
+		var huge := RewardManager.run_reward(
+			9999.0, 90.0, 99, 9999, 9999)
+		t.equal(int(huge["total"]), MonetizationConfig.RUN_COIN_CAP,
+			"chegarada to'xtadi")
+	)
+
+# ——— Kuchaytirgichlar ———
+
+const UpgradeScript := preload("res://scripts/money/upgrade_manager.gd")
+
+func _test_upgrades(t: TestRunner) -> void:
+	t.group("kuchaytirgichlar")
+
+	t.test("narx har darajada oshadi", func() -> void:
+		var up: Node = UpgradeScript.new()
+		up.reset()
+		var last := 0
+		for i in UpgradeManager.MAX_LEVEL:
+			var price: int = up.price("fever")
+			t.check(price > last, "%d-daraja qimmatroq: %d" % [i + 1, price])
+			last = price
+			up._levels["fever"] = i + 1
+		t.equal(up.price("fever"), 0, "eng yuqorida narx yo'q")
+		up.reset()
+		up.free()
+	)
+
+	t.test("nol darajada ta'siri yo'q", func() -> void:
+		var up: Node = UpgradeScript.new()
+		up.reset()
+		t.equal(up.fever_seconds(), 0.0, "tezlik oshmaydi")
+		t.equal(up.passive_bonus(), 0, "qo'shimcha tanga yo'q")
+		t.equal(up.magnet_radius(), 1.1, "faqat ustidan yurganda")
+		up.free()
+	)
+
+	t.test("daraja oshgach ta'siri kuchayadi", func() -> void:
+		var up: Node = UpgradeScript.new()
+		up.reset()
+		var before: float = up.magnet_radius()
+		up._levels["magnet"] = 3
+		up._levels["fever"] = 2
+		up._levels["passive"] = 4
+		t.check(up.magnet_radius() > before, "radius kattalashdi")
+		t.check(up.fever_seconds() > 0.0, "tezlik vaqti bor")
+		t.equal(up.passive_bonus(), 60, "4 x 15 tanga")
+		up.reset()
+		up.free()
+	)
+
+	t.test("eng yuqori darajadan oshmaydi", func() -> void:
+		var up: Node = UpgradeScript.new()
+		up.reset()
+		up._levels["magnet"] = UpgradeManager.MAX_LEVEL
+		t.equal(up.buy("magnet"), "max", "oshirilmaydi")
+		t.equal(up.buy("yoq"), "none", "notanish nom")
+		up.reset()
+		up.free()
+	)
+
+# ——— Qalqon ———
+
+func _test_shield(t: TestRunner) -> void:
+	t.group("qalqon")
+
+	t.test("izga urilishdan asraydi", func() -> void:
+		var config := GameConfig.new()
+		config.bot_count = 0
+		var world := GameWorld.new(config, 3)
+		var p := world.add_player("P", 0, false)
+		world.spawn_all()
+		p.shield = true
+		p.add_trail(world.grid.index(p.cx + 3, p.cy))
+		world.kill(p, PlayerState.DeathCause.TRAIL_HIT, null)
+		t.check(p.alive, "tirik qoldi")
+		t.check(not p.shield, "qalqon sarflandi")
+		t.equal(p.trail.size(), 0, "izi tozalandi")
+		var kinds := {}
+		for event: Dictionary in world.drain_events():
+			kinds[str(event["type"])] = true
+		t.check(kinds.has("shield_used"), "hodisa chiqdi")
+	)
+
+	t.test("hududni yo'qotishdan asramaydi", func() -> void:
+		var config := GameConfig.new()
+		config.bot_count = 0
+		var world := GameWorld.new(config, 3)
+		var p := world.add_player("P", 0, false)
+		world.spawn_all()
+		p.shield = true
+		world.kill(p, PlayerState.DeathCause.TERRITORY_LOST, null)
+		t.check(not p.alive, "o'ldi")
+	)
+
+	t.test("tug'ilganda qalqon yo'q", func() -> void:
+		var config := GameConfig.new()
+		config.bot_count = 0
+		var world := GameWorld.new(config, 3)
+		var p := world.add_player("P", 0, false)
+		world.spawn_all()
+		p.shield = true
+		world.kill(p, PlayerState.DeathCause.TERRITORY_LOST, null)
+		world.spawn(p)
+		t.check(not p.shield, "yangi o'yinda qalqon yo'q")
 	)
 
 # ——— Iz lentasini silliqlash ———

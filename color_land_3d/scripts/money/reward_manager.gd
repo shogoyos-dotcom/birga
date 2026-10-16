@@ -12,8 +12,10 @@ extends RefCounted
 ## yiqitilgan raqiblar va yo'lda yig'ilgan tangalar.
 ##
 ## Natija: {run, territory, kills, pickups, total}.
+## `pickups` — o'yinda terilgan tanga (shahar va yo'ldagi).
+## `passive` — "passiv tanga" kuchaytirgichi bergan qo'shimcha.
 static func run_reward(elapsed: float, percent: float, kills: int,
-		pickups: int = 0) -> Dictionary:
+		pickups: int = 0, passive: int = 0) -> Dictionary:
 	var run := _ramp(MonetizationConfig.RUN_MIN, MonetizationConfig.RUN_MAX,
 		elapsed / MonetizationConfig.RUN_FULL_SECONDS)
 	var land := 0
@@ -25,11 +27,12 @@ static func run_reward(elapsed: float, percent: float, kills: int,
 	if kills > 0:
 		fight = _ramp(MonetizationConfig.KILL_MIN, MonetizationConfig.KILL_MAX,
 			float(kills) / float(MonetizationConfig.KILL_FULL_COUNT))
-	var total: int = mini(run + land + fight + maxi(pickups, 0),
+	var extra: int = maxi(passive, 0)
+	var total: int = mini(run + land + fight + maxi(pickups, 0) + extra,
 		MonetizationConfig.RUN_COIN_CAP)
 	return {
 		"run": run, "territory": land, "kills": fight,
-		"pickups": maxi(pickups, 0), "total": total,
+		"pickups": maxi(pickups, 0), "passive": extra, "total": total,
 	}
 
 ## Reklama ko'rilgandan keyin qancha qo'shiladi.

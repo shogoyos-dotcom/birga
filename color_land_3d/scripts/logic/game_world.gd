@@ -337,9 +337,26 @@ func _finish_loop(p: PlayerState) -> void:
 			kill(victim, PlayerState.DeathCause.TERRITORY_LOST, p)
 
 ## O'yinchini o'ldiradi: hududi bo'sh bo'ladi, izi tozalanadi.
+## Qalqon shu o'limlardan asraydi: izga urilish va o'z izini
+## kesish. Hududni yo'qotishdan asramaydi — hududsiz o'yinchi
+## o'ynay olmaydi, uni tiriltirib qoldirish holatni buzadi.
+const SHIELDED: Array[PlayerState.DeathCause] = [
+	PlayerState.DeathCause.TRAIL_HIT,
+	PlayerState.DeathCause.SELF_CROSS,
+]
+
 func kill(p: PlayerState, cause: PlayerState.DeathCause,
 		killer: PlayerState) -> void:
 	if not p.alive:
+		return
+	if p.shield and SHIELDED.has(cause):
+		# Qalqon sarflanadi: o'yinchi tirik qoladi, lekin izi
+		# yo'qoladi — urilish bekorga ketmaydi.
+		p.shield = false
+		var lost := p.trail.duplicate()
+		p.clear_trail()
+		grid.clear_trail(p.id, lost)
+		events.append({"type": "shield_used", "player": p.id})
 		return
 	p.alive = false
 	p.death_cause = cause

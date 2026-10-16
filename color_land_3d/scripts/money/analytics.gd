@@ -27,6 +27,7 @@ const SKIN_PURCHASED := "skin_purchased"
 const SKIN_UNLOCKED := "skin_unlocked"
 const DAILY_REWARD_CLAIMED := "daily_reward_claimed"
 const MISSION_COMPLETED := "mission_completed"
+const UPGRADE_BOUGHT := "upgrade_bought"
 
 var _events: Array = []
 

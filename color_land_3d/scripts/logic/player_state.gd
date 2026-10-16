@@ -38,6 +38,9 @@ var respawn_timer: float = 0.0
 ## O'lim paytidagi hudud hajmi — natija oynasi uchun.
 var final_territory: int = 0
 var death_cause: DeathCause = DeathCause.NONE
+## Qalqon: bitta urilishni yutadi, keyin yo'qoladi. Xaritadagi
+## moviy sferadan olinadi.
+var shield: bool = false
 
 ## O'z hududidan tashqarida chizilgan iz kataklari (tartib bilan).
 var trail := PackedInt32Array()
@@ -75,6 +78,7 @@ func place_at(px: float, py: float, dir: float) -> void:
 	clear_trail()
 	alive = true
 	death_cause = DeathCause.NONE
+	shield = false
 	respawn_timer = 0.0
 	final_territory = 0
 

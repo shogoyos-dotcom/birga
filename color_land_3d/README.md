@@ -125,8 +125,11 @@ godot --path . --script res://tools/uitest.gd
 # Pauza: dunyo to'xtaydimi va yig'ilgan tanga joyida qoladimi.
 godot --headless --path . --script res://tools/pausetest.gd
 
-# Tanga: olinadi, yo'qoladi va 30 soniyadan keyin qaytadi.
+# Shahar tangasi: olinadi, yo'qoladi va 30 soniyadan keyin qaytadi.
 godot --headless --path . --script res://tools/cointest.gd
+
+# Yo'ldagi tanga va sferalar: terilishi, qaytishi, tezlik, qalqon.
+godot --headless --path . --script res://tools/pickuptest.gd
 
 # Hudud chegarasi: aniq shakl chiziladi va silliqligi o'lchanadi.
 # "bench" bersangiz — shaderning kadr narxi o'lchanadi.
@@ -369,8 +372,11 @@ Har biri o'z ishini qiladi va o'z faylida saqlanadi.
 | `purchase_manager.gd` | `Purchases` | `user://purchases.cfg` |
 | `ad_manager.gd` | `Ads` | holatsiz |
 | `admob_manager.gd` | — | SDK bilan yagona aloqa nuqtasi |
-| `logic/coin_field.gd` | — | xaritadagi tangalar (sof mantiq) |
-| `render/city_coins.gd` | — | tangalarni chizadi |
+| `logic/coin_field.gd` | — | shahar tangalari (sof mantiq) |
+| `render/city_coins.gd` | — | shahar tangalarini chizadi |
+| `logic/pickup_field.gd` | — | yo'ldagi tanga va sferalar (sof mantiq) |
+| `render/pickup_marks.gd` | — | ularni chizadi |
+| `money/upgrade_manager.gd` | `Upgrades` | kuchaytirgich darajalari |
 
 **Bitta tuzoq.** Avtoyuklangan modullar bir-birini kompilyatsiya
 paytida ko'rmaydi (`--script` rejimida global nom hali yo'q),
@@ -408,7 +414,23 @@ tezligi `speed` emas, `fly` deb ataladi.
 
 ### Tanga qoidalari
 
-Tanga **hududni egallaganda** olinadi — ustidan yurganda emas.
+Xaritada **ikki xil** tanga bor va ikkalasi boshqa-boshqa
+yig'iladi — bu ataylab qilingan:
+
+| | shahar tangasi | yo'ldagi tanga |
+|---|---|---|
+| qayerda | har shaharda bitta, doim o'sha joyda | tasodifiy, 72 ta |
+| qanday olinadi | **hudud egallaganda** | **ustidan yurganda** |
+| qaytishi | 30 soniya, **o'sha joyda** | 12 soniya, **boshqa joyda** |
+| moduli | `logic/coin_field.gd` | `logic/pickup_field.gd` |
+
+Shahar tangasi — strategiya: uni olish uchun yer egallash kerak,
+raqib esa sening yeringga kirib olib ketishi mumkin. Yo'ldagi
+tanga — harakat: u yo'lni qiziqarli qiladi va magnit
+kuchaytirgichiga ma'no beradi.
+
+Shahar tangasi **hududni egallaganda** olinadi — ustidan yurganda
+emas.
 Shundan uch narsa kelib chiqadi, va uchalasi ham bitta joydan:
 egallash faqat **yangi** kataklarni qaytaradi
 (`TerritoryCapturer._claim` o'ziniki bo'lgan katakni o'tkazib
@@ -689,6 +711,68 @@ olinganda faqat o'sha nusxaning o'lchami nolga tushadi.
 Tanga to'liq aylanmaydi, chayqaladi (±54°) — aks holda yarim
 vaqt qirrasi bilan turib ko'rinmay qolardi. Metall emas: bu
 sahnada aks etadigan muhit yo'q, metall qoralashib ketardi.
+
+### Yo'ldagi tangalar va sferalar
+
+`logic/pickup_field.gd` — sof mantiq, `render/pickup_marks.gd` —
+ikkita `MultiMesh` (tangalar va sferalar). Har sakkizinchi narsa
+sfera: navbat bilan qalqon (moviy) va tezlik (yashil).
+
+**Faqat odam o'yinchi yig'adi.** Botlar ham yiqqanda xaritada
+hech narsa qolmasdi va natija tasodifga aylanardi.
+
+Yig'ish **o'tilgan kesma** bo'ylab tekshiriladi, oxirgi nuqta
+bo'ylab emas (`PickupField.take_along`). Aks holda uzun kadrda
+yoki tezlik kuchaytirgichi bilan o'yinchi tanganing ustidan
+sakrab o'tib ketardi: `tools/pickuptest.gd` shu xatoni aniq
+ko'rsatgan edi (20 barobar tezlashtirilgan soatda bir kadrda
+2 katak o'tiladi, magnit radiusi esa 1.1).
+
+**Qalqon** bitta urilishni yutadi: `GameWorld.kill()` da
+`PlayerState.shield` tekshiriladi. Faqat izga urilish va o'z izini
+kesishdan asraydi — hududni yo'qotishdan emas, chunki hududsiz
+o'yinchi o'ynay olmaydi va uni tiriltirib qoldirish holatni
+buzadi. Qalqon ishlaganda iz tozalanadi (`GameGrid.clear_trail`),
+shuning uchun urilish bekorga ketmaydi.
+
+### Kuchaytirgichlar
+
+`money/upgrade_manager.gd` (`Upgrades` avtoyuklanadi),
+`user://upgrades.cfg`. Uchta, har biri 5 darajali:
+
+| nomi | ta'siri | darajada |
+|---|---|---|
+| Shiddat (fever) | o'yin boshida tezlik ×1.35 | 2 + 1.5×daraja soniya |
+| Magnit | tanga olinadigan radius | 1.1 + 0.55×daraja katak |
+| Qo'shimcha tanga | o'yin oxirida bonus | 15×daraja tanga |
+
+Narx: 50 tangadan boshlanadi, har darajada 1.8 barobar oshadi
+(50, 90, 162, 292, 525).
+
+**Faqat tanga bilan oshiriladi, kristall bilan emas.** Tanga
+o'yinda topiladi, demak kuchaytirgich pulga emas, o'ynashga
+beriladi — "to'lab yutish" bo'lmaydi.
+
+Nol darajada ta'siri **butunlay yo'q** (fever 0 soniya, magnit
+faqat ustidan yurganda, bonus 0). Shuning uchun 30 o'yinli sinov
+natijasi o'zgarmaydi: `playtest.gd` sozlamalarga tegmaydi.
+
+Bonus ham umumiy chegaraga (`RUN_COIN_CAP`) bo'ysunadi:
+`RewardManager.run_reward()` uni hisobga qo'shib, keyin
+cheklaydi.
+
+### Natija ekrani
+
+Rekord bo'lsa sarlavha o'rniga yashil lenta chiqadi — natijaning
+eng muhim gapi birinchi ko'rinadi. Maydon chizig'i noldan o'sib
+boradi (0.7 soniya), sariq uchburchak — shu kungacha eng yaxshi
+natija. Tagida uchta katak: o'ldirishlar, tanga, vaqt.
+
+Animatsiya tugmalarni kutib turmaydi: o'yinchi xohlasa darhol
+"yana" ni bosa oladi. Tween **chiziqning o'ziga** bog'lanadi
+(`fill.create_tween()`), ekran tugunida emas: aks holda ekran
+yopilgandan keyin ham ishlab, bo'shatilgan tugunga murojaat
+qilardi (`Lambda capture ... was freed`).
 
 ### Hali qilinmagan
 

@@ -31,6 +31,7 @@ const AvatarAtlasNode := preload("res://scripts/render/avatar_atlas.gd")
 const TrailRibbonsNode := preload("res://scripts/render/trail_ribbons.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 const CityCoinsNode := preload("res://scripts/render/city_coins.gd")
+const PickupMarksNode := preload("res://scripts/render/pickup_marks.gd")
 const CaptureBurstNode := preload("res://scripts/render/capture_burst.gd")
 
 var world: GameWorld
@@ -53,6 +54,15 @@ var _coin_field := CoinField.new()
 ## Shu o'yinda nechta marta hudud egallandi — kunlik topshiriq uchun.
 var _captures := 0
 var _coins: MultiMeshInstance3D
+## Yo'lda yotgan tangalar va kuchaytirgich sferalari.
+var _pickup_field := PickupField.new()
+var _pickups: Node3D
+## Shu o'yinda yo'ldan terilgan tanga.
+var _loose_coins := 0
+## Tezlik kuchaytirgichi shu vaqtgacha ishlaydi (dunyo soati).
+var _boost_until := 0.0
+## O'yinchining asl tezligi — kuchaytirgich tugagach shunga qaytadi.
+var _base_speed := 0.0
 ## Hudud egallaganda chiqadigan effekt (do'kondan tanlanadi).
 var _burst: CPUParticles3D
 var _drag_origin := Vector2.ZERO
@@ -95,6 +105,8 @@ func _ready() -> void:
 	add_child(_capitals)
 	_coins = CityCoinsNode.new()
 	add_child(_coins)
+	_pickups = PickupMarksNode.new()
+	add_child(_pickups)
 	_burst = CaptureBurstNode.new()
 	add_child(_burst)
 
@@ -148,6 +160,7 @@ func _new_match() -> void:
 	_build_players()
 	_build_capitals()
 	_build_coins()
+	_build_pickups()
 	_apply_view_settings()
 	_place_camera_instantly()
 
@@ -455,6 +468,89 @@ func _build_coins() -> void:
 	_coin_field.build(world.places, world.grid)
 	_coins.build(_coin_field)
 
+## Xaritada bir vaqtda yotadigan narsalar zichligi: har shuncha
+## quruqlik katagiga bittadan. Soni maydonga qarab o'zgaradi —
+## aks holda dunyo xaritasida ularni topib bo'lmasdi, kichik
+## maydonda esa ustma-ust tushardi.
+const PICKUP_PER_CELLS := 450
+const PICKUP_MIN := 40
+const PICKUP_MAX := 180
+## Yashil sfera tezlikni shuncha soniya oshiradi.
+const DASH_SECONDS := 4.0
+
+## Yo'ldagi tangalar va sferalar. Shahar tangasidan farqi: bular
+## ustidan yurib olinadi, shuning uchun har o'yinda qayta
+## joylashtiriladi.
+func _build_pickups() -> void:
+	_loose_coins = 0
+	_base_speed = world.human().speed
+	# Fever: o'yin boshida qisqa vaqt tezlik oshadi. Darajasi nol
+	# bo'lsa hech narsa o'zgarmaydi.
+	var fever := _upgrades_seconds()
+	_boost_until = fever if fever > 0.0 else 0.0
+	_pickup_field.build(world.grid, pickup_count(world.grid),
+		int(Time.get_unix_time_from_system()))
+	_pickups.build(_pickup_field)
+
+## Shu maydonga nechta narsa to'kiladi.
+static func pickup_count(grid: GameGrid) -> int:
+	return clampi(grid.land_cells / PICKUP_PER_CELLS,
+		PICKUP_MIN, PICKUP_MAX)
+
+## Avtoyuklangan modul `--script` rejimida global bo'lmaydi,
+## shuning uchun daraxtdan olinadi.
+func _upgrades() -> Node:
+	return get_node_or_null("/root/Upgrades")
+
+func _upgrades_seconds() -> float:
+	var up := _upgrades()
+	return 0.0 if up == null else float(up.fever_seconds())
+
+func _magnet_radius() -> float:
+	var up := _upgrades()
+	return 1.1 if up == null else float(up.magnet_radius())
+
+## Yo'ldagi narsalarni yig'adi va ta'sirini qo'llaydi.
+##
+## Faqat **odam** o'yinchi yig'adi: botlar ham yiqqanda xaritada
+## hech narsa qolmasdi va o'yin natijasi tasodifga aylanardi.
+func _collect_pickups(from: Vector2) -> void:
+	var p := world.human()
+	if not p.alive:
+		return
+	# O'tilgan yo'l bo'ylab yig'iladi: uzun kadrda yoki tezlik
+	# kuchaytirgichi bilan narsa ustidan sakrab o'tib ketmasin.
+	var got := _pickup_field.take_along(
+		from.x, from.y, p.x, p.y, _magnet_radius())
+	if got.is_empty():
+		return
+	var taken := _pickup_field.flush_taken()
+	if not taken.is_empty():
+		_pickups.take(taken)
+	for kind: int in got:
+		match kind:
+			PickupField.Kind.COIN:
+				_loose_coins += 1
+				Audio.tap()
+			PickupField.Kind.SHIELD:
+				p.shield = true
+				ui.flash(UiKit.BG_LOW, 0.14)
+				ui.toast(Strings.t("gotShield"))
+			PickupField.Kind.DASH:
+				_boost_until = maxf(_boost_until,
+					world.elapsed + DASH_SECONDS)
+				ui.flash(UiKit.GREEN, 0.14)
+				ui.toast(Strings.t("gotDash"))
+
+## Tezlik kuchaytirgichi: faqat odam o'yinchiga ta'sir qiladi.
+func _apply_boost() -> void:
+	var p := world.human()
+	var fast := world.elapsed < _boost_until
+	var want: float = _base_speed * (UpgradeManager.FEVER_SPEED \
+		if fast else 1.0)
+	if not is_equal_approx(p.speed, want):
+		p.speed = want
+
 ## Bosh — o'yinchi rangidagi shar; ustida uning belgisi turadi.
 const HEAD_RADIUS := 1.35
 
@@ -625,12 +721,19 @@ func _process(delta: float) -> void:
 		# uzun kadrni qisqartiradi, shuning uchun xom `delta` ni
 		# ishlatsak ikki soat bir-biridan uzoqlashib ketardi.
 		var was := world.elapsed
+		var from := Vector2(world.human().x, world.human().y)
 		world.update(delta)
 		_handle_events()
 		# Olingan tangalar shaharlarda qayta paydo bo'ladi.
 		var back := _coin_field.advance(world.elapsed - was)
 		if not back.is_empty():
 			_coins.give_back(back)
+		# Yo'ldagi narsalar ham o'sha soat bo'yicha qaytadi.
+		var again := _pickup_field.advance(world.elapsed - was)
+		if not again.is_empty():
+			_pickups.give_back(again)
+		_collect_pickups(from)
+		_apply_boost()
 	# Mehmonda holat uy egasidan keladi, lekin o'lim baribir shu yerda
 	# seziladi — natija oynasi ochiladi.
 	if _playing and not world.human().alive:
@@ -668,6 +771,11 @@ func _handle_events() -> void:
 				var taken := _coin_field.flush_taken()
 				if not taken.is_empty():
 					_coins.take(taken)
+			"shield_used":
+				if int(event["player"]) == human_id:
+					Audio.kill()
+					ui.flash(UiKit.BG_LOW, 0.3)
+					ui.toast(Strings.t("shieldSaved"))
 			"death":
 				if int(event["player"]) == human_id:
 					_cleared_on_death = event["cleared"]
@@ -686,8 +794,12 @@ func _end_match() -> void:
 	# Natija onlayn reytingga ham yuboriladi (server sozlangan bo'lsa).
 	Board.submit(store, percent, p.kills)
 	# Tanga: o'yin natijasidan hisoblanadi va hamyonga qo'shiladi.
+	# Yo'ldan terilgan tanga shahar tangasi bilan birga sanaladi,
+	# "passiv tanga" darajasi esa alohida qator bo'lib qo'shiladi.
+	var up := _upgrades()
 	var reward := RewardManager.run_reward(world.elapsed, percent, p.kills,
-		_coin_field.collected())
+		_coin_field.collected() + _loose_coins,
+		0 if up == null else int(up.passive_bonus()))
 	Wallet.add_coins(int(reward["total"]), "run")
 	Metrics.send(Analytics.COIN_EARNED, {"amount": int(reward["total"])})
 	# Kunlik topshiriqlar shu natijadan hisoblanadi.
@@ -850,7 +962,7 @@ func _refresh_hud() -> void:
 		world.percent_of(p), p.kills, world.elapsed,
 		world.rank_of(p), world.alive_count(), _leaderboard(),
 		Vector2(p.x / world.grid.width, p.y / world.grid.height),
-		_coin_field.collected())
+		_coin_field.collected() + _loose_coins)
 
 ## Top-5 reyting.
 ## Reyting: eng kuchli uchtasi va o'yinchining o'z qatori.
