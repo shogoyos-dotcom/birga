@@ -34,6 +34,9 @@ func apply_cosmetics(tint: Color) -> void:
 	if shop != null:
 		id = str(shop.worn_in(ShopManager.EFFECTS))
 	var look := Cosmetics.effect(id)
+	if id == "fx_none":
+		# Standart holatda ham hudud egallaganda chiroyli zarrachalar sochilsin
+		look = {"count": 22, "ring": false, "fly": 6.5, "life": 0.75}
 	_enabled = int(look["count"]) > 0
 	if not _enabled:
 		emitting = false

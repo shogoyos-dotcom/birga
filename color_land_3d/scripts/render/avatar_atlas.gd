@@ -37,7 +37,8 @@ var _world: GameWorld
 var _timer := 0.0
 
 func _ready() -> void:
-	data_image = Image.create_empty(256, 1, false, Image.FORMAT_RGBAF)
+	data_image = Image.create(256, 1, false, Image.FORMAT_RGBAF)
+	data_image.fill(Color(0, 0, 0, 0))
 	data_texture = ImageTexture.create_from_image(data_image)
 
 ## Yangi o'yin: belgilar qaytadan chiziladi.
@@ -118,6 +119,7 @@ func _process(delta: float) -> void:
 func refresh() -> void:
 	if _world == null:
 		return
+	data_image.fill(Color(0, 0, 0, 0))
 	for p in _world.players:
 		var place := AvatarPlacement.of(_world.grid, p.id)
 		var half: float = place["half"] if p.alive else 0.0

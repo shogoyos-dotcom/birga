@@ -6,8 +6,8 @@ extends Node3D
 ## kiritish. Shuning uchun qoidalar headless testlardan o'tadi.
 
 ## Kamera o'yinchidan qancha orqada va baland turadi.
-const CAM_HEIGHT := 48.0
-const CAM_BACK := 36.0
+const CAM_HEIGHT := 36.0
+const CAM_BACK := 30.0
 ## Hudud ustidagi avatarning quyuqligi.
 const AVATAR_ALPHA := 0.92
 ## Kamera o'yinchini qanchalik yumshoq kuzatadi (1/sekund).
@@ -33,6 +33,10 @@ const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 const CityCoinsNode := preload("res://scripts/render/city_coins.gd")
 const PickupMarksNode := preload("res://scripts/render/pickup_marks.gd")
 const CaptureBurstNode := preload("res://scripts/render/capture_burst.gd")
+const DesignDrawers := preload("res://scripts/ui/design_drawers.gd")
+
+var _crown_image: ImageTexture
+var _slime_face_image: ImageTexture
 
 var world: GameWorld
 var paint: PaintLayer
@@ -92,14 +96,15 @@ var store: SettingsStore
 var _cleared_on_death := PackedInt32Array()
 
 func _ready() -> void:
-	# Quyosh yuqoridan va yon tomondan tushadi: ustki yuzalar yorug',
-	# yon devorlar to'q bo'lsin.
-	sun.rotation_degrees = Vector3(-52.0, -38.0, 0.0)
-	# Arena juda keng, shuning uchun standart bias bilan ustki yuza o'z
-	# soyasiga tushib qoladi (shadow acne).
-	sun.shadow_bias = 0.1
-	sun.shadow_normal_bias = 3.0
-	sun.directional_shadow_max_distance = 90.0
+	# Quyosh yuqoridan va yon tomondan tushadi: yorqin va toza kunduzgi yorug'lik
+	sun.rotation_degrees = Vector3(-56.0, -35.0, 0.0)
+	sun.light_color = Color(1.0, 0.98, 0.94)
+	sun.light_energy = 1.25
+	sun.shadow_enabled = false
+
+	# Yer va okean tekisliklari o'z ustiga qora chiziqli soya tashlamasligi uchun
+	arena.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ocean.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	_avatars = AvatarAtlasNode.new()
 	add_child(_avatars)
@@ -333,6 +338,8 @@ func _on_menu() -> void:
 	_set_playing(false)
 	_match_running = false
 	Net.leave()
+	_apply_view_settings()
+	_place_camera_instantly()
 	ui.show_screen(ui.Screen.MENU)
 
 ## Rang, uslub yoki qiyinlik o'zgarsa — yangi o'yin tayyorlanadi.
@@ -349,8 +356,14 @@ func _apply_view_settings() -> void:
 	# Til o'zgargan bo'lsa shahar nomlari qayta tuziladi; maydon
 	# o'sha-o'sha bo'lsa bu chaqiriq darhol qaytadi.
 	_build_capitals()
-	_capitals.enabled = store.show_capitals
-	_capitals.names_visible = store.show_city_names
+	_capitals.enabled = store.show_capitals and _playing
+	_capitals.names_visible = store.show_city_names and _playing
+	if players_root != null:
+		players_root.visible = _playing
+	if _pickups != null:
+		_pickups.visible = _playing
+	if _coins != null:
+		_coins.visible = _playing
 	ui.set_minimap(paint.texture if store.show_minimap else null)
 
 ## Osmon va tuman rangi uslubdan olinadi.
@@ -361,6 +374,9 @@ func _apply_sky() -> void:
 	var sky := Palette.sky()
 	env.background_color = sky
 	env.fog_light_color = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = sky.lerp(Color.WHITE, 0.4)
+	env.ambient_light_energy = 0.50
 
 func _on_continue_with_ticket() -> void:
 	if not store.spend_ticket():
@@ -383,6 +399,9 @@ func _clear_scene() -> void:
 	_name_tags.clear()
 	_percent_tags.clear()
 	_crowns.clear()
+	if _props_root != null and is_instance_valid(_props_root):
+		_props_root.queue_free()
+		_props_root = null
 
 ## Arena geometriyasi faqat maydonga bog'liq: o'yindan o'yinga
 ## o'zgarmaydi va qayta qurilmaydi. Maydon almashtirilgandagina
@@ -422,16 +441,139 @@ func _build_arena() -> void:
 	wall.roughness = 1.0
 	arena.set_surface_override_material(1, wall)
 
-	# Okean — xaritadan kattaroq tekis yuza.
+	# Okean — xaritadan kattaroq tekis yuza (yorqin tropik moviy okean).
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(world.grid.width * 3.0, world.grid.height * 3.0)
 	ocean.mesh = plane
 	ocean.position = Vector3(world.grid.width / 2.0, 0.0, world.grid.height / 2.0)
 	var sea := StandardMaterial3D.new()
-	sea.albedo_color = Palette.ocean()
-	sea.roughness = 0.3
-	sea.metallic = 0.25
+	sea.albedo_color = Color("14bed8") if Palette.theme_id() == "paper" else Palette.ocean()
+	sea.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ocean.set_surface_override_material(0, sea)
+	_build_props()
+
+var _props_root: Node3D
+
+func _build_props() -> void:
+	if _props_root != null and is_instance_valid(_props_root):
+		_props_root.queue_free()
+	_props_root = Node3D.new()
+	add_child(_props_root)
+
+	var tree_trunk_mesh := CylinderMesh.new()
+	tree_trunk_mesh.top_radius = 0.20
+	tree_trunk_mesh.bottom_radius = 0.25
+	tree_trunk_mesh.height = 1.0
+	var trunk_mat := StandardMaterial3D.new()
+	trunk_mat.albedo_color = Color("6d4c41")
+	trunk_mat.roughness = 0.8
+	tree_trunk_mesh.material = trunk_mat
+
+	var foliage_mesh := SphereMesh.new()
+	foliage_mesh.radius = 0.82
+	foliage_mesh.height = 1.35
+	foliage_mesh.radial_segments = 12
+	foliage_mesh.rings = 6
+	var foliage_mat := StandardMaterial3D.new()
+	foliage_mat.albedo_color = Color("2dc653")
+	foliage_mat.roughness = 0.40
+	foliage_mesh.material = foliage_mat
+
+	var grid := world.grid
+	var tree_transforms: Array[Transform3D] = []
+	var foliage_transforms: Array[Transform3D] = []
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	# Zichroq multfilm daraxtlari — har 7-8 katakda
+	var step := clampi(grid.width / 32, 6, 8)
+	for y in range(4, grid.height - 4, step):
+		for x in range(4, grid.width - 4, step):
+			var px := x + rng.randi_range(-2, 2)
+			var py := y + rng.randi_range(-2, 2)
+			if grid.playable(px, py) and grid.is_land(px, py):
+				var on_capital := false
+				for place in world.places:
+					if absi(int(place.get("x", -1)) - px) < 4 and absi(int(place.get("y", -1)) - py) < 4:
+						on_capital = true
+						break
+				if not on_capital:
+					var base_pos := Vector3(px + 0.5, ArenaBuilder.LAND_HEIGHT, py + 0.5)
+					tree_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 0.5, 0)))
+					foliage_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 1.3, 0)))
+
+	if not tree_transforms.is_empty():
+		var trunk_mm := MultiMeshInstance3D.new()
+		trunk_mm.multimesh = _make_multimesh(tree_trunk_mesh, tree_transforms)
+		_props_root.add_child(trunk_mm)
+
+		var foliage_mm := MultiMeshInstance3D.new()
+		foliage_mm.multimesh = _make_multimesh(foliage_mesh, foliage_transforms)
+		_props_root.add_child(foliage_mm)
+
+	# 3D Mashhur Obidalar (Landmarks): Eyfel, Kolizey, Pagoda, Iso haykali va Ozodlik haykali
+	var landmarks_placed := 0
+	var landmark_types := [
+		["eiffel", "FR", 500],
+		["colosseum", "IT", 300],
+		["pagoda", "JP", 200],
+		["christ", "BR", 250],
+		["statue", "US", 500]
+	]
+	for lt: Array in landmark_types:
+		var placed_one := false
+		for place in world.places:
+			var code := str(place.get("code", "")).to_upper()
+			if code == str(lt[1]):
+				var px := int(place.get("x", -1))
+				var py := int(place.get("y", -1))
+				if grid.playable(px, py) and grid.is_land(px, py):
+					var lm := DesignDrawers.build_landmark_node(str(lt[0]), str(lt[1]), int(lt[2]))
+					lm.position = Vector3(px + 0.5, ArenaBuilder.LAND_HEIGHT, py + 0.5)
+					_props_root.add_child(lm)
+					placed_one = true
+					landmarks_placed += 1
+					break
+		# Agar xaritada mos mamlakat bo'lmasa, quruqlikdagi markaziy nuqtaga qo'yamiz
+		if not placed_one and landmarks_placed < 5:
+			var cx := int(grid.width * (0.3 + landmarks_placed * 0.12))
+			var cy := int(grid.height * (0.35 + (landmarks_placed % 2) * 0.2))
+			if grid.playable(cx, cy) and grid.is_land(cx, cy):
+				var lm := DesignDrawers.build_landmark_node(str(lt[0]), str(lt[1]), int(lt[2]))
+				lm.position = Vector3(cx + 0.5, ArenaBuilder.LAND_HEIGHT, cy + 0.5)
+				_props_root.add_child(lm)
+				landmarks_placed += 1
+
+	# Okeanda suzib yuruvchi oq yelkanli qayiqlar
+	var boats_count := 0
+	for by in range(6, grid.height - 6, 14):
+		for bx in range(6, grid.width - 6, 14):
+			if boats_count >= 14:
+				break
+			if grid.playable(bx, by) and not grid.is_land(bx, by):
+				var near_land := false
+				for dy in range(-4, 5, 2):
+					for dx in range(-4, 5, 2):
+						if grid.playable(bx + dx, by + dy) and grid.is_land(bx + dx, by + dy):
+							near_land = true
+							break
+					if near_land:
+						break
+				if near_land:
+					var boat := DesignDrawers.build_landmark_node("sailboat")
+					boat.position = Vector3(bx + 0.5, 0.15, by + 0.5)
+					boat.rotation_degrees.y = rng.randf_range(0.0, 360.0)
+					_props_root.add_child(boat)
+					boats_count += 1
+
+static func _make_multimesh(mesh: Mesh, transforms: Array[Transform3D]) -> MultiMesh:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = transforms.size()
+	for i in transforms.size():
+		mm.set_instance_transform(i, transforms[i])
+	return mm
 
 ## Poytaxt belgilari ham faqat maydonga bog'liq.
 var _capitals_map := ""
@@ -569,27 +711,23 @@ func _build_players() -> void:
 	var ball := SphereMesh.new()
 	ball.radius = HEAD_RADIUS
 	ball.height = HEAD_RADIUS * 2.0
-	# Mobil qurilma uchun kamroq uchburchak — bosh baribir kichik.
-	ball.radial_segments = 16
-	ball.rings = 8
+	# Silliq va sifatli 3D shar shakli
+	ball.radial_segments = 32
+	ball.rings = 16
 
 	for p in world.players:
 		var head := MeshInstance3D.new()
 		head.mesh = ball
 		head.set_surface_override_material(0, _head_material(p))
 
-		# Belgi sharning ustida, doim kameraga qarab turadi.
+		# Multfilm slime ko'zlari va yuzi
 		var glyph := Sprite3D.new()
-		var tile := AtlasTexture.new()
-		tile.atlas = _avatars.texture()
-		tile.region = _avatars.tile_region(p.id, _avatars.KIND_HEAD)
-		glyph.texture = tile
+		glyph.texture = _slime_face_texture()
 		glyph.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		glyph.shaded = false
-		# Shar ichiga kirib ketmasin.
 		glyph.no_depth_test = true
-		glyph.render_priority = 1
-		glyph.pixel_size = HEAD_RADIUS * 2.1 / float(_avatars.TILE)
+		glyph.render_priority = 2
+		glyph.pixel_size = 0.012
 		head.add_child(glyph)
 
 		# Maxsus nishon kiyilgan bo'lsa — bosh ustida halqa.
@@ -614,9 +752,9 @@ func _build_players() -> void:
 		crown.shaded = false
 		crown.no_depth_test = true
 		crown.render_priority = 3
-		crown.pixel_size = 0.028
-		crown.position = Vector3(0.0, HEAD_RADIUS * 1.55, 0.0)
-		crown.visible = false
+		crown.pixel_size = 0.034
+		crown.position = Vector3(0.0, HEAD_RADIUS * 1.30, 0.0)
+		crown.visible = not p.is_bot
 		head.add_child(crown)
 		_crowns.append(crown)
 
@@ -647,7 +785,51 @@ func _crown_texture() -> ImageTexture:
 	_crown_image = ImageTexture.create_from_image(image)
 	return _crown_image
 
-var _crown_image: ImageTexture
+func _slime_face_texture() -> ImageTexture:
+	if _slime_face_image != null:
+		return _slime_face_image
+	const SIZE := 128
+	var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var le := Vector2(40, 48)
+	var re := Vector2(88, 48)
+	var l_cheek := Vector2(24, 76)
+	var r_cheek := Vector2(104, 76)
+	for y in SIZE:
+		for x in SIZE:
+			var pt := Vector2(x, y)
+			# Rosy blushing cheeks (pushti yanoqlar)
+			var dl_c := (pt - l_cheek).length()
+			var dr_c := (pt - r_cheek).length()
+			if dl_c <= 12.0:
+				var alpha := (1.0 - dl_c / 12.0) * 0.55
+				img.set_pixel(x, y, Color(0.98, 0.45, 0.65, alpha))
+			elif dr_c <= 12.0:
+				var alpha := (1.0 - dr_c / 12.0) * 0.55
+				img.set_pixel(x, y, Color(0.98, 0.45, 0.65, alpha))
+
+			# Big cute cartoon eyes
+			var dl_e := (pt - le).length()
+			var dr_e := (pt - re).length()
+			if dl_e <= 16.0 or dr_e <= 16.0:
+				img.set_pixel(x, y, Color("141c2b"))
+			# Primary sparkle
+			if (pt - (le + Vector2(4, -4))).length() <= 5.5 or (pt - (re + Vector2(4, -4))).length() <= 5.5:
+				img.set_pixel(x, y, Color.WHITE)
+			# Secondary cute sparkle
+			if (pt - (le + Vector2(-4, 5))).length() <= 2.8 or (pt - (re + Vector2(-4, 5))).length() <= 2.8:
+				img.set_pixel(x, y, Color.WHITE)
+
+			# Cheerful curved mouth
+			var mouth_c := Vector2(64, 74)
+			var dm := (pt - mouth_c).length()
+			if dm >= 14.0 and dm <= 20.0 and y >= 74 and absf(x - 64) <= 16:
+				img.set_pixel(x, y, Color("141c2b"))
+			# Inside open mouth with tongue
+			if dm < 15.0 and y >= 75 and absf(x - 64) <= 12:
+				img.set_pixel(x, y, Color("e54261"))
+	_slime_face_image = ImageTexture.create_from_image(img)
+	return _slime_face_image
 
 ## Nuqta ko'pburchak chetiga yaqinmi (kontur uchun).
 static func _near_edge(at: Vector2, shape: PackedVector2Array) -> bool:
@@ -683,23 +865,29 @@ func _head_material(p: PlayerState) -> StandardMaterial3D:
 	var base := Palette.head(p.color_index)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = base
-	mat.roughness = 0.6
+	mat.roughness = 0.12
+	mat.clearcoat_enabled = true
+	mat.clearcoat = 0.92
+	mat.clearcoat_roughness = 0.08
+	mat.rim_enabled = true
+	mat.rim = 0.75
+	mat.rim_tint = 0.5
 	# O'yinchining o'zi biroz yaltiraydi — raqiblardan ajralib tursin.
 	if p.is_bot:
 		return mat
 	mat.emission_enabled = true
 	mat.emission = base
-	mat.emission_energy_multiplier = 0.45
+	mat.emission_energy_multiplier = 0.40
 	if p.id != world.human().id:
 		return mat
 	var look := Cosmetics.skin(Shop.worn_in(ShopManager.SKINS))
 	mat.albedo_color = Cosmetics.skin_color(base, look)
-	mat.roughness = float(look["rough"])
+	mat.roughness = float(look["rough"]) * 0.25
 	mat.metallic = float(look["metal"])
 	mat.emission = mat.albedo_color
 	# Nur me'yorida: to'liq kuchda shar oqarib ketadi va rangi
 	# bilinmay qoladi.
-	mat.emission_energy_multiplier = 0.45 + 0.40 * float(look["glow"])
+	mat.emission_energy_multiplier = 0.35 + 0.35 * float(look["glow"])
 	return mat
 
 ## Maxsus nishon halqasi; nishon kiyilmagan bo'lsa — null.
@@ -776,6 +964,13 @@ func _handle_events() -> void:
 						ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS,
 						world.human().y))
 					_captures += 1
+					var cell_count: int = (event["cells"] as PackedInt32Array).size() if event.has("cells") else 10
+					var popup_val: int = 50
+					if cell_count > 120:
+						popup_val = 500
+					elif cell_count > 40:
+						popup_val = 200
+					_spawn_floating_coin(Vector3(world.human().x, ArenaBuilder.LAND_HEIGHT + 2.5, world.human().y), "+%d" % popup_val)
 				_coin_field.collect_cells(event["cells"], mine)
 				var taken := _coin_field.flush_taken()
 				if not taken.is_empty():
@@ -793,6 +988,29 @@ func _handle_events() -> void:
 				elif int(event["killer"]) == human_id:
 					Audio.kill()
 					ui.flash(UiKit.MINT, 0.16)
+
+func _spawn_floating_coin(at: Vector3, text: String) -> void:
+	var label := Label3D.new()
+	label.text = text
+	label.font = UiKit.display_font()
+	label.font_size = 46
+	label.outline_size = 10
+	label.modulate = UiKit.YELLOW
+	label.outline_modulate = UiKit.INK
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.render_priority = 4
+	label.outline_render_priority = 3
+	label.pixel_size = 0.026
+	label.position = at
+	add_child(label)
+
+	var tw := label.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(label, "position:y", at.y + 3.2, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(label, "scale", Vector3(1.2, 1.2, 1.2), 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(label, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(label.queue_free)
 
 func _end_match() -> void:
 	_set_playing(false)
@@ -846,17 +1064,30 @@ func _sync_heads() -> void:
 			continue
 		head.position = Vector3(
 			p.x, ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS, p.y)
+		var bounce := sin(world.elapsed * 12.0 + float(i) * 1.5) * 0.08
+		head.scale = Vector3(1.0 + bounce, 1.0 - bounce * 0.8, 1.0 + bounce)
 
 func _player_target() -> Vector3:
 	var p := world.human()
 	return Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
 
 func _place_camera_instantly() -> void:
+	if not _playing and world != null and world.grid != null:
+		var center := Vector3(240.0, ArenaBuilder.LAND_HEIGHT, 65.0)
+		camera.position = center + Vector3(0.0, 36.0, 28.0)
+		camera.look_at(center, Vector3.UP)
+		return
 	var target := _player_target()
 	camera.position = target + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
 	camera.look_at(target, Vector3.UP)
 
 func _follow_camera(delta: float) -> void:
+	if not _playing and world != null and world.grid != null:
+		var center := Vector3(240.0, ArenaBuilder.LAND_HEIGHT, 65.0)
+		var want := center + Vector3(sin(Time.get_ticks_msec() * 0.0003) * 3.0, 36.0, 28.0)
+		camera.position = camera.position.lerp(want, minf(1.0, 2.0 * delta))
+		camera.look_at(center, Vector3.UP)
+		return
 	var target := _player_target()
 	var want := target + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
 	camera.position = camera.position.lerp(want, minf(1.0, CAM_FOLLOW * delta))
@@ -1026,5 +1257,6 @@ func _leaderboard() -> Array:
 			"color": p.color_index,
 			"percent": world.grid.percent_of(p.id),
 			"is_human": mine,
+			"country": p.country,
 		})
 	return rows

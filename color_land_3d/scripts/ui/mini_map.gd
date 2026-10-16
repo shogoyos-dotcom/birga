@@ -1,17 +1,13 @@
 class_name MiniMap
 extends Control
 
-## HUD dagi kichik xarita.
+## HUD dagi kichik xarita — dumaloq radar multfilm uslubida.
 ##
-## Alohida rasm chizilmaydi: arena ustidagi egalik teksturasining o'zi
-## kichraytirib ko'rsatiladi — har katak bitta piksel, shuning uchun
-## xarita hech qanday qo'shimcha hisobsiz doim yangi turadi.
+## Egalik teksturasi dumaloq doira ichida markazlashtirib ko'rsatiladi,
+## o'yinchi joylashuvi yorqin oq-rangli nuqta bilan belgilanadi.
 
-## Kichik xarita kengligi (piksel).
-const WIDTH := 168.0
-
-## O'yinchi nuqtasining o'lchami.
-const DOT := 3.4
+const WIDTH := 148.0
+const DOT := 4.2
 
 var map_texture: Texture2D:
 	set(value):
@@ -31,28 +27,41 @@ var marker_color := Color.WHITE:
 		queue_redraw()
 
 func _init(texture: Texture2D = null, color: Color = Color.WHITE) -> void:
-	# NEAREST: kataklar aniq ko'rinsin, ranglar aralashib ketmasin.
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	marker_color = color
 	map_texture = texture
+	_resize()
 
 func _resize() -> void:
-	if map_texture == null:
-		custom_minimum_size = Vector2.ZERO
-		return
-	var size := map_texture.get_size()
-	if size.x <= 0.0:
-		return
-	custom_minimum_size = Vector2(WIDTH, round(WIDTH * size.y / size.x))
+	custom_minimum_size = Vector2(WIDTH, WIDTH)
 
 func _draw() -> void:
-	if map_texture == null:
-		return
-	var rect := Rect2(Vector2.ZERO, size)
-	draw_texture_rect(map_texture, rect, false)
-	draw_rect(rect, UiKit.STROKE, false, 1.0)
-	var at := Vector2(marker.x * size.x, marker.y * size.y)
-	# Oq halqa ichida o'yinchi rangi — qaysi fonda ham ko'rinadi.
-	draw_circle(at, DOT + 1.4, Color(1.0, 1.0, 1.0, 0.9))
-	draw_circle(at, DOT, marker_color)
+	var center := Vector2(WIDTH * 0.5, WIDTH * 0.5)
+	var radius := WIDTH * 0.46
+	# 3D pastki soya
+	draw_circle(center + Vector2(0, 4), radius + 4.0, Color(0.04, 0.08, 0.22, 0.45))
+	# Qalin hoshiya konturi (INK)
+	draw_circle(center, radius + 3.0, UiKit.INK)
+	# Ichki quyuq ko'k fon
+	draw_circle(center, radius, Color(0.08, 0.16, 0.35, 0.92))
+
+	if map_texture != null:
+		var t_size := map_texture.get_size()
+		if t_size.x > 0.0 and t_size.y > 0.0:
+			var max_dim := maxf(t_size.x, t_size.y)
+			var draw_w := (t_size.x / max_dim) * (radius * 1.62)
+			var draw_h := (t_size.y / max_dim) * (radius * 1.62)
+			var rect := Rect2(center - Vector2(draw_w * 0.5, draw_h * 0.5), Vector2(draw_w, draw_h))
+			draw_texture_rect(map_texture, rect, false)
+
+			# O'yinchi nuqtasi
+			var at := rect.position + Vector2(marker.x * draw_w, marker.y * draw_h)
+			if at.distance_to(center) <= radius - 2.0:
+				draw_circle(at, DOT + 2.0, Color(1.0, 1.0, 1.0, 0.95))
+				draw_circle(at, DOT, marker_color)
+
+	# Radar hoshiyasi yaltirashi (yuqoridagi yarim oy)
+	draw_arc(center, radius - 1.5, -PI * 0.85, -PI * 0.15, 24, Color(1.0, 1.0, 1.0, 0.40), 2.5)
+	# Tashqi kontur
+	draw_arc(center, radius, 0.0, TAU, 36, UiKit.INK, 3.2)

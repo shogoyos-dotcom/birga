@@ -559,22 +559,78 @@ static func spacer(height: int) -> Control:
 ##
 ## `icon` — [GameIcon] nomi ("coin", "skull", "gem", "ticket").
 static func capsule(icon: String, value: String, tint: Color = YELLOW,
-		width: int = 0) -> PanelContainer:
+		width: int = 0, with_plus: bool = false, on_plus: Callable = Callable()) -> PanelContainer:
 	var shell := PanelContainer.new()
 	shell.add_theme_stylebox_override("panel", style_solid(TEXT, 26, 6, 8))
-	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shell.mouse_filter = Control.MOUSE_FILTER_PASS if with_plus else Control.MOUSE_FILTER_IGNORE
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	shell.add_child(row)
-	row.add_child(GameIcon.new(icon, 42.0, tint))
+	row.add_child(GameIcon.new(icon, 38.0, tint))
 
-	var text := title(value, 24, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	var text := title(value, 22, INK, HORIZONTAL_ALIGNMENT_CENTER)
 	text.add_theme_constant_override("outline_size", 0)
 	text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if width > 0:
 		text.custom_minimum_size = Vector2(width, 0)
 	row.add_child(text)
+
+	if with_plus:
+		var plus_btn := Button.new()
+		plus_btn.text = "+"
+		plus_btn.custom_minimum_size = Vector2(28, 28)
+		plus_btn.add_theme_stylebox_override("normal", style_solid(GREEN, 14, 2, 2))
+		plus_btn.add_theme_stylebox_override("hover", style_solid(GREEN.lightened(0.1), 14, 2, 2))
+		plus_btn.add_theme_stylebox_override("pressed", style_solid(GREEN.darkened(0.1), 14, 1, 1))
+		plus_btn.add_theme_font_size_override("font_size", 18)
+		var font := display_font()
+		if font != null:
+			plus_btn.add_theme_font_override("font", font)
+		_ink_text(plus_btn)
+		if on_plus.is_valid():
+			plus_btn.pressed.connect(on_plus)
+		row.add_child(plus_btn)
 	return shell
+
+## Katta 3D Play tugmasi — Screen 1 dagi oq uchburchak va "PLAY" yozuvi bilan.
+static func play_button(text: String = "PLAY", color: Color = YELLOW,
+		p_width: int = 340, p_height: int = 88) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(p_width, p_height)
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		var bg := color if state != "pressed" else color.darkened(0.12)
+		var lift := 10 if state != "pressed" else 3
+		var m_top := 10 if state != "pressed" else 18
+		var box := style_solid(bg, 32, lift, 18)
+		box.content_margin_top = m_top
+		b.add_theme_stylebox_override(state, box)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.add_theme_constant_override("separation", 14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+
+	var tri := Control.new()
+	tri.custom_minimum_size = Vector2(28, 32)
+	tri.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tri.draw.connect(func() -> void:
+		var pts := PackedVector2Array([
+			Vector2(4, 2), Vector2(26, 16), Vector2(4, 30)
+		])
+		tri.draw_colored_polygon(pts, Color.WHITE)
+		tri.draw_polyline(pts, INK, 4.0, true))
+	row.add_child(tri)
+
+	var lbl := title(text.to_upper(), 38, Color.WHITE)
+	lbl.add_theme_constant_override("outline_size", 12)
+	lbl.add_theme_color_override("font_outline_color", INK)
+	row.add_child(lbl)
+
+	_gloss(b, 20, 22)
+	return b
 
 ## Keng progress chizig'i — egallangan foiz.
 ##
@@ -614,6 +670,92 @@ static func progress_bar(percent: float, tint: Color,
 		best.position = Vector2(-7, -7)
 		lane.add_child(best)
 	return shell
+
+const DonutProgressNode := preload("res://scripts/ui/donut_progress.gd")
+
+## Dumaloq hudud ko'rsatkichi (Donut Chart) — HUD uchun.
+static func donut_chart(percent: float, tint: Color) -> Control:
+	return DonutProgressNode.new(percent, tint)
+
+## O'yinchi profil kartasi (bosh menyu yuqori chap burchagi): avatar, daraja, ism va XP.
+static func profile_pill(avatar: String, avatar_img: String, nickname: String, level: int, xp: int, xp_max: int, on_tap: Callable) -> Button:
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(210, 68)
+	btn.flat = true
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		var bg := PANEL.darkened(0.18) if state == "normal" else PANEL
+		var lift := 5 if state != "pressed" else 2
+		var m_top := 4 if state != "pressed" else 7
+		var box := style_solid(bg, 22, lift, 6)
+		box.content_margin_top = m_top
+		box.content_margin_left = 6
+		box.content_margin_right = 14
+		btn.add_theme_stylebox_override(state, box)
+
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(row)
+
+	var avatar_box := Control.new()
+	avatar_box.custom_minimum_size = Vector2(52, 52)
+	avatar_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	avatar_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var av_mark := AvatarView.new(avatar, 48.0, avatar_img)
+	av_mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar_box.add_child(av_mark)
+
+	var lvl_badge := Panel.new()
+	lvl_badge.add_theme_stylebox_override("panel", style(YELLOW, 8, 2, 0))
+	lvl_badge.anchor_top = 1.0
+	lvl_badge.anchor_bottom = 1.0
+	lvl_badge.offset_left = -2
+	lvl_badge.offset_right = 28
+	lvl_badge.offset_top = -18
+	lvl_badge.offset_bottom = 2
+	var lvl_lbl := label(str(level), 11, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	lvl_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lvl_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var f := display_font()
+	if f != null:
+		lvl_lbl.add_theme_font_override("font", f)
+	lvl_badge.add_child(lvl_lbl)
+	avatar_box.add_child(lvl_badge)
+	row.add_child(avatar_box)
+
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info.add_theme_constant_override("separation", 2)
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var name_lbl := title(nickname, 16, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	name_lbl.clip_text = true
+	info.add_child(name_lbl)
+
+	# XP bar
+	var xp_lane := PanelContainer.new()
+	xp_lane.add_theme_stylebox_override("panel", style(Color(0.06, 0.12, 0.25, 0.8), 6, 2, 2))
+	xp_lane.custom_minimum_size = Vector2(0, 14)
+	xp_lane.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var xp_clip := Control.new()
+	xp_clip.clip_contents = true
+	xp_lane.add_child(xp_clip)
+	var xp_fill := Panel.new()
+	xp_fill.add_theme_stylebox_override("panel", style(GREEN, 4, 0, 0))
+	xp_fill.anchor_bottom = 1.0
+	var xp_ratio := clampf(float(xp) / maxf(1.0, float(xp_max)), 0.05, 1.0)
+	xp_fill.anchor_right = xp_ratio
+	xp_clip.add_child(xp_fill)
+	info.add_child(xp_lane)
+
+	row.add_child(info)
+	_gloss(btn, 10, 8)
+	btn.pressed.connect(on_tap)
+	return btn
+
 
 # ——— Fon va joylashuv ———
 

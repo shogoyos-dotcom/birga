@@ -266,7 +266,14 @@
     "oneDay": "يوم واحد",
     "forever": "للأبد",
     "stateOn": "تشغيل",
-    "stateOff": "إيقاف"
+    "stateOff": "إيقاف",
+    "yourTerritory": "أرضك",
+    "tabContinents": "القارات",
+    "tabCountries": "الدول",
+    "tabCities": "المدن",
+    "tabFlags": "الأعلام",
+    "tabRewards": "المكافآت",
+    "worldExpedition": "رحلة العالم"
   },
   "de": {
     "adNotReady": "Werbung ist noch nicht bereit",
@@ -535,7 +542,14 @@
     "oneDay": "1 Tag",
     "forever": "Für immer",
     "stateOn": "AN",
-    "stateOff": "AUS"
+    "stateOff": "AUS",
+    "yourTerritory": "Dein Territorium",
+    "tabContinents": "Kontinente",
+    "tabCountries": "Länder",
+    "tabCities": "Städte",
+    "tabFlags": "Flaggen",
+    "tabRewards": "Belohnungen",
+    "worldExpedition": "Welt-Expedition"
   },
   "en": {
     "adNotReady": "Ad is not ready yet",
@@ -804,7 +818,14 @@
     "oneDay": "1 Day",
     "forever": "Forever",
     "stateOn": "ON",
-    "stateOff": "OFF"
+    "stateOff": "OFF",
+    "yourTerritory": "Your Territory",
+    "tabContinents": "Continents",
+    "tabCountries": "Countries",
+    "tabCities": "Cities",
+    "tabFlags": "Flags",
+    "tabRewards": "Rewards",
+    "worldExpedition": "World Expedition"
   },
   "es": {
     "adNotReady": "El anuncio aún no está listo",
@@ -1073,7 +1094,14 @@
     "oneDay": "1 día",
     "forever": "Para siempre",
     "stateOn": "SÍ",
-    "stateOff": "NO"
+    "stateOff": "NO",
+    "yourTerritory": "Tu territorio",
+    "tabContinents": "Continentes",
+    "tabCountries": "Países",
+    "tabCities": "Ciudades",
+    "tabFlags": "Banderas",
+    "tabRewards": "Recompensas",
+    "worldExpedition": "Expedición Mundial"
   },
   "fr": {
     "adNotReady": "La pub n'est pas encore prête",
@@ -1342,7 +1370,14 @@
     "oneDay": "1 jour",
     "forever": "Pour toujours",
     "stateOn": "OUI",
-    "stateOff": "NON"
+    "stateOff": "NON",
+    "yourTerritory": "Votre territoire",
+    "tabContinents": "Continents",
+    "tabCountries": "Pays",
+    "tabCities": "Villes",
+    "tabFlags": "Drapeaux",
+    "tabRewards": "Récompenses",
+    "worldExpedition": "Expédition Mondiale"
   },
   "hi": {
     "adNotReady": "विज्ञापन अभी तैयार नहीं है",
@@ -1611,7 +1646,14 @@
     "oneDay": "1 दिन",
     "forever": "हमेशा के लिए",
     "stateOn": "चालू",
-    "stateOff": "बंद"
+    "stateOff": "बंद",
+    "yourTerritory": "आपका क्षेत्र",
+    "tabContinents": "महाद्वीप",
+    "tabCountries": "देश",
+    "tabCities": "शहर",
+    "tabFlags": "झंडे",
+    "tabRewards": "पुरस्कार",
+    "worldExpedition": "विश्व अभियान"
   },
   "id": {
     "adNotReady": "Iklan belum siap",
@@ -1880,7 +1922,14 @@
     "oneDay": "1 hari",
     "forever": "Selamanya",
     "stateOn": "AKTIF",
-    "stateOff": "MATI"
+    "stateOff": "MATI",
+    "yourTerritory": "Wilayah Anda",
+    "tabContinents": "Benua",
+    "tabCountries": "Negara",
+    "tabCities": "Kota",
+    "tabFlags": "Bendera",
+    "tabRewards": "Hadiah",
+    "worldExpedition": "Ekspedisi Dunia"
   },
   "ja": {
     "adNotReady": "広告はまだ準備中です",
@@ -2149,7 +2198,14 @@
     "oneDay": "1日",
     "forever": "永久",
     "stateOn": "ON",
-    "stateOff": "OFF"
+    "stateOff": "OFF",
+    "yourTerritory": "あなたの領土",
+    "tabContinents": "大陸",
+    "tabCountries": "国",
+    "tabCities": "都市",
+    "tabFlags": "旗",
+    "tabRewards": "報酬",
+    "worldExpedition": "世界遠征"
   },
   "kk": {
     "adNotReady": "Жарнама әлі дайын емес",
@@ -2418,7 +2474,14 @@
     "oneDay": "1 күн",
     "forever": "Мәңгі",
     "stateOn": "ҚОСУ",
-    "stateOff": "ӨШІРУ"
+    "stateOff": "ӨШІРУ",
+    "yourTerritory": "Сіздің аумағыңыз",
+    "tabContinents": "Құрлықтар",
+    "tabCountries": "Елдер",
+    "tabCities": "Қалалар",
+    "tabFlags": "Жалаулар",
+    "tabRewards": "Марапаттар",
+    "worldExpedition": "Әлем экспедициясы"
   },
   "ko": {
     "adNotReady": "광고가 아직 준비되지 않았습니다",
@@ -2687,7 +2750,14 @@
     "oneDay": "1일",
     "forever": "영구",
     "stateOn": "켜짐",
-    "stateOff": "꺼짐"
+    "stateOff": "꺼짐",
+    "yourTerritory": "내 영토",
+    "tabContinents": "대륙",
+    "tabCountries": "국가",
+    "tabCities": "도시",
+    "tabFlags": "국기",
+    "tabRewards": "보상",
+    "worldExpedition": "세계 탐험"
   },
   "pt": {
     "adNotReady": "O anúncio ainda não está pronto",
@@ -2956,7 +3026,14 @@
     "oneDay": "1 dia",
     "forever": "Para sempre",
     "stateOn": "LIG",
-    "stateOff": "DESL"
+    "stateOff": "DESL",
+    "yourTerritory": "Seu território",
+    "tabContinents": "Continentes",
+    "tabCountries": "Países",
+    "tabCities": "Cidades",
+    "tabFlags": "Bandeiras",
+    "tabRewards": "Recompensas",
+    "worldExpedition": "Expedição Mundial"
   },
   "ru": {
     "adNotReady": "Реклама ещё не готова",
@@ -3225,7 +3302,14 @@
     "oneDay": "1 день",
     "forever": "Навсегда",
     "stateOn": "ВКЛ",
-    "stateOff": "ВЫКЛ"
+    "stateOff": "ВЫКЛ",
+    "yourTerritory": "Ваша территория",
+    "tabContinents": "Континенты",
+    "tabCountries": "Страны",
+    "tabCities": "Города",
+    "tabFlags": "Флаги",
+    "tabRewards": "Награды",
+    "worldExpedition": "Мировая экспедиция"
   },
   "tr": {
     "adNotReady": "Reklam henüz hazır değil",
@@ -3494,7 +3578,14 @@
     "oneDay": "1 Gün",
     "forever": "Sonsuza Dek",
     "stateOn": "AÇIK",
-    "stateOff": "KAPALI"
+    "stateOff": "KAPALI",
+    "yourTerritory": "Bölgeniz",
+    "tabContinents": "Kıtalar",
+    "tabCountries": "Ülkeler",
+    "tabCities": "Şehirler",
+    "tabFlags": "Bayraklar",
+    "tabRewards": "Ödüller",
+    "worldExpedition": "Dünya Seferi"
   },
   "uz": {
     "adNotReady": "Reklama hali tayyor emas",
@@ -3763,7 +3854,14 @@
     "oneDay": "1 kun",
     "forever": "Umrbod",
     "stateOn": "YOQ",
-    "stateOff": "O‘CH"
+    "stateOff": "O‘CH",
+    "yourTerritory": "Sizning hududingiz",
+    "tabContinents": "Qit'alar",
+    "tabCountries": "Mamlakatlar",
+    "tabCities": "Shaharlar",
+    "tabFlags": "Bayroqlar",
+    "tabRewards": "Mukofotlar",
+    "worldExpedition": "Dunyo sayohati"
   },
   "zh": {
     "adNotReady": "广告还没准备好",
@@ -4032,6 +4130,13 @@
     "oneDay": "1 天",
     "forever": "永久",
     "stateOn": "开",
-    "stateOff": "关"
+    "stateOff": "关",
+    "yourTerritory": "你的领地",
+    "tabContinents": "大洲",
+    "tabCountries": "国家",
+    "tabCities": "城市",
+    "tabFlags": "国旗",
+    "tabRewards": "奖励",
+    "worldExpedition": "世界探险"
   }
 }

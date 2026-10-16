@@ -35,16 +35,11 @@ const SCREEN_SIZE := 0.00042
 
 ## Nom shu masofadan uzoqda ko'rsatilmaydi (katak), oxirgi
 ## [FADE] ulushida asta so'nadi.
-const NAME_RANGE := 46.0
-const FADE := 0.22
+const NAME_RANGE := 24.0
+const FADE := 0.35
 
-## Bir vaqtda ekranda bo'ladigan nomlar soni.
-##
-## [NAME_RANGE] doirasiga sig'adigan nomlardan ko'p bo'lishi shart:
-## chegara urilsa, eng uzoqdagi nom goh ko'rinib, goh yo'qolib
-## miltillab qoladi. `tools/nametest.gd` o'lchagan: eng yomon
-## holatda (dunyo xaritasi) doirada 99 ta nom bor.
-const POOL := 150
+## Bir vaqtda ekranda bo'ladigan nomlar soni (maksimal 10 ta).
+const POOL := 10
 
 ## Yozuvlar bir-birining ustiga tushmasligi uchun har bir nom
 ## atrofida "band" to'rtburchak bor:
@@ -66,8 +61,8 @@ const POOL := 150
 ## Bitta harfning kengligi (katak, yozuv kattaligi 1.0 bo'lganda).
 const CHAR_WIDTH := 0.55
 ## Ikki yozuv orasidagi eng kichik bo'shliq (katak).
-const GAP_X := 0.8
-const GAP_Y := 4.4
+const GAP_X := 4.5
+const GAP_Y := 6.5
 
 ## Ro'yxat sekundiga shuncha marta qayta tanlanadi.
 const REFRESH := 0.3
@@ -135,30 +130,30 @@ func build(places: Array, grid: GameGrid) -> int:
 	_active.clear()
 	return rows.size()
 
-## Poytaxt ustunlari — bitta MultiMesh.
+## Poytaxt ustunlari — nozik taglik doiralari (ortiqcha shovqinsiz).
 func _build_pillars(rows: Array) -> void:
-	var box := BoxMesh.new()
-	box.size = Vector3(BASE, 1.0, BASE)
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.55
+	disc.bottom_radius = 0.65
+	disc.height = 0.16
+	disc.radial_segments = 12
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = UiKit.GOLD
-	mat.emission_enabled = true
-	mat.emission = UiKit.GOLD
-	mat.emission_energy_multiplier = 0.35
-	mat.roughness = 0.4
-	box.material = mat
+	mat.albedo_color = Color("e0d6bc")
+	mat.roughness = 0.6
+	disc.material = mat
 
 	var placed: Array[Transform3D] = []
 	for row: Dictionary in rows:
-		if not row["cap"]:
+		if not row["cap"] or float(row["rank"]) < 1.35:
 			continue
-		var height: float = lerpf(MIN_HEIGHT, MAX_HEIGHT, row["weight"])
-		var basis := Basis.IDENTITY.scaled(Vector3(1.0, height, 1.0))
+		var height: float = 0.16
+		var basis := Basis.IDENTITY
 		placed.append(Transform3D(basis, Vector3(
 			row["at"].x, ArenaBuilder.LAND_HEIGHT + height * 0.5,
 			row["at"].y)))
-	multimesh = _mesh_from(box, placed)
+	multimesh = _mesh_from(disc, placed)
 
-## Har shaharning nuqtasi — yana bitta MultiMesh.
+## Har shaharning nuqtasi — faqat asosiy yirik shaharlar uchun.
 func _build_dots(rows: Array) -> void:
 	var dot := CylinderMesh.new()
 	dot.top_radius = 1.0
@@ -178,6 +173,8 @@ func _build_dots(rows: Array) -> void:
 
 	var placed: Array[Transform3D] = []
 	for row: Dictionary in rows:
+		if float(row["rank"]) < 1.25:
+			continue
 		var radius: float = lerpf(DOT_MIN, DOT_MAX, row["weight"])
 		var basis := Basis.IDENTITY.scaled(Vector3(radius, 1.0, radius))
 		placed.append(Transform3D(basis, Vector3(
@@ -194,14 +191,15 @@ static func _mesh_from(mesh: Mesh, placed: Array[Transform3D]) -> MultiMesh:
 		mm.set_instance_transform(i, placed[i])
 	return mm
 
-## Nomi yoziladigan shaharlarni bir marta tanlaydi: muhimi oldin,
-## va ularning yozuvlari bir-birining ustiga tushmaydi.
+## Nomi yoziladigan shaharlarni bir marta tanlaydi: faqat eng muhimlari.
 func _pick_named(rows: Array) -> void:
 	var sorted := rows.duplicate()
 	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return a["rank"] > b["rank"])
 	_named = []
 	for row: Dictionary in sorted:
+		if float(row["rank"]) < 1.30:
+			continue
 		row["half"] = 0.5 * row["name"].length() * CHAR_WIDTH \
 			* _name_scale(row)
 		var crowded := false

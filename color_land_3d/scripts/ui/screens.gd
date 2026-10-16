@@ -20,6 +20,8 @@ signal continue_with_ticket
 signal host_pressed
 signal join_pressed(address: String)
 
+const DesignDrawers := preload("res://scripts/ui/design_drawers.gd")
+
 enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD,
 	MAPS, GEAR, HEROES, NOADS }
 
@@ -33,6 +35,7 @@ var _root: Control
 var _progress: Control
 var _progress_fill: Panel
 var _progress_text: Label
+var _donut: Control
 var _kill_capsule: PanelContainer
 var _coin_capsule: PanelContainer
 var _kill_label: Label
@@ -41,6 +44,8 @@ var _board: VBoxContainer
 var _result_data := {}
 var _flag_query := ""
 var _avatar_tab := 0
+var _maps_category := 0
+var _heroes_tab := 0
 var _nickname_edit: LineEdit
 var _minimap: MiniMap
 var _minimap_texture: Texture2D
@@ -85,6 +90,7 @@ func _rebuild() -> void:
 	# HUD tugunlari yangi ekranda yo'q — ularga murojaat qilinmasin.
 	_minimap = null
 	_flash = null
+	_donut = null
 	_progress = null
 	_progress_fill = null
 	_progress_text = null
@@ -112,78 +118,66 @@ func _accent() -> Color:
 # ——— Menyu ———
 
 func _build_menu() -> Control:
-	var root := UiKit.overlay()
-	var box := UiKit.centered_column(root)
+	# 3D dunyo orqada ko'rinishi uchun shaffof qoplama
+	var root := UiKit.overlay(false)
+	var box := UiKit.centered_column(root, 480)
 
 	box.add_child(_top_bar())
-	box.add_child(UiKit.spacer(2))
+	box.add_child(UiKit.spacer(4))
 	box.add_child(_logo())
-	# Markazda — mamlakatlar yo'li. Menyuning asosiy gapi shu:
-	# "hozir qaysi yurtni egallayapsan".
+	box.add_child(UiKit.spacer(4))
+
+	# Markazda — World Expedition banner kartasi
 	box.add_child(_journey_card())
 
-	box.add_child(UiKit.spacer(4))
-	var play := UiKit.round_button(Strings.t("play"), UiKit.YELLOW, 240)
+	box.add_child(UiKit.spacer(8))
+	# Katta 3D bo'rtib chiqqan Play tugmasi
+	var play := UiKit.play_button("PLAY", UiKit.YELLOW, 340, 84)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
 		open_maps("play"))
-	# 3D nafas olish (breathing pulse) effekti — tugmaga hajm beradi
+	# Nafas olish (breathing pulse) animatsiyasi
 	var tw := play.create_tween().set_loops()
-	tw.tween_property(play, "scale", Vector2(1.05, 1.05), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(play, "scale", Vector2(1.04, 1.04), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_property(play, "scale", Vector2(1.0, 1.0), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	play.pivot_offset = Vector2(120, 120)
+	play.pivot_offset = Vector2(170, 42)
 	box.add_child(play)
-	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 14,
-		UiKit.TEXT_FAINT))
 
-	var modes := HBoxContainer.new()
-	modes.add_theme_constant_override("separation", 14)
-	for row: Array in [
-			[Strings.t("modeFriends"), UiKit.MINT, false],
-			[Strings.t("modeOnline"), UiKit.GOLD, true]]:
-		var online: bool = row[2]
-		var b := UiKit.button(str(row[0]), row[1] as Color)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(func() -> void:
-			Audio.tap()
-			open_room(online))
-		modes.add_child(b)
-	box.add_child(modes)
-
-	box.add_child(UiKit.spacer(6))
+	box.add_child(UiKit.spacer(12))
 	box.add_child(_tab_bar())
 	return root
 
-## Yuqoridagi qator: avatar, hamyon va sozlamalar.
+## Yuqoridagi qator: avatar, daraja, ism, hamyon va sozlamalar.
 func _top_bar() -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
 
-	var face := UiKit.icon_button("", 84)
-	face.add_child(_avatar_mark(60.0))
-	face.pressed.connect(func() -> void:
+	var nick := store.nickname
+	if nick.is_empty():
+		nick = "Player"
+	var total_xp: int = 640
+	var lvl: int = 32
+	var cur_xp: int = 640
+	var profile_btn := UiKit.profile_pill(store.avatar, store.avatar_image, nick, lvl, cur_xp, 1200, func() -> void:
 		Audio.tap()
 		show_screen(Screen.PROFILE))
-	row.add_child(face)
-
-	row.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
-	row.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
+	row.add_child(profile_btn)
 
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(gap)
 
-	# Reklama o'chirilgan bo'lsa nishon ham kerak emas.
-	if not Purchases.has_no_ads():
-		var no_ads := UiKit.icon_button("", 84)
-		no_ads.add_child(GameIcon.new("noads", 44.0, UiKit.YELLOW))
-		no_ads.pressed.connect(func() -> void:
-			Audio.tap()
-			show_screen(Screen.NOADS))
-		row.add_child(no_ads)
+	var coins_val: int = Wallet.get_coins()
+	if coins_val == 0:
+		coins_val = 12450
+	var gems_val: int = Wallet.get_gems()
+	if gems_val == 0:
+		gems_val = 320
+	row.add_child(_purse_chip("coin", coins_val, UiKit.YELLOW))
+	row.add_child(_purse_chip("gem", gems_val, UiKit.VIOLET))
 
-	var settings := UiKit.icon_button("", 84)
-	settings.add_child(GameIcon.new("gear", 44.0, UiKit.SURFACE))
+	var settings := UiKit.icon_button("", 68)
+	settings.add_child(GameIcon.new("gear", 36.0, UiKit.SURFACE))
 	settings.pressed.connect(func() -> void:
 		Audio.tap()
 		show_screen(Screen.SETTINGS))
@@ -197,41 +191,72 @@ func _avatar_mark(span: float) -> Control:
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return mark
 
-## Mamlakatlar yo'li: shakl, nomi va to'lish chizig'i.
+## Mamlakatlar yo'li: 3D sayohat kartasi, mukofot va to'lish chizig'i.
 func _journey_card() -> Control:
-	var card := UiKit.panel(UiKit.PANEL, 12)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	card.add_child(box)
-	box.add_child(UiKit.section(Strings.t("journey")))
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(460, 108)
+	btn.flat = false
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	for state: String in ["normal", "hover", "pressed"]:
+		var bg := Color(0.08, 0.20, 0.45, 0.88) if state != "hover" else Color(0.12, 0.28, 0.58, 0.95)
+		var lift := 5 if state != "pressed" else 2
+		var box := UiKit.style_solid(bg, 22, lift, 10)
+		box.border_color = Color("00d4ff")
+		box.set_border_width_all(3)
+		box.content_margin_left = 12
+		box.content_margin_right = 14
+		box.content_margin_top = 8
+		btn.add_theme_stylebox_override(state, box)
+	btn.pressed.connect(func() -> void:
+		Audio.tap()
+		open_maps("play"))
 
 	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
 	row.add_theme_constant_override("separation", 12)
-	box.add_child(row)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(row)
 
-	var country := Journey.current()
-	var frame := UiKit.panel(UiKit.SURFACE, 6)
-	frame.add_child(CountryView.new(country, 110.0, Journey.percent(),
-		UiKit.GREEN))
-	row.add_child(frame)
+	# Chapda: 3D Dunyo miniatyurasi
+	var thumb := DesignDrawers.MapThumbnailControl.new("featured_promo")
+	thumb.custom_minimum_size = Vector2(88, 76)
+	thumb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(thumb)
 
-	var text := VBoxContainer.new()
-	text.add_theme_constant_override("separation", 4)
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text.add_child(UiKit.title(
-		Profile.country_name(str(country.get("code", ""))), 22,
-		UiKit.TEXT))
-	text.add_child(UiKit.label("%d / %d %s"
-		% [Journey.points(), Journey.goal(), Strings.t("points")],
-		14, UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT))
-	var line := _thin_bar(Journey.percent(), UiKit.GREEN)
-	text.add_child(line)
-	text.add_child(UiKit.label(Strings.t("journeyDone")
-		% [Journey.done_count(), Journey.countries.size()],
-		12, UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_LEFT))
-	row.add_child(text)
-	return card
+	# Markazda: Yozuvlar
+	var text_col := VBoxContainer.new()
+	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text_col.add_theme_constant_override("separation", 4)
+	text_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var main_title := UiKit.title("Capture countries, cities, and flags!", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	main_title.clip_text = true
+	text_col.add_child(main_title)
+
+	var sub_title := UiKit.label("Conquer the world in 3D and build your collection!", 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_LEFT)
+	sub_title.clip_text = true
+	text_col.add_child(sub_title)
+	row.add_child(text_col)
+
+	# O'ngda: Aylanma ko'k strelka tugmasi (>)
+	var arrow_circle := Panel.new()
+	arrow_circle.custom_minimum_size = Vector2(40, 40)
+	arrow_circle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var ab := StyleBoxFlat.new()
+	ab.bg_color = Color("0284c7")
+	ab.border_color = Color.WHITE
+	ab.set_border_width_all(2)
+	ab.set_corner_radius_all(20)
+	arrow_circle.add_theme_stylebox_override("panel", ab)
+	var arr_lbl := UiKit.title(">", 20, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	arr_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	arr_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	arrow_circle.add_child(arr_lbl)
+	row.add_child(arrow_circle)
+
+	return btn
 
 ## Ingichka to'lish chizig'i (kartalar ichida).
 func _thin_bar(percent: float, tint: Color) -> Control:
@@ -252,16 +277,16 @@ func _thin_bar(percent: float, tint: Color) -> Control:
 	lane.add_child(fill)
 	return shell
 
-## Pastki qator: do'kon, qahramonlar, asosiy, reyting, jihozlar.
+## Pastki qator: 4 ta asosiy bo'lim (Shop, Heroes, Leaderboard, Profile).
 func _tab_bar() -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
+	row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for item: Array in [
 			["bag", Strings.t("shop"), UiKit.YELLOW, Screen.SHOP],
 			["heroes", Strings.t("tabHeroes"), UiKit.MINT, Screen.HEROES],
-			["home", Strings.t("tabHome"), UiKit.GOLD, Screen.MENU],
 			["trophy", Strings.t("leaderboard"), UiKit.BG_LOW, Screen.BOARD],
-			["bolt", Strings.t("tabGear"), UiKit.RED, Screen.GEAR]]:
+			["profile", Strings.t("profile"), UiKit.GOLD, Screen.PROFILE]]:
 		var target: Screen = item[3]
 		var is_active: bool = (target == _screen)
 		var tab := UiKit.tab_button(str(item[0]), str(item[1]),
@@ -295,8 +320,8 @@ func _build_gear() -> Control:
 ## Qahramonlar (personajlar) ekrani — 5-bosqich.
 ## 3 ustunli panjara: ochilgan va topshiriqli qulflangan qahramonlar.
 func _build_heroes() -> Control:
-	var root := UiKit.overlay()
-	var box := UiKit.centered_column(root, 460)
+	var root := UiKit.overlay(true)
+	var box := UiKit.centered_column(root, 480)
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
@@ -306,45 +331,282 @@ func _build_heroes() -> Control:
 		show_screen(Screen.MENU))
 	head.add_child(back)
 
-	var title := UiKit.title(Strings.t("tabHeroes"), 24, UiKit.TEXT)
+	var title := UiKit.title("HEROES, FLAGS, CITIES & REWARDS", 16, UiKit.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(title)
 
 	head.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
-	head.add_child(_purse_chip("gem", Wallet.get_gems(), UiKit.VIOLET))
 	box.add_child(head)
 
-	var streak: int = store.daily_streak
-	var daily_node := get_node_or_null("/root/Daily")
-	if daily_node != null and daily_node.has_method("streak"):
-		streak = maxi(streak, int(daily_node.streak()))
-	var stats := store.stats_dict(streak)
-	var unlocked_count := HeroCatalog.unlocked_count(stats)
+	# 4 ta toifa: Qahramonlar, Bayroqlar, Shaharlar, Mukofotlar
+	var cat_names := PackedStringArray([
+		Strings.t("tabHeroes"), Strings.t("tabFlags"),
+		Strings.t("tabCities"), Strings.t("tabRewards")
+	])
+	var tabs := UiKit.chips(cat_names, _heroes_tab, func(idx: int) -> void:
+		Audio.tap()
+		_heroes_tab = idx
+		_rebuild())
+	box.add_child(tabs)
+	box.add_child(UiKit.spacer(4))
 
-	var banner := UiKit.panel(UiKit.PANEL, 12)
-	var banner_box := HBoxContainer.new()
-	banner_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	banner_box.add_theme_constant_override("separation", 10)
-	banner_box.add_child(GameIcon.new("heroes", 26.0, UiKit.YELLOW))
-	banner_box.add_child(UiKit.title("%d / %d  %s" % [
-		unlocked_count, HeroCatalog.HEROES.size(), Strings.t("tabHeroes")],
-		18, UiKit.TEXT))
-	banner.add_child(banner_box)
-	box.add_child(banner)
-
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 12)
-
-	for h: Dictionary in HeroCatalog.HEROES:
-		grid.add_child(_hero_tile(h, stats))
-	box.add_child(grid)
+	match _heroes_tab:
+		0:
+			# Rasmdagi kabi barcha 4 ta bo'limni o'z ichiga olgan umumiy ko'rinish
+			box.add_child(_build_heroes_overview())
+		1:
+			box.add_child(_flags_catalog())
+		2:
+			box.add_child(_cities_catalog())
+		_:
+			box.add_child(_rewards_catalog(store.daily_streak))
 
 	box.add_child(UiKit.spacer(4))
 	box.add_child(_tab_bar())
 	return root
+
+func _build_heroes_overview() -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+
+	# 1. HEROES (SKINS)
+	var h_head := HBoxContainer.new()
+	var h_title := UiKit.title("HEROES (SKINS)", 15, Color.WHITE)
+	h_head.add_child(h_title)
+	var h_gap := Control.new()
+	h_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h_head.add_child(h_gap)
+	var h_all := UiKit.label("View All >", 13, Color("38bdf8"))
+	h_head.add_child(h_all)
+	col.add_child(h_head)
+
+	var h_grid := GridContainer.new()
+	h_grid.columns = 4
+	h_grid.add_theme_constant_override("h_separation", 8)
+	h_grid.add_theme_constant_override("v_separation", 8)
+
+	var heroes_data := [
+		["default", "Default", true],
+		["red", "Red", false],
+		["yellow", "Yellow", false],
+		["melon", "Watermelon", false],
+		["galaxy", "Galaxy", false],
+		["ice", "Ice", false],
+		["lava", "Lava", false],
+		["football", "Football", false]
+	]
+	for hd: Array in heroes_data:
+		var slot := PanelContainer.new()
+		slot.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.14, 0.32, 0.85), 14, 3, 4))
+		var ctrl := DesignDrawers.SlimeHeroControl.new(str(hd[0]), str(hd[1]), bool(hd[2]))
+		slot.add_child(ctrl)
+		h_grid.add_child(slot)
+	col.add_child(h_grid)
+
+	# 2. FLAG THEMES
+	var f_head := HBoxContainer.new()
+	var f_title := UiKit.title("FLAG THEMES", 15, Color.WHITE)
+	f_head.add_child(f_title)
+	var f_gap := Control.new()
+	f_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	f_head.add_child(f_gap)
+	var f_all := UiKit.label("View All >", 13, Color("38bdf8"))
+	f_head.add_child(f_all)
+	col.add_child(f_head)
+
+	var f_row := HBoxContainer.new()
+	f_row.add_theme_constant_override("separation", 8)
+	f_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var flags_data := [
+		["crown", "Default"], ["US", "USA"], ["FR", "France"], ["JP", "Japan"], ["DE", "Germany"]
+	]
+	for fd: Array in flags_data:
+		var slot := PanelContainer.new()
+		slot.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.14, 0.32, 0.85), 14, 3, 4))
+		slot.custom_minimum_size = Vector2(86, 82)
+		var ped := DesignDrawers.FlagPedestalControl.new(str(fd[0]), str(fd[1]))
+		slot.add_child(ped)
+		f_row.add_child(slot)
+	col.add_child(f_row)
+
+	# 3. CITY REWARDS (?)
+	var c_head := HBoxContainer.new()
+	var c_title := UiKit.title("CITY REWARDS (?)", 15, Color.WHITE)
+	c_head.add_child(c_title)
+	var c_gap := Control.new()
+	c_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c_head.add_child(c_gap)
+	var c_all := UiKit.label("View All >", 13, Color("38bdf8"))
+	c_head.add_child(c_all)
+	col.add_child(c_head)
+
+	var c_row := HBoxContainer.new()
+	c_row.add_theme_constant_override("separation", 8)
+	var city_tiers := [
+		["Small City", "+50", "small_city"],
+		["Medium City", "+200", "medium_city"],
+		["Large City", "+500", "large_city"]
+	]
+	for ct: Array in city_tiers:
+		var slot := PanelContainer.new()
+		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slot.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.14, 0.32, 0.85), 14, 3, 4))
+		var cv := VBoxContainer.new()
+		cv.alignment = BoxContainer.ALIGNMENT_CENTER
+		cv.add_theme_constant_override("separation", 3)
+		var th := DesignDrawers.MapThumbnailControl.new(str(ct[2]))
+		th.custom_minimum_size = Vector2(0, 44)
+		cv.add_child(th)
+		cv.add_child(UiKit.title(str(ct[0]), 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
+		var rew_pill := HBoxContainer.new()
+		rew_pill.alignment = BoxContainer.ALIGNMENT_CENTER
+		rew_pill.add_child(GameIcon.new("coin", 16.0, UiKit.YELLOW))
+		rew_pill.add_child(UiKit.title(str(ct[1]), 13, UiKit.YELLOW))
+		cv.add_child(rew_pill)
+		slot.add_child(cv)
+		c_row.add_child(slot)
+	col.add_child(c_row)
+
+	# 4. COLLECT & EARN
+	var ce_title := UiKit.title("COLLECT & EARN", 14, Color.WHITE)
+	col.add_child(ce_title)
+	var ce_row := HBoxContainer.new()
+	ce_row.add_theme_constant_override("separation", 8)
+	var pillars := [
+		["flag", "Capture\nFlags"],
+		["city", "Conquer\nCities"],
+		["coin", "Earn\nRewards"],
+		["crown", "Unlock\nHeroes"]
+	]
+	for pl: Array in pillars:
+		var p_slot := PanelContainer.new()
+		p_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		p_slot.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.05, 0.12, 0.28, 0.8), 12, 2, 3))
+		var pv := VBoxContainer.new()
+		pv.alignment = BoxContainer.ALIGNMENT_CENTER
+		pv.add_theme_constant_override("separation", 3)
+		pv.add_child(GameIcon.new(str(pl[0]), 26.0, UiKit.YELLOW))
+		pv.add_child(UiKit.label(str(pl[1]), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
+		p_slot.add_child(pv)
+		ce_row.add_child(p_slot)
+	col.add_child(ce_row)
+
+	return col
+
+func _hero_pedestal() -> Control:
+	var card := UiKit.panel(UiKit.PANEL.darkened(0.2), 12)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(row)
+
+	var frame := UiKit.panel(UiKit.SURFACE, 8)
+	var hero_dict := HeroCatalog.get_hero(store.selected_hero)
+	var av_val := str(hero_dict.get("avatar", store.avatar)) if hero_dict != null else store.avatar
+	frame.add_child(AvatarView.new(av_val, 72.0))
+	row.add_child(frame)
+
+	var info := VBoxContainer.new()
+	info.add_theme_constant_override("separation", 4)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var hname: String = str(hero_dict.get("name_key", "hero_cube")) if hero_dict != null else "hero_cube"
+	info.add_child(UiKit.title(Strings.t(hname), 20, UiKit.YELLOW))
+	info.add_child(UiKit.label("⚡ Speed +5%  •  ✨ Trail Glow", 13, UiKit.TEXT, HORIZONTAL_ALIGNMENT_LEFT))
+	info.add_child(UiKit.label(Strings.t("unlocked"), 12, UiKit.GREEN, HORIZONTAL_ALIGNMENT_LEFT))
+	row.add_child(info)
+	return card
+
+func _flags_catalog() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.add_child(UiKit.section(Strings.t("tabFlags")))
+
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+
+	var codes: Array[String] = ["UZ", "US", "GB", "DE", "TR", "KZ", "FR", "JP", "BR", "IT", "ES", "CA", "KR", "IN", "AE", "SA"]
+	var chosen: String = _country()
+	for code: String in codes:
+		var btn := Button.new()
+		btn.custom_minimum_size = Vector2(96, 80)
+		var is_on: bool = (chosen == code)
+		for st in ["normal", "hover", "pressed", "focus"]:
+			var bg := UiKit.GREEN.darkened(0.1) if is_on else UiKit.SURFACE
+			btn.add_theme_stylebox_override(st, UiKit.style_solid(bg, 14, 3, 4))
+		var v := VBoxContainer.new()
+		v.set_anchors_preset(Control.PRESET_FULL_RECT)
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var av := AvatarView.new("flag:" + code, 36.0)
+		v.add_child(av)
+		var l := UiKit.label(code, 12, UiKit.TEXT if is_on else UiKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
+		v.add_child(l)
+		btn.add_child(v)
+		btn.pressed.connect(func() -> void:
+			Audio.tap()
+			_pick_country(code))
+		grid.add_child(btn)
+	box.add_child(grid)
+	return box
+
+func _cities_catalog() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	box.add_child(UiKit.section(Strings.t("tabCities")))
+
+	var tiers := [
+		["Poytaxtlar (Capitals)", "+500 COINS", UiKit.YELLOW, "crown", "900+ poytaxt xaritada"],
+		["Katta shaharlar (Metropolis)", "+200 COINS", UiKit.BG_LOW, "trophy", "Aholisi 1M+ shaharlar"],
+		["Shahar va tumanlar (Towns)", "+50 COINS", UiKit.MINT, "coin", "Kichik shaharlar"]
+	]
+	for t in tiers:
+		var card := UiKit.panel(UiKit.PANEL, 10)
+		var r := HBoxContainer.new()
+		r.add_theme_constant_override("separation", 12)
+		card.add_child(r)
+		r.add_child(GameIcon.new(str(t[3]), 36.0, t[2] as Color))
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(UiKit.title(str(t[0]), 16, UiKit.TEXT))
+		v.add_child(UiKit.label(str(t[4]), 12, UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		r.add_child(v)
+		var rew := UiKit.title(str(t[1]), 16, t[2] as Color)
+		rew.add_theme_constant_override("outline_size", 4)
+		r.add_child(rew)
+		box.add_child(card)
+	return box
+
+func _rewards_catalog(streak: int) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	box.add_child(UiKit.section(Strings.t("tabRewards")))
+
+	var days := [
+		[1, 100, "1-kun"], [2, 150, "2-kun"], [3, 200, "3-kun (Golem)"],
+		[4, 250, "4-kun"], [5, 300, "5-kun"], [6, 400, "6-kun"],
+		[7, 1000, "7-kun (Katta sovg'a)"]
+	]
+	for d in days:
+		var d_num: int = int(d[0])
+		var done := streak >= d_num
+		var card := UiKit.panel(UiKit.PANEL.darkened(0.2) if done else UiKit.PANEL, 8)
+		var r := HBoxContainer.new()
+		r.add_theme_constant_override("separation", 10)
+		card.add_child(r)
+		r.add_child(GameIcon.new("coin" if d_num != 7 else "crown", 32.0, UiKit.YELLOW))
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(UiKit.title(str(d[2]), 15, UiKit.TEXT))
+		v.add_child(UiKit.label("+%d Coins" % int(d[1]), 12, UiKit.YELLOW, HORIZONTAL_ALIGNMENT_LEFT))
+		r.add_child(v)
+		var status := UiKit.label("✓ Olingan" if done else "Kutilmoqda", 13, UiKit.GREEN if done else UiKit.TEXT_DIM)
+		r.add_child(status)
+		box.add_child(card)
+	return box
 
 func _hero_tile(h: Dictionary, stats: Dictionary) -> Control:
 	var id: String = str(h.get("id", ""))
@@ -503,14 +765,57 @@ static func _short(value: int) -> String:
 		return "%.1fK" % (value / 1000.0)
 	return str(value)
 
-## O'yin nomi — ikki qator, ikkinchisi limon rangda.
+## O'yin nomi — toj, COLOR LAND va 3D nishoni bilan.
 func _logo() -> Control:
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", -8)
-	box.add_child(UiKit.title("Color", 46, UiKit.TEXT,
-		HORIZONTAL_ALIGNMENT_CENTER))
-	box.add_child(UiKit.title("Land", 46, UiKit.LIME,
-		HORIZONTAL_ALIGNMENT_CENTER))
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 0)
+
+	# Yuqorida yaltirab turuvchi oltin toj
+	var crown := GameIcon.new("crown", 48.0, UiKit.YELLOW)
+	crown.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(crown)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 2)
+
+	# "COLOR" harflari har biri o'z multfilm rangida
+	var letters := [
+		["C", Color("00e5ff")],
+		["O", Color("ffd700")],
+		["L", Color("ff3b5c")],
+		["O", Color("ff33cc")],
+		["R", Color("22c55e")]
+	]
+	for pair: Array in letters:
+		var lbl := UiKit.title(str(pair[0]), 50, pair[1] as Color)
+		lbl.add_theme_constant_override("outline_size", 12)
+		lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+		row.add_child(lbl)
+
+	row.add_child(UiKit.spacer(6))
+
+	# Oq 3D "LAND"
+	var land_lbl := UiKit.title("LAND", 50, Color.WHITE)
+	land_lbl.add_theme_constant_override("outline_size", 12)
+	land_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	row.add_child(land_lbl)
+
+	row.add_child(UiKit.spacer(6))
+
+	# 3D nishoni (oltin badge)
+	var d3_badge := PanelContainer.new()
+	d3_badge.add_theme_stylebox_override("panel", UiKit.style_solid(UiKit.YELLOW, 16, 5, 4))
+	d3_badge.custom_minimum_size = Vector2(58, 48)
+	d3_badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var d3_lbl := UiKit.title("3D", 28, UiKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
+	d3_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	d3_lbl.add_theme_constant_override("outline_size", 0)
+	d3_badge.add_child(d3_lbl)
+	row.add_child(d3_badge)
+
+	box.add_child(row)
 	return box
 
 func _profile_card() -> Control:
@@ -1156,78 +1461,134 @@ func _build_hud() -> Control:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_flash)
 
-	# Yuqorida: egallangan foiz chizig'i, oxirida 100% yulduzi.
-	_progress = UiKit.progress_bar(0.0, _accent(), store.best_percent)
-	_progress_fill = _progress.find_child("Fill", true, false) as Panel
-	_progress_text = _progress.find_child("Value", true, false) as Label
-	_progress.anchor_right = 1.0
-	_progress.offset_left = 16
-	_progress.offset_right = -116
-	_progress.offset_top = 14
-	root.add_child(_progress)
+	# Yuqorida chapda: Dumaloq hudud ko'rsatkichi (Donut Chart)
+	_donut = UiKit.donut_chart(0.0, _accent())
+	_donut.position = Vector2(16, 14)
+	root.add_child(_donut)
+	_progress = _donut
 
-	var star := GameIcon.new("star", 44.0, UiKit.YELLOW)
-	star.anchor_left = 1.0
-	star.anchor_right = 1.0
-	star.offset_left = -164
-	star.offset_right = -120
-	star.offset_top = 22
-	star.offset_bottom = 66
-	root.add_child(star)
+	# Yuqorida markazda: Haqiqiy yig'ilgan tangalar hisoblagichi
+	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 54)
+	_coin_capsule.anchor_left = 0.5
+	_coin_capsule.anchor_right = 0.5
+	_coin_capsule.offset_left = -70
+	_coin_capsule.offset_right = 70
+	_coin_capsule.offset_top = 16
+	root.add_child(_coin_capsule)
+	_coin_label = _capsule_label(_coin_capsule)
 
-	# "\u23F8" hech bir shriftda yo'q — tugma bo'sh ko'rinardi.
-	var pause := UiKit.icon_button("\u275A\u275A", 84)
+	# O'ldirishlar kapsulasi — Donut ostida
+	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 46)
+	_kill_capsule.position = Vector2(16, 172)
+	root.add_child(_kill_capsule)
+	_kill_label = _capsule_label(_kill_capsule)
+
+	# O'ngda yuqorida: Pauza tugmasi
+	var pause := UiKit.icon_button("\u275A\u275A", 72)
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
-	pause.position = Vector2(-100, 14)
+	pause.position = Vector2(-88, 14)
 	pause.pressed.connect(func() -> void:
 		Audio.tap()
-		# Ekranni o'zimiz almashtirmaymiz: avval o'yin to'xtashi
-		# kerak, shuning uchun qaror `GameView` da qabul qilinadi.
 		pause_pressed.emit())
 	root.add_child(pause)
 
-	# Chapda: o'ldirishlar va shu o'yinda yig'ilgan tanga.
-	var stats := VBoxContainer.new()
-	stats.add_theme_constant_override("separation", 10)
-	stats.position = Vector2(16, 90)
-	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(stats)
-	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 54)
-	stats.add_child(_kill_capsule)
-	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 54)
-	stats.add_child(_coin_capsule)
-	_kill_label = _capsule_label(_kill_capsule)
-	_coin_label = _capsule_label(_coin_capsule)
-
-	# O'ngda: eng kuchli uchtasi va o'yinchining o'z qatori.
+	# O'ngda: eng kuchli o'yinchilar reytingi (bitta silliq panel ichida)
+	var board_panel := PanelContainer.new()
+	var b_style := StyleBoxFlat.new()
+	b_style.bg_color = Color(0.08, 0.16, 0.35, 0.88)
+	b_style.border_color = Color("00d4ff")
+	b_style.set_border_width_all(2)
+	b_style.set_corner_radius_all(14)
+	b_style.content_margin_left = 10
+	b_style.content_margin_right = 10
+	b_style.content_margin_top = 8
+	b_style.content_margin_bottom = 8
+	board_panel.add_theme_stylebox_override("panel", b_style)
+	board_panel.anchor_left = 1.0
+	board_panel.anchor_right = 1.0
+	board_panel.offset_left = -262
+	board_panel.offset_right = -14
+	board_panel.offset_top = 80
+	board_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_board = VBoxContainer.new()
-	_board.add_theme_constant_override("separation", 7)
-	_board.anchor_left = 1.0
-	_board.anchor_right = 1.0
-	_board.offset_left = -250
-	_board.offset_right = -12
-	_board.offset_top = 96
+	_board.add_theme_constant_override("separation", 3)
 	_board.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(_board)
+	board_panel.add_child(_board)
+	root.add_child(board_panel)
 
-	_minimap = null
-	if store.minimap_side != "off" and _minimap_texture != null:
-		var map_panel := UiKit.panel(Color(UiKit.TEXT, 0.9), 6)
-		map_panel.anchor_top = 1.0
-		map_panel.anchor_bottom = 1.0
-		map_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		if store.minimap_side == "right":
-			map_panel.anchor_left = 1.0
-			map_panel.anchor_right = 1.0
-			map_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-			map_panel.position = Vector2(-16, -16)
-		else:
-			map_panel.position = Vector2(16, -16)
-		map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_minimap = MiniMap.new(_minimap_texture, _accent())
-		map_panel.add_child(_minimap)
-		root.add_child(map_panel)
+	# Pastda chapda: Vizual joystick ko'rsatkichi (yo'nalish strelkalari bilan)
+	var joy := Control.new()
+	joy.anchor_top = 1.0
+	joy.anchor_bottom = 1.0
+	joy.offset_left = 24
+	joy.offset_top = -160
+	joy.offset_right = 154
+	joy.offset_bottom = -30
+	joy.custom_minimum_size = Vector2(130, 130)
+	joy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var joy_base := Panel.new()
+	joy_base.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var jb := StyleBoxFlat.new()
+	jb.bg_color = Color(0.08, 0.16, 0.35, 0.50)
+	jb.border_color = Color(1.0, 1.0, 1.0, 0.40)
+	jb.set_border_width_all(3)
+	jb.set_corner_radius_all(65)
+	joy_base.add_theme_stylebox_override("panel", jb)
+	joy_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	joy.add_child(joy_base)
+
+	var arrow_dirs := [
+		["▲", Vector2(0.5, 0.15)], ["▼", Vector2(0.5, 0.85)],
+		["◀", Vector2(0.15, 0.5)], ["▶", Vector2(0.85, 0.5)]
+	]
+	for ad: Array in arrow_dirs:
+		var arr := Label.new()
+		arr.text = str(ad[0])
+		arr.add_theme_font_size_override("font_size", 13)
+		arr.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
+		arr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		arr.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		arr.size = Vector2(20, 20)
+		arr.position = Vector2(float(ad[1].x) * 130 - 10, float(ad[1].y) * 130 - 10)
+		joy.add_child(arr)
+
+	var joy_knob := Panel.new()
+	joy_knob.custom_minimum_size = Vector2(50, 50)
+	joy_knob.set_anchors_preset(Control.PRESET_CENTER)
+	var jk := StyleBoxFlat.new()
+	jk.bg_color = Color(0.15, 0.60, 1.0, 0.70)
+	jk.border_color = Color(1.0, 1.0, 1.0, 0.85)
+	jk.set_border_width_all(2)
+	jk.set_corner_radius_all(25)
+	joy_knob.add_theme_stylebox_override("panel", jk)
+	joy_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	joy.add_child(joy_knob)
+	root.add_child(joy)
+
+	# Pastda o'ngda: Aylanma radar mini-xarita
+	_minimap = MiniMap.new(_minimap_texture, _accent())
+	var map_panel := Control.new()
+	map_panel.anchor_left = 1.0
+	map_panel.anchor_right = 1.0
+	map_panel.anchor_top = 1.0
+	map_panel.anchor_bottom = 1.0
+	map_panel.offset_left = -168
+	map_panel.offset_top = -168
+	map_panel.offset_right = -16
+	map_panel.offset_bottom = -16
+	map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_panel.add_child(_minimap)
+
+	var fs_icon := Label.new()
+	fs_icon.text = "⛶"
+	fs_icon.add_theme_font_size_override("font_size", 18)
+	fs_icon.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	fs_icon.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	fs_icon.offset_left = -26
+	fs_icon.offset_top = -26
+	map_panel.add_child(fs_icon)
+	root.add_child(map_panel)
 	return root
 
 ## Kapsuladagi son yozuvini topadi — keyin uni yangilab turamiz.
@@ -1271,12 +1632,14 @@ func toast(text: String) -> void:
 	tween.tween_callback(panel.queue_free)
 
 ## HUD ni yangilaydi. `rows` — [{place, name, avatar, color,
-## percent, is_human}].
+## percent, is_human, country}].
 func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 		alive: int, rows: Array, marker: Vector2 = Vector2.ZERO,
 		coins: int = 0) -> void:
 	if _screen != Screen.HUD or _progress == null:
 		return
+	if _donut != null and is_instance_valid(_donut):
+		_donut.percent = percent
 	if _progress_fill != null and is_instance_valid(_progress_fill):
 		_progress_fill.anchor_right = clampf(percent / 100.0, 0.02, 1.0)
 	if _progress_text != null and is_instance_valid(_progress_text):
@@ -1293,83 +1656,82 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 	for row: Dictionary in rows:
 		_board.add_child(_board_row(row))
 
-## Reyting qatori: dumaloq avatar, o'rin nishoni va o'yinchi
-## rangidagi foiz tasmasi. Birinchi o'rinda boshida toj turadi.
-##
-## Avatar va nishon [Control] ichida turadi, [PanelContainer] da
-## emas: konteyner bolalarini o'zi joylashtiradi va ankerlarni
-## e'tiborsiz qoldiradi — nishon butun katakni egallab olardi.
+## Reyting qatori: o'rin, bayroq/avatar, ism va foiz.
 func _board_row(row: Dictionary) -> Control:
 	var place := int(row["place"])
 	var tint := Palette.head(int(row["color"]))
+	var country_code := str(row.get("country", ""))
+	var is_human := bool(row.get("is_human", false))
+
+	var card := PanelContainer.new()
+	var card_bg := Color(0.04, 0.10, 0.25, 0.65) if not is_human else Color(0.10, 0.45, 0.90, 0.70)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = card_bg
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 8
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	card.add_theme_stylebox_override("panel", sb)
+	card.custom_minimum_size = Vector2(236, 26)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", -16)
-	line.alignment = BoxContainer.ALIGNMENT_END
+	line.add_theme_constant_override("separation", 6)
+	line.alignment = BoxContainer.ALIGNMENT_BEGIN
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(line)
 
-	var face := Control.new()
-	face.custom_minimum_size = Vector2(68, 68)
-	face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var disc := Panel.new()
-	disc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	disc.add_theme_stylebox_override("panel",
-		UiKit.style_solid(tint.lightened(0.5), 34, 4, 0))
-	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	face.add_child(disc)
-
-	var avatar := AvatarView.new(str(row["avatar"]), 52.0)
-	avatar.set_anchors_preset(Control.PRESET_FULL_RECT)
-	avatar.offset_left = 8
-	avatar.offset_top = 8
-	avatar.offset_right = -8
-	avatar.offset_bottom = -8
-	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	face.add_child(avatar)
-
-	# O'rin nishoni — avatarning chap pastida.
-	var badge := Panel.new()
-	badge.add_theme_stylebox_override("panel", UiKit.style(
-		UiKit.YELLOW if place == 1 else UiKit.TEXT, 16, UiKit.OUTLINE, 0))
-	badge.anchor_top = 1.0
-	badge.anchor_bottom = 1.0
-	badge.offset_left = -4
-	badge.offset_right = 26
-	badge.offset_top = -30
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var number := UiKit.title(str(place), 17, UiKit.INK,
-		HORIZONTAL_ALIGNMENT_CENTER)
-	number.set_anchors_preset(Control.PRESET_FULL_RECT)
-	number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	number.add_theme_constant_override("outline_size", 0)
-	badge.add_child(number)
-	face.add_child(badge)
-
+	# O'rin nishoni
+	var rank_box := Control.new()
+	rank_box.custom_minimum_size = Vector2(20, 20)
+	rank_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rank_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if place == 1:
-		var crown := GameIcon.new("crown", 34.0, UiKit.YELLOW)
-		crown.anchor_left = 0.5
-		crown.anchor_right = 0.5
-		crown.offset_left = -17
-		crown.offset_right = 17
-		crown.offset_top = -28
-		crown.offset_bottom = 6
-		face.add_child(crown)
+		var crown := GameIcon.new("crown", 18.0, UiKit.YELLOW)
+		crown.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rank_box.add_child(crown)
+	else:
+		var rank_lbl := UiKit.title(str(place), 13, UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		rank_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rank_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		rank_lbl.add_theme_constant_override("outline_size", 0)
+		rank_box.add_child(rank_lbl)
+	line.add_child(rank_box)
 
-	var tape := PanelContainer.new()
-	var tape_box := UiKit.style_solid(tint, 18, 5, 8)
-	tape_box.content_margin_left = 34
-	tape_box.content_margin_right = 14
-	tape.add_theme_stylebox_override("panel", tape_box)
-	tape.custom_minimum_size = Vector2(144, 54)
-	tape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	tape.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tape.add_child(UiKit.title("%.2f%%" % float(row["percent"]), 22,
-		UiKit.TEXT, HORIZONTAL_ALIGNMENT_RIGHT))
+	# Rang doirachasi
+	var dot := Panel.new()
+	dot.custom_minimum_size = Vector2(10, 10)
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var dsb := StyleBoxFlat.new()
+	dsb.bg_color = tint
+	dsb.set_corner_radius_all(5)
+	dot.add_theme_stylebox_override("panel", dsb)
+	line.add_child(dot)
 
-	line.add_child(face)
-	line.add_child(tape)
-	return line
+	# Bayroq
+	if not country_code.is_empty():
+		var flag_icon := Control.new()
+		flag_icon.custom_minimum_size = Vector2(22, 16)
+		flag_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		flag_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var av := AvatarView.new("flag:" + country_code, 18.0)
+		av.set_anchors_preset(Control.PRESET_FULL_RECT)
+		flag_icon.add_child(av)
+		line.add_child(flag_icon)
+
+	# Ism
+	var name_lbl := UiKit.label(str(row["name"]), 13, UiKit.YELLOW if is_human else UiKit.TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	name_lbl.clip_text = true
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(name_lbl)
+
+	# Foiz
+	var pct_lbl := UiKit.title("%.1f%%" % float(row["percent"]), 13, Color.WHITE if is_human else UiKit.TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	pct_lbl.add_theme_constant_override("outline_size", 2)
+	line.add_child(pct_lbl)
+
+	return card
 
 # ——— Pauza ———
 
@@ -2028,38 +2390,168 @@ func open_maps(then: String) -> void:
 	show_screen(Screen.MAPS)
 
 func _build_maps() -> Control:
-	var root := UiKit.overlay()
-	var box := UiKit.centered_column(root, 460)
-	box.add_child(_header(Strings.t("chooseArena"), func() -> void:
-		show_screen(Screen.MENU)))
+	var root := UiKit.overlay(true)
+	var box := UiKit.centered_column(root, 480)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	var back := UiKit.icon_button("<")
+	back.pressed.connect(func() -> void:
+		Audio.tap()
+		show_screen(Screen.MENU))
+	head.add_child(back)
+
+	var title := UiKit.title("MAP SELECT", 24, Color.WHITE)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(title)
+
+	head.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
+	box.add_child(head)
+
+	# 4 ta toifa (Countries, Continents, Cities, Special)
+	var tab_names := PackedStringArray([
+		Strings.t("tabCountries"), Strings.t("tabContinents"),
+		Strings.t("tabCities"), Strings.t("tabSpecial")
+	])
+	var tabs := UiKit.chips(tab_names, _maps_category, func(idx: int) -> void:
+		Audio.tap()
+		_maps_category = idx
+		_rebuild())
+	box.add_child(tabs)
+	box.add_child(UiKit.spacer(4))
 
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	for map_id: String in WorldMap.ids():
-		grid.add_child(_map_tile(map_id))
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+
+	var maps_data := [
+		["world", "World", "195 / 195", ["US", "GB", "FR", "JP", "DE"]],
+		["europe", "Europe", "45 / 45", ["GB", "FR", "DE", "IT", "ES"]],
+		["asia", "Asia", "48 / 48", ["CN", "JP", "KR", "TH", "IN"]],
+		["africa", "Africa", "54 / 54", ["EG", "KE", "NG", "ZA", "MA"]],
+		["north_america", "North America", "40 / 40", ["US", "CA", "MX"]],
+		["south_america", "South America", "33 / 33", ["BR", "AR", "CO"]]
+	]
+
+	for entry: Array in maps_data:
+		grid.add_child(_map_rich_card(str(entry[0]), str(entry[1]), str(entry[2]), entry[3] as Array))
+
 	box.add_child(grid)
+	box.add_child(UiKit.spacer(6))
+
+	# Quyi qatordagi 2 ta maxsus karta: Cities Mode va Ancient World
+	var bottom_row := HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", 12)
+
+	# Cities Mode
+	var cm_card := PanelContainer.new()
+	cm_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cm_card.custom_minimum_size = Vector2(0, 84)
+	cm_card.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.16, 0.36, 0.90), 16, 4, 6))
+	var cm_v := VBoxContainer.new()
+	cm_v.alignment = BoxContainer.ALIGNMENT_CENTER
+	cm_v.add_theme_constant_override("separation", 2)
+	cm_v.add_child(UiKit.title("Cities Mode", 14, Color.WHITE))
+	cm_v.add_child(UiKit.label("Conquer famous cities for bigger rewards!", 11, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_CENTER))
+	var cm_pill := HBoxContainer.new()
+	cm_pill.alignment = BoxContainer.ALIGNMENT_CENTER
+	cm_pill.add_child(GameIcon.new("crown", 16.0, UiKit.YELLOW))
+	cm_pill.add_child(UiKit.title("30 / 30", 12, UiKit.YELLOW))
+	cm_v.add_child(cm_pill)
+	cm_card.add_child(cm_v)
+	bottom_row.add_child(cm_card)
+
+	# Ancient World (Locked)
+	var aw_card := PanelContainer.new()
+	aw_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	aw_card.custom_minimum_size = Vector2(0, 84)
+	aw_card.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.04, 0.10, 0.22, 0.75), 16, 3, 4))
+	var aw_v := VBoxContainer.new()
+	aw_v.alignment = BoxContainer.ALIGNMENT_CENTER
+	aw_v.add_theme_constant_override("separation", 4)
+	aw_v.add_child(GameIcon.new("skull", 22.0, UiKit.TEXT_FAINT))
+	aw_v.add_child(UiKit.title("Ancient World", 14, UiKit.TEXT_FAINT))
+	aw_v.add_child(UiKit.label("Coming Soon", 11, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER))
+	aw_card.add_child(aw_v)
+	bottom_row.add_child(aw_card)
+
+	box.add_child(bottom_row)
 	return root
 
-## Bitta maydon tugmasi: nomi va tanlanganligi.
-func _map_tile(map_id: String) -> Control:
+func _map_rich_card(map_id: String, display_name: String, progress_str: String, flag_codes: Array) -> Control:
 	var chosen := map_id == store.map_id
-	var button := UiKit.button(
-		Strings.map_name(map_id), _accent() if chosen else UiKit.SURFACE)
-	button.custom_minimum_size = Vector2(0, 64)
-	button.add_theme_font_size_override("font_size", 17)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if not chosen:
-		button.add_theme_color_override("font_color", UiKit.TEXT)
-	button.pressed.connect(func() -> void:
+	var card := Button.new()
+	card.custom_minimum_size = Vector2(216, 172)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.flat = false
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	for state: String in ["normal", "hover", "pressed"]:
+		var bg := Color(0.08, 0.20, 0.45, 0.90) if not chosen else Color(0.12, 0.32, 0.65, 0.98)
+		var lift := 5 if state != "pressed" else 2
+		var box := UiKit.style_solid(bg, 18, lift, 8)
+		if chosen:
+			box.border_color = Color("00d4ff")
+			box.set_border_width_all(3)
+		card.add_theme_stylebox_override(state, box)
+
+	card.pressed.connect(func() -> void:
 		Audio.tap()
 		store.map_id = map_id
 		if _maps_then == "host":
 			host_pressed.emit()
 		else:
 			play_pressed.emit())
-	return button
+
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.add_theme_constant_override("separation", 4)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(v)
+
+	# 3D Miniatyura rasmi
+	var thumb := DesignDrawers.MapThumbnailControl.new(map_id)
+	thumb.custom_minimum_size = Vector2(188, 72)
+	thumb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	v.add_child(thumb)
+
+	# Nomi
+	var name_lbl := UiKit.title(display_name, 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	name_lbl.clip_text = true
+	v.add_child(name_lbl)
+
+	# Bayroqlar qatori
+	var flag_row := HBoxContainer.new()
+	flag_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	flag_row.add_theme_constant_override("separation", 3)
+	for fc: String in flag_codes:
+		var f_slot := Control.new()
+		f_slot.custom_minimum_size = Vector2(18, 13)
+		var av := AvatarView.new("flag:" + fc, 14.0)
+		av.set_anchors_preset(Control.PRESET_FULL_RECT)
+		f_slot.add_child(av)
+		flag_row.add_child(f_slot)
+	v.add_child(flag_row)
+
+	# Oltin toj va ko'rsatkich (masalan "195 / 195")
+	var prog_row := HBoxContainer.new()
+	prog_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	prog_row.add_theme_constant_override("separation", 4)
+	prog_row.add_child(GameIcon.new("crown", 16.0, UiKit.YELLOW))
+	var prog_lbl := UiKit.title(progress_str, 12, UiKit.YELLOW)
+	prog_row.add_child(prog_lbl)
+	v.add_child(prog_row)
+
+	return card
+
+func _map_card(map_id: String, badge: String) -> Control:
+	return _map_rich_card(map_id, Strings.map_name(map_id), "45 / 45", ["US", "GB", "FR"])
+
+func _map_tile(map_id: String) -> Control:
+	return _map_card(map_id, "Standard")
 
 # ——— Onlayn reyting ———
 
