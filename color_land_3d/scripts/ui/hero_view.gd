@@ -35,40 +35,55 @@ func _draw_unlocked(rect: Rect2) -> void:
 	# Fon — och ko'k / oq yuzali panel
 	var bg_color := UiKit.SURFACE
 	var border_color := UiKit.MINT if is_selected else UiKit.INK
-	var border_w: float = 4.0 if is_selected else 2.0
+	var border_w: float = 4.0 if is_selected else 3.0
+	var lift: float = 7.0
 	
-	# Poydevor va panel
+	# 3D taglik va pastki bo'rtma:
+	# 1) Yumshoq drop shadow
+	draw_rect(Rect2(rect.position + Vector2(0, lift + 2), rect.size), Color(0.04, 0.08, 0.22, 0.35), true)
+	# 2) Tashqi qalin kontur va poydevor
 	draw_rect(rect, border_color, true)
-	var inner := rect.grow(-border_w)
-	draw_rect(inner, bg_color, true)
+	# 3) Asosiy yuz qavati (pastki bo'rtma lift hisobiga poydevorni ochib qo'yadi)
+	var face_rect := Rect2(rect.position.x + border_w, rect.position.y + border_w,
+		rect.size.x - border_w * 2, rect.size.y - border_w * 2 - lift)
+	draw_rect(face_rect, bg_color, true)
+	# 4) Ustki yaltirash (gloss)
+	draw_rect(Rect2(face_rect.position.x + 6, face_rect.position.y + 4,
+		face_rect.size.x - 12, 10), Color(1, 1, 1, 0.45), true)
 	
 	# Qahramon shakli
-	var center := Vector2(size.x * 0.5, size.y * 0.46)
+	var center := Vector2(size.x * 0.5, size.y * 0.44)
 	var color: Color = hero.get("color", Color("ffd23f"))
 	var id: String = str(hero.get("id", "hero_cube"))
 	_draw_hero_shape(id, center, color)
 	
 	# Tanlangan bo'lsa — pastki o'ng burchakda yashil tasdiq (check) belgisi
 	if is_selected:
-		var check_pos := Vector2(size.x - 22, size.y - 22)
-		draw_circle(check_pos, 12, UiKit.MINT)
-		draw_circle(check_pos, 10, UiKit.MINT.lightened(0.2))
+		var check_pos := Vector2(size.x - 24, size.y - 24)
+		draw_circle(check_pos, 14, UiKit.MINT)
+		draw_circle(check_pos, 11, UiKit.MINT.lightened(0.2))
 		# Tasdiq chizig'i
 		var pts := PackedVector2Array([
-			check_pos + Vector2(-5, 0),
-			check_pos + Vector2(-1, 4),
-			check_pos + Vector2(5, -4)
+			check_pos + Vector2(-6, 0),
+			check_pos + Vector2(-1, 5),
+			check_pos + Vector2(6, -5)
 		])
-		draw_polyline(pts, UiKit.INK, 2.5)
+		draw_polyline(pts, UiKit.INK, 3.0)
 
 func _draw_locked(rect: Rect2) -> void:
-	# Qulflangan karta foni — chuqur to'q ko'k
+	var border_w: float = 3.0
+	var lift: float = 7.0
+	# 1) Yumshoq drop shadow
+	draw_rect(Rect2(rect.position + Vector2(0, lift + 2), rect.size), Color(0.04, 0.08, 0.22, 0.35), true)
+	# 2) Qulflangan karta konturi va poydevori
 	draw_rect(rect, UiKit.INK, true)
-	var inner := rect.grow(-2.0)
-	draw_rect(inner, Color("1a2a52"), true)
+	# 3) Ichki to'q ko'k yuz
+	var face_rect := Rect2(rect.position.x + border_w, rect.position.y + border_w,
+		rect.size.x - border_w * 2, rect.size.y - border_w * 2 - lift)
+	draw_rect(face_rect, Color("1a2a52"), true)
 	
 	# Qulf belgisi
-	var lock_center := Vector2(size.x * 0.5, 52)
+	var lock_center := Vector2(size.x * 0.5, 48)
 	# Qulf kamari
 	draw_arc(lock_center + Vector2(0, -6), 11, PI, TAU, 16, UiKit.INK, 4.0)
 	draw_arc(lock_center + Vector2(0, -6), 11, PI, TAU, 16, Color("e0e6ed"), 2.2)
@@ -79,7 +94,7 @@ func _draw_locked(rect: Rect2) -> void:
 	
 	# Progress bar pastda
 	if target > 0:
-		var bar_rect := Rect2(12, size.y - 24, size.x - 24, 12)
+		var bar_rect := Rect2(12, size.y - 28, size.x - 24, 12)
 		# Bar foni
 		draw_rect(bar_rect, UiKit.INK, true)
 		draw_rect(bar_rect.grow(-1.5), Color("0d1730"), true)

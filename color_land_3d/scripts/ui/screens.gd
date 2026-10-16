@@ -122,22 +122,27 @@ func _build_menu() -> Control:
 	# "hozir qaysi yurtni egallayapsan".
 	box.add_child(_journey_card())
 
-	box.add_child(UiKit.spacer(6))
-	var play := UiKit.round_button(Strings.t("play"), UiKit.YELLOW, 158)
+	box.add_child(UiKit.spacer(4))
+	var play := UiKit.round_button(Strings.t("play"), UiKit.YELLOW, 208)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
 		open_maps("play"))
+	# 3D nafas olish (breathing pulse) effekti — tugmaga hajm beradi
+	var tw := play.create_tween().set_loops()
+	tw.tween_property(play, "scale", Vector2(1.04, 1.04), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(play, "scale", Vector2(1.0, 1.0), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	play.pivot_offset = Vector2(104, 104)
 	box.add_child(play)
 	box.add_child(UiKit.label(Strings.t("modeBotsHint"), 13,
 		UiKit.TEXT_FAINT))
 
 	var modes := HBoxContainer.new()
-	modes.add_theme_constant_override("separation", 10)
+	modes.add_theme_constant_override("separation", 12)
 	for row: Array in [
 			[Strings.t("modeFriends"), UiKit.MINT, false],
 			[Strings.t("modeOnline"), UiKit.GOLD, true]]:
 		var online: bool = row[2]
-		var b := UiKit.ghost_button(str(row[0]), row[1] as Color)
+		var b := UiKit.button(str(row[0]), row[1] as Color)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(func() -> void:
 			Audio.tap()
@@ -152,11 +157,10 @@ func _build_menu() -> Control:
 ## Yuqoridagi qator: avatar, hamyon va sozlamalar.
 func _top_bar() -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 10)
 
-	var face := UiKit.icon_button("")
-	face.custom_minimum_size = Vector2(62, 62)
-	face.add_child(_avatar_mark(44.0))
+	var face := UiKit.icon_button("", 74)
+	face.add_child(_avatar_mark(52.0))
 	face.pressed.connect(func() -> void:
 		Audio.tap()
 		show_screen(Screen.PROFILE))
@@ -171,17 +175,15 @@ func _top_bar() -> Control:
 
 	# Reklama o'chirilgan bo'lsa nishon ham kerak emas.
 	if not Purchases.has_no_ads():
-		var no_ads := UiKit.icon_button("")
-		no_ads.custom_minimum_size = Vector2(62, 62)
-		no_ads.add_child(GameIcon.new("noads", 34.0, UiKit.YELLOW))
+		var no_ads := UiKit.icon_button("", 74)
+		no_ads.add_child(GameIcon.new("noads", 38.0, UiKit.YELLOW))
 		no_ads.pressed.connect(func() -> void:
 			Audio.tap()
 			show_screen(Screen.NOADS))
 		row.add_child(no_ads)
 
-	var settings := UiKit.icon_button("")
-	settings.custom_minimum_size = Vector2(62, 62)
-	settings.add_child(GameIcon.new("gear", 34.0, UiKit.SURFACE))
+	var settings := UiKit.icon_button("", 74)
+	settings.add_child(GameIcon.new("gear", 38.0, UiKit.SURFACE))
 	settings.pressed.connect(func() -> void:
 		Audio.tap()
 		show_screen(Screen.SETTINGS))
@@ -261,8 +263,9 @@ func _tab_bar() -> Control:
 			["trophy", Strings.t("leaderboard"), UiKit.BG_LOW, Screen.BOARD],
 			["bolt", Strings.t("tabGear"), UiKit.RED, Screen.GEAR]]:
 		var target: Screen = item[3]
+		var is_active: bool = (target == _screen)
 		var tab := UiKit.tab_button(str(item[0]), str(item[1]),
-			item[2] as Color)
+			item[2] as Color, is_active)
 		tab.pressed.connect(func() -> void:
 			Audio.tap()
 			if target == Screen.SHOP:
@@ -738,7 +741,7 @@ func _build_settings() -> Control:
 	inner.add_child(UiKit.label("v1.0.0", 13, UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER))
 
 	# Yopish tugmasi
-	var close_btn := UiKit.button(Strings.t("close"), UiKit.YELLOW, 52)
+	var close_btn := UiKit.button(Strings.t("close"), UiKit.YELLOW)
 	close_btn.pressed.connect(func() -> void:
 		Audio.tap()
 		_reset_armed = false
@@ -845,7 +848,7 @@ func _build_profile() -> Control:
 	var id_lbl := UiKit.label("ID: %s" % store.player_id, 14, UiKit.INK.lightened(0.25), HORIZONTAL_ALIGNMENT_LEFT)
 	save_box.add_child(id_lbl)
 
-	var google_btn := UiKit.button(Strings.t("googleLogin"), UiKit.TEXT, 48)
+	var google_btn := UiKit.button(Strings.t("googleLogin"), UiKit.TEXT)
 	google_btn.add_theme_color_override("font_color", UiKit.INK)
 	google_btn.pressed.connect(func() -> void:
 		Audio.tap()
@@ -902,7 +905,7 @@ func _build_profile() -> Control:
 	inner.add_child(stats_grid)
 
 	# Yopish tugmasi
-	var close_btn := UiKit.button(Strings.t("close"), UiKit.YELLOW, 54)
+	var close_btn := UiKit.button(Strings.t("close"), UiKit.YELLOW)
 	close_btn.pressed.connect(func() -> void:
 		Audio.tap()
 		_save_nickname()
@@ -989,7 +992,7 @@ func _build_no_ads() -> Control:
 	var buy_row := HBoxContainer.new()
 	buy_row.add_theme_constant_override("separation", 10)
 
-	var btn_1d := UiKit.button("%s\n(500 🪙)" % Strings.t("oneDay"), UiKit.GREEN, 54)
+	var btn_1d := UiKit.button("%s\n(500 🪙)" % Strings.t("oneDay"), UiKit.GREEN)
 	btn_1d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_1d.pressed.connect(func() -> void:
 		Audio.tap()
@@ -1001,7 +1004,7 @@ func _build_no_ads() -> Control:
 			toast(Strings.t("purchaseFailed")))
 	buy_row.add_child(btn_1d)
 
-	var btn_forever := UiKit.button("%s\n($4.99)" % Strings.t("forever"), UiKit.YELLOW, 54)
+	var btn_forever := UiKit.button("%s\n($4.99)" % Strings.t("forever"), UiKit.YELLOW)
 	btn_forever.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_forever.pressed.connect(func() -> void:
 		Audio.tap()
@@ -1013,7 +1016,7 @@ func _build_no_ads() -> Control:
 	inner.add_child(buy_row)
 
 	# Yopish tugmasi
-	var close_btn := UiKit.button(Strings.t("close"), UiKit.SURFACE, 50)
+	var close_btn := UiKit.button(Strings.t("close"), UiKit.SURFACE)
 	close_btn.add_theme_color_override("font_color", UiKit.INK)
 	close_btn.pressed.connect(func() -> void:
 		Audio.tap()
@@ -1159,24 +1162,24 @@ func _build_hud() -> Control:
 	_progress_text = _progress.find_child("Value", true, false) as Label
 	_progress.anchor_right = 1.0
 	_progress.offset_left = 16
-	_progress.offset_right = -96
+	_progress.offset_right = -104
 	_progress.offset_top = 14
 	root.add_child(_progress)
 
 	var star := GameIcon.new("star", 40.0, UiKit.YELLOW)
 	star.anchor_left = 1.0
 	star.anchor_right = 1.0
-	star.offset_left = -136
-	star.offset_right = -96
-	star.offset_top = 20
-	star.offset_bottom = 60
+	star.offset_left = -148
+	star.offset_right = -108
+	star.offset_top = 22
+	star.offset_bottom = 62
 	root.add_child(star)
 
 	# "\u23F8" hech bir shriftda yo'q — tugma bo'sh ko'rinardi.
-	var pause := UiKit.icon_button("\u275A\u275A")
+	var pause := UiKit.icon_button("\u275A\u275A", 76)
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
-	pause.position = Vector2(-84, 12)
+	pause.position = Vector2(-92, 12)
 	pause.pressed.connect(func() -> void:
 		Audio.tap()
 		# Ekranni o'zimiz almashtirmaymiz: avval o'yin to'xtashi
@@ -1186,13 +1189,13 @@ func _build_hud() -> Control:
 
 	# Chapda: o'ldirishlar va shu o'yinda yig'ilgan tanga.
 	var stats := VBoxContainer.new()
-	stats.add_theme_constant_override("separation", 8)
-	stats.position = Vector2(16, 82)
+	stats.add_theme_constant_override("separation", 10)
+	stats.position = Vector2(16, 86)
 	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(stats)
-	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 44)
+	_kill_capsule = UiKit.capsule("skull", "0", UiKit.TEXT, 48)
 	stats.add_child(_kill_capsule)
-	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 44)
+	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 48)
 	stats.add_child(_coin_capsule)
 	_kill_label = _capsule_label(_kill_capsule)
 	_coin_label = _capsule_label(_coin_capsule)
@@ -1312,7 +1315,7 @@ func _board_row(row: Dictionary) -> Control:
 	var disc := Panel.new()
 	disc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	disc.add_theme_stylebox_override("panel",
-		UiKit.style(tint.lightened(0.5), 29, UiKit.OUTLINE, 0))
+		UiKit.style_solid(tint.lightened(0.5), 29, 3, 0))
 	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	face.add_child(disc)
 
@@ -1354,11 +1357,11 @@ func _board_row(row: Dictionary) -> Control:
 		face.add_child(crown)
 
 	var tape := PanelContainer.new()
-	var tape_box := UiKit.style(tint, 16, UiKit.OUTLINE, 6)
+	var tape_box := UiKit.style_solid(tint, 16, 4, 6)
 	tape_box.content_margin_left = 30
 	tape_box.content_margin_right = 12
 	tape.add_theme_stylebox_override("panel", tape_box)
-	tape.custom_minimum_size = Vector2(124, 44)
+	tape.custom_minimum_size = Vector2(130, 48)
 	tape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tape.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tape.add_child(UiKit.title("%.2f%%" % float(row["percent"]), 20,
