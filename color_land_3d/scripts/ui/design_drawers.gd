@@ -214,6 +214,11 @@ class FlagPedestalControl extends Control:
 			draw_string(font, Vector2(0, h - 3), flag_name, HORIZONTAL_ALIGNMENT_CENTER, w, 11, Color.WHITE)
 
 	func _draw_flag_cloth(rect: Rect2, c_code: String) -> void:
+		var tex := FlagRenderer.get_flag_texture(c_code)
+		if tex != null:
+			draw_texture_rect(tex, rect, false)
+			draw_rect(rect, UiKit.INK, false, 1.5)
+			return
 		draw_rect(rect, Color.WHITE)
 		match c_code.to_upper():
 			"US":

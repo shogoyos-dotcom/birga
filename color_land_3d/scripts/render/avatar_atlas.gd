@@ -1,5 +1,7 @@
 extends Node
 
+const FlagRenderer = preload("res://scripts/render/flag_renderer.gd")
+
 ## O'yinchilarning belgilarini bitta teksturaga yig'adi va hududdagi
 ## o'rnini shaderga uzatadi.
 ##
@@ -80,19 +82,21 @@ func _build_tiles() -> void:
 		_add_tile(tile_index(p.id, KIND_HEAD),
 			Profile.map_glyph(p.avatar), p.avatar_image)
 		_add_tile(tile_index(p.id, KIND_FLAG),
-			Profile.flag_emoji(p.country), p.flag_image)
+			Profile.flag_emoji(p.country), p.flag_image, p.country)
 
 ## Katakka o'yinchi rasmini yoki belgisini chizadi.
-func _add_tile(index: int, glyph: String, image_path: String) -> void:
+func _add_tile(index: int, glyph: String, image_path: String, country_code: String = "") -> void:
 	var at := Vector2((index % COLS) * TILE, (index / COLS) * TILE)
 	var texture := ImagePicker.load_texture(image_path)
+	if texture == null and not country_code.is_empty():
+		texture = FlagRenderer.get_flag_texture(country_code)
 	if texture != null:
 		var picture := TextureRect.new()
 		picture.texture = texture
 		picture.position = at
 		picture.size = Vector2(TILE, TILE)
 		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		picture.stretch_mode = TextureRect.STRETCH_SCALE
 		viewport.add_child(picture)
 		return
 	var label := Label.new()
@@ -122,7 +126,8 @@ func refresh() -> void:
 	data_image.fill(Color(0, 0, 0, 0))
 	for p in _world.players:
 		var place := AvatarPlacement.of(_world.grid, p.id)
-		var half: float = place["half"] if p.alive else 0.0
 		var center: Vector2 = place["center"]
-		data_image.set_pixel(p.id, 0, Color(center.x, center.y, half, 1.0))
+		var half_w: float = place.get("half_w", place["half"]) if p.alive else 0.0
+		var half_h: float = place.get("half_h", place["half"]) if p.alive else 0.0
+		data_image.set_pixel(p.id, 0, Color(center.x, center.y, half_w, half_h))
 	data_texture.update(data_image)

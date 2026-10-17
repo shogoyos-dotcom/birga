@@ -35,10 +35,12 @@ const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
 const CityCoinsNode := preload("res://scripts/render/city_coins.gd")
 const PickupMarksNode := preload("res://scripts/render/pickup_marks.gd")
 const CaptureBurstNode := preload("res://scripts/render/capture_burst.gd")
+const FlagPolesNode := preload("res://scripts/render/flag_poles.gd")
 const DesignDrawers := preload("res://scripts/ui/design_drawers.gd")
 
 var _crown_image: ImageTexture
 var _slime_face_image: ImageTexture
+var _flag_poles: FlagPoles
 
 var world: GameWorld
 var paint: PaintLayer
@@ -124,6 +126,8 @@ func _ready() -> void:
 	add_child(_pickups)
 	_burst = CaptureBurstNode.new()
 	add_child(_burst)
+	_flag_poles = FlagPolesNode.new()
+	add_child(_flag_poles)
 
 	store = SettingsStore.load_store()
 	Strings.set_language(store.language if not store.language.is_empty()
@@ -173,6 +177,7 @@ func _new_match() -> void:
 	_trails.setup(world)
 	_build_arena()
 	_build_players()
+	_flag_poles.setup(world)
 	_build_capitals()
 	_build_coins()
 	_build_pickups()
@@ -372,6 +377,8 @@ func _apply_view_settings() -> void:
 		players_root.visible = _playing
 	if _pickups != null:
 		_pickups.visible = _playing
+	if _flag_poles != null:
+		_flag_poles.visible = store.show_flags and _playing
 	if _coins != null:
 		_coins.visible = _playing
 	ui.set_minimap(paint.texture if store.show_minimap else null)
@@ -412,6 +419,8 @@ func _clear_scene() -> void:
 	if _props_root != null and is_instance_valid(_props_root):
 		_props_root.queue_free()
 		_props_root = null
+	if _flag_poles != null:
+		_flag_poles.clear()
 
 ## Arena geometriyasi faqat maydonga bog'liq: o'yindan o'yinga
 ## o'zgarmaydi va qayta qurilmaydi. Maydon almashtirilgandagina
@@ -946,16 +955,21 @@ func _process(delta: float) -> void:
 	# seziladi — natija oynasi ochiladi.
 	if _playing and not world.human().alive:
 		_end_match()
-	paint.sync()
-	# Shahar nomlari kamera atrofida almashib turadi.
-	_capitals.update_focus(Vector2(world.human().x, world.human().y), delta)
-	_sync_heads()
-	_follow_camera(delta)
+	if paint != null:
+		paint.sync()
+	if world != null and world.human() != null:
+		# Shahar nomlari kamera atrofida almashib turadi.
+		if _capitals != null:
+			_capitals.update_focus(Vector2(world.human().x, world.human().y), delta)
+		_sync_heads()
+		_follow_camera(delta)
+		if _flag_poles != null and _playing:
+			_flag_poles.update_poles()
 
-	_hud_timer -= delta
-	if _hud_timer <= 0.0:
-		_hud_timer = 0.12
-		_refresh_hud()
+		_hud_timer -= delta
+		if _hud_timer <= 0.0:
+			_hud_timer = 0.12
+			_refresh_hud()
 
 ## Mantiq chiqargan hodisalar: ovoz va o'limda bo'shagan kataklar.
 func _handle_events() -> void:
@@ -1099,7 +1113,16 @@ func _place_camera_instantly() -> void:
 	camera.position = target + Vector3(0.0, ch, cb)
 	camera.look_at(target, Vector3.UP)
 
+var demo_camera_override := false
+
+func set_camera_demo_pose(pos: Vector3, look_at_pt: Vector3) -> void:
+	demo_camera_override = true
+	camera.position = pos
+	camera.look_at(look_at_pt, Vector3.UP)
+
 func _follow_camera(delta: float) -> void:
+	if demo_camera_override:
+		return
 	var ch := _cam_height()
 	var cb := _cam_back()
 	if not _playing and world != null and world.grid != null:
@@ -1202,6 +1225,13 @@ func set_avatar_for_demo(value: String) -> void:
 	if store.avatar == value:
 		return
 	store.avatar = value
+	_new_match()
+
+## Skrinshot vositasi uchun: davlat bayrog'ini almashtiradi.
+func set_country_for_demo(code: String) -> void:
+	if store.country == code:
+		return
+	store.country = code
 	_new_match()
 
 ## Skrinshot vositasi uchun: o'yinni boshlab yuboradi.

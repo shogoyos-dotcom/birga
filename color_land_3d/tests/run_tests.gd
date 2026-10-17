@@ -36,6 +36,7 @@ func _process(_delta: float) -> bool:
 	_test_journey(t)
 	_test_heroes(t)
 	_test_phase3_scaling(t)
+	_test_phase4_flags(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -1638,5 +1639,112 @@ func _test_phase3_scaling(t: TestRunner) -> void:
 		t.equal(cfg.bot_count, WorldPacing.BOTS_EXPANDED, "kengaytirilgan botlar soni")
 		t.equal(cfg.start_block, WorldPacing.START_BLOCK_EXPANDED, "kengaytirilgan boshlang'ich blok")
 	)
+
+func _test_phase4_flags(t: TestRunner) -> void:
+	t.group("PHASE 4: Davlat bayroqlari va hudud tizimi")
+
+	var FlagRendererRef = preload("res://scripts/render/flag_renderer.gd")
+	var FlagPolesRef = preload("res://scripts/render/flag_poles.gd")
+
+	t.test("barcha 249 ISO davlat bayroqlari to'g'ri generatsiya qilinadi", func() -> void:
+		var countries: Array = Profile.countries()
+		t.check(countries.size() >= 240, "240+ davlat mavjud: %d" % countries.size())
+		var null_count := 0
+		var correct_dims := 0
+		for c: Dictionary in countries:
+			var code := str(c["code"])
+			var tex: ImageTexture = FlagRendererRef.get_flag_texture(code)
+			if tex == null:
+				null_count += 1
+			elif tex.get_width() == 192 and tex.get_height() == 128:
+				correct_dims += 1
+		t.equal(null_count, 0, "hech qaysi bayroq null emas")
+		t.equal(correct_dims, countries.size(), "barcha bayroqlar 192x128 o'lchamda")
+	)
+
+	t.test("O'zbekiston (UZ) bayrog'i aniq ranglar va chiziqlarga ega", func() -> void:
+		var uz_img: Image = FlagRendererRef.create_flag_image("UZ")
+		t.check(uz_img != null, "UZ tasviri yaratildi")
+		t.equal(uz_img.get_width(), 192, "kengligi 192")
+		t.equal(uz_img.get_height(), 128, "balandligi 128")
+
+		# Yuqori chiziq (moviy / sky blue): y ~ 20
+		var top_col: Color = uz_img.get_pixel(96, 20)
+		t.check(top_col.b > 0.6 and top_col.r < 0.2, "yuqori qism moviy (sky blue)")
+
+		# O'rta chiziq (oq): y ~ 64
+		var mid_col: Color = uz_img.get_pixel(96, 64)
+		t.check(mid_col.r > 0.9 and mid_col.g > 0.9 and mid_col.b > 0.9, "o'rta qism oq")
+
+		# Pastki chiziq (yashil): y ~ 105
+		var bot_col: Color = uz_img.get_pixel(96, 105)
+		t.check(bot_col.g > 0.5 and bot_col.b < 0.4, "pastki qism yashil")
+	)
+
+	t.test("Turkiya, Qozog'iston, AQSH, Yaponiya bayroqlari o'ziga xos yaratiladi", func() -> void:
+		var tr_img: Image = FlagRendererRef.create_flag_image("TR")
+		t.check(tr_img.get_pixel(10, 10).r > 0.8, "TR qizil fon")
+
+		var kz_img: Image = FlagRendererRef.create_flag_image("KZ")
+		t.check(kz_img.get_pixel(50, 20).b > 0.7, "KZ moviy fon")
+
+		var jp_img: Image = FlagRendererRef.create_flag_image("JP")
+		t.check(jp_img.get_pixel(10, 10).r > 0.9, "JP oq fon")
+		t.check(jp_img.get_pixel(96, 64).r > 0.6 and jp_img.get_pixel(96, 64).g < 0.1, "JP qizil doira markazda")
+	)
+
+	t.test("3D FlagPoles bazada bayroq ustunlarini to'g'ri o'rnatadi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.map_id = "world"
+		cfg.bot_count = 5
+		var world := MatchBuilder.create(cfg, 0, "Player", "slime", 42, "UZ")
+
+		var poles := FlagPolesRef.new()
+		poles.setup(world)
+		# 1 odam + 5 bot = 6 ta baza ustuni
+		t.equal(poles.pole_count(), 6, "6 ta o'yinchi uchun 6 ta baza bayroq ustuni yaratildi")
+
+		# Ustunlarda harakatga to'sqinlik qiluvchi CollisionShape yo'qligini tekshirish
+		for child in poles.get_children():
+			t.check(not (child is CollisionObject3D), "ustun harakatga to'sqinlik qilmaydi (no collision)")
+
+		poles.clear()
+		t.equal(poles.pole_count(), 0, "tozalashdan keyin 0 ta ustun")
+		poles.queue_free()
+	)
+
+	t.test("AvatarPlacement bayroq nisbati (half_w, half_h) ni hisoblaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"......",
+			".111..",
+			".111..",
+			"......",
+		]))
+		var place: Dictionary = AvatarPlacement.of(grid, 1)
+		t.check(place.has("center"), "center mavjud")
+		t.check(place.has("half"), "half mavjud (orqaga moslik)")
+		t.check(place.has("half_w"), "half_w mavjud")
+		t.check(place.has("half_h"), "half_h mavjud")
+		t.check(float(place["half_w"]) > 0.0, "half_w > 0")
+		t.check(float(place["half_h"]) > 0.0, "half_h > 0")
+	)
+
+	t.test("O'yinchi va botlarning davlat bayroqlari to'liq mustaqil", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.map_id = "world"
+		cfg.bot_count = 10
+		var world := MatchBuilder.create(cfg, 0, "Sardor", "slime", 100, "UZ")
+
+		var human := world.human()
+		t.equal(human.country, "UZ", "odam UZ bayrog'iga ega")
+
+		var bot_countries := {}
+		for p in world.players:
+			if p.is_bot:
+				t.check(p.country.length() == 2, "bot ISO kodi 2 harf: %s" % p.country)
+				bot_countries[p.country] = true
+		t.check(bot_countries.size() >= 5, "botlar turli xil davlat bayroqlariga ega")
+	)
+
 
 

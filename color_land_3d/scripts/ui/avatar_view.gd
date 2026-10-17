@@ -1,6 +1,8 @@
 class_name AvatarView
 extends Control
 
+const FlagRenderer = preload("res://scripts/render/flag_renderer.gd")
+
 ## Avatarni ko'rsatadi: emoji va bayroqlar shriftdan, odam tasvirlari
 ## esa shakllardan chiziladi (rasm fayli kerak emas).
 
@@ -60,6 +62,25 @@ func _refresh() -> void:
 		_picture.texture = texture
 		queue_redraw()
 		return
+	# Bayroq bo'lsa — haqiqiy milliy bayroq teksturasi (emoji emas)
+	if avatar.begins_with("flag:"):
+		var code := avatar.substr(5).to_upper().strip_edges()
+		var flag_tex := FlagRenderer.get_flag_texture(code)
+		if flag_tex != null:
+			if _label != null:
+				_label.visible = false
+			if _picture == null:
+				_picture = TextureRect.new()
+				_picture.set_anchors_preset(Control.PRESET_FULL_RECT)
+				_picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				_picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				add_child(_picture)
+			_picture.visible = true
+			_picture.texture = flag_tex
+			queue_redraw()
+			return
+
 	if _picture != null:
 		_picture.visible = false
 

@@ -43,6 +43,7 @@ var _coin_label: Label
 var _board: VBoxContainer
 var _result_data := {}
 var _flag_query := ""
+var _flag_region_filter := 0
 var _avatar_tab := 0
 var _maps_category := 0
 var _heroes_tab := 0
@@ -411,22 +412,51 @@ func _build_heroes_overview() -> Control:
 	var f_gap := Control.new()
 	f_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	f_head.add_child(f_gap)
-	var f_all := UiKit.label("View All >", 13, Color("38bdf8"))
+	var f_all := Button.new()
+	f_all.text = "View All >"
+	f_all.flat = true
+	f_all.add_theme_color_override("font_color", Color("38bdf8"))
+	f_all.add_theme_font_size_override("font_size", 13)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		f_all.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	f_all.pressed.connect(func() -> void:
+		Audio.tap()
+		_heroes_tab = 1
+		_rebuild())
 	f_head.add_child(f_all)
 	col.add_child(f_head)
 
 	var f_row := HBoxContainer.new()
 	f_row.add_theme_constant_override("separation", 8)
 	f_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var chosen_flag: String = _country()
 	var flags_data := [
-		["crown", "Default"], ["US", "USA"], ["FR", "France"], ["JP", "Japan"], ["DE", "Germany"]
+		["UZ", "Uzbekistan"], ["TR", "Turkey"], ["KZ", "Kazakhstan"],
+		["US", "USA"], ["JP", "Japan"]
 	]
 	for fd: Array in flags_data:
-		var slot := PanelContainer.new()
-		slot.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.14, 0.32, 0.85), 14, 3, 4))
+		var f_code: String = str(fd[0])
+		var is_on: bool = (chosen_flag == f_code)
+		var slot := Button.new()
+		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slot.custom_minimum_size = Vector2(86, 82)
-		var ped := DesignDrawers.FlagPedestalControl.new(str(fd[0]), str(fd[1]))
+		for st in ["normal", "hover", "pressed", "focus"]:
+			var bg := Color(0.10, 0.45, 0.88, 0.85) if is_on else Color(0.06, 0.14, 0.32, 0.85)
+			var border := Color("00d4ff") if is_on else (Color("38bdf8") if st == "hover" else Color(0.2, 0.35, 0.55, 0.5))
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = bg
+			sb.border_color = border
+			sb.set_border_width_all(2 if is_on or st == "hover" else 1)
+			sb.set_corner_radius_all(14)
+			slot.add_theme_stylebox_override(st, sb)
+		var ped := DesignDrawers.FlagPedestalControl.new(f_code, str(fd[1]))
+		ped.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ped.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot.add_child(ped)
+		slot.pressed.connect(func() -> void:
+			Audio.tap()
+			_pick_country(f_code)
+			toast("%s bayrog'i tanlandi!" % Profile.country_name(f_code)))
 		f_row.add_child(slot)
 	col.add_child(f_row)
 
@@ -521,39 +551,197 @@ func _hero_pedestal() -> Control:
 	row.add_child(info)
 	return card
 
+const POPULAR_FLAGS: PackedStringArray = [
+	"UZ", "TR", "KZ", "US", "GB", "DE", "FR", "JP", "BR", "IT",
+	"ES", "CA", "KR", "IN", "RU", "SA", "AE", "EG", "AU", "MX",
+	"AZ", "TM", "KG", "TJ", "PK", "AR", "UA", "PL", "SE", "NL",
+	"CH", "BE", "PT", "GR", "CN"
+]
+
 func _flags_catalog() -> Control:
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
-	box.add_child(UiKit.section(Strings.t("tabFlags")))
+	box.add_theme_constant_override("separation", 10)
+
+	var chosen: String = _country()
+
+	# 1. Hozirgi faol bayroq banneri (Active Country Card)
+	var banner := PanelContainer.new()
+	var b_style := StyleBoxFlat.new()
+	b_style.bg_color = Color(0.06, 0.16, 0.38, 0.95)
+	b_style.border_color = Color("00d4ff")
+	b_style.set_border_width_all(2)
+	b_style.set_corner_radius_all(14)
+	b_style.content_margin_left = 14
+	b_style.content_margin_right = 14
+	b_style.content_margin_top = 10
+	b_style.content_margin_bottom = 10
+	banner.add_theme_stylebox_override("panel", b_style)
+
+	var b_row := HBoxContainer.new()
+	b_row.add_theme_constant_override("separation", 14)
+	b_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+
+	var flag_pv := AvatarView.new("flag:" + chosen, 56.0)
+	flag_pv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b_row.add_child(flag_pv)
+
+	var b_info := VBoxContainer.new()
+	b_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b_info.add_theme_constant_override("separation", 2)
+
+	var b_status := HBoxContainer.new()
+	b_status.add_theme_constant_override("separation", 8)
+	var active_pill := PanelContainer.new()
+	var ap_style := StyleBoxFlat.new()
+	ap_style.bg_color = UiKit.GREEN.darkened(0.2)
+	ap_style.set_corner_radius_all(6)
+	ap_style.content_margin_left = 8
+	ap_style.content_margin_right = 8
+	ap_style.content_margin_top = 2
+	ap_style.content_margin_bottom = 2
+	active_pill.add_theme_stylebox_override("panel", ap_style)
+	var active_lbl := UiKit.label("✓ FAOL BAYROQ (ACTIVE)", 11, Color.WHITE)
+	active_pill.add_child(active_lbl)
+	b_status.add_child(active_pill)
+
+	var code_lbl := UiKit.title("[%s]" % chosen, 13, UiKit.YELLOW)
+	b_status.add_child(code_lbl)
+	b_info.add_child(b_status)
+
+	var c_name := Profile.country_name(chosen)
+	var name_lbl := UiKit.title(c_name, 18, Color.WHITE)
+	b_info.add_child(name_lbl)
+
+	var sub_lbl := UiKit.label("Ushbu bayroq bazangiz ustunida hilpiraydi va egallangan hududingizni qoplaydi", 11, Color("94a3b8"))
+	b_info.add_child(sub_lbl)
+	b_row.add_child(b_info)
+	banner.add_child(b_row)
+	box.add_child(banner)
+
+	# 2. Qidiruv paneli (Search input)
+	var search_row := HBoxContainer.new()
+	search_row.add_theme_constant_override("separation", 8)
+
+	var search := LineEdit.new()
+	search.text = _flag_query
+	search.placeholder_text = "Mamlakat nomi yoki ISO kodi bo'yicha qidirish (249 ta davlat)..."
+	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	search.add_theme_font_size_override("font_size", 14)
+	search.add_theme_stylebox_override("normal", UiKit.style_solid(Color(0.08, 0.14, 0.28, 0.9), 10, 2, 8))
+	search.add_theme_stylebox_override("focus", UiKit.style_solid(Color(0.12, 0.22, 0.44, 0.95), 10, 2, 8))
+	search.text_changed.connect(func(text: String) -> void:
+		_flag_query = text
+		_rebuild())
+	search_row.add_child(search)
+
+	if not _flag_query.is_empty():
+		var clear_btn := Button.new()
+		clear_btn.text = "✕"
+		clear_btn.custom_minimum_size = Vector2(36, 0)
+		clear_btn.add_theme_stylebox_override("normal", UiKit.style_solid(Color(0.2, 0.2, 0.3, 0.8), 8, 2, 4))
+		clear_btn.pressed.connect(func() -> void:
+			_flag_query = ""
+			_rebuild())
+		search_row.add_child(clear_btn)
+
+	box.add_child(search_row)
+
+	# 3. Mintaqa / Saralash filtrlari (Region Chips)
+	var cat_labels := PackedStringArray(["Barchasi (249)", "Ommabop", "Osiyo", "Yevropa", "Amerika", "Afrika", "Okeaniya"])
+	var cat_chips := UiKit.chips(cat_labels, _flag_region_filter, func(idx: int) -> void:
+		Audio.tap()
+		_flag_region_filter = idx
+		_rebuild())
+	box.add_child(cat_chips)
+
+	# 4. Ro'yxatni saralash
+	var list: Array = []
+	if not _flag_query.is_empty():
+		list = Profile.search_countries(_flag_query)
+	elif _flag_region_filter == 1:
+		for p_code in POPULAR_FLAGS:
+			list.append({"code": p_code, "name": Profile.country_name(p_code)})
+	elif _flag_region_filter == 0:
+		list = Profile.countries()
+	else:
+		var continent_target := ""
+		match _flag_region_filter:
+			2: continent_target = "Asia"
+			3: continent_target = "Europe"
+			4: continent_target = "America"
+			5: continent_target = "Africa"
+			6: continent_target = "Oceania"
+		for c: Dictionary in Profile.countries():
+			var c_code := str(c.get("code", ""))
+			var cont: String = Board.continent_of(c_code)
+			if continent_target == "America" and (cont == "North America" or cont == "South America"):
+				list.append(c)
+			elif cont == continent_target:
+				list.append(c)
+
+	# 5. Skrollanuvchi bayroqlar to'plami
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 310)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
 
 	var grid := GridContainer.new()
 	grid.columns = 4
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
+	scroll.add_child(grid)
 
-	var codes: Array[String] = ["UZ", "US", "GB", "DE", "TR", "KZ", "FR", "JP", "BR", "IT", "ES", "CA", "KR", "IN", "AE", "SA"]
-	var chosen: String = _country()
-	for code: String in codes:
-		var btn := Button.new()
-		btn.custom_minimum_size = Vector2(96, 80)
+	for c: Dictionary in list:
+		var code := str(c["code"])
+		var cname := str(c.get("name", code))
 		var is_on: bool = (chosen == code)
+
+		var btn := Button.new()
+		btn.custom_minimum_size = Vector2(100, 92)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
 		for st in ["normal", "hover", "pressed", "focus"]:
-			var bg := UiKit.GREEN.darkened(0.1) if is_on else UiKit.SURFACE
-			btn.add_theme_stylebox_override(st, UiKit.style_solid(bg, 14, 3, 4))
+			var bg_col := Color(0.10, 0.45, 0.88, 0.90) if is_on else Color(0.06, 0.12, 0.28, 0.85)
+			var border_col := Color("00d4ff") if is_on else (Color("38bdf8") if st == "hover" else Color(0.2, 0.35, 0.55, 0.5))
+			var b_width := 3 if is_on else (2 if st == "hover" else 1)
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = bg_col
+			sb.border_color = border_col
+			sb.set_border_width_all(b_width)
+			sb.set_corner_radius_all(10)
+			sb.content_margin_left = 4
+			sb.content_margin_right = 4
+			sb.content_margin_top = 4
+			sb.content_margin_bottom = 4
+			btn.add_theme_stylebox_override(st, sb)
+
 		var v := VBoxContainer.new()
 		v.set_anchors_preset(Control.PRESET_FULL_RECT)
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_theme_constant_override("separation", 3)
+
 		var av := AvatarView.new("flag:" + code, 36.0)
+		av.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(av)
-		var l := UiKit.label(code, 12, UiKit.TEXT if is_on else UiKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
-		v.add_child(l)
+
+		var l_code := UiKit.title(code, 12, UiKit.YELLOW if is_on else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+		v.add_child(l_code)
+
+		var l_name := UiKit.label(cname, 10, Color("e2e8f0") if is_on else Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER)
+		l_name.clip_text = true
+		v.add_child(l_name)
+
 		btn.add_child(v)
+
 		btn.pressed.connect(func() -> void:
 			Audio.tap()
-			_pick_country(code))
+			_pick_country(code)
+			toast("%s (%s) bayrog'i tanlandi!" % [cname, code]))
 		grid.add_child(btn)
-	box.add_child(grid)
+
 	return box
 
 func _cities_catalog() -> Control:

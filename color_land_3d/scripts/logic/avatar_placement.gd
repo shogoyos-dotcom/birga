@@ -24,7 +24,7 @@ const SAMPLES := 400
 ## Natija: {"center": Vector2, "half": float}. Hudud bo'sh bo'lsa
 ## `half` nolga teng.
 static func of(grid: GameGrid, id: int) -> Dictionary:
-	var none := {"center": Vector2.ZERO, "half": 0.0}
+	var none := {"center": Vector2.ZERO, "half": 0.0, "half_w": 0.0, "half_h": 0.0}
 	var b := grid.bounds_of(id)
 	if b.is_empty():
 		return none
@@ -37,7 +37,21 @@ static func of(grid: GameGrid, id: int) -> Dictionary:
 	# biroz kattalashadi va chetlari kesiladi.
 	var side := minf(small + (large - small) * SPREAD, small * MAX_STRETCH)
 
-	return {"center": _center(grid, id, b), "half": side * 0.5}
+	var center := _center(grid, id, b)
+	# Milliy bayroq butun egallangan hududni to'liq va o'z nisbatida (1.5:1) qoplashi uchun:
+	var span_w := maxf(w * 0.52, 6.0)
+	var span_h := maxf(h * 0.52, 4.0)
+	if span_w / span_h > 1.8:
+		span_h = span_w / 1.5
+	elif span_h / span_w > 1.2:
+		span_w = span_h * 1.5
+
+	return {
+		"center": center,
+		"half": side * 0.5,
+		"half_w": span_w,
+		"half_h": span_h
+	}
 
 ## Hududning o'rtasi. To'rtburchak markazi emas, egallangan kataklarning
 ## o'rtacha nuqtasi olinadi — "L" shaklidagi hududda to'rtburchak

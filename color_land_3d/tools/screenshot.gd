@@ -19,10 +19,9 @@ var _mode := "play"
 var _avatar := ""
 ## Tekshirish uchun maydon, masalan "circle".
 var _map := ""
-## O'yinchini shu katakka qo'yadi, masalan "240,58" (Syurix atrofi —
-## dunyo xaritasidagi eng zich shaharlar joyi). Bo'sh bo'lsa
-## o'yin o'zi tanlagan joyda qoladi.
+## O'yinchini shu katakka qo'yadi, masalan "240,58"
 var _at := ""
+var _country := "UZ"
 var _opened := false
 ## "burst" rejimida effekt oxirgi marta qaysi qadamda chaqirilgan.
 var _burst_step := -1
@@ -41,6 +40,8 @@ func _initialize() -> void:
 		_map = args[4]
 	if args.size() > 5:
 		_at = args[5]
+	if args.size() > 6:
+		_country = args[6]
 	_frames_left = int(_seconds * 60.0)
 	change_scene_to_file("res://scenes/main.tscn")
 
@@ -71,9 +72,13 @@ func _drive() -> void:
 		view.set_map_for_demo(_map)
 	if not _avatar.is_empty() and view.has_method("set_avatar_for_demo"):
 		view.set_avatar_for_demo(_avatar)
-	if _mode != "play" and _mode != "trail" and _mode != "burst":
-		# Ekran bir marta ochiladi: har kadrda qayta ochilsa, serverdan
-		# kelgan javob darhol o'chib ketardi.
+	if not _country.is_empty() and view.has_method("set_country_for_demo"):
+		view.set_country_for_demo(_country)
+
+	var is_3d_action: bool = (_mode == "play" or _mode == "trail" or _mode == "burst" \
+		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest")
+
+	if not is_3d_action:
 		if not _opened:
 			_opened = true
 			if _mode == "maps:continents":
@@ -88,9 +93,15 @@ func _drive() -> void:
 				view.show_screen_for_demo("maps")
 				view.ui._maps_category = 3
 				view.ui._rebuild()
+			elif _mode == "flags":
+				view.store.country = _country
+				view.show_screen_for_demo("heroes")
+				view.ui._heroes_tab = 1
+				view.ui._rebuild()
 			else:
 				view.show_screen_for_demo(_mode)
 		return
+
 	view.start_for_demo()
 	if not _at.is_empty():
 		var parts := _at.split(",")
@@ -100,29 +111,45 @@ func _drive() -> void:
 			p.y = float(parts[1])
 			view._place_camera_instantly()
 		_at = ""
-	if _mode == "burst":
-		# Egallash effektini kutib o'tirmaymiz: u qisqa, tasodifan
-		# kadrga tushishi qiyin. Shuning uchun qo'lda chaqiriladi —
-		# har kadrda emas, aks holda zarrachalar har safar boshidan
-		# boshlanib, hech qachon tarqalmaydi.
-		# Zarrachalarning umri qisqa, shuning uchun effekt oxirgi
-		# kadrlardan oldin bir marta chaqiriladi — shunda u
-		# skrinshotga albatta tushadi.
-		if _frames_left <= 3 and _burst_step < 0:
+
+	if _mode == "flag_base":
+		var p: Object = view.world.human()
+		var base_node: Node3D = view._flag_poles._base_poles.get(p.id)
+		var base_pos := base_node.global_position if base_node != null else Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
+		view.set_camera_demo_pose(base_pos + Vector3(-2.8, 6.2, 8.2), base_pos + Vector3(1.4, 4.0, 0.0))
+		return
+
+	if _mode == "flag_territory":
+		if _elapsed < 0.15:
+			var p: Object = view.world.human()
+			var cx := int(p.x)
+			var cy := int(p.y)
+			for dy in range(-14, 15):
+				for dx in range(-21, 22):
+					var gx := cx + dx
+					var gy := cy + dy
+					if view.world.grid.playable(gx, gy) and Vector2(dx * 1.4, dy).length() <= 18.0:
+						view.world.grid.set_owner_cell(gx, gy, p.id)
+			view.paint.sync()
+			view._avatars.refresh()
+		view.steer_human(_elapsed * 0.45)
+		view.revive_human_for_demo()
+		return
+
+	if _mode == "burst" or _mode == "conquest":
+		if _frames_left <= 6 and _burst_step < 0:
 			_burst_step = 1
 			var p: Object = view.world.human()
 			view._burst.burst(Vector3(p.x,
 				ArenaBuilder.LAND_HEIGHT + view.HEAD_RADIUS, p.y))
 		view.steer_human(_elapsed * 0.55)
+		view.revive_human_for_demo()
 		return
+
 	if _mode == "trail":
-		# Diagonal to'g'ri chiziq — zinapoya eng yomon ko'rinadigan
-		# holat; iz tekis chiqyaptimi, shu bilan tekshiriladi.
 		view.steer_human(0.62)
 		return
-	# Keng, silliq halqa: radius = tezlik / burchak tezligi ~= 14 katak.
-	# Keskin burilishda o'yinchi o'z izini kesib o'lib qoladi.
-	view.steer_human(_elapsed * 0.55)
-	# 15 ta bot ov qilayotgani uchun o'yinchi o'lib qolishi mumkin —
-	# skrinshot davom etsin.
+
+	# multi_flags yoki odatiy play
+	view.steer_human(_elapsed * 0.52)
 	view.revive_human_for_demo()

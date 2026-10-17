@@ -172,24 +172,25 @@ vec3 skin_shade(int owner, vec3 base, vec2 at) {
 	return mix(base, accent, clamp(mask, 0.0, 1.0) * 0.9);
 }
 
-// Hudud rangiga o'sha egannikki avatarni qo'shadi.
+// Hudud butun yuzasini egallagan o'yinchining milliy bayrog'i dizayni bilan qoplaydi.
 vec3 with_avatar(int owner, vec3 base, vec2 cell_pos) {
 	if (owner <= 0 || avatar_alpha <= 0.0) {
 		return base;
 	}
 	vec4 place = texelFetch(avatar_data, ivec2(owner, 0), 0);
-	if (place.b <= 0.0) {
+	if (place.b <= 0.0 || place.a <= 0.0) {
 		return base;
 	}
-	vec2 local = (cell_pos - place.rg) / (2.0 * place.b) + vec2(0.5);
-	if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) {
-		return base;
-	}
+	// Kengaytirilgan hudud bo'yicha UV proyeksiyasi:
+	vec2 local;
+	local.x = clamp((cell_pos.x - place.r) / (2.0 * place.b) + 0.5, 0.005, 0.995);
+	local.y = clamp((cell_pos.y - place.g) / (2.0 * place.a) + 0.5, 0.005, 0.995);
+
 	// Har o'yinchiga ikkita katak: 0 — bosh belgisi, 1 — bayroq.
 	float tile = float((owner - 1) * 2 + 1);
 	vec2 at = vec2(mod(tile, avatar_grid.x), floor(tile / avatar_grid.x));
-	vec4 glyph = textureLod(avatar_tex, (at + local) / avatar_grid, 0.0);
-	return mix(base, glyph.rgb, glyph.a * avatar_alpha);
+	vec4 flag_color = textureLod(avatar_tex, (at + local) / avatar_grid, 0.0);
+	return mix(base, flag_color.rgb, flag_color.a * avatar_alpha);
 }
 
 void fragment() {
