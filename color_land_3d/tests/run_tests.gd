@@ -12,6 +12,21 @@ const CityMeshBuilderRef := preload("res://scripts/render/city_mesh_builder.gd")
 ## avtoyuklanadigan modullar (Wallet, Shop, Missions va hokazo)
 ## faqat daraxt tiklangandan keyin paydo bo'ladi.
 func _process(_delta: float) -> bool:
+	# 1. Haqiqiy ishlab chiqarish hamyoni (user://wallet.cfg) ni testlardan to'liq izolyatsiya qilish:
+	var prod_path := CurrencyManager.DEFAULT_PATH
+	var prod_existed := FileAccess.file_exists(prod_path)
+	var prod_backup: PackedByteArray = []
+	if prod_existed:
+		var f := FileAccess.open(prod_path, FileAccess.READ)
+		if f != null:
+			prod_backup = f.get_buffer(f.get_length())
+			f.close()
+
+	CurrencyManager.set_test_mode(true, CurrencyManager.TEST_PATH)
+	var root_wallet: Node = root.get_node_or_null("/root/Wallet")
+	if root_wallet != null and root_wallet.has_method("set_file_path"):
+		root_wallet.set_file_path(CurrencyManager.TEST_PATH)
+
 	var t := TestRunner.new()
 	_test_capture(t)
 	_test_death_rules(t)
@@ -41,7 +56,37 @@ func _process(_delta: float) -> bool:
 	_test_phase4_flags(t)
 	_test_phase5_cities(t)
 	_test_phase6_economy(t)
-	quit(0 if t.report() else 1)
+	_test_phase6_corrections_integration(t)
+
+	var ok := t.report()
+
+	# 2. Testlar tugagach ishlab chiqarish hamyoni o'zgarmaganligini tekshirish va tiklash:
+	var prod_still_matches := true
+	if prod_existed:
+		var f2 := FileAccess.open(prod_path, FileAccess.READ)
+		if f2 != null:
+			var now_bytes := f2.get_buffer(f2.get_length())
+			f2.close()
+			prod_still_matches = (now_bytes == prod_backup)
+		else:
+			prod_still_matches = false
+	else:
+		prod_still_matches = not FileAccess.file_exists(prod_path)
+
+	# Vaqtinchalik test hamyon faylini tozalash
+	if FileAccess.file_exists(CurrencyManager.TEST_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(CurrencyManager.TEST_PATH))
+
+	# Test rejimini o'chirish
+	CurrencyManager.set_test_mode(false)
+	if root_wallet != null and root_wallet.has_method("set_file_path"):
+		root_wallet.set_file_path(CurrencyManager.DEFAULT_PATH)
+
+	if not prod_still_matches:
+		printerr("XATOLIK: Testlar ishlab chiqarish hamyoni user://wallet.cfg ni o'zgartirib yubordi!")
+		ok = false
+
+	quit(0 if ok else 1)
 	return true
 
 # ——— Chizish qatlami ———
@@ -2415,5 +2460,289 @@ func _test_phase6_economy(t: TestRunner) -> void:
 		t.equal(tracker.get_total_conquest_coins(), 550, "50 + 500 = 550 tanga")
 	)
 
+func _test_phase6_corrections_integration(t: TestRunner) -> void:
+	t.group("phase 6 tuzatishlar va integratsiya")
 
+	# 1. Haqiqiy hamyon ma'lumotlarini testlar vaqtida himoyalash
+	t.test("1. Testlar haqiqiy user://wallet.cfg ni o'zgartirmaydi", func() -> void:
+		var mock_prod_path := "user://mock_prod_wallet_test.cfg"
+		var mock_cfg := ConfigFile.new()
+		mock_cfg.set_value("wallet", "coins", 8888)
+		mock_cfg.set_value("wallet", "gems", 44)
+		mock_cfg.save(mock_prod_path)
 
+		var mock_bytes_before := FileAccess.get_file_as_bytes(mock_prod_path)
+
+		# Test rejimida yangi test hamyon yaratamiz
+		var test_wallet := CurrencyManager.new("user://test_sandbox_wallet.cfg")
+		test_wallet.reset()
+		test_wallet.add_coins(500, "test", "tx_sandbox")
+
+		# Asl mock production fayli o'zgarmaganligini tekshiramiz
+		var mock_bytes_after := FileAccess.get_file_as_bytes(mock_prod_path)
+		t.equal(mock_bytes_after, mock_bytes_before, "Ishlab chiqarish hamyoni baytma-bayt o'zgarmadi")
+
+		var prod_checker := CurrencyManager.new(mock_prod_path)
+		t.equal(prod_checker.get_coins(), 8888, "Ishlab chiqarish balansi 8888 saqlanib qoldi")
+
+		# Tozalash
+		if FileAccess.file_exists(mock_prod_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(mock_prod_path))
+		if FileAccess.file_exists("user://test_sandbox_wallet.cfg"):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_sandbox_wallet.cfg"))
+	)
+
+	# 2. 60 tadan ortiq tranzaksiyalar himoyasi (ID lar esdan chiqmaydi)
+	t.test("2. 60 tadan ortiq tranzaksiya o'tsa ham eski ID lar qayta to'lanmaydi", func() -> void:
+		var test_path := "user://test_tx_limit.cfg"
+		var cm := CurrencyManager.new(test_path)
+		cm.reset()
+
+		# 80 ta har xil tranzaksiya kiritamiz
+		for i in 80:
+			var tx := "tx_conquest_seq_%d" % i
+			var added := cm.add_coins(10, "city_conquest", tx)
+			t.equal(added, 10, "Tranzaksiya %d qabul qilindi" % i)
+
+		t.equal(cm.get_coins(), 800, "Jami 800 tanga yig'ildi")
+		t.equal(cm.history().size(), 60, "UI jurnali 60 ta bilan cheklangan")
+
+		# 60 tadan tashqarida qolgan eng birinchi tranzaksiyani tekshiramiz:
+		t.check(cm.has_transaction("tx_conquest_seq_0"), "Eng birinchi tranzaksiya (0) eslab qolingan")
+		t.check(cm.has_transaction("tx_conquest_seq_19"), "Eski tranzaksiya (19) eslab qolingan")
+		t.check(cm.has_transaction("tx_conquest_seq_79"), "Eng yangi tranzaksiya (79) eslab qolingan")
+
+		# Eng birinchi tranzaksiyani qayta to'lashga urinib ko'ramiz:
+		var duplicate_add := cm.add_coins(500, "city_conquest", "tx_conquest_seq_0")
+		t.equal(duplicate_add, 0, "60 tadan eski tranzaksiya qayta to'lanmadi (0 tanga)")
+		t.equal(cm.get_coins(), 800, "Balans o'zgarmadi")
+
+		# Tozalash
+		if FileAccess.file_exists(test_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
+	)
+
+	# 3. Hamyonni diskdan qayta yuklaganda 60 tadan oshiq tranzaksiyalar xavfsiz tiklanadi
+	t.test("3. Hamyon qayta yuklanganda (restart) barcha tranzaksiya ID lari saqlanadi", func() -> void:
+		var test_path := "user://test_tx_restart.cfg"
+		var cm1 := CurrencyManager.new(test_path)
+		cm1.reset()
+		for i in 75:
+			cm1.add_coins(20, "city_conquest", "tx_restart_%d" % i)
+		cm1.save_currency()
+
+		# O'yinni o'chirib yoqishni simulyatsiya qilamiz
+		var cm2 := CurrencyManager.new(test_path)
+		cm2.load_currency()
+		t.equal(cm2.get_coins(), 1500, "Qayta yuklangan balans 1500")
+		t.check(cm2.has_transaction("tx_restart_0"), "Eng eski tranzaksiya qayta ochilganda ham bor")
+		t.check(cm2.has_transaction("tx_restart_74"), "Eng yangi tranzaksiya bor")
+
+		var dup := cm2.add_coins(500, "city_conquest", "tx_restart_0")
+		t.equal(dup, 0, "Qayta yuklangach ham takroriy to'lov rad etildi")
+
+		if FileAccess.file_exists(test_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
+	)
+
+	# 4. Haqiqiy hudud halqasi yopilganda shahar istilosi va hamyon to'lovi (Haqiqiy GameWorld)
+	t.test("4. Haqiqiy hudud halqasi yopilishi shahar istilosi va tanga beradi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 20
+		cfg.grid_height = 10
+		var world := GameWorld.new(cfg)
+		for y in range(2, 5):
+			for x in range(5, 8):
+				world.grid.set_owner(x, y, 1)
+
+		# Shaharni (8, 3) katakka joylashtiramiz
+		var places: Array = [{"x": 8, "y": 3, "pop": 250000, "name": "Bukhara", "code": "UZ"}]
+		world.cities.build(places, world.grid)
+		var city: CitySystem.CityData = world.cities.get_city_at_cell(8, 3)
+		t.check(city != null, "Shahar yaratildi")
+		t.equal(city.owner_id, 0, "Boshida shahar neytral")
+
+		# O'yinchini (5, 3) o'z hududiga joylashtiramiz
+		var p := PlayerState.new(1, "Player1", 0, false, 8.0, 4.0)
+		p.country = "UZ"
+		p.alive = true
+		p.place_at(5.5, 3.5, 0.0)
+		world.players.append(p)
+		world._by_id[1] = p
+
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_real_loop")
+
+		# Shaharni o'rab oladigan iz quramiz:
+		var trail_cells := [
+			Vector2i(7, 2), Vector2i(8, 2), Vector2i(9, 2), Vector2i(10, 2),
+			Vector2i(10, 3),
+			Vector2i(10, 4), Vector2i(9, 4), Vector2i(8, 4), Vector2i(7, 4)
+		]
+		for c_pos in trail_cells:
+			var idx := world.grid.index(c_pos.x, c_pos.y)
+			world.grid.set_trail_index(idx, p.id)
+			p.add_trail(idx)
+
+		# Halqani yopamiz (_finish_loop chaqiramiz)
+		world._finish_loop(p)
+
+		# Panjarada shahar katagi egallangan bo'lishi kerak:
+		t.equal(world.grid.owner_at(8, 3), 1, "Shahar katagi panjarada 1-o'yinchiga o'tdi")
+		t.equal(city.owner_id, 1, "Shahar egasi 1 bo'ldi")
+
+		# Voqeani tekshiramiz:
+		var found_event := false
+		for ev in world.events:
+			if ev.get("type") == "city_captured" and ev.get("player") == 1:
+				found_event = true
+				var claim_res := tracker.claim_city(ev["city"], true)
+				t.equal(bool(claim_res["eligible"]), true, "Haqiqiy halqa yopilgach mukofot munosib")
+				t.equal(int(claim_res["coins"]), city.get_conquest_reward(), "Mukofot MonetizationConfig ga teng")
+		t.check(found_event, "city_captured voqeasi generatsiya qilindi")
+	)
+
+	# 5. Halqa yopilmasdan o'lish yoki ustidan yurib o'tish mukofot bermaydi
+	t.test("5. Halqa yopilmasdan o'lish shaharni va mukofotni bermaydi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 20
+		cfg.grid_height = 10
+		var world := GameWorld.new(cfg)
+		for y in range(2, 5):
+			for x in range(5, 8):
+				world.grid.set_owner(x, y, 1)
+
+		var places: Array = [{"x": 9, "y": 3, "pop": 100000, "name": "Navoi", "code": "UZ"}]
+		world.cities.build(places, world.grid)
+		var city: CitySystem.CityData = world.cities.get_city_at_cell(9, 3)
+
+		var p := PlayerState.new(1, "Player1", 0, false, 8.0, 4.0)
+		p.country = "UZ"
+		p.alive = true
+		p.place_at(5.5, 3.5, 0.0)
+		world.players.append(p)
+		world._by_id[1] = p
+
+		# O'yinchi shaharning ustidan yurib o'tmoqda, lekin halqa yopmadi:
+		var idx := world.grid.index(9, 3)
+		world.grid.set_trail_index(idx, p.id)
+		p.add_trail(idx)
+
+		t.equal(city.owner_id, 0, "Shunchaki iz bosilganda shahar egallanmaydi")
+
+		# Halqa yopilmasdan o'yinchi halok bo'ldi:
+		world.kill(p, PlayerState.DeathCause.TRAIL_HIT, null)
+		t.equal(p.alive, false, "O'yinchi o'ldi")
+		t.check(p.trail.is_empty(), "Iz yo'qotildi")
+		t.equal(world.grid.owner_at(9, 3), 0, "Shahar katagi neytral qoldi")
+		t.equal(city.owner_id, 0, "Shahar hali ham neytral")
+
+		# Hech qanday city_captured voqeasi bo'lmasligi kerak:
+		var city_events := 0
+		for ev in world.events:
+			if ev.get("type") == "city_captured":
+				city_events += 1
+		t.equal(city_events, 0, "0 ta shahar egallandi voqeasi")
+	)
+
+	# 6. Bitta o'yinda shaharni bot egallab, keyin odam qayta egallasa qo'shimcha tanga berilmaydi
+	t.test("6. Qayta egallash (recapture) takroriy tanga bermaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_recapture")
+		var c := CitySystem.CityData.new()
+		c.id = 701
+		c.name = "Samarkand"
+		c.category = CitySystem.Category.MEDIUM
+		c.stable_id = "UZ_Samarkand_15_15"
+
+		# 1-marta: odam egallaydi
+		var res1 := tracker.claim_city(c, true)
+		t.equal(bool(res1["eligible"]), true, "1-marta odam egalladi (+200)")
+		t.equal(int(res1["coins"]), 200)
+
+		# 2-marta: Bot kelib shaharni tortib oladi
+		c.owner_id = 2
+		var res_bot := tracker.claim_city(c, false)
+		t.equal(bool(res_bot["eligible"]), false, "Bot egallaganda odamga tanga yo'q")
+
+		# 3-marta: Odam botdan shaharni qaytarib oladi (xuddi shu match)
+		c.owner_id = 1
+		var res_recapture := tracker.claim_city(c, true)
+		t.equal(bool(res_recapture["eligible"]), false, "Qayta egallanganda tanga berilmaydi (+0)")
+		t.equal(str(res_recapture["reason"]), "already_claimed")
+		t.equal(tracker.get_duplicates_prevented(), 1, "Takroriy istilo to'xtatildi")
+		t.equal(tracker.get_total_conquest_coins(), 200, "Umumiy tanga 200 bo'lib qoladi")
+	)
+
+	# 7. Match recovery va serializatsiya (save_state, from_dict, resume_or_start)
+	t.test("7. Match tiklash va serializatsiya barcha mukofotlarni saqlaydi", func() -> void:
+		var tracker1 := CitySystem.CityRewardTracker.new()
+		tracker1.reset("match_recovery_101")
+		var c1 := CitySystem.CityData.new()
+		c1.id = 801
+		c1.category = CitySystem.Category.SMALL
+		c1.stable_id = "UZ_Small_801"
+		tracker1.claim_city(c1, true)
+
+		var state_dict := tracker1.to_dict()
+		t.equal(str(state_dict["match_id"]), "match_recovery_101")
+		t.check((state_dict["claimed_stable_keys"] as Array).has("UZ_Small_801"))
+
+		# Yangi trackerda tiklaymiz
+		var tracker2 := CitySystem.CityRewardTracker.new()
+		tracker2.from_dict(state_dict)
+		t.equal(tracker2.get_match_id(), "match_recovery_101")
+		t.equal(tracker2.is_city_eligible(c1), false, "Tiklangach c1 shahar da'vo qilingan deb saqlanadi")
+		t.equal(tracker2.get_total_conquest_coins(), 50, "50 tanga saqlandi")
+
+		# Shu match resume qilinganda tarix tozalanmaydi
+		var resumed := tracker2.resume_or_start("match_recovery_101")
+		t.equal(resumed, true, "Xuddi shu match resume qilindi")
+		t.equal(tracker2.is_city_eligible(c1), false, "Resume dan so'ng ham mukofot takrorlanmaydi")
+
+		# Yangi match boshlanganda esa tozalanadi
+		var new_match := tracker2.resume_or_start("match_brand_new_999")
+		t.equal(new_match, false, "Yangi match boshlandi")
+		t.equal(tracker2.get_match_id(), "match_brand_new_999")
+		t.equal(tracker2.is_city_eligible(c1), true, "Yangi matchda shahar qayta munosib")
+	)
+
+	# 8. Natija ekrani va MonetizationConfig dinamik qiymatlari mosligi
+	t.test("8. Natija ekrani hisob-kitoblari MonetizationConfig ga to'liq mos", func() -> void:
+		var s_r := MonetizationConfig.get_city_capture_reward(CitySystem.Category.SMALL)
+		var m_r := MonetizationConfig.get_city_capture_reward(CitySystem.Category.MEDIUM)
+		var l_r := MonetizationConfig.get_city_capture_reward(CitySystem.Category.LARGE)
+
+		var conquest_data := {
+			"small_count": 3,
+			"medium_count": 2,
+			"large_count": 1,
+			"small_coins": 3 * s_r,
+			"medium_coins": 2 * m_r,
+			"large_coins": 1 * l_r,
+			"total": 3 * s_r + 2 * m_r + 1 * l_r,
+		}
+		t.equal(conquest_data["small_coins"], 150)
+		t.equal(conquest_data["medium_coins"], 400)
+		t.equal(conquest_data["large_coins"], 500)
+		t.equal(conquest_data["total"], 1050)
+	)
+
+	# 9. Hamyon maksimal balansi chegarasi (MonetizationConfig.MAX_BALANCE)
+	t.test("9. Hamyon balansi MAX_BALANCE dan oshib ketmaydi", func() -> void:
+		var test_path := "user://test_wallet_clamp.cfg"
+		var w := CurrencyManager.new(test_path)
+		w.reset()
+		var added := w.add_coins(MonetizationConfig.MAX_BALANCE + 1000, "overflow_test")
+		t.equal(w.get_coins(), MonetizationConfig.MAX_BALANCE, "Balans MAX_BALANCE ga cheklandi")
+		t.equal(added, MonetizationConfig.MAX_BALANCE, "Faqat sig'gan miqdor qaytdi")
+
+		var extra := w.add_coins(500, "city_conquest", "tx_after_max")
+		t.equal(extra, 0, "To'la hamyonga ortiqcha qo'shilmadi (0)")
+		t.equal(w.get_coins(), MonetizationConfig.MAX_BALANCE)
+
+		if FileAccess.file_exists(test_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
+	)

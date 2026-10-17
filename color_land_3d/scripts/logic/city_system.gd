@@ -345,6 +345,23 @@ func reconcile_with_grid(grid: GameGrid, players_by_id: Variant = null) -> Dicti
 ## O'yin davomida shaharlar istilosi mukofotlarini bir marta berilishini va
 ## takrorlanishdan himoyalanishini boshqaruvchi sessiya klassi (PHASE 6).
 class CityRewardTracker:
+	## O'yin davomida shaharlar istilosi mukofotlarini bir marta berilishini,
+	## takrorlanishdan himoyalanishini va o'yin to'xtatilib (pause) qayta
+	## davom ettirilganda (resume) yoki saqlangan holatdan tiklanganda (recovery)
+	## mukofotlar tarixini saqlab qolishni boshqaruvchi klass.
+	##
+	## O'yin xususiyati:
+	##  * Color Land 3D real vaqtdagi arcade o'yini: o'yinchi o'lganda yoki menyuga
+	##    chiqqanda o'yin tugaydi va natijalar qayd etiladi.
+	##  * O'yin davomida PAUSE/RESUME qilinganda yoki bitta match sessiyasi
+	##    davom etganda barcha egallangan shaharlar tarixi va mukofot huquqi
+	##    to'liq saqlanadi — qayta ochilganda qayta tanga berilmaydi.
+	##  * Agar o'yin holati diskka saqlansa, to_dict() va from_dict() orqali
+	##    match ID va barcha stable_id lar 100% tiklanadi.
+	##  * Yangi match boshlangandagina reset() orqali yangi sessiya boshlanadi.
+
+	const SAVE_FILE_PATH := "user://active_match_rewards.cfg"
+
 	var _claimed_ids: Dictionary = {} # city_id (int) -> bool
 	var _claimed_stable_keys: Dictionary = {} # stable_id (String) -> bool
 	var _match_id: String = ""
@@ -367,6 +384,21 @@ class CityRewardTracker:
 			Category.LARGE: 0,
 		}
 		_total_conquest_coins = 0
+
+	## Shu o'yin davom etayotgan bo'lsa (resume), tarixni tozalama!
+	## Faqat match_id boshqa bo'lsa yoki yangi o'yin bo'lsa reset qilinadi.
+	func resume_or_start(match_id: String) -> bool:
+		if not _match_id.is_empty() and _match_id == match_id:
+			# Xuddi shu o'yin davom etmoqda — tarix saqlanadi
+			return true
+		reset(match_id)
+		return false
+
+	func get_match_id() -> String:
+		return _match_id
+
+	func set_match_id(val: String) -> void:
+		_match_id = val
 
 	func is_city_eligible(city: CityData) -> bool:
 		if city == null:
@@ -413,7 +445,78 @@ class CityRewardTracker:
 	func get_claimed_city_ids() -> Array:
 		return _claimed_ids.keys()
 
+	func get_claimed_stable_keys() -> Array:
+		return _claimed_stable_keys.keys()
+
 	func restore_claimed_ids(ids: Array) -> void:
 		for id in ids:
 			_claimed_ids[int(id)] = true
+
+	func restore_claimed_stable_keys(keys: Array) -> void:
+		for k in keys:
+			var s := str(k)
+			if not s.is_empty():
+				_claimed_stable_keys[s] = true
+
+	## Holatni to'liq lug'atga eksport qilish (Serializatsiya)
+	func to_dict() -> Dictionary:
+		return {
+			"match_id": _match_id,
+			"claimed_ids": _claimed_ids.keys(),
+			"claimed_stable_keys": _claimed_stable_keys.keys(),
+			"duplicates_prevented": _duplicates_prevented,
+			"rewarded_counts": _rewarded_counts_by_category.duplicate(),
+			"total_conquest_coins": _total_conquest_coins,
+		}
+
+	## Saqlangan lug'atdan holatni 100% tiklash (Deserializatsiya)
+	func from_dict(data: Dictionary) -> void:
+		if data.is_empty():
+			return
+		_match_id = str(data.get("match_id", ""))
+		_duplicates_prevented = int(data.get("duplicates_prevented", 0))
+		_total_conquest_coins = int(data.get("total_conquest_coins", 0))
+
+		_claimed_ids.clear()
+		var ids: Array = data.get("claimed_ids", [])
+		for id in ids:
+			_claimed_ids[int(id)] = true
+
+		_claimed_stable_keys.clear()
+		var keys: Array = data.get("claimed_stable_keys", [])
+		for k in keys:
+			var s := str(k)
+			if not s.is_empty():
+				_claimed_stable_keys[s] = true
+
+		var counts: Dictionary = data.get("rewarded_counts", {})
+		_rewarded_counts_by_category = {
+			Category.SMALL: int(counts.get(Category.SMALL, counts.get(str(Category.SMALL), 0))),
+			Category.MEDIUM: int(counts.get(Category.MEDIUM, counts.get(str(Category.MEDIUM), 0))),
+			Category.LARGE: int(counts.get(Category.LARGE, counts.get(str(Category.LARGE), 0))),
+		}
+
+	## O'yin sessiyasini diskka saqlash (Recovery fayli)
+	func save_state(path: String = SAVE_FILE_PATH) -> bool:
+		var cfg := ConfigFile.new()
+		cfg.set_value("match", "state", to_dict())
+		var err := cfg.save(path)
+		return err == OK
+
+	## Saqlangan o'yin sessiyasini diskdan yuklab tiklash
+	func load_state(path: String = SAVE_FILE_PATH) -> bool:
+		var cfg := ConfigFile.new()
+		var err := cfg.load(path)
+		if err != OK:
+			return false
+		var data: Variant = cfg.get_value("match", "state", {})
+		if data is Dictionary and not data.is_empty():
+			from_dict(data)
+			return true
+		return false
+
+	## O'yin tugaganda saqlangan tiklash faylini o'chirish
+	func clear_saved_state(path: String = SAVE_FILE_PATH) -> void:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 

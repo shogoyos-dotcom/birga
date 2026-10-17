@@ -2224,7 +2224,7 @@ func _coin_card(reward: Dictionary) -> Control:
 
 	var conquest: Dictionary = _result_data.get("city_conquest", {})
 	var conquest_total: int = int(conquest.get("total", 0))
-	var grand_total: int = int(reward.get("total", 0)) + conquest_total
+	var grand_total: int = mini(int(reward.get("total", 0)) + conquest_total, MonetizationConfig.MAX_BALANCE)
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
@@ -2236,36 +2236,45 @@ func _coin_card(reward: Dictionary) -> Control:
 		UiKit.GOLD, HORIZONTAL_ALIGNMENT_RIGHT))
 	box.add_child(head)
 
-	# Shaharlar istilosi hisoboti (Phase 6)
+	# Shaharlar istilosi hisoboti (Phase 6 - dinamik MonetizationConfig qiymatlari)
+	var s_reward: int = MonetizationConfig.get_city_capture_reward(CitySystem.Category.SMALL)
+	var m_reward: int = MonetizationConfig.get_city_capture_reward(CitySystem.Category.MEDIUM)
+	var l_reward: int = MonetizationConfig.get_city_capture_reward(CitySystem.Category.LARGE)
+
 	var s_cnt := int(conquest.get("small_count", 0))
 	var m_cnt := int(conquest.get("medium_count", 0))
 	var l_cnt := int(conquest.get("large_count", 0))
+
+	var s_coins := int(conquest.get("small_coins", s_cnt * s_reward))
+	var m_coins := int(conquest.get("medium_coins", m_cnt * m_reward))
+	var l_coins := int(conquest.get("large_coins", l_cnt * l_reward))
+
 	if conquest_total > 0 or s_cnt > 0 or m_cnt > 0 or l_cnt > 0:
 		var c_hdr := UiKit.label("Shahar istilolari (Conquest)", 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
 		box.add_child(c_hdr)
 
 		if s_cnt > 0:
 			var s_row := HBoxContainer.new()
-			var s_title := UiKit.label("  ● Kichik: %d × 50" % s_cnt, 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			var s_title := UiKit.label("  ● Kichik: %d × %d" % [s_cnt, s_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
 			s_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			s_row.add_child(s_title)
-			s_row.add_child(UiKit.label("+%d" % (s_cnt * 50), 12, UiKit.INK))
+			s_row.add_child(UiKit.label("+%d" % s_coins, 12, UiKit.INK))
 			box.add_child(s_row)
 
 		if m_cnt > 0:
 			var m_row := HBoxContainer.new()
-			var m_title := UiKit.label("  ◆ O'rta: %d × 200" % m_cnt, 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			var m_title := UiKit.label("  ◆ O'rta: %d × %d" % [m_cnt, m_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
 			m_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			m_row.add_child(m_title)
-			m_row.add_child(UiKit.label("+%d" % (m_cnt * 200), 12, UiKit.INK))
+			m_row.add_child(UiKit.label("+%d" % m_coins, 12, UiKit.INK))
 			box.add_child(m_row)
 
 		if l_cnt > 0:
 			var l_row := HBoxContainer.new()
-			var l_title := UiKit.label("  ★ Katta: %d × 500" % l_cnt, 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			var l_title := UiKit.label("  ★ Katta: %d × %d" % [l_cnt, l_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
 			l_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			l_row.add_child(l_title)
-			l_row.add_child(UiKit.label("+%d" % (l_cnt * 500), 12, UiKit.INK))
+			l_row.add_child(UiKit.label("+%d" % l_coins, 12, UiKit.INK))
 			box.add_child(l_row)
 
 		var c_tot_row := HBoxContainer.new()

@@ -1189,13 +1189,20 @@ func _end_match() -> void:
 	store.record_match_stats(p.kills, _spheres_collected, _human_revived, country_won, is_perfect)
 	store.record_economy_stats(_match_conquest_coins, _coin_field.collected(), _city_reward_tracker.get_claimed_count(), _duplicates_prevented_count)
 
+	var s_cnt := _city_reward_tracker.get_rewarded_count(CitySystem.Category.SMALL)
+	var m_cnt := _city_reward_tracker.get_rewarded_count(CitySystem.Category.MEDIUM)
+	var l_cnt := _city_reward_tracker.get_rewarded_count(CitySystem.Category.LARGE)
 	var city_conquest_data: Dictionary = {
-		"small_count": _city_reward_tracker.get_rewarded_count(0),
-		"medium_count": _city_reward_tracker.get_rewarded_count(1),
-		"large_count": _city_reward_tracker.get_rewarded_count(2),
+		"small_count": s_cnt,
+		"medium_count": m_cnt,
+		"large_count": l_cnt,
+		"small_coins": s_cnt * MonetizationConfig.get_city_capture_reward(CitySystem.Category.SMALL),
+		"medium_coins": m_cnt * MonetizationConfig.get_city_capture_reward(CitySystem.Category.MEDIUM),
+		"large_coins": l_cnt * MonetizationConfig.get_city_capture_reward(CitySystem.Category.LARGE),
 		"total": _match_conquest_coins,
 		"cities_owned": world.cities.get_player_captured_count(p.id) if world.cities != null else 0,
 		"total_cities": world.cities.get_total_cities_count() if world.cities != null else 0,
+		"duplicates_prevented": _duplicates_prevented_count,
 	}
 	ui.set_result(percent, p.kills, world.elapsed,
 		Strings.death_reason(p.death_cause), is_record, reward, moved, city_conquest_data)

@@ -494,6 +494,51 @@ func _drive() -> void:
 				view.world.cities._player_captured_counts[p.id] = 2
 				view._refresh_hud()
 
+			elif _mode == "p6_live_conquest_evidence":
+				var target_city = null
+				for c in cities_list:
+					if c.category == CitySystem.Category.MEDIUM and c.name == "Paris":
+						target_city = c
+						break
+				if target_city == null:
+					for c in cities_list:
+						if c.category == CitySystem.Category.MEDIUM:
+							target_city = c
+							break
+				if target_city != null:
+					var cx := int(target_city.pos.x)
+					var cy := int(target_city.pos.y)
+					# Boshlang'ich hududni yoniga qo'yamiz
+					for dy in range(-4, 5):
+						for dx in range(-12, -7):
+							if view.world.grid.playable(cx + dx, cy + dy):
+								view.world.grid.set_owner(cx + dx, cy + dy, p.id)
+					p.x = float(cx - 7)
+					p.y = float(cy)
+					p.alive = true
+					view.paint.sync()
+					view._city_renderer._spawn_city_node(target_city)
+
+					# Shaharni to'liq o'rab oladigan iz
+					var trail_offsets := [
+						Vector2i(-6, -5), Vector2i(-3, -6), Vector2i(0, -6), Vector2i(3, -6), Vector2i(6, -5),
+						Vector2i(7, -3), Vector2i(7, 0), Vector2i(7, 3), Vector2i(6, 5),
+						Vector2i(3, 6), Vector2i(0, 6), Vector2i(-3, 6), Vector2i(-6, 5)
+					]
+					for off: Vector2i in trail_offsets:
+						var gx: int = cx + off.x
+						var gy: int = cy + off.y
+						if view.world.grid.playable(gx, gy):
+							var idx: int = view.world.grid.index(gx, gy)
+							view.world.grid.set_trail_index(idx, p.id)
+							p.add_trail(idx)
+
+					# Haqiqiy dvigatel funksiyasini chaqiramiz:
+					view.world._finish_loop(p)
+					view.paint.sync()
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-7.5, 9.5, 9.5), cpos + Vector3(0, 1.5, 0))
+
 		if _mode == "p6_gameplay_flags_cities":
 			view.steer_human(_elapsed * 0.48)
 			view.revive_human_for_demo()
