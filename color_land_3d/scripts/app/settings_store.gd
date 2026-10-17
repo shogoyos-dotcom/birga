@@ -259,6 +259,18 @@ var daily_streak: int:
 	get: return int(_read("daily_streak", 1))
 	set(v): _write("daily_streak", v)
 
+var total_city_conquest_coins: int:
+	get: return int(_read("total_city_conquest_coins", 0))
+
+var total_pickup_coins: int:
+	get: return int(_read("total_pickup_coins", 0))
+
+var total_cities_rewarded: int:
+	get: return int(_read("total_cities_rewarded", 0))
+
+var total_duplicates_prevented: int:
+	get: return int(_read("total_duplicates_prevented", 0))
+
 ## Liga nomi (rekord va o'yinlar bo'yicha).
 func league_name() -> String:
 	var kills := total_kills
@@ -282,6 +294,10 @@ func stats_dict(daily_streak: int = 0) -> Dictionary:
 		"countries": total_countries_won,
 		"perfect_wins": total_perfect_wins,
 		"streak": daily_streak,
+		"city_conquest_coins": total_city_conquest_coins,
+		"pickup_coins": total_pickup_coins,
+		"cities_rewarded": total_cities_rewarded,
+		"duplicates_prevented": total_duplicates_prevented,
 	}
 
 ## O'yin tugaganda statistikani yangilash.
@@ -300,3 +316,15 @@ func record_match_stats(kills: int, spheres: int, revived: bool, country_won: bo
 ## Kuchaytirgich ishlatilganda sonini oshirish.
 func record_upgrade_used(count: int = 1) -> void:
 	_write("total_upgrades", total_upgrades + count)
+
+## O'yin tugaganda shahar istilosi va tanga statistikasini saqlash (PHASE 6).
+func record_economy_stats(conquest_coins: int, pickup_coins: int, cities_rewarded: int, duplicates_prevented: int = 0) -> void:
+	if conquest_coins > 0:
+		_write("total_city_conquest_coins", total_city_conquest_coins + conquest_coins)
+	if pickup_coins > 0:
+		_write("total_pickup_coins", total_pickup_coins + pickup_coins)
+	if cities_rewarded > 0:
+		_write("total_cities_rewarded", total_cities_rewarded + cities_rewarded)
+	if duplicates_prevented > 0:
+		_write("total_duplicates_prevented", total_duplicates_prevented + duplicates_prevented)
+

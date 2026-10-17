@@ -63,24 +63,40 @@ const CITY_COIN_MAX := 25
 ## tanga qaytguncha boshqa yerdan yer egallash kerak.
 const CITY_COIN_RESPAWN := 30.0
 
-## Shahar toifalari va ulardan olinadigan haqiqiy tangalar (PHASE 5-6 va UI uchun umumiy)
+# ——— Shahar istilosi mukofotlari (PHASE 6) ———
+
+## Shahar toifasi bo'yicha beriladigan rasmiy istilo mukofotlari
+## Kichik = 50, O'rta = 200, Katta = 500
+const CITY_CAPTURE_REWARDS := {
+	0: 50,  # Category.SMALL
+	1: 200, # Category.MEDIUM
+	2: 500, # Category.LARGE
+}
+
+static func get_city_capture_reward(category: int) -> int:
+	match category:
+		1: return 200
+		2: return 500
+		_: return 50
+
+## Shahar toifalari va ulardan olinadigan haqiqiy tangalar (PHASE 6 va UI uchun markaziy konfiguratsiya)
 const CITY_REWARDS := {
 	"small": {
 		"title": "Small City",
-		"desc": "Aholisi 100k gacha shaharchalar",
-		"coins": 5,
+		"desc": "Aholisi 200k gacha shaharchalar",
+		"coins": 50,
 		"icon": "village"
 	},
 	"medium": {
 		"title": "Medium City",
-		"desc": "Aholisi 100k - 1M o'rta shaharlar",
-		"coins": 15,
+		"desc": "Aholisi 200k - 1M o'rta shaharlar",
+		"coins": 200,
 		"icon": "city"
 	},
 	"large": {
 		"title": "Large City",
 		"desc": "Aholisi 1M+ poytaxt va megapolislar",
-		"coins": 25,
+		"coins": 500,
 		"icon": "metropolis"
 	}
 }

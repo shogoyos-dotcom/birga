@@ -9,6 +9,7 @@ extends RefCounted
 
 const CityNames = preload("res://scripts/app/city_names.gd")
 const RewardManager = preload("res://scripts/money/reward_manager.gd")
+const MonetizationConfig = preload("res://scripts/money/monetization_config.gd")
 const Profile = preload("res://scripts/app/profile.gd")
 
 enum Category {
@@ -19,6 +20,7 @@ enum Category {
 
 class CityData:
 	var id: int = 0
+	var stable_id: String = ""
 	var name: String = ""
 	var display_name: String = ""
 	var country_code: String = ""
@@ -34,7 +36,7 @@ class CityData:
 	var owner_name: String = ""
 	var capture_time: float = 0.0
 	var regional_style: String = "default"
-	var reward_coins: int = 5
+	var reward_coins: int = 50
 	var weight: float = 0.0
 	var rank: float = 0.0
 	var neighbor_dist: float = 999.0
@@ -44,6 +46,9 @@ class CityData:
 
 	func is_owned_by(player_id: int) -> bool:
 		return owner_id == player_id
+
+	func get_conquest_reward() -> int:
+		return MonetizationConfig.get_city_capture_reward(category)
 
 	func category_name() -> String:
 		match category:
@@ -117,6 +122,7 @@ func build(places: Array, grid: GameGrid) -> void:
 		city.name = raw_name
 		city.display_name = CityNames.of(raw_name)
 		city.country_code = code
+		city.stable_id = "%s_%s_%d_%d" % [code, raw_name, x, y]
 		city.country_name = _get_country_name(code)
 		city.x = x
 		city.y = y
@@ -129,7 +135,7 @@ func build(places: Array, grid: GameGrid) -> void:
 		city.owner_name = ""
 		city.capture_time = 0.0
 		city.regional_style = reg
-		city.reward_coins = RewardManager.city_coin(weight)
+		city.reward_coins = MonetizationConfig.get_city_capture_reward(cat)
 		city.weight = weight
 		city.rank = rank
 
@@ -335,3 +341,79 @@ func reconcile_with_grid(grid: GameGrid, players_by_id: Variant = null) -> Dicti
 			transferred.append(c)
 
 	return {"lost": lost, "transferred": transferred}
+
+## O'yin davomida shaharlar istilosi mukofotlarini bir marta berilishini va
+## takrorlanishdan himoyalanishini boshqaruvchi sessiya klassi (PHASE 6).
+class CityRewardTracker:
+	var _claimed_ids: Dictionary = {} # city_id (int) -> bool
+	var _claimed_stable_keys: Dictionary = {} # stable_id (String) -> bool
+	var _match_id: String = ""
+	var _duplicates_prevented: int = 0
+	var _rewarded_counts_by_category: Dictionary = {
+		Category.SMALL: 0,
+		Category.MEDIUM: 0,
+		Category.LARGE: 0,
+	}
+	var _total_conquest_coins: int = 0
+
+	func reset(match_id: String = "") -> void:
+		_claimed_ids.clear()
+		_claimed_stable_keys.clear()
+		_match_id = match_id if not match_id.is_empty() else str(int(Time.get_unix_time_from_system()))
+		_duplicates_prevented = 0
+		_rewarded_counts_by_category = {
+			Category.SMALL: 0,
+			Category.MEDIUM: 0,
+			Category.LARGE: 0,
+		}
+		_total_conquest_coins = 0
+
+	func is_city_eligible(city: CityData) -> bool:
+		if city == null:
+			return false
+		if _claimed_ids.has(city.id):
+			return false
+		if not city.stable_id.is_empty() and _claimed_stable_keys.has(city.stable_id):
+			return false
+		return true
+
+	func claim_city(city: CityData, is_human: bool) -> Dictionary:
+		if not is_human:
+			return {"eligible": false, "coins": 0, "reason": "bot"}
+		if not is_city_eligible(city):
+			_duplicates_prevented += 1
+			return {"eligible": false, "coins": 0, "reason": "already_claimed"}
+		_claimed_ids[city.id] = true
+		if not city.stable_id.is_empty():
+			_claimed_stable_keys[city.stable_id] = true
+		var coins: int = MonetizationConfig.get_city_capture_reward(city.category)
+		_rewarded_counts_by_category[city.category] = int(_rewarded_counts_by_category.get(city.category, 0)) + 1
+		_total_conquest_coins += coins
+		var tx_id := "conquest_%s_city_%d" % [_match_id, city.id]
+		return {
+			"eligible": true,
+			"coins": coins,
+			"category": city.category,
+			"tx_id": tx_id,
+			"city_name": city.display_name,
+		}
+
+	func get_rewarded_count(cat: int) -> int:
+		return int(_rewarded_counts_by_category.get(cat, 0))
+
+	func get_total_conquest_coins() -> int:
+		return _total_conquest_coins
+
+	func get_duplicates_prevented() -> int:
+		return _duplicates_prevented
+
+	func get_claimed_count() -> int:
+		return _claimed_ids.size()
+
+	func get_claimed_city_ids() -> Array:
+		return _claimed_ids.keys()
+
+	func restore_claimed_ids(ids: Array) -> void:
+		for id in ids:
+			_claimed_ids[int(id)] = true
+

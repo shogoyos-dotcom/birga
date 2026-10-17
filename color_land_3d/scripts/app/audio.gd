@@ -227,3 +227,9 @@ func death() -> void:
 func tap() -> void:
 	_play("tap")
 	_buzz(12)
+
+## Tanga yoki shahar istilasi mukofoti olinganda.
+func coin() -> void:
+	_play("tap")
+	_buzz(20)
+

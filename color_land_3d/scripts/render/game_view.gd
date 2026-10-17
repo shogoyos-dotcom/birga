@@ -102,6 +102,12 @@ var store: SettingsStore
 ## O'limda bo'shagan kataklar — belet bilan davom etilganda qaytariladi.
 var _cleared_on_death := PackedInt32Array()
 
+# ——— Phase 6: Shahar istilolari va o'yin iqtisodiyoti ———
+var _match_id: String = ""
+var _city_reward_tracker: CitySystem.CityRewardTracker = CitySystem.CityRewardTracker.new()
+var _match_conquest_coins: int = 0
+var _duplicates_prevented_count: int = 0
+
 func _ready() -> void:
 	# Quyosh yuqoridan va yon tomondan tushadi: yorqin va toza kunduzgi yorug'lik
 	sun.rotation_degrees = Vector3(-56.0, -35.0, 0.0)
@@ -173,6 +179,10 @@ func _config_from_store() -> GameConfig:
 ## Yangi o'yin: dunyo, arena va o'yinchilar qaytadan quriladi.
 func _new_match() -> void:
 	_captures = 0
+	_match_id = "%d_%d" % [int(Time.get_unix_time_from_system()), randi() % 100000]
+	_city_reward_tracker.reset(_match_id)
+	_match_conquest_coins = 0
+	_duplicates_prevented_count = 0
 	config = _config_from_store()
 	world = MatchBuilder.create(
 		config, store.color_index, _player_name(), store.avatar, 0,
@@ -1009,17 +1019,37 @@ func _handle_events() -> void:
 					_coins.take(taken)
 			"city_captured":
 				var c_cap: CitySystem.CityData = event["city"]
+				var is_starting: bool = bool(event.get("initial", false))
+				var is_human: bool = (int(event["player"]) == human_id)
 				if _city_renderer != null:
 					_city_renderer.on_city_captured(c_cap)
-				var c_cell := int(c_cap.y) * world.grid.width + int(c_cap.x)
-				var coins_won: int = _coin_field.get_last_collected_coin_for_cell(c_cell)
-				if int(event["player"]) == human_id:
-					Audio.capture()
-					ui.flash(Color("38bdf8"), 0.22)
-					if coins_won > 0:
-						ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), coins_won])
+
+				if is_human and not is_starting:
+					var claim_res: Dictionary = _city_reward_tracker.claim_city(c_cap, true)
+					if bool(claim_res.get("eligible", false)):
+						var reward_amount: int = int(claim_res.get("coins", 0))
+						var tx_id: String = str(claim_res.get("tx_id", ""))
+						var credited := Wallet.add_coins(reward_amount, "city_conquest", tx_id)
+						if credited > 0:
+							_match_conquest_coins += credited
+							Metrics.send(Analytics.COIN_EARNED, {"amount": credited, "source": "city_conquest", "city": c_cap.name})
+							Audio.capture()
+							if Audio.has_method("coin"):
+								Audio.coin()
+							ui.flash(Color("facc15"), 0.25)
+							_spawn_conquest_reward_fx(c_cap, credited)
+							ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), credited])
 					else:
+						_duplicates_prevented_count += 1
+						Audio.capture()
+						ui.flash(Color("38bdf8"), 0.16)
 						ui.toast("★ %s EGALLANDI!" % c_cap.display_name.to_upper())
+				elif is_human and is_starting:
+					# Boshlang'ich hudud doirasi - bepul
+					pass
+				else:
+					# Bot egallagan bo'lsa
+					pass
 				_refresh_hud()
 			"city_lost":
 				var c_lost: CitySystem.CityData = event["city"]
@@ -1066,6 +1096,59 @@ func _spawn_floating_coin(at: Vector3, text: String) -> void:
 	tw.chain().tween_property(label, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(label.queue_free)
 
+func _spawn_conquest_reward_fx(city: CitySystem.CityData, amount: int) -> void:
+	var at := Vector3(city.pos.x, ArenaBuilder.LAND_HEIGHT + 2.5, city.pos.y)
+	var label := Label3D.new()
+	label.text = "+%d 🪙\n%s" % [amount, city.display_name.to_upper()]
+	label.font = UiKit.display_font()
+	label.font_size = 50
+	label.outline_size = 12
+	label.modulate = UiKit.GOLD
+	label.outline_modulate = UiKit.INK
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.render_priority = 6
+	label.outline_render_priority = 5
+	label.pixel_size = 0.026
+	label.position = at
+	add_child(label)
+
+	var tw := label.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(label, "position:y", at.y + 3.8, 1.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(label, "scale", Vector3(1.25, 1.25, 1.25), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(label, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(label.queue_free)
+
+	_spawn_coin_particles(at)
+
+func _spawn_coin_particles(at: Vector3) -> void:
+	var parts := CPUParticles3D.new()
+	parts.position = at
+	parts.emitting = true
+	parts.one_shot = true
+	parts.explosiveness = 0.85
+	parts.lifetime = 1.1
+	parts.amount = 14
+	parts.direction = Vector3(0, 1, 0)
+	parts.spread = 45.0
+	parts.initial_velocity_min = 4.0
+	parts.initial_velocity_max = 7.0
+	parts.gravity = Vector3(0, -9.8, 0)
+
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.2
+	mesh.bottom_radius = 0.2
+	mesh.height = 0.06
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color("fbbf24")
+	mesh.material = mat
+	parts.mesh = mesh
+
+	add_child(parts)
+	get_tree().create_timer(1.3).timeout.connect(parts.queue_free)
+
 func _end_match() -> void:
 	_set_playing(false)
 	_dragging = false
@@ -1104,8 +1187,18 @@ func _end_match() -> void:
 	var country_won: bool = moved.has("done") and not (moved["done"] as Array).is_empty()
 	var is_perfect: bool = (percent >= 99.9)
 	store.record_match_stats(p.kills, _spheres_collected, _human_revived, country_won, is_perfect)
+	store.record_economy_stats(_match_conquest_coins, _coin_field.collected(), _city_reward_tracker.get_claimed_count(), _duplicates_prevented_count)
+
+	var city_conquest_data: Dictionary = {
+		"small_count": _city_reward_tracker.get_rewarded_count(0),
+		"medium_count": _city_reward_tracker.get_rewarded_count(1),
+		"large_count": _city_reward_tracker.get_rewarded_count(2),
+		"total": _match_conquest_coins,
+		"cities_owned": world.cities.get_player_captured_count(p.id) if world.cities != null else 0,
+		"total_cities": world.cities.get_total_cities_count() if world.cities != null else 0,
+	}
 	ui.set_result(percent, p.kills, world.elapsed,
-		Strings.death_reason(p.death_cause), is_record, reward, moved)
+		Strings.death_reason(p.death_cause), is_record, reward, moved, city_conquest_data)
 	ui.show_screen(ui.Screen.RESULT)
 
 
@@ -1207,8 +1300,12 @@ func _on_city_selected(city: CitySystem.CityData) -> void:
 	if city == null or world == null or world.grid == null:
 		return
 	var cell := int(city.y) * world.grid.width + int(city.x)
-	var avail: bool = _coin_field.is_coin_available_at_cell(cell)
-	ui.show_city_info_modal(city, avail)
+	var avail: bool = _coin_field.is_coin_available_at_cell(cell) if _coin_field != null else false
+	var already_claimed: bool = not _city_reward_tracker.is_city_eligible(city) if _city_reward_tracker != null else false
+	var h = world.human()
+	var human_id: int = h.id if h != null else 1
+	var is_owned: bool = city.is_owned_by(human_id)
+	ui.show_city_info_modal(city, avail, already_claimed, is_owned)
 
 func _steer(at: Vector2) -> void:
 	if not _dragging:
@@ -1341,8 +1438,9 @@ func _refresh_hud() -> void:
 		world.percent_of(p), p.kills, world.elapsed,
 		world.rank_of(p), world.alive_count(), _leaderboard(),
 		Vector2(p.x / world.grid.width, p.y / world.grid.height),
-		_coin_field.collected() + _loose_coins,
-		bot_pts)
+		Wallet.get_coins(),
+		bot_pts,
+		_match_conquest_coins + _coin_field.collected() + _loose_coins)
 	if world.cities != null:
 		ui.update_hud_cities(world.cities.get_player_captured_count(p.id), world.cities.get_total_cities_count())
 

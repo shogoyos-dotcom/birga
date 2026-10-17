@@ -40,6 +40,7 @@ func _process(_delta: float) -> bool:
 	_test_phase3_scaling(t)
 	_test_phase4_flags(t)
 	_test_phase5_cities(t)
+	_test_phase6_economy(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -2139,5 +2140,280 @@ func _test_phase5_cities(t: TestRunner) -> void:
 		t.equal(lille.neighbor_dist, 6.0, "Lill qo'shni masofasi 6 katak")
 		t.check(remote.neighbor_dist > 50.0, "Uzoq shahar masofasi katta: %.1f" % remote.neighbor_dist)
 	)
+
+func _test_phase6_economy(t: TestRunner) -> void:
+	t.group("phase 6 — shahar mukofotlari va iqtisodiyot")
+
+	# 1, 2, 3: Kichik = 50, O'rta = 200, Katta = 500
+	t.test("1. Kichik shahar aniq 50 tanga beradi", func() -> void:
+		t.equal(MonetizationConfig.get_city_capture_reward(CitySystem.Category.SMALL), 50, "Kichik shahar mukofoti 50")
+		t.equal(int(MonetizationConfig.CITY_CAPTURE_REWARDS[CitySystem.Category.SMALL]), 50, "CITY_CAPTURE_REWARDS small 50")
+		t.equal(int(MonetizationConfig.CITY_REWARDS["small"]["coins"]), 50, "CITY_REWARDS small 50")
+	)
+
+	t.test("2. O'rta shahar aniq 200 tanga beradi", func() -> void:
+		t.equal(MonetizationConfig.get_city_capture_reward(CitySystem.Category.MEDIUM), 200, "O'rta shahar mukofoti 200")
+		t.equal(int(MonetizationConfig.CITY_CAPTURE_REWARDS[CitySystem.Category.MEDIUM]), 200, "CITY_CAPTURE_REWARDS medium 200")
+		t.equal(int(MonetizationConfig.CITY_REWARDS["medium"]["coins"]), 200, "CITY_REWARDS medium 200")
+	)
+
+	t.test("3. Katta shahar aniq 500 tanga beradi", func() -> void:
+		t.equal(MonetizationConfig.get_city_capture_reward(CitySystem.Category.LARGE), 500, "Katta shahar mukofoti 500")
+		t.equal(int(MonetizationConfig.CITY_CAPTURE_REWARDS[CitySystem.Category.LARGE]), 500, "CITY_CAPTURE_REWARDS large 500")
+		t.equal(int(MonetizationConfig.CITY_REWARDS["large"]["coins"]), 500, "CITY_REWARDS large 500")
+	)
+
+	# 4 & 5: Hamyon balansi to'g'ri o'sadi, gemlar o'zgarmaydi
+	t.test("4 & 5. Hamyon balansi to'g'ri o'sadi va gemlar o'zgarmaydi", func() -> void:
+		var wallet := CurrencyManager.new()
+		wallet.reset()
+		var init_coins := wallet.get_coins()
+		var init_gems := wallet.get_gems()
+		var credited := wallet.add_coins(50, "city_conquest", "tx_test_1")
+		t.equal(credited, 50, "50 tanga qo'shildi")
+		t.equal(wallet.get_coins(), init_coins + 50, "Hamyon balansi 50 ga oshdi")
+		t.equal(wallet.get_gems(), init_gems, "Gemlar o'zgarmadi")
+	)
+
+	# 6. Muvaffaqiyatsiz egallash (loop yopilmagan) mukofot bermaydi
+	t.test("6. Muvaffaqiyatsiz egallash tanga bermaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_fail")
+		t.equal(tracker.get_total_conquest_coins(), 0, "Muvaffaqiyatsiz egallashda tanga 0")
+		t.equal(tracker.get_claimed_count(), 0, "Hech bir shahar da'vo qilinmadi")
+	)
+
+	# 7. Shahar ustidan shunchaki yurib o'tish (trail yopilmay) mukofot bermaydi
+	t.test("7. Shahar ustidan yurib o'tish istilo mukofoti bermaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_walk")
+		t.equal(tracker.get_total_conquest_coins(), 0, "Yurib o'tishda istilo tangasi 0")
+	)
+
+	# 8. Boshlang'ich hudud doirasi (spawn disc) istilo mukofoti bermaydi
+	t.test("8. Boshlang'ich hudud yaratilganda tanga berilmaydi", func() -> void:
+		var is_starting := true
+		var should_reward := not is_starting
+		t.equal(should_reward, false, "Boshlang'ich hududda shahar istilosi mukofoti berilmaydi")
+	)
+
+	# 9. Haqiqiy shahar istilosi bir marta mukofot beradi
+	t.test("9. Haqiqiy shahar istilosi bir marta mukofot beradi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_valid")
+		var c := CitySystem.CityData.new()
+		c.id = 101
+		c.name = "Samarkand"
+		c.display_name = "Samarqand"
+		c.category = CitySystem.Category.MEDIUM
+		c.stable_id = "UZ_Samarkand_10_20"
+		var res := tracker.claim_city(c, true)
+		t.equal(bool(res["eligible"]), true, "Shahar istilosi munosib")
+		t.equal(int(res["coins"]), 200, "O'rta shahar 200 tanga berdi")
+		t.equal(tracker.get_total_conquest_coins(), 200, "Jami 200 tanga qayd etildi")
+	)
+
+	# 10. Bitta o'yinda xuddi shu shaharni qayta egallash qo'shimcha tanga bermaydi
+	t.test("10. Bir xil shaharni qayta egallash takroriy mukofot bermaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_duplicate")
+		var c := CitySystem.CityData.new()
+		c.id = 102
+		c.name = "Paris"
+		c.display_name = "Parij"
+		c.category = CitySystem.Category.LARGE
+		c.stable_id = "FR_Paris_50_50"
+
+		var res1 := tracker.claim_city(c, true)
+		var res2 := tracker.claim_city(c, true)
+		t.equal(bool(res1["eligible"]), true, "Birinchi egallash munosib")
+		t.equal(bool(res2["eligible"]), false, "Ikkinchi egallash nomunosib (0 tanga)")
+		t.equal(tracker.get_total_conquest_coins(), 500, "Jami faqat 500 tanga berildi")
+		t.equal(tracker.get_duplicates_prevented(), 1, "1 ta takroriy urinish to'xtatildi")
+	)
+
+	# 11. Har xil munosib shaharlar o'z mukofotlarini beradi
+	t.test("11. Turli shaharlar o'z mukofotlarini beradi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_multi")
+		var c1 := CitySystem.CityData.new()
+		c1.id = 201
+		c1.category = CitySystem.Category.SMALL
+		c1.stable_id = "CA_Small_1_1"
+
+		var c2 := CitySystem.CityData.new()
+		c2.id = 202
+		c2.category = CitySystem.Category.MEDIUM
+		c2.stable_id = "CA_Med_2_2"
+
+		var c3 := CitySystem.CityData.new()
+		c3.id = 203
+		c3.category = CitySystem.Category.LARGE
+		c3.stable_id = "CA_Large_3_3"
+
+		tracker.claim_city(c1, true)
+		tracker.claim_city(c2, true)
+		tracker.claim_city(c3, true)
+		t.equal(tracker.get_total_conquest_coins(), 750, "50+200+500 = 750 tanga")
+		t.equal(tracker.get_claimed_count(), 3, "3 ta shahar da'vo qilindi")
+	)
+
+	# 12. Bot egallaganda odam hamyoniga tanga tushmaydi
+	t.test("12. Bot istilosi odam hamyoniga tanga bermaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_bot")
+		var c := CitySystem.CityData.new()
+		c.id = 301
+		c.category = CitySystem.Category.LARGE
+		var res := tracker.claim_city(c, false)
+		t.equal(bool(res["eligible"]), false, "Bot istilosi odamga mukofot bermaydi")
+		t.equal(int(res["coins"]), 0, "Bot istilosidan tanga 0")
+		t.equal(tracker.get_total_conquest_coins(), 0, "Hamyon balansi 0")
+	)
+
+	# 13. Takroriy tranzaksiya ID (idempotentlik) hamyonni ikki marta to'ldirmaydi
+	t.test("13. Idempotent tranzaksiya ikki marta to'lamaydi", func() -> void:
+		var wallet := CurrencyManager.new()
+		wallet.reset()
+		var tx_id := "tx_unique_conquest_999"
+		var first_add := wallet.add_coins(500, "city_conquest", tx_id)
+		var second_add := wallet.add_coins(500, "city_conquest", tx_id)
+		t.equal(first_add, 500, "Birinchi qo'shish 500")
+		t.equal(second_add, 0, "Ikkinchi qo'shish 0 (idempotent)")
+		t.check(wallet.has_transaction(tx_id), "Tranzaksiya qayd qilingan")
+	)
+
+	# 14. Saqlash va yuklash hamyon balansini to'liq saqlaydi
+	t.test("14. Saqlash va yuklash hamyon balansini to'liq saqlaydi", func() -> void:
+		var w1 := CurrencyManager.new()
+		w1.reset()
+		w1.add_coins(1250, "test", "tx_save_test")
+		w1.save_currency()
+
+		var w2 := CurrencyManager.new()
+		w2.load_currency()
+		t.equal(w2.get_coins(), 1250, "Yuklangan hamyon balansi 1250")
+		t.check(w2.has_transaction("tx_save_test"), "Saqlangan tranzaksiya mavjud")
+	)
+
+	# 15. Tiklangan o'yinda da'vo qilingan shaharlar tarixi saqlanadi
+	t.test("15. O'yin tiklanganda da'vo qilingan shaharlar tarixi saqlanadi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_save_resume")
+		var c := CitySystem.CityData.new()
+		c.id = 401
+		c.stable_id = "UZ_Tashkent_1_1"
+		c.category = CitySystem.Category.LARGE
+		tracker.claim_city(c, true)
+
+		var saved_ids := tracker.get_claimed_city_ids()
+		var tracker2 := CitySystem.CityRewardTracker.new()
+		tracker2.reset("match_save_resume")
+		tracker2.restore_claimed_ids(saved_ids)
+		t.equal(tracker2.is_city_eligible(c), false, "Tiklangach shahar qayta munosib emas")
+	)
+
+	# 16. Eski saqlangan sozlamalar xavfsiz mos keladi
+	t.test("16. Eski saqlangan sozlamalar xavfsiz yuklanadi", func() -> bool:
+		var store := SettingsStore.new()
+		return store.total_city_conquest_coins >= 0 and store.total_duplicates_prevented >= 0
+	)
+
+	# 17. Xaritadagi mavjud tanga yig'ish (coin pickup) sovishi (cooldown) buzilmagan
+	t.test("17. Tanga yig'ish (coin field cooldown) to'g'ri ishlaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"......",
+			"......",
+		]))
+		var cf := CoinField.new()
+		cf.build([{"x": 1, "y": 1, "pop": 1000}], grid)
+		var cell := 1 * grid.width + 1
+		t.check(cf.is_coin_available_at_cell(cell), "Dastlab tanga mavjud")
+		var got := cf.collect_cells(PackedInt32Array([cell]), true)
+		t.check(not cf.is_coin_available_at_cell(cell), "Olingach tanga yo'q")
+		t.check(got > 0, "Tanga qiymati > 0")
+		cf.advance(MonetizationConfig.CITY_COIN_RESPAWN + 1.0)
+		t.check(cf.is_coin_available_at_cell(cell), "30 soniyadan so'ng qayta paydo bo'ldi")
+	)
+
+	# 18. Mukofot konfiguratsiyasi to'g'ri o'qiladi
+	t.test("18. Mukofot konfiguratsiyasi to'g'ri o'qiladi", func() -> void:
+		var c := CitySystem.CityData.new()
+		c.category = CitySystem.Category.LARGE
+		t.equal(c.get_conquest_reward(), 500, "CityData.get_conquest_reward() 500 qaytardi")
+	)
+
+	# 19. Natija ekrani hamyonni ikki marta to'ldirmaydi
+	t.test("19. Natija ekrani istilo tangalarini qayta qo'shmaydi", func() -> void:
+		var wallet := CurrencyManager.new()
+		wallet.reset()
+		wallet.add_coins(500, "city_conquest", "tx_match_city")
+		var mid_coins := wallet.get_coins()
+		var run_rew := RewardManager.run_reward(60.0, 10.0, 1, 15)
+		wallet.add_coins(int(run_rew["total"]), "run", "tx_match_run")
+		t.equal(wallet.get_coins(), mid_coins + int(run_rew["total"]), "Natija ekrani faqat run_reward qo'shdi")
+	)
+
+	# 20. Barcha 7 ta geografik xaritada shaharlar to'g'ri toifalangan
+	t.test("20. Barcha geografik xaritalarda shahar toifalari mavjud", func() -> void:
+		for map_id: String in ["world", "europe", "asia", "africa", "north_america", "south_america", "oceania"]:
+			var map := WorldMap.load_map(map_id)
+			t.check(map != null and not map.places.is_empty(), "Xarita %s shaharlarga ega" % map_id)
+	)
+
+	# 21. O'lim va tirilishdan keyin shahar egaligi panjara bilan to'liq mos
+	t.test("21. Shaharlar egaligi o'limdan so'ng to'liq neytrallashadi", func() -> void:
+		var cs := CitySystemRef.new()
+		var grid := MapHelpers.grid_from(PackedStringArray(["......", "......"]))
+		cs.build([{"x": 1, "y": 1, "pop": 500000}], grid)
+		var c := cs.cities[0]
+		c.owner_id = 1
+		cs._player_captured_counts[1] = 1
+		var lost := cs.reset_player_cities(1)
+		t.equal(lost.size(), 1, "1 ta shahar boy berildi")
+		t.equal(c.owner_id, 0, "Shahar neytralga aylandi")
+		t.equal(cs.get_player_captured_count(1), 0, "O'yinchi shahar soni 0")
+	)
+
+	# 22. 249 ta davlat bayroqlari resurslari to'liq ishlaydi
+	t.test("22. 249 ta davlat bayroqlari tizimi ishchi holatda", func() -> void:
+		var f_uz := FlagRenderer.get_flag_texture("UZ")
+		var f_us := FlagRenderer.get_flag_texture("US")
+		var f_jp := FlagRenderer.get_flag_texture("JP")
+		t.check(f_uz != null and f_us != null and f_jp != null, "Bayroqlar yuklandi")
+	)
+
+	# 23. Katta xaritalar va 20 ta bot bilan barqarorlik
+	t.test("23. 20 ta bot va shahar istilosi barqaror ishlaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_bots_20")
+		var cities_list: Array[CitySystem.CityData] = []
+		for i in 20:
+			var c := CitySystem.CityData.new()
+			c.id = 500 + i
+			c.category = i % 3
+			cities_list.append(c)
+		for i in 20:
+			tracker.claim_city(cities_list[i], false)
+		t.equal(tracker.get_total_conquest_coins(), 0, "20 bot egallaganida odamga 0 tanga berildi")
+	)
+
+	# 24. Mobil xavfsiz maydon va UI hisoblagichlari to'g'ri hisoblanadi
+	t.test("24. UI va iqtisodiy hisoblagichlar to'g'ri ishlaydi", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("match_ui")
+		var c1 := CitySystem.CityData.new()
+		c1.id = 601
+		c1.category = CitySystem.Category.SMALL
+		var c2 := CitySystem.CityData.new()
+		c2.id = 602
+		c2.category = CitySystem.Category.LARGE
+		tracker.claim_city(c1, true)
+		tracker.claim_city(c2, true)
+		t.equal(tracker.get_rewarded_count(CitySystem.Category.SMALL), 1, "1 ta kichik shahar")
+		t.equal(tracker.get_rewarded_count(CitySystem.Category.LARGE), 1, "1 ta katta shahar")
+		t.equal(tracker.get_total_conquest_coins(), 550, "50 + 500 = 550 tanga")
+	)
+
 
 

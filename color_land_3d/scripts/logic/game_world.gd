@@ -357,7 +357,7 @@ func _finish_loop(p: PlayerState) -> void:
 	if cities != null:
 		var newly_captured := cities.check_capture_cells(cells, p.id, p.country, p.player_name, elapsed)
 		for c in newly_captured:
-			events.append({"type": "city_captured", "player": p.id, "city": c})
+			events.append({"type": "city_captured", "player": p.id, "city": c, "initial": false})
 
 	# Qoida: butun hududi egallangan o'yinchi o'ladi.
 	for victim_id: int in (result["taken_from"] as Dictionary).keys():

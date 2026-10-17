@@ -1664,12 +1664,12 @@ func _build_hud() -> Control:
 	root.add_child(_donut)
 	_progress = _donut
 
-	# Yuqorida markazda: Haqiqiy yig'ilgan tangalar hisoblagichi
-	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 54)
+	# Yuqorida markazda: Haqiqiy yig'ilgan tangalar hisoblagichi (Hamyon va joriy o'yindagi daromad)
+	_coin_capsule = UiKit.capsule("coin", "0", UiKit.YELLOW, 90)
 	_coin_capsule.anchor_left = 0.5
 	_coin_capsule.anchor_right = 0.5
-	_coin_capsule.offset_left = -70
-	_coin_capsule.offset_right = 70
+	_coin_capsule.offset_left = -95
+	_coin_capsule.offset_right = 95
 	_coin_capsule.offset_top = 16
 	root.add_child(_coin_capsule)
 	_coin_label = _capsule_label(_coin_capsule)
@@ -1838,7 +1838,7 @@ func toast(text: String) -> void:
 ## percent, is_human, country}].
 func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 		alive: int, rows: Array, marker: Vector2 = Vector2.ZERO,
-		coins: int = 0, bots: Array = []) -> void:
+		coins: int = 0, bots: Array = [], earned_coins: int = 0) -> void:
 	if _screen != Screen.HUD or _progress == null:
 		return
 	if _donut != null and is_instance_valid(_donut):
@@ -1850,7 +1850,10 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 	if _kill_label != null and is_instance_valid(_kill_label):
 		_kill_label.text = str(kills)
 	if _coin_label != null and is_instance_valid(_coin_label):
-		_coin_label.text = str(coins)
+		if earned_coins > 0:
+			_coin_label.text = "%s (+%s)" % [_short(coins), _short(earned_coins)]
+		else:
+			_coin_label.text = _short(coins)
 	if _minimap != null and is_instance_valid(_minimap):
 		_minimap.marker = marker
 		_minimap.bot_markers = bots
@@ -1865,8 +1868,8 @@ func update_hud_cities(captured: int, total: int) -> void:
 	if _city_label != null and is_instance_valid(_city_label):
 		_city_label.text = "%d / %d" % [captured, total]
 
-## Shahar ma'lumotlari oynasi (Phase 5 City Info Modal).
-func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true) -> void:
+## Shahar ma'lumotlari oynasi (Phase 5-6 City Info Modal).
+func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true, already_claimed: bool = false, is_owned: bool = false) -> void:
 	if city == null:
 		return
 	if _city_modal != null and is_instance_valid(_city_modal):
@@ -1894,7 +1897,7 @@ func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true
 	center.add_child(card)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 12)
 	card.add_child(col)
 
 	# 1. Toifa belgisi (Badge)
@@ -1943,26 +1946,36 @@ func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true
 	var status_text := ""
 	var status_col := Color("94a3b8")
 	if city.is_captured():
-		status_text = "Egallangan: %s (%s)" % [city.owner_name, city.owner_country]
+		status_text = "Hozirgi ega: %s (%s)" % [city.owner_name, city.owner_country]
 		status_col = Color("4ade80")
 	else:
-		status_text = "Neytral shahar (Hali hech kim egallamagan)"
+		status_text = "Hozirgi ega: Neytral shahar"
 		status_col = Color("f1f5f9")
 	var status_lbl := UiKit.label(status_text, 15, status_col, HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(status_lbl)
 
-	# 6. Mukofot holati (aniq tanga ma'lumoti)
-	var rew_text := ""
-	var rew_color := Color("facc15")
-	if coin_available:
-		rew_text = "Egallash mukofoti: +%d 🪙" % city.reward_coins
-	else:
-		rew_text = "Egallash mukofoti: Qayta tiklanmoqda... ⏳"
-		rew_color = Color("94a3b8")
-	var rew_lbl := UiKit.label(rew_text, 17, rew_color, HORIZONTAL_ALIGNMENT_CENTER)
+	# 6. Istilo mukofoti (Conquest Reward - Phase 6)
+	var conquest_reward: int = MonetizationConfig.get_city_capture_reward(city.category)
+	var rew_text := "Istilo mukofoti: %d Tanga (Coins)" % conquest_reward
+	var rew_lbl := UiKit.label(rew_text, 17, Color("facc15"), HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(rew_lbl)
 
-	# 7. Yopish tugmasi
+	# 7. Mukofot holati (Reward Eligibility Status - Phase 6)
+	var elig_text := ""
+	var elig_col := Color("4ade80")
+	if is_owned:
+		elig_text = "Holat: Sizga tegishli ✓"
+		elig_col = Color("38bdf8")
+	elif already_claimed:
+		elig_text = "Holat: Bu o'yinda allaqachon olingan (0 🪙)"
+		elig_col = Color("f97316")
+	else:
+		elig_text = "Holat: Mukofot mavjud (+%d 🪙)" % conquest_reward
+		elig_col = Color("4ade80")
+	var elig_lbl := UiKit.label(elig_text, 15, elig_col, HORIZONTAL_ALIGNMENT_CENTER)
+	col.add_child(elig_lbl)
+
+	# 8. Yopish tugmasi
 	var close_btn := UiKit.button("TUSHUNARLI", UiKit.GREEN)
 	close_btn.pressed.connect(func() -> void:
 		Audio.tap()
@@ -2105,11 +2118,11 @@ func _build_pause() -> Control:
 
 func set_result(percent: float, kills: int, elapsed: float, reason: String,
 		is_record: bool, reward: Dictionary = {},
-		journey: Dictionary = {}) -> void:
+		journey: Dictionary = {}, city_conquest: Dictionary = {}) -> void:
 	_result_data = {
 		"percent": percent, "kills": kills, "elapsed": elapsed,
 		"reason": reason, "record": is_record, "reward": reward,
-		"journey": journey,
+		"journey": journey, "city_conquest": city_conquest,
 	}
 
 func _build_result() -> Control:
@@ -2145,12 +2158,15 @@ func _build_result() -> Control:
 		UiKit.TEXT_FAINT, HORIZONTAL_ALIGNMENT_CENTER))
 	_animate_bar(bar, percent)
 
+	var conquest: Dictionary = _result_data.get("city_conquest", {})
 	var tiles := HBoxContainer.new()
-	tiles.add_theme_constant_override("separation", 14)
+	tiles.add_theme_constant_override("separation", 8)
 	tiles.add_child(_result_tile("skull",
 		str(_result_data.get("kills", 0)), Strings.t("kills"), UiKit.RED))
 	tiles.add_child(_result_tile("coin",
 		str(int(_reward_total())), Strings.t("coinsFound"), UiKit.YELLOW))
+	tiles.add_child(_result_tile("flag",
+		"%d/%d" % [int(conquest.get("cities_owned", 0)), int(conquest.get("total_cities", 0))], "Shaharlar", UiKit.MINT))
 	tiles.add_child(_result_tile("clock",
 		_clock(float(_result_data.get("elapsed", 0.0))),
 		Strings.t("time"), UiKit.BG_LOW))
@@ -2158,7 +2174,7 @@ func _build_result() -> Control:
 
 	# Tanga qayerdan kelgani ochiq yozilgan.
 	var reward: Dictionary = _result_data.get("reward", {})
-	if not reward.is_empty():
+	if not reward.is_empty() or not conquest.is_empty():
 		inner.add_child(_coin_card(reward))
 
 	# Mamlakatlar yo'li: shakl eski darajadan yangisiga to'ladi.
@@ -2199,24 +2215,65 @@ func _build_result() -> Control:
 	box.add_child(panel)
 	return root
 
-## Natija ekranidagi tanga kartasi.
+## Natija ekranidagi tanga kartasi (Phase 6 to'liq iqtisodiy tahlil).
 func _coin_card(reward: Dictionary) -> Control:
 	var card := UiKit.panel(Color(UiKit.SURFACE, 0.8), 13)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	card.add_child(box)
 
+	var conquest: Dictionary = _result_data.get("city_conquest", {})
+	var conquest_total: int = int(conquest.get("total", 0))
+	var grand_total: int = int(reward.get("total", 0)) + conquest_total
+
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
-	# Karta och rangda, shuning uchun matn to'q ko'k: oq-xira
-	# matn bu fonda o'qilmasdi.
 	var name_label := UiKit.label(Strings.t("coinsEarned"), 14,
 		UiKit.INK, HORIZONTAL_ALIGNMENT_LEFT)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_label)
-	head.add_child(UiKit.title("+%d" % int(reward.get("total", 0)), 22,
+	head.add_child(UiKit.title("+%d" % grand_total, 22,
 		UiKit.GOLD, HORIZONTAL_ALIGNMENT_RIGHT))
 	box.add_child(head)
+
+	# Shaharlar istilosi hisoboti (Phase 6)
+	var s_cnt := int(conquest.get("small_count", 0))
+	var m_cnt := int(conquest.get("medium_count", 0))
+	var l_cnt := int(conquest.get("large_count", 0))
+	if conquest_total > 0 or s_cnt > 0 or m_cnt > 0 or l_cnt > 0:
+		var c_hdr := UiKit.label("Shahar istilolari (Conquest)", 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
+		box.add_child(c_hdr)
+
+		if s_cnt > 0:
+			var s_row := HBoxContainer.new()
+			var s_title := UiKit.label("  ● Kichik: %d × 50" % s_cnt, 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			s_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			s_row.add_child(s_title)
+			s_row.add_child(UiKit.label("+%d" % (s_cnt * 50), 12, UiKit.INK))
+			box.add_child(s_row)
+
+		if m_cnt > 0:
+			var m_row := HBoxContainer.new()
+			var m_title := UiKit.label("  ◆ O'rta: %d × 200" % m_cnt, 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			m_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			m_row.add_child(m_title)
+			m_row.add_child(UiKit.label("+%d" % (m_cnt * 200), 12, UiKit.INK))
+			box.add_child(m_row)
+
+		if l_cnt > 0:
+			var l_row := HBoxContainer.new()
+			var l_title := UiKit.label("  ★ Katta: %d × 500" % l_cnt, 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			l_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			l_row.add_child(l_title)
+			l_row.add_child(UiKit.label("+%d" % (l_cnt * 500), 12, UiKit.INK))
+			box.add_child(l_row)
+
+		var c_tot_row := HBoxContainer.new()
+		var c_tot_title := UiKit.label("  Jami istilo mukofoti:", 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
+		c_tot_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c_tot_row.add_child(c_tot_title)
+		c_tot_row.add_child(UiKit.label("+%d 🪙" % conquest_total, 12, Color("0284c7")))
+		box.add_child(c_tot_row)
 
 	var parts: Array = [
 		[Strings.t("time"), int(reward.get("run", 0))],
@@ -2241,7 +2298,8 @@ func _coin_card(reward: Dictionary) -> Control:
 ## Natija tangasining umumiy soni.
 func _reward_total() -> int:
 	var reward: Dictionary = _result_data.get("reward", {})
-	return int(reward.get("total", 0))
+	var conquest: Dictionary = _result_data.get("city_conquest", {})
+	return int(reward.get("total", 0)) + int(conquest.get("total", 0))
 
 ## "YANGI REKORD" lentasi — yashil fonda yulduz bilan.
 func _record_ribbon() -> Control:
