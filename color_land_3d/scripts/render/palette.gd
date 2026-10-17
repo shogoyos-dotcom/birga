@@ -101,6 +101,9 @@ static func head(index: int) -> Color:
 	var list := heads()
 	return list[index % list.size()]
 
+static func player_color(index: int) -> Color:
+	return head(index)
+
 static func color_count() -> int:
 	return heads().size()
 

@@ -36,6 +36,8 @@ const CityCoinsNode := preload("res://scripts/render/city_coins.gd")
 const PickupMarksNode := preload("res://scripts/render/pickup_marks.gd")
 const CaptureBurstNode := preload("res://scripts/render/capture_burst.gd")
 const FlagPolesNode := preload("res://scripts/render/flag_poles.gd")
+const CityRendererNode := preload("res://scripts/render/city_renderer.gd")
+const CitySystem := preload("res://scripts/logic/city_system.gd")
 const DesignDrawers := preload("res://scripts/ui/design_drawers.gd")
 
 var _crown_image: ImageTexture
@@ -57,6 +59,7 @@ var _avatars: Node
 var _trails: MeshInstance3D
 var _arena_material: ShaderMaterial
 var _capitals: MultiMeshInstance3D
+var _city_renderer: Node3D
 ## Shaharlar ustidagi tangalar: mantiq va chizuvchi.
 var _coin_field := CoinField.new()
 ## Shu o'yinda nechta marta hudud egallandi — kunlik topshiriq uchun.
@@ -128,6 +131,9 @@ func _ready() -> void:
 	add_child(_burst)
 	_flag_poles = FlagPolesNode.new()
 	add_child(_flag_poles)
+	_city_renderer = CityRendererNode.new()
+	add_child(_city_renderer)
+	_city_renderer.city_selected.connect(ui.show_city_info_modal)
 
 	store = SettingsStore.load_store()
 	Strings.set_language(store.language if not store.language.is_empty()
@@ -371,8 +377,10 @@ func _apply_view_settings() -> void:
 	# Til o'zgargan bo'lsa shahar nomlari qayta tuziladi; maydon
 	# o'sha-o'sha bo'lsa bu chaqiriq darhol qaytadi.
 	_build_capitals()
-	_capitals.enabled = store.show_capitals and _playing
-	_capitals.names_visible = store.show_city_names and _playing
+	_capitals.enabled = (_city_renderer == null) and store.show_capitals and _playing
+	_capitals.names_visible = (_city_renderer == null) and store.show_city_names and _playing
+	if _city_renderer != null:
+		_city_renderer.visible = _playing
 	if players_root != null:
 		players_root.visible = _playing
 	if _pickups != null:
@@ -607,6 +615,8 @@ func _build_capitals() -> void:
 		return
 	_capitals_map = key
 	_capitals.build(world.places, world.grid)
+	if _city_renderer != null and world.cities != null:
+		_city_renderer.setup(world.cities, world.grid)
 
 ## Har o'yinchining hudud naqshi.
 ##
@@ -933,7 +943,7 @@ func _halo_for(p: PlayerState) -> MeshInstance3D:
 	return ring
 
 func _process(delta: float) -> void:
-	if _match_running:
+	if _match_running and world != null:
 		# Tanga soati dunyo soatidan yuradi: `world.update()` juda
 		# uzun kadrni qisqartiradi, shuning uchun xom `delta` ni
 		# ishlatsak ikki soat bir-biridan uzoqlashib ketardi.
@@ -965,6 +975,8 @@ func _process(delta: float) -> void:
 		_follow_camera(delta)
 		if _flag_poles != null and _playing:
 			_flag_poles.update_poles()
+		if _city_renderer != null and _playing:
+			_city_renderer.update_lod(camera.global_position, delta)
 
 		_hud_timer -= delta
 		if _hud_timer <= 0.0:
@@ -995,6 +1007,14 @@ func _handle_events() -> void:
 				var taken := _coin_field.flush_taken()
 				if not taken.is_empty():
 					_coins.take(taken)
+			"city_captured":
+				var c_cap: CitySystem.CityData = event["city"]
+				if _city_renderer != null:
+					_city_renderer.on_city_captured(c_cap)
+				if int(event["player"]) == human_id:
+					Audio.capture()
+					ui.flash(Color("38bdf8"), 0.22)
+					ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), c_cap.reward_coins])
 			"shield_used":
 				if int(event["player"]) == human_id:
 					Audio.kill()
@@ -1149,6 +1169,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if touch.pressed:
 			_drag_origin = touch.position
 			_dragging = true
+			if _city_renderer != null:
+				var hit_c = _city_renderer.get_city_at_screen_ray(camera, touch.position)
+				if hit_c != null:
+					ui.show_city_info_modal(hit_c)
 		else:
 			_dragging = false
 	elif event is InputEventMouseButton:
@@ -1156,6 +1180,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if click.button_index == MOUSE_BUTTON_LEFT:
 			_drag_origin = click.position
 			_dragging = click.pressed
+			if click.pressed and _city_renderer != null:
+				var hit_c = _city_renderer.get_city_at_screen_ray(camera, click.position)
+				if hit_c != null:
+					ui.show_city_info_modal(hit_c)
 	elif event is InputEventScreenDrag:
 		_steer((event as InputEventScreenDrag).position)
 	elif event is InputEventMouseMotion and _dragging:
@@ -1294,6 +1322,8 @@ func _refresh_hud() -> void:
 		Vector2(p.x / world.grid.width, p.y / world.grid.height),
 		_coin_field.collected() + _loose_coins,
 		bot_pts)
+	if world.cities != null:
+		ui.update_hud_cities(world.cities.get_player_captured_count(p.id), world.cities.get_total_cities_count())
 
 ## Top-5 reyting.
 ## Reyting: eng kuchli uchtasi va o'yinchining o'z qatori.

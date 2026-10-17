@@ -8,6 +8,9 @@ extends SceneTree
 ##     --rendering-method gl_compatibility --resolution 720x1280 \
 ##     --script res://tools/screenshot.gd -- 6 build/shot.png
 
+const CitySystem = preload("res://scripts/logic/city_system.gd")
+const ArenaBuilder = preload("res://scripts/render/arena_builder.gd")
+
 var _frames_left := 0
 var _out := "res://build/shot_3d.png"
 var _seconds := 6.0
@@ -85,6 +88,8 @@ func _drive() -> void:
 	var view := current_scene
 	if view == null or not view.has_method("steer_human"):
 		return
+	if view.get("store") == null or view.get("world") == null:
+		return
 	if _mode.begins_with("board:") and view.has_method("set_board_url_for_demo"):
 		view.set_board_url_for_demo(_mode.substr(6))
 		_mode = "board"
@@ -96,7 +101,8 @@ func _drive() -> void:
 		view.set_country_for_demo(_country)
 
 	var is_3d_action: bool = (_mode == "play" or _mode == "trail" or _mode == "burst" \
-		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest")
+		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest" \
+		or _mode.begins_with("city_"))
 
 	if not is_3d_action:
 		if not _opened:
@@ -131,6 +137,137 @@ func _drive() -> void:
 			p.y = float(parts[1])
 			view._place_camera_instantly()
 		_at = ""
+
+	# Phase 5: 3D Shaharlar rejimlarini boshqarish
+	if _mode.begins_with("city_"):
+		if _mode == "city_hud":
+			view.steer_human(_elapsed * 0.45)
+			return
+
+		if not _opened:
+			_opened = true
+			var cities_list: Array = view.world.cities.cities if view.world.cities != null else []
+			var p: Object = view.world.human()
+
+			if _mode == "city_small":
+				var target_city = null
+				for c in cities_list:
+					if c.category == CitySystem.Category.SMALL:
+						target_city = c
+						break
+				if target_city != null:
+					view._city_renderer._spawn_city_node(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-5.2, 6.5, 6.5), cpos + Vector3(0, 0.8, 0))
+
+			elif _mode == "city_medium":
+				var target_city = null
+				for c in cities_list:
+					if c.category == CitySystem.Category.MEDIUM and c.regional_style == "default":
+						target_city = c
+						break
+				if target_city != null:
+					view._city_renderer._spawn_city_node(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-7.8, 9.2, 9.2), cpos + Vector3(0, 1.2, 0))
+
+			elif _mode == "city_large":
+				var target_city = null
+				for c in cities_list:
+					if c.category == CitySystem.Category.LARGE and c.regional_style == "default":
+						target_city = c
+						break
+				if target_city == null and not cities_list.is_empty():
+					target_city = cities_list[0]
+				if target_city != null:
+					view._city_renderer._spawn_city_node(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-10.5, 12.8, 12.8), cpos + Vector3(0, 2.5, 0))
+
+			elif _mode == "city_paris":
+				var target_city = null
+				for c in cities_list:
+					if c.name == "Paris":
+						target_city = c
+						break
+				if target_city != null:
+					view._city_renderer._spawn_city_node(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-7.2, 8.8, 8.8), cpos + Vector3(0, 1.8, 0))
+
+			elif _mode == "city_tashkent":
+				var target_city = null
+				for c in cities_list:
+					if c.name == "Tashkent":
+						target_city = c
+						break
+				if target_city != null:
+					view._city_renderer._spawn_city_node(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-7.2, 8.8, 8.8), cpos + Vector3(0, 1.8, 0))
+
+			elif _mode == "city_captured":
+				var target_city = null
+				for c in cities_list:
+					if c.name == "Tashkent" or c.category == CitySystem.Category.LARGE:
+						target_city = c
+						break
+				if target_city != null:
+					target_city.owner_id = p.id
+					target_city.owner_country = p.country
+					target_city.owner_name = p.player_name
+					var cx := int(target_city.pos.x)
+					var cy := int(target_city.pos.y)
+					for dy in range(-10, 11):
+						for dx in range(-12, 13):
+							if view.world.grid.playable(cx + dx, cy + dy):
+								view.world.grid.set_owner(cx + dx, cy + dy, p.id)
+					view.paint.sync()
+					view._city_renderer._spawn_city_node(target_city)
+					view._city_renderer.on_city_captured(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-8.5, 10.2, 10.2), cpos + Vector3(0, 1.6, 0))
+
+			elif _mode == "city_bot":
+				var target_city = null
+				for c in cities_list:
+					if c.name == "Paris" or c.category == CitySystem.Category.MEDIUM:
+						target_city = c
+						break
+				var bot: Object = view.world.players[1] if view.world.players.size() > 1 else p
+				if target_city != null:
+					target_city.owner_id = bot.id
+					target_city.owner_country = bot.country
+					target_city.owner_name = bot.player_name
+					var cx := int(target_city.pos.x)
+					var cy := int(target_city.pos.y)
+					for dy in range(-8, 9):
+						for dx in range(-10, 11):
+							if view.world.grid.playable(cx + dx, cy + dy):
+								view.world.grid.set_owner(cx + dx, cy + dy, bot.id)
+					view.paint.sync()
+					view._city_renderer._spawn_city_node(target_city)
+					view._city_renderer.on_city_captured(target_city)
+					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
+					view.set_camera_demo_pose(cpos + Vector3(-8.5, 10.2, 10.2), cpos + Vector3(0, 1.6, 0))
+
+			elif _mode == "city_conquest":
+				var cpos := Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
+				if not cities_list.is_empty():
+					var c0 = cities_list[0]
+					cpos = Vector3(c0.pos.x, ArenaBuilder.LAND_HEIGHT, c0.pos.y)
+					view._city_renderer.update_lod(cpos, 0.5)
+				view.set_camera_demo_pose(cpos + Vector3(-18.0, 24.0, 24.0), cpos + Vector3(0, 0, 0))
+
+			elif _mode == "city_info":
+				var target_city = null
+				for c in cities_list:
+					if c.name == "Tashkent" or c.name == "Paris":
+						target_city = c
+						break
+				if target_city != null:
+					view.ui.show_city_info_modal(target_city)
+		return
 
 	if _mode == "flag_base" or _mode == "flag_territory":
 		var p: Object = view.world.human()

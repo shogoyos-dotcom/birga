@@ -19,6 +19,10 @@ var color_index_by_id := PackedByteArray()
 var places: Array[Dictionary] = []
 ## Yuklangan maydon — arena geometriyasi uning silliqlangan niqobidan
 ## quriladi.
+const CitySystem = preload("res://scripts/logic/city_system.gd")
+
+## Xaritadagi 3D shaharlar tizimi (Phase 5).
+var cities: CitySystem
 var map: WorldMap
 
 var _rng: RandomNumberGenerator
@@ -43,6 +47,8 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 			push_error("Maydon yuklanmadi — to'rtburchak maydon")
 	grid = GameGrid.new(config.grid_width, config.grid_height, land)
 	_capturer = TerritoryCapturer.new(grid)
+	cities = CitySystem.new()
+	cities.build(places, grid)
 	_rng = RandomNumberGenerator.new()
 	if seed_value != 0:
 		_rng.seed = seed_value
@@ -343,6 +349,11 @@ func _finish_loop(p: PlayerState) -> void:
 	if cells.is_empty():
 		return
 	events.append({"type": "capture", "player": p.id, "cells": cells})
+
+	if cities != null:
+		var newly_captured := cities.check_capture_cells(cells, p.id, p.country, p.player_name, elapsed)
+		for c in newly_captured:
+			events.append({"type": "city_captured", "player": p.id, "city": c})
 
 	# Qoida: butun hududi egallangan o'yinchi o'ladi.
 	for victim_id: int in (result["taken_from"] as Dictionary).keys():

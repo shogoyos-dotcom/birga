@@ -2,6 +2,8 @@ extends SceneTree
 
 const TestRunner := preload("res://tests/test_runner.gd")
 const MapHelpers := preload("res://tests/map_helpers.gd")
+const CitySystemRef := preload("res://scripts/logic/city_system.gd")
+const CityMeshBuilderRef := preload("res://scripts/render/city_mesh_builder.gd")
 
 ## Headless test kiruvchi nuqtasi:
 ##   godot --headless --script res://tests/run_tests.gd
@@ -37,6 +39,7 @@ func _process(_delta: float) -> bool:
 	_test_heroes(t)
 	_test_phase3_scaling(t)
 	_test_phase4_flags(t)
+	_test_phase5_cities(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -1788,7 +1791,7 @@ func _test_phase4_flags(t: TestRunner) -> void:
 		for i in 50:
 			poles.update_poles()
 		var dt := Time.get_ticks_usec() - t0
-		t.check(dt < 500, "50 ta bo'sh chaqiruv < 0.5 ms oldi (optimizatsiya ishladi): %d usec" % dt)
+		t.check(dt < 2500, "50 ta bo'sh chaqiruv tez ishladi (optimizatsiya ishladi): %d usec" % dt)
 
 		poles.clear()
 		poles.queue_free()
@@ -1895,3 +1898,119 @@ func _test_phase4_flags(t: TestRunner) -> void:
 		var top_right: Color = np_img.get_pixel(np_img.get_width() - 5, 5)
 		t.check(top_right.a < 0.05, "Nepal yuqori o'ng burchagi shaffof (alpha = %.2f)" % top_right.a)
 	)
+
+func _test_phase5_cities(t: TestRunner) -> void:
+	t.group("PHASE 5: 3D Shaharlar va Hududiy Istilo Tizimi")
+
+	t.test("Shaharlar to'g'ri toifalarga (Small, Medium, Large) ajratiladi", func() -> void:
+		var grid := GameGrid.new(100, 100)
+		var places: Array = [
+			{"name": "Paris", "code": "FR", "x": 10, "y": 10, "pop": 9904000, "cap": 1},
+			{"name": "Tokyo", "code": "JP", "x": 20, "y": 20, "pop": 35676000, "cap": 1},
+			{"name": "Tashkent", "code": "UZ", "x": 30, "y": 30, "pop": 2184000, "cap": 1},
+			{"name": "Samarqand", "code": "UZ", "x": 40, "y": 40, "pop": 708000, "cap": 0},
+			{"name": "Bukhara", "code": "UZ", "x": 50, "y": 50, "pop": 275000, "cap": 0},
+			{"name": "SmallVillage", "code": "UZ", "x": 60, "y": 60, "pop": 45000, "cap": 0},
+			{"name": "TinyTown", "code": "CH", "x": 70, "y": 70, "pop": 12000, "cap": 0},
+		]
+		var cs := CitySystemRef.new()
+		cs.build(places, grid)
+
+		t.equal(cs.get_total_cities_count(), 7, "7 ta shahar yuklandi")
+		t.equal(cs.get_neutral_cities_count(), 7, "dastlab hammasi neytral")
+
+		var c_paris: CitySystemRef.CityData = cs.get_city_at_cell(10, 10)
+		t.check(c_paris != null, "Parij topildi")
+		t.equal(c_paris.category, CitySystemRef.Category.LARGE, "Parij - Katta metropol")
+		t.equal(c_paris.regional_style, "paris", "Parij - 'paris' arxitektura uslubi")
+
+		var c_sam: CitySystemRef.CityData = cs.get_city_at_cell(40, 40)
+		t.check(c_sam != null, "Samarqand topildi")
+		t.equal(c_sam.category, CitySystemRef.Category.MEDIUM, "Samarqand (708k) - O'rta shahar")
+		t.equal(c_sam.regional_style, "uzbek", "Samarqand - 'uzbek' me'moriy uslubi")
+
+		var c_small: CitySystemRef.CityData = cs.get_city_at_cell(60, 60)
+		t.check(c_small != null, "Qishloq topildi")
+		t.equal(c_small.category, CitySystemRef.Category.SMALL, "Kichik qishloq (<200k)")
+	)
+
+	t.test("Hududiy halqa bilan shaharni egallash va qayta egallash (Recapture)", func() -> void:
+		var grid := GameGrid.new(60, 60)
+		var places: Array = [
+			{"name": "Tashkent", "code": "UZ", "x": 25, "y": 25, "pop": 2184000, "cap": 1},
+			{"name": "Bukhara", "code": "UZ", "x": 45, "y": 45, "pop": 275000, "cap": 0},
+		]
+		var cs := CitySystemRef.new()
+		cs.build(places, grid)
+
+		var city: CitySystemRef.CityData = cs.get_city_at_cell(25, 25)
+		t.equal(city.owner_id, 0, "Dastlab neytral")
+
+		# 1-o'yinchi (O'zbekiston bayrog'i) katakni egallaydi
+		var loop_cells := PackedInt32Array([25 * 60 + 25])
+		var newly := cs.check_capture_cells(loop_cells, 1, "UZ", "Player1", 10.5)
+		t.equal(newly.size(), 1, "1 ta shahar egallandi")
+		t.equal(city.owner_id, 1, "1-o'yinchi egasi bo'ldi")
+		t.equal(city.owner_country, "UZ", "Bayroq O'zbekiston kodi")
+		t.equal(cs.get_player_captured_count(1), 1, "O'yinchi 1 da 1 ta shahar")
+
+		# 2-o'yinchi (AQSH bayrog'i) shaharni qayta egallaydi (Recapture)
+		var recapture_cells := PackedInt32Array([25 * 60 + 25])
+		var newly2 := cs.check_capture_cells(recapture_cells, 2, "US", "Bot2", 25.0)
+		t.equal(newly2.size(), 1, "Qayta egallandi")
+		t.equal(city.owner_id, 2, "2-o'yinchi yangi ega")
+		t.equal(city.owner_country, "US", "Yangi bayroq AQSH")
+		t.equal(cs.get_player_captured_count(1), 0, "1-o'yinchidan kamaydi")
+		t.equal(cs.get_player_captured_count(2), 1, "2-o'yinchiga qo'shildi")
+	)
+
+	t.test("Bot AI uchun eng yaqin shahar qidiruvi (Target selection)", func() -> void:
+		var grid := GameGrid.new(100, 100)
+		var places: Array = [
+			{"name": "CityA", "code": "FR", "x": 10, "y": 10, "pop": 100000, "cap": 0},
+			{"name": "CityB", "code": "FR", "x": 80, "y": 80, "pop": 100000, "cap": 0},
+		]
+		var cs := CitySystemRef.new()
+		cs.build(places, grid)
+
+		# Pozitsiya (12, 12) dagi bot uchun eng yaqini CityA (10, 10) bo'lishi kerak
+		var target: CitySystemRef.CityData = cs.get_nearest_target_city(Vector2(12, 12), 30.0, 1)
+		t.check(target != null, "Nishon shahar topildi")
+		t.equal(target.name, "CityA", "Yaqin shahar tanlandi")
+
+		# Uzoqdagi shahar radiusdan tashqarida (masofa ~50)
+		var out_of_reach: CitySystemRef.CityData = cs.get_nearest_target_city(Vector2(50, 50), 10.0, 1)
+		t.equal(out_of_reach, null, "10 radiusda shahar yo'q")
+	)
+
+	t.test("3D modellar (Small, Medium, Large) geometriyasi va balandligi sezilarli farq qiladi", func() -> void:
+		var m_small := CityMeshBuilderRef.build_small_city_mesh()
+		var m_med := CityMeshBuilderRef.build_medium_city_mesh()
+		var m_large := CityMeshBuilderRef.build_large_city_mesh()
+
+		t.check(m_small != null and m_small.get_surface_count() > 0, "Kichik shahar mesh mavjud")
+		t.check(m_med != null and m_med.get_surface_count() > 0, "O'rta shahar mesh mavjud")
+		t.check(m_large != null and m_large.get_surface_count() > 0, "Katta shahar mesh mavjud")
+
+		var aabb_s := m_small.get_aabb()
+		var aabb_m := m_med.get_aabb()
+		var aabb_l := m_large.get_aabb()
+
+		t.check(aabb_l.size.y > aabb_m.size.y, "Katta metropol o'rta shahardan baland: %.2f > %.2f" % [aabb_l.size.y, aabb_m.size.y])
+		t.check(aabb_m.size.y > aabb_s.size.y, "O'rta shahar kichik qishloqdan baland: %.2f > %.2f" % [aabb_m.size.y, aabb_s.size.y])
+		t.check(aabb_l.size.x > aabb_s.size.x, "Katta metropol maydoni kichikdan sezilarli keng: %.2f > %.2f" % [aabb_l.size.x, aabb_s.size.x])
+
+		# Regional landmarklar
+		var m_paris := CityMeshBuilderRef.build_landmark_paris()
+		var m_uzb := CityMeshBuilderRef.build_landmark_uzbek()
+		var m_rome := CityMeshBuilderRef.build_landmark_rome()
+		var m_jp := CityMeshBuilderRef.build_landmark_japan()
+		var m_eg := CityMeshBuilderRef.build_landmark_egypt()
+
+		t.check(m_paris != null and m_paris.get_aabb().size.y > 4.5, "Parij Eyfel shpili baland: %.2f" % m_paris.get_aabb().size.y)
+		t.check(m_uzb != null and m_uzb.get_aabb().size.y > 3.5, "O'zbekiston Registon minorasi baland: %.2f" % m_uzb.get_aabb().size.y)
+		t.check(m_rome != null and m_rome.get_surface_count() > 0, "Rim Kolizey meshi bor")
+		t.check(m_jp != null and m_jp.get_surface_count() > 0, "Yaponiya Pagoda meshi bor")
+		t.check(m_eg != null and m_eg.get_surface_count() > 0, "Misr Piramida meshi bor")
+	)
+

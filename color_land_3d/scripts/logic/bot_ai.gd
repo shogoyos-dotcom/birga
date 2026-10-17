@@ -129,8 +129,20 @@ func _outward_angle(world: GameWorld, me: PlayerState) -> float:
 	var grid := world.grid
 	var best: float = DIRS[_rng.randi_range(0, 3)]
 	var best_score := -1.0
+	var target_city = null
+	if world.cities != null:
+		target_city = world.cities.get_nearest_target_city(Vector2(me.x, me.y), 35.0, me.id)
+	var city_angle := 0.0
+	if target_city != null:
+		city_angle = (target_city.pos - Vector2(me.x, me.y)).angle()
+
 	for d in DIRS:
 		var score := 0.0
+		if target_city != null:
+			var diff := absf(wrapf(d - city_angle, -PI, PI))
+			if diff < PI / 3.0:
+				score += 3.5 # Yaqin shaharga qarab intilish
+
 		for step in range(1, 9):
 			var x: int = int(floor(me.x + cos(d) * step))
 			var y: int = int(floor(me.y + sin(d) * step))

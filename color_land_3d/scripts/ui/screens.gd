@@ -21,6 +21,7 @@ signal host_pressed
 signal join_pressed(address: String)
 
 const DesignDrawers := preload("res://scripts/ui/design_drawers.gd")
+const CitySystem := preload("res://scripts/logic/city_system.gd")
 
 enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD,
 	MAPS, GEAR, HEROES, NOADS }
@@ -38,8 +39,11 @@ var _progress_text: Label
 var _donut: Control
 var _kill_capsule: PanelContainer
 var _coin_capsule: PanelContainer
+var _city_capsule: PanelContainer
 var _kill_label: Label
 var _coin_label: Label
+var _city_label: Label
+var _city_modal: Control
 var _board: VBoxContainer
 var _result_data := {}
 var _flag_query := ""
@@ -1676,6 +1680,12 @@ func _build_hud() -> Control:
 	root.add_child(_kill_capsule)
 	_kill_label = _capsule_label(_kill_capsule)
 
+	# Shaharlar kapsulasi (Phase 5) — O'ldirishlar ostida
+	_city_capsule = UiKit.capsule("flag", "0", Color("38bdf8"), 46)
+	_city_capsule.position = Vector2(16, 226)
+	root.add_child(_city_capsule)
+	_city_label = _capsule_label(_city_capsule)
+
 	# O'ngda yuqorida: Pauza tugmasi
 	var pause := UiKit.icon_button("\u275A\u275A", 72)
 	pause.anchor_left = 1.0
@@ -1849,6 +1859,110 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 		child.queue_free()
 	for row: Dictionary in rows:
 		_board.add_child(_board_row(row))
+
+## HUD shahar hisoblagichini yangilaydi (Phase 5).
+func update_hud_cities(captured: int, total: int) -> void:
+	if _city_label != null and is_instance_valid(_city_label):
+		_city_label.text = str(captured)
+
+## Shahar ma'lumotlari oynasi (Phase 5 City Info Modal).
+func show_city_info_modal(city: CitySystem.CityData) -> void:
+	if city == null:
+		return
+	if _city_modal != null and is_instance_valid(_city_modal):
+		_city_modal.queue_free()
+
+	var modal := UiKit.overlay(true)
+	_city_modal = modal
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	modal.add_child(center)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(400, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.12, 0.28, 0.96)
+	sb.border_color = Color("00d4ff")
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(20)
+	sb.content_margin_left = 24
+	sb.content_margin_right = 24
+	sb.content_margin_top = 22
+	sb.content_margin_bottom = 22
+	card.add_theme_stylebox_override("panel", sb)
+	center.add_child(card)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	card.add_child(col)
+
+	# 1. Toifa belgisi (Badge)
+	var badge_col := Color("fbbf24") if city.category == CitySystem.Category.LARGE else (Color("38bdf8") if city.category == CitySystem.Category.MEDIUM else Color("84cc16"))
+	var badge := UiKit.label(city.category_badge(), 13, badge_col, HORIZONTAL_ALIGNMENT_CENTER)
+	col.add_child(badge)
+
+	# 2. Shahar nomi (Katta sarlavha)
+	var title_lbl := UiKit.title(city.display_name, 30, UiKit.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	col.add_child(title_lbl)
+
+	# 3. Davlat va Bayroq
+	var flag_row := HBoxContainer.new()
+	flag_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	flag_row.add_theme_constant_override("separation", 10)
+	var flag_tex := FlagRenderer.get_flag_texture(city.country_code)
+	if flag_tex != null:
+		var f_rect := TextureRect.new()
+		f_rect.texture = flag_tex
+		f_rect.custom_minimum_size = Vector2(40, 26)
+		f_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		f_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		flag_row.add_child(f_rect)
+	var c_name := UiKit.label("%s (%s)" % [city.country_name, city.country_code], 17, Color("cbd5e1"))
+	flag_row.add_child(c_name)
+	col.add_child(flag_row)
+
+	# Chiziq
+	var sep := ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(1, 1, 1, 0.15)
+	col.add_child(sep)
+
+	# 4. Aholi soni
+	var pop_str: String = ""
+	if city.pop >= 1000000:
+		pop_str = "%.1f mln aholi" % (float(city.pop) / 1000000.0)
+	elif city.pop >= 1000:
+		pop_str = "%d ming aholi" % (city.pop / 1000)
+	else:
+		pop_str = "%d aholi" % city.pop
+	var pop_lbl := UiKit.label("Aholi soni: " + pop_str, 15, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER)
+	col.add_child(pop_lbl)
+
+	# 5. Egallash holati (Conquest status)
+	var status_text := ""
+	var status_col := Color("94a3b8")
+	if city.is_captured():
+		status_text = "Egallangan: %s (%s)" % [city.owner_name, city.owner_country]
+		status_col = Color("4ade80")
+	else:
+		status_text = "Neytral shahar (Hali hech kim egallamagan)"
+		status_col = Color("f1f5f9")
+	var status_lbl := UiKit.label(status_text, 15, status_col, HORIZONTAL_ALIGNMENT_CENTER)
+	col.add_child(status_lbl)
+
+	# 6. Mukofot
+	var rew_lbl := UiKit.label("Egallash mukofoti: +%d 🪙" % city.reward_coins, 17, Color("facc15"), HORIZONTAL_ALIGNMENT_CENTER)
+	col.add_child(rew_lbl)
+
+	# 7. Yopish tugmasi
+	var close_btn := UiKit.button("TUSHUNARLI", UiKit.GREEN)
+	close_btn.pressed.connect(func() -> void:
+		Audio.tap()
+		modal.queue_free())
+	col.add_child(close_btn)
+
+	add_child(modal)
 
 ## Reyting qatori: o'rin, bayroq/avatar, ism va foiz.
 func _board_row(row: Dictionary) -> Control:
