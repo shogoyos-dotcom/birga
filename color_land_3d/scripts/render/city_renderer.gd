@@ -226,6 +226,71 @@ func update_lod(cam_pos: Vector3, dt: float) -> void:
 			n.queue_free()
 		_active_nodes.erase(cid)
 
+	# Yozuvlar ustunligi va to'qnashuvini boshqarish (Anti-overlap & zoom prioritet)
+	_update_label_visibility_and_priorities(cam_pos)
+
+## Zoom va masofaga qarab shahar nomlarini tartibga solish (Chalkashmaslik uchun)
+func _update_label_visibility_and_priorities(cam_pos: Vector3) -> void:
+	if _active_nodes.is_empty():
+		return
+
+	var cam_altitude := cam_pos.y
+	var label_candidates: Array[Dictionary] = []
+
+	for cid: int in _active_nodes.keys():
+		var node: CityNode = _active_nodes[cid]
+		if not is_instance_valid(node) or node.label == null:
+			continue
+		var c := node.city_data
+		if c == null:
+			continue
+
+		# Zoom bo'yicha saralash:
+		# - Juda uzoqda (cam_altitude > 30.0): Faqat Poytaxtlar va Katta shaharlar
+		# - O'rtacha balandlikda (cam_altitude > 20.0): Faqat Katta, O'rta va egallangan shaharlar
+		# - Yaqinda (cam_altitude <= 20.0): Barcha toifalar
+		if cam_altitude > 30.0 and not (c.capital or c.category == CitySystem.Category.LARGE):
+			node.label.visible = false
+			continue
+		elif cam_altitude > 20.0 and c.category == CitySystem.Category.SMALL and not c.is_captured():
+			node.label.visible = false
+			continue
+
+		var dist := c.pos.distance_to(Vector2(cam_pos.x, cam_pos.z))
+		var prio := (2.5 if c.capital else 0.0) \
+			+ (1.8 if c.category == CitySystem.Category.LARGE else (1.0 if c.category == CitySystem.Category.MEDIUM else 0.0)) \
+			+ (1.2 if c.is_captured() else 0.0) \
+			- dist * 0.04
+
+		label_candidates.append({
+			"node": node,
+			"city": c,
+			"prio": prio,
+			"pos": c.pos,
+		})
+
+	label_candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a["prio"]) > float(b["prio"]))
+
+	var accepted_positions: Array[Vector2] = []
+	var min_gap := 7.5 if cam_altitude > 24.0 else (5.2 if cam_altitude > 15.0 else 3.8)
+
+	for item: Dictionary in label_candidates:
+		var node: CityNode = item["node"]
+		var pos: Vector2 = item["pos"]
+
+		var overlaps := false
+		for acc_pos: Vector2 in accepted_positions:
+			if pos.distance_to(acc_pos) < min_gap:
+				overlaps = true
+				break
+
+		if overlaps:
+			node.label.visible = false
+		else:
+			node.label.visible = true
+			accepted_positions.append(pos)
+
 ## 3D shahar tugunini yaratish
 func _spawn_city_node(city: CitySystem.CityData) -> void:
 	_init_resources()
@@ -249,6 +314,14 @@ func _spawn_city_node(city: CitySystem.CityData) -> void:
 		_:
 			target_mesh = _mesh_small
 			scale_factor = 0.85
+
+	# Zich joylashgan qo'shni shaharlar bir-birini yopib qo'ymasligi uchun moslashuvchan o'lcham
+	var density_scale := 1.0
+	if city.neighbor_dist < 12.0:
+		density_scale = clampf(city.neighbor_dist / 12.0, 0.52, 1.0)
+		if city.category == CitySystem.Category.SMALL and city.neighbor_dist < 10.0:
+			density_scale = minf(density_scale, 0.65)
+	scale_factor *= density_scale
 
 	m_inst.mesh = target_mesh
 	node.add_child(m_inst)
@@ -362,6 +435,12 @@ func on_city_captured(city: CitySystem.CityData) -> void:
 
 	# 3D floating tabrik yozuvi
 	_spawn_capture_banner(city)
+
+## Shahar qo'ldan ketganda yoki egasi o'lganda neytral holatga qaytish
+func on_city_lost(city: CitySystem.CityData) -> void:
+	var node: CityNode = _active_nodes.get(city.id, null)
+	if node != null and is_instance_valid(node):
+		node.update_owner_flag()
 
 ## To'lqinli kengayuvchi impuls (Capture Pulse Ring)
 func _play_capture_pulse(node: CityNode) -> void:

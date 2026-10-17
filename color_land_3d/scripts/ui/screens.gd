@@ -1681,7 +1681,7 @@ func _build_hud() -> Control:
 	_kill_label = _capsule_label(_kill_capsule)
 
 	# Shaharlar kapsulasi (Phase 5) — O'ldirishlar ostida
-	_city_capsule = UiKit.capsule("flag", "0", Color("38bdf8"), 46)
+	_city_capsule = UiKit.capsule("flag", "0 / 0", Color("38bdf8"), 84)
 	_city_capsule.position = Vector2(16, 226)
 	root.add_child(_city_capsule)
 	_city_label = _capsule_label(_city_capsule)
@@ -1863,10 +1863,10 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 ## HUD shahar hisoblagichini yangilaydi (Phase 5).
 func update_hud_cities(captured: int, total: int) -> void:
 	if _city_label != null and is_instance_valid(_city_label):
-		_city_label.text = str(captured)
+		_city_label.text = "%d / %d" % [captured, total]
 
 ## Shahar ma'lumotlari oynasi (Phase 5 City Info Modal).
-func show_city_info_modal(city: CitySystem.CityData) -> void:
+func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true) -> void:
 	if city == null:
 		return
 	if _city_modal != null and is_instance_valid(_city_modal):
@@ -1951,8 +1951,15 @@ func show_city_info_modal(city: CitySystem.CityData) -> void:
 	var status_lbl := UiKit.label(status_text, 15, status_col, HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(status_lbl)
 
-	# 6. Mukofot
-	var rew_lbl := UiKit.label("Egallash mukofoti: +%d 🪙" % city.reward_coins, 17, Color("facc15"), HORIZONTAL_ALIGNMENT_CENTER)
+	# 6. Mukofot holati (aniq tanga ma'lumoti)
+	var rew_text := ""
+	var rew_color := Color("facc15")
+	if coin_available:
+		rew_text = "Egallash mukofoti: +%d 🪙" % city.reward_coins
+	else:
+		rew_text = "Egallash mukofoti: Qayta tiklanmoqda... ⏳"
+		rew_color = Color("94a3b8")
+	var rew_lbl := UiKit.label(rew_text, 17, rew_color, HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(rew_lbl)
 
 	# 7. Yopish tugmasi

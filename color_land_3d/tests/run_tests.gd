@@ -2014,3 +2014,130 @@ func _test_phase5_cities(t: TestRunner) -> void:
 		t.check(m_eg != null and m_eg.get_surface_count() > 0, "Misr Piramida meshi bor")
 	)
 
+	t.test("O'limda (kill) shahar egaligi neytralga qaytishi va hisoblagich tozalanishi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		var w := GameWorld.new(cfg, 123)
+		var p1 := w.add_human("Player1", 0, "default", "UZ")
+		var p2 := w.add_player("Bot2", 1, true)
+		p2.country = "FR"
+		var places: Array = [
+			{"name": "Tashkent", "code": "UZ", "x": 10, "y": 10, "pop": 2500000, "cap": 1},
+			{"name": "Samarkand", "code": "UZ", "x": 20, "y": 20, "pop": 500000, "cap": 0},
+			{"name": "Paris", "code": "FR", "x": 50, "y": 50, "pop": 2100000, "cap": 1},
+		]
+		w.cities = CitySystemRef.new()
+		w.cities.build(places, w.grid)
+
+		# 1-o'yinchi 2 ta shaharni egallaydi
+		w.cities.check_capture_cells(PackedInt32Array([10 * w.grid.width + 10, 20 * w.grid.width + 20]), p1.id, p1.country, p1.player_name, 1.0)
+		t.equal(w.cities.get_player_captured_count(p1.id), 2, "O'yinchi 1 da 2 ta shahar")
+		t.equal(w.cities.get_city_at_cell(10, 10).owner_id, p1.id, "Toshkent egasi p1")
+		t.equal(w.cities.get_city_at_cell(20, 20).owner_id, p1.id, "Samarqand egasi p1")
+
+		# 1-o'yinchi halok bo'ladi (kill)
+		p1.alive = true
+		w.kill(p1, PlayerState.DeathCause.TRAIL_HIT, p2)
+		t.equal(p1.alive, false, "O'yinchi o'ldi")
+		t.equal(w.cities.get_player_captured_count(p1.id), 0, "O'limdan so'ng egallangan shaharlar soni 0 bo'ldi")
+		t.equal(w.cities.get_city_at_cell(10, 10).owner_id, 0, "Toshkent neytralga qaytdi")
+		t.equal(w.cities.get_city_at_cell(10, 10).owner_country, "UZ", "Toshkent bayrog'i asl davlat bayrog'iga qaytdi")
+		t.equal(w.cities.get_city_at_cell(20, 20).owner_id, 0, "Samarqand neytralga qaytdi")
+
+		# Hodisalar orasida city_lost borligi
+		var evs := w.drain_events()
+		var lost_found := 0
+		for ev in evs:
+			if ev["type"] == "city_lost":
+				lost_found += 1
+		t.equal(lost_found, 2, "2 ta city_lost hodisasi chiqarildi")
+	)
+
+	t.test("Boshlang'ich hududdagi (starting disc) shaharni avtomatik egallash", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		var w := GameWorld.new(cfg, 456)
+		var p := w.add_human("Player1", 0, "default", "UZ")
+		var places: Array = [
+			{"name": "BaseCity", "code": "UZ", "x": 30, "y": 30, "pop": 150000, "cap": 0},
+		]
+		w.cities = CitySystemRef.new()
+		w.cities.build(places, w.grid)
+
+		# Boshlang'ich doira (30, 30) atrofida ochiladi
+		var caps := w.cities.check_starting_disc(30, 30, 4.0, p, 0.0)
+		t.equal(caps.size(), 1, "Boshlang'ich doiradagi shahar egallandi")
+		t.equal(caps[0].name, "BaseCity", "To'g'ri shahar egallandi")
+		t.equal(caps[0].owner_id, p.id, "Shahar egasi o'yinchi")
+		t.equal(w.cities.get_player_captured_count(p.id), 1, "Hisoblagich 1 ga oshdi")
+	)
+
+	t.test("Panjara (GameGrid) va Shaharlar egaligi 100% muvofiqligi (Reconciliation)", func() -> void:
+		var grid := GameGrid.new(100, 100)
+		var places: Array = [
+			{"name": "City1", "code": "UZ", "x": 15, "y": 15, "pop": 100000, "cap": 0},
+			{"name": "City2", "code": "FR", "x": 45, "y": 45, "pop": 100000, "cap": 0},
+		]
+		var cs := CitySystemRef.new()
+		cs.build(places, grid)
+
+		# City1 ni 1-o'yinchiniki deb belgilaymiz, lekin panjarada katak 0 bo'lsin
+		var c1 := cs.get_city_at_cell(15, 15)
+		c1.owner_id = 1
+		cs._player_captured_counts[1] = 1
+		grid.set_owner(15, 15, 0) # Panjarada neytral
+
+		# City2 panjarada 2-o'yinchiniki, lekin shaharda 0
+		grid.set_owner(45, 45, 2)
+		var mock_players := {2: {"country": "FR", "player_name": "Bot2"}}
+
+		var recon := cs.reconcile_with_grid(grid, mock_players)
+		t.equal(recon["lost"].size(), 1, "City1 neytralga o'tkazildi")
+		t.equal(c1.owner_id, 0, "City1 endi neytral")
+		t.equal(recon["transferred"].size(), 1, "City2 2-o'yinchiga o'tkazildi")
+		t.equal(cs.get_city_at_cell(45, 45).owner_id, 2, "City2 egasi 2")
+	)
+
+	t.test("Tanga mukofoti ishonchliligi: kutish vaqtida (cooldown) soxta tanga ko'rsatilmasligi", func() -> void:
+		var grid := GameGrid.new(100, 100)
+		var places: Array = [
+			{"name": "RichCity", "code": "US", "x": 20, "y": 20, "pop": 2000000, "cap": 1},
+		]
+		var coin_field := CoinField.new()
+		coin_field.build(places, grid)
+
+		var city_cell := 20 * 100 + 20
+		t.check(coin_field.is_coin_available_at_cell(city_cell), "Boshida tanga mavjud")
+
+		# Birinchi marta egallanganda tanga olinadi
+		var won1 := coin_field.collect_cells(PackedInt32Array([city_cell]), true)
+		t.check(won1 > 0, "Birinchi egallashda tanga berildi: %d" % won1)
+		t.equal(coin_field.get_last_collected_coin_for_cell(city_cell), won1, "Oxirgi olingan tanga to'g'ri qaytdi")
+		t.check(not coin_field.is_coin_available_at_cell(city_cell), "Endi tanga kutishda (cooldown)")
+
+		# Qayta egallanganda (recapture while on cooldown)
+		var won2 := coin_field.collect_cells(PackedInt32Array([city_cell]), true)
+		t.equal(won2, 0, "Kutish paytida qayta egallanganda tanga 0 beriladi")
+		t.equal(coin_field.get_last_collected_coin_for_cell(city_cell), 0, "Soxta tanga berilmadi (aniq 0)")
+	)
+
+	t.test("Shahar zichligi: Qo'shni shahar masofasi (neighbor_dist) to'g'ri hisoblanadi", func() -> void:
+		var grid := GameGrid.new(100, 100)
+		var places: Array = [
+			{"name": "Paris", "code": "FR", "x": 10, "y": 10, "pop": 2000000, "cap": 1},
+			{"name": "Lille", "code": "FR", "x": 10, "y": 16, "pop": 200000, "cap": 0},
+			{"name": "Remote", "code": "FR", "x": 80, "y": 80, "pop": 50000, "cap": 0},
+		]
+		var cs := CitySystemRef.new()
+		cs.build(places, grid)
+
+		var paris := cs.get_city_at_cell(10, 10)
+		var lille := cs.get_city_at_cell(10, 16)
+		var remote := cs.get_city_at_cell(80, 80)
+
+		t.equal(paris.neighbor_dist, 6.0, "Parij va Lill orasidagi masofa 6 katak")
+		t.equal(lille.neighbor_dist, 6.0, "Lill qo'shni masofasi 6 katak")
+		t.check(remote.neighbor_dist > 50.0, "Uzoq shahar masofasi katta: %.1f" % remote.neighbor_dist)
+	)
+
+

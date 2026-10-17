@@ -134,6 +134,10 @@ func spawn(p: PlayerState) -> bool:
 			continue
 		grid.fill_disc(cx, cy, config.start_radius(), p.id)
 		p.place_at(cx + 0.5, cy + 0.5, _rng.randf() * TAU - PI)
+		if cities != null:
+			var start_caps := cities.check_starting_disc(cx, cy, config.start_radius(), p, elapsed)
+			for c in start_caps:
+				events.append({"type": "city_captured", "player": p.id, "city": c, "initial": true})
 		if p.brain != null:
 			p.brain.on_respawn(self, p)
 		events.append({"type": "respawn", "player": p.id})
@@ -363,6 +367,13 @@ func _finish_loop(p: PlayerState) -> void:
 		if victim != null and victim.alive:
 			kill(victim, PlayerState.DeathCause.TERRITORY_LOST, p)
 
+	if cities != null and not (result["taken_from"] as Dictionary).is_empty():
+		var recon := cities.reconcile_with_grid(grid, _by_id)
+		for c in recon.get("lost", []):
+			events.append({"type": "city_lost", "player": 0, "city": c})
+		for c in recon.get("transferred", []):
+			events.append({"type": "city_captured", "player": c.owner_id, "city": c})
+
 ## O'yinchini o'ldiradi: hududi bo'sh bo'ladi, izi tozalanadi.
 ## Qalqon shu o'limlardan asraydi: izga urilish va o'z izini
 ## kesish. Hududni yo'qotishdan asramaydi — hududsiz o'yinchi
@@ -395,6 +406,10 @@ func kill(p: PlayerState, cause: PlayerState.DeathCause,
 		killer.kills += 1
 	p.final_territory = grid.territory_of(p.id)
 	var cleared := grid.clear_player(p.id, trail)
+	if cities != null:
+		var lost := cities.reset_player_cities(p.id)
+		for c in lost:
+			events.append({"type": "city_lost", "player": p.id, "city": c})
 	p.respawn_timer = config.bot_respawn_delay
 	events.append({
 		"type": "death",
@@ -463,6 +478,11 @@ func revive(p: PlayerState, cells: PackedInt32Array) -> bool:
 			best = i
 	p.place_at(best % grid.width + 0.5, best / grid.width + 0.5,
 		_rng.randf() * TAU - PI)
+	if cities != null:
+		var recon := cities.reconcile_with_grid(grid, _by_id)
+		for c in recon.get("transferred", []):
+			if c.owner_id == p.id:
+				events.append({"type": "city_captured", "player": p.id, "city": c})
 	events.append({"type": "respawn", "player": p.id})
 	return true
 

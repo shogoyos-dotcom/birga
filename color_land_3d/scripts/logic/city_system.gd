@@ -37,6 +37,7 @@ class CityData:
 	var reward_coins: int = 5
 	var weight: float = 0.0
 	var rank: float = 0.0
+	var neighbor_dist: float = 999.0
 
 	func is_captured() -> bool:
 		return owner_id > 0
@@ -135,6 +136,18 @@ func build(places: Array, grid: GameGrid) -> void:
 		cities.append(city)
 		_by_id[city.id] = city
 		_by_cell[y * grid.width + x] = city
+
+	# Qo'shni shaharlar orasidagi minimal masofani hisoblash (Zichlik va o'lcham uchun)
+	for i in cities.size():
+		var c1: CityData = cities[i]
+		var min_d := 999.0
+		for j in cities.size():
+			if i == j:
+				continue
+			var d := c1.pos.distance_to(cities[j].pos)
+			if d < min_d:
+				min_d = d
+		c1.neighbor_dist = min_d
 
 	_total_count = cities.size()
 
@@ -240,3 +253,85 @@ func get_cities_in_radius(pos: Vector2, radius: float) -> Array[CityData]:
 		if c.pos.distance_squared_to(pos) <= r2:
 			res.append(c)
 	return res
+
+## O'yinchi yoki bot o'lganda yoki barcha hududini yo'qotganda uning shaharlarini neytral holatga qaytarish
+func reset_player_cities(player_id: int) -> Array[CityData]:
+	var lost: Array[CityData] = []
+	for c: CityData in cities:
+		if c.owner_id == player_id:
+			c.owner_id = 0
+			c.owner_country = c.country_code
+			c.owner_name = ""
+			c.capture_time = 0.0
+			lost.append(c)
+	_player_captured_counts[player_id] = 0
+	return lost
+
+## O'yinchi tug'ilganda (spawn) uning boshlang'ich doirasiga tushgan shaharlarni egallash
+func check_starting_disc(cx: int, cy: int, radius: float, player: Object, elapsed: float) -> Array[CityData]:
+	var r2 := radius * radius
+	var min_x := maxi(0, int(cx - radius - 1))
+	var max_x := mini(_grid_width - 1, int(cx + radius + 1))
+	var min_y := maxi(0, int(cy - radius - 1))
+	var max_y := mini(_grid_height - 1, int(cy + radius + 1))
+
+	var captured: Array[CityData] = []
+	for gy in range(min_y, max_y + 1):
+		for gx in range(min_x, max_x + 1):
+			var dx := float(gx - cx)
+			var dy := float(gy - cy)
+			if dx * dx + dy * dy <= r2:
+				var c: CityData = _by_cell.get(gy * _grid_width + gx, null)
+				if c != null and c.owner_id != player.id:
+					var prev_owner := c.owner_id
+					if prev_owner > 0 and _player_captured_counts.has(prev_owner):
+						_player_captured_counts[prev_owner] = maxi(0, int(_player_captured_counts[prev_owner]) - 1)
+
+					c.owner_id = player.id
+					c.owner_country = player.country
+					c.owner_name = player.player_name
+					c.capture_time = elapsed
+					var curr_count: int = int(_player_captured_counts.get(player.id, 0)) + 1
+					_player_captured_counts[player.id] = curr_count
+					captured.append(c)
+	return captured
+
+## Panjara (GameGrid) bilan shaharlar egaligini 100% solishtirib tekshirish va muvofiqlashtirish
+func reconcile_with_grid(grid: GameGrid, players_by_id: Variant = null) -> Dictionary:
+	var lost: Array[CityData] = []
+	var transferred: Array[CityData] = []
+
+	for c: CityData in cities:
+		var grid_owner: int = grid.owner_at(c.x, c.y)
+		if grid_owner == 0 and c.owner_id != 0:
+			# Panjara neytral, lekin shahar egallangan deb turibdi -> neytralga o'tadi
+			var prev_owner := c.owner_id
+			if _player_captured_counts.has(prev_owner):
+				_player_captured_counts[prev_owner] = maxi(0, int(_player_captured_counts[prev_owner]) - 1)
+			c.owner_id = 0
+			c.owner_country = c.country_code
+			c.owner_name = ""
+			c.capture_time = 0.0
+			lost.append(c)
+		elif grid_owner > 0 and c.owner_id != grid_owner:
+			# Panjara egasi boshqa, lekin shahar unga o'tmagan -> yangi egasiga o'tkaziladi
+			var prev_owner := c.owner_id
+			if prev_owner > 0 and _player_captured_counts.has(prev_owner):
+				_player_captured_counts[prev_owner] = maxi(0, int(_player_captured_counts[prev_owner]) - 1)
+			c.owner_id = grid_owner
+			var p = null
+			if players_by_id is Array and grid_owner < players_by_id.size():
+				p = players_by_id[grid_owner]
+			elif players_by_id is Dictionary:
+				p = players_by_id.get(grid_owner, null)
+			if p != null:
+				c.owner_country = p.country
+				c.owner_name = p.player_name
+			else:
+				c.owner_country = c.country_code
+				c.owner_name = "Player %d" % grid_owner
+			var curr: int = int(_player_captured_counts.get(grid_owner, 0)) + 1
+			_player_captured_counts[grid_owner] = curr
+			transferred.append(c)
+
+	return {"lost": lost, "transferred": transferred}

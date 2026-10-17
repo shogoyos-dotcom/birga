@@ -41,6 +41,7 @@ var _dirty := PackedInt32Array()
 ## Katak indeksi -> tanga indeksi. Egallangan kataklar ro'yxati
 ## bo'yicha tez qidirish uchun.
 var _by_cell: Dictionary = {}
+var _last_collected_cells: Dictionary = {}
 
 ## `places` — xaritadagi shaharlar; `grid` o'ynaladigan katakni
 ## tekshirish uchun.
@@ -82,6 +83,20 @@ func taken_count() -> int:
 func collected() -> int:
 	return _collected
 
+## Katakdagi tanga mavjudmi (olinmagan va kutilishda emasmi).
+func is_coin_available_at_cell(cell: int) -> bool:
+	var index: int = _by_cell.get(cell, -1)
+	if index < 0 or index >= coins.size():
+		return false
+	return not bool((coins[index] as Dictionary).get("taken", false))
+
+## Katakdagi tanga qiymatini qaytaradi (agar mavjud bo'lsa).
+func get_coin_value_at_cell(cell: int) -> int:
+	var index: int = _by_cell.get(cell, -1)
+	if index < 0 or index >= coins.size():
+		return 0
+	return int((coins[index] as Dictionary).get("value", 0))
+
 ## Egallangan kataklardagi tangalarni oladi va qiymatini qaytaradi.
 ##
 ## `score` yolg'on bo'lsa tanga xaritadan yo'qoladi, lekin hisobga
@@ -90,6 +105,7 @@ func collected() -> int:
 ## Ro'yxatda faqat **yangi** egallangan kataklar bo'ladi, shuning
 ## uchun o'z hududingdagi tanga bu yerga tushmaydi.
 func collect_cells(cells: PackedInt32Array, score: bool = true) -> int:
+	_last_collected_cells.clear()
 	var got := 0
 	for cell: int in cells:
 		var index: int = _by_cell.get(cell, -1)
@@ -99,7 +115,9 @@ func collect_cells(cells: PackedInt32Array, score: bool = true) -> int:
 		if coin["taken"]:
 			continue
 		coin["taken"] = true
-		got += int(coin["value"])
+		var val: int = int(coin["value"])
+		got += val
+		_last_collected_cells[cell] = val
 		_taken += 1
 		_dirty.append(index)
 		_waiting.append({
@@ -109,6 +127,10 @@ func collect_cells(cells: PackedInt32Array, score: bool = true) -> int:
 	if score:
 		_collected += got
 	return got
+
+## Oxirgi egallashda katakdan olingan tanga miqdori (agar olinmagan bo'lsa 0).
+func get_last_collected_coin_for_cell(cell: int) -> int:
+	return int(_last_collected_cells.get(cell, 0))
 
 ## Soatni oldinga suradi va muddati yetgan tangalarni qaytaradi.
 ##

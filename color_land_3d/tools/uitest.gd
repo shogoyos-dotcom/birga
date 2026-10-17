@@ -69,9 +69,10 @@ func _build_steps() -> void:
 
 func _process(delta: float) -> bool:
 	if _view == null:
-		_view = current_scene
-		if _view == null:
+		var cand: Node = current_scene
+		if cand == null or not cand.has_method("show_screen_for_demo") or cand.get("store") == null:
 			return false
+		_view = cand
 		_build_steps()
 		_nodes_before = _count_nodes(root)
 		return false

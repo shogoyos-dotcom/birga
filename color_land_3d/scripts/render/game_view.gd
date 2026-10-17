@@ -133,7 +133,7 @@ func _ready() -> void:
 	add_child(_flag_poles)
 	_city_renderer = CityRendererNode.new()
 	add_child(_city_renderer)
-	_city_renderer.city_selected.connect(ui.show_city_info_modal)
+	_city_renderer.city_selected.connect(_on_city_selected)
 
 	store = SettingsStore.load_store()
 	Strings.set_language(store.language if not store.language.is_empty()
@@ -1011,10 +1011,23 @@ func _handle_events() -> void:
 				var c_cap: CitySystem.CityData = event["city"]
 				if _city_renderer != null:
 					_city_renderer.on_city_captured(c_cap)
+				var c_cell := int(c_cap.y) * world.grid.width + int(c_cap.x)
+				var coins_won: int = _coin_field.get_last_collected_coin_for_cell(c_cell)
 				if int(event["player"]) == human_id:
 					Audio.capture()
 					ui.flash(Color("38bdf8"), 0.22)
-					ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), c_cap.reward_coins])
+					if coins_won > 0:
+						ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), coins_won])
+					else:
+						ui.toast("★ %s EGALLANDI!" % c_cap.display_name.to_upper())
+				_refresh_hud()
+			"city_lost":
+				var c_lost: CitySystem.CityData = event["city"]
+				if _city_renderer != null:
+					_city_renderer.on_city_lost(c_lost)
+				if int(event["player"]) == human_id:
+					ui.toast("⚠️ %s QO'LDAN BOY BERILDI!" % c_lost.display_name.to_upper())
+				_refresh_hud()
 			"shield_used":
 				if int(event["player"]) == human_id:
 					Audio.kill()
@@ -1028,6 +1041,7 @@ func _handle_events() -> void:
 				elif int(event["killer"]) == human_id:
 					Audio.kill()
 					ui.flash(UiKit.MINT, 0.16)
+				_refresh_hud()
 
 func _spawn_floating_coin(at: Vector3, text: String) -> void:
 	var label := Label3D.new()
@@ -1172,7 +1186,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _city_renderer != null:
 				var hit_c = _city_renderer.get_city_at_screen_ray(camera, touch.position)
 				if hit_c != null:
-					ui.show_city_info_modal(hit_c)
+					_on_city_selected(hit_c)
 		else:
 			_dragging = false
 	elif event is InputEventMouseButton:
@@ -1183,11 +1197,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			if click.pressed and _city_renderer != null:
 				var hit_c = _city_renderer.get_city_at_screen_ray(camera, click.position)
 				if hit_c != null:
-					ui.show_city_info_modal(hit_c)
+					_on_city_selected(hit_c)
 	elif event is InputEventScreenDrag:
 		_steer((event as InputEventScreenDrag).position)
 	elif event is InputEventMouseMotion and _dragging:
 		_steer((event as InputEventMouseMotion).position)
+
+func _on_city_selected(city: CitySystem.CityData) -> void:
+	if city == null or world == null or world.grid == null:
+		return
+	var cell := int(city.y) * world.grid.width + int(city.x)
+	var avail: bool = _coin_field.is_coin_available_at_cell(cell)
+	ui.show_city_info_modal(city, avail)
 
 func _steer(at: Vector2) -> void:
 	if not _dragging:
