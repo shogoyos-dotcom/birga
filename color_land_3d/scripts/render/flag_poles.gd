@@ -425,6 +425,19 @@ func update_poles() -> void:
 	_total_updates += 1
 	average_update_usec = float(_total_usec) / float(_total_updates)
 
+var quality_preset: String = "medium"
+var _cull_distance: float = 90.0
+
+func set_quality_preset(preset: String) -> void:
+	quality_preset = preset.to_lower()
+	match quality_preset:
+		"low":
+			_cull_distance = 50.0
+		"high":
+			_cull_distance = 150.0
+		_:
+			_cull_distance = 90.0
+
 ## Kamera yaqinlashganda bayroqlarni ko'rish maydonini to'sib qo'ymasligi uchun moslashtirish
 func update_camera_culling(cam: Camera3D) -> void:
 	if cam == null:
@@ -432,15 +445,18 @@ func update_camera_culling(cam: Camera3D) -> void:
 	var cam_pos := cam.global_position
 	for node in _base_poles.values():
 		if is_instance_valid(node):
-			_apply_proximity_culling(node as Node3D, cam_pos)
+			_apply_proximity_culling(node as Node3D, cam_pos, true)
 	for poles_list in _territory_poles.values():
 		if poles_list is Array:
 			for node in poles_list:
 				if is_instance_valid(node):
-					_apply_proximity_culling(node as Node3D, cam_pos)
+					_apply_proximity_culling(node as Node3D, cam_pos, false)
 
-func _apply_proximity_culling(node: Node3D, cam_pos: Vector3) -> void:
+func _apply_proximity_culling(node: Node3D, cam_pos: Vector3, is_base: bool = false) -> void:
 	var dist := node.global_position.distance_to(cam_pos)
+	if not is_base and dist > _cull_distance:
+		node.visible = false
+		return
 	if dist < 5.5:
 		var factor := clampf((dist - 2.0) / 3.5, 0.2, 1.0)
 		node.scale = Vector3(factor, factor, factor)

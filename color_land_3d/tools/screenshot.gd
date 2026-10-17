@@ -340,17 +340,22 @@ func _drive() -> void:
 			elif _mode == "p6_reward_medium":
 				var target_city = null
 				for c in cities_list:
-					if c.category == CitySystem.Category.MEDIUM:
+					if c.category == CitySystem.Category.MEDIUM and (c.name == "Samarkand" or c.name == "Tashkent" or c.name == "Lyon"):
 						target_city = c
 						break
+				if target_city == null:
+					for c in cities_list:
+						if c.category == CitySystem.Category.MEDIUM:
+							target_city = c
+							break
 				if target_city != null:
 					target_city.owner_id = p.id
 					target_city.owner_country = p.country
 					target_city.owner_name = p.player_name
 					var cx := int(target_city.pos.x)
 					var cy := int(target_city.pos.y)
-					for dy in range(-8, 9):
-						for dx in range(-10, 11):
+					for dy in range(-4, 5):
+						for dx in range(-5, 6):
 							if view.world.grid.playable(cx + dx, cy + dy):
 								view.world.grid.set_owner(cx + dx, cy + dy, p.id)
 					view.paint.sync()
@@ -358,7 +363,7 @@ func _drive() -> void:
 					view._city_renderer.on_city_captured(target_city)
 					view._spawn_conquest_reward_fx(target_city, 200)
 					view._match_conquest_coins = 200
-					view.world.cities._player_captured_counts[p.id] = 2
+					view.world.cities._player_captured_counts[p.id] = 1
 					view._refresh_hud()
 					view.ui.toast("★ %s EGALLANDI! (+200 🪙)" % target_city.display_name.to_upper())
 					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
@@ -367,29 +372,34 @@ func _drive() -> void:
 			elif _mode == "p6_reward_large":
 				var target_city = null
 				for c in cities_list:
-					if c.category == CitySystem.Category.LARGE:
+					if c.category == CitySystem.Category.LARGE and (c.name == "Cairo" or c.name == "Paris" or c.name == "London" or c.name == "Tokyo"):
 						target_city = c
 						break
+				if target_city == null:
+					for c in cities_list:
+						if c.category == CitySystem.Category.LARGE:
+							target_city = c
+							break
 				if target_city != null:
 					target_city.owner_id = p.id
 					target_city.owner_country = p.country
 					target_city.owner_name = p.player_name
 					var cx := int(target_city.pos.x)
 					var cy := int(target_city.pos.y)
-					for dy in range(-10, 11):
-						for dx in range(-12, 13):
+					for dy in range(-4, 5):
+						for dx in range(-5, 6):
 							if view.world.grid.playable(cx + dx, cy + dy):
 								view.world.grid.set_owner(cx + dx, cy + dy, p.id)
 					view.paint.sync()
 					view._city_renderer._spawn_city_node(target_city)
 					view._city_renderer.on_city_captured(target_city)
 					view._spawn_conquest_reward_fx(target_city, 500)
-					view._match_conquest_coins = 750
-					view.world.cities._player_captured_counts[p.id] = 3
+					view._match_conquest_coins = 500
+					view.world.cities._player_captured_counts[p.id] = 1
 					view._refresh_hud()
 					view.ui.toast("★ %s EGALLANDI! (+500 🪙)" % target_city.display_name.to_upper())
 					var cpos := Vector3(target_city.pos.x, ArenaBuilder.LAND_HEIGHT, target_city.pos.y)
-					view.set_camera_demo_pose(cpos + Vector3(-9.5, 12.0, 12.0), cpos + Vector3(0, 2.2, 0))
+					view.set_camera_demo_pose(cpos + Vector3(-8.5, 11.0, 11.0), cpos + Vector3(0, 2.0, 0))
 
 			elif _mode == "p6_coin_anim":
 				var target_city = null

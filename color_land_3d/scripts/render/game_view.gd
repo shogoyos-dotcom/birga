@@ -423,11 +423,37 @@ func _apply_view_settings() -> void:
 		_pickups.visible = _playing
 	if _flag_poles != null:
 		_flag_poles.visible = _playing and store.show_flags
-	if _coins != null:
-		_coins.visible = _playing
-	var high_gfx: bool = (store == null or store.graphics_quality != "low")
+	var q: String = store.graphics_quality if store != null else "medium"
 	if sun != null:
-		sun.shadow_enabled = high_gfx
+		match q:
+			"low":
+				sun.shadow_enabled = false
+			"high":
+				sun.shadow_enabled = true
+				sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+				sun.directional_shadow_blend_splits = true
+				sun.shadow_bias = 0.05
+				sun.shadow_normal_bias = 0.8
+				sun.shadow_blur = 1.2
+			_: # medium
+				sun.shadow_enabled = true
+				sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+				sun.shadow_bias = 0.08
+				sun.shadow_normal_bias = 0.6
+				sun.shadow_blur = 0.6
+
+	if ocean != null and ocean.get_surface_override_material(0) != null:
+		var w_mat := ocean.get_surface_override_material(0) as ShaderMaterial
+		if w_mat != null:
+			var q_val := 0 if q == "low" else (2 if q == "high" else 1)
+			w_mat.set_shader_parameter("quality_level", q_val)
+
+	if _city_renderer != null and _city_renderer.has_method("set_quality_preset"):
+		_city_renderer.set_quality_preset(q)
+
+	if _flag_poles != null and _flag_poles.has_method("set_quality_preset"):
+		_flag_poles.set_quality_preset(q)
+
 	ui.set_minimap(paint.texture if store.show_minimap else null)
 
 ## Osmon va tuman rangi uslubdan olinadi.
@@ -1228,13 +1254,14 @@ func _spawn_conquest_reward_fx(city: CitySystem.CityData, amount: int) -> void:
 	_spawn_coin_particles(at)
 
 func _spawn_coin_particles(at: Vector3) -> void:
+	var q: String = store.graphics_quality if store != null else "medium"
 	var parts := CPUParticles3D.new()
 	parts.position = at
 	parts.emitting = true
 	parts.one_shot = true
 	parts.explosiveness = 0.85
 	parts.lifetime = 1.1
-	parts.amount = 14
+	parts.amount = 6 if q == "low" else (18 if q == "high" else 12)
 	parts.direction = Vector3(0, 1, 0)
 	parts.spread = 45.0
 	parts.initial_velocity_min = 4.0

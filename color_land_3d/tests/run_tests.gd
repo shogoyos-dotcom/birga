@@ -57,6 +57,7 @@ func _process(_delta: float) -> bool:
 	_test_phase5_cities(t)
 	_test_phase6_economy(t)
 	_test_phase6_corrections_integration(t)
+	_test_phase8_optimization_qa(t)
 
 	var ok := t.report()
 
@@ -2774,3 +2775,170 @@ func _test_phase6_corrections_integration(t: TestRunner) -> void:
 		if FileAccess.file_exists(test_save):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_save))
 	)
+
+func _test_phase8_optimization_qa(t: TestRunner) -> void:
+	t.group("phase 8 optimizatsiya, qa va relizga tayyorgarlik")
+
+	# 1. Grafika sozlamalari sifat presetlari ("low", "medium", "high")
+	t.test("1. Grafika sifat presetlari sozlamalari to'g'ri saqlanadi va tekshiriladi", func() -> void:
+		var store := SettingsStore.load_store()
+		var orig := store.graphics_quality
+
+		store.graphics_quality = "low"
+		t.equal(store.graphics_quality, "low", "Low preset to'g'ri o'rnatildi")
+
+		store.graphics_quality = "high"
+		t.equal(store.graphics_quality, "high", "High preset to'g'ri o'rnatildi")
+
+		store.graphics_quality = "medium"
+		t.equal(store.graphics_quality, "medium", "Medium preset to'g'ri o'rnatildi")
+
+		store.graphics_quality = "INVALID_QUALITY"
+		t.equal(store.graphics_quality, "medium", "Noto'g'ri qiymatda standart 'medium' ga tushadi")
+
+		store.graphics_quality = orig
+	)
+
+	# 2. CityRenderer dinamik LOD presetlarini qo'llab-quvvatlaydi
+	t.test("2. CityRenderer presetlari dinamik LOD parametrlarini to'g'ri o'zgartiradi", func() -> void:
+		var cr := CityRenderer.new()
+		cr.set_quality_preset("low")
+		t.equal(cr._lod_close, 36.0, "Low da LOD masofasi 36.0")
+		t.equal(cr._max_active_cities, 14, "Low da maksimal 14 ta 3D shahar")
+		t.equal(cr._update_interval, 0.20, "Low da yangilash intervali 0.20s")
+
+		cr.set_quality_preset("medium")
+		t.equal(cr._lod_close, 50.0, "Medium da LOD masofasi 50.0")
+		t.equal(cr._max_active_cities, 28, "Medium da maksimal 28 ta 3D shahar")
+		t.equal(cr._update_interval, 0.12, "Medium da yangilash intervali 0.12s")
+
+		cr.set_quality_preset("high")
+		t.equal(cr._lod_close, 68.0, "High da LOD masofasi 68.0")
+		t.equal(cr._max_active_cities, 42, "High da maksimal 42 ta 3D shahar")
+		t.equal(cr._update_interval, 0.08, "High da yangilash intervali 0.08s")
+		cr.free()
+	)
+
+	# 3. FlagPoles sifat presetlari masofa culling parametrlarini to'g'ri moslaydi
+	t.test("3. FlagPoles sifat presetlari masofa culling parametrlarini to'g'ri moslaydi", func() -> void:
+		var fp := FlagPoles.new()
+		fp.set_quality_preset("low")
+		t.equal(fp._cull_distance, 50.0, "Low da bayroqlar 50.0 dan keyin culling qilinadi")
+
+		fp.set_quality_preset("medium")
+		t.equal(fp._cull_distance, 90.0, "Medium da bayroqlar 90.0 dan keyin culling qilinadi")
+
+		fp.set_quality_preset("high")
+		t.equal(fp._cull_distance, 150.0, "High da bayroqlar 150.0 dan keyin culling qilinadi")
+		fp.free()
+	)
+
+	# 4. Murakkab to'ldirish (territory closure & fill correctness)
+	t.test("4. Murakkab shaklli hudud halqasi ichki kataklarni to'liq qamrab oladi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 30
+		cfg.grid_height = 20
+		var world := GameWorld.new(cfg)
+		# O'yinchining boshlang'ich 3x3 hududi (5, 5) dan (7, 7) gacha
+		for y in range(5, 8):
+			for x in range(5, 8):
+				world.grid.set_owner(x, y, 1)
+
+		var p := PlayerState.new(1, "Player1", 0, false, 8.0, 4.0)
+		p.place_at(6.5, 6.5, 0.0)
+		world.players.append(p)
+		world._by_id[1] = p
+
+		# 8x6 to'rtburchak iz chizamiz: (8,5) -> (14,5) -> (14,10) -> (7,10) -> (7,7)
+		var trail: Array[Vector2i] = []
+		for x in range(8, 15):
+			trail.append(Vector2i(x, 5))
+		for y in range(6, 11):
+			trail.append(Vector2i(14, y))
+		for x in range(13, 6, -1):
+			trail.append(Vector2i(x, 10))
+		for y in range(9, 7, -1):
+			trail.append(Vector2i(7, y))
+
+		for pt in trail:
+			var idx := world.grid.index(pt.x, pt.y)
+			world.grid.set_trail_index(idx, p.id)
+			p.add_trail(idx)
+
+		world._finish_loop(p)
+		t.check(p.trail.is_empty(), "Halqa yopilgach iz tozalandi")
+
+		# Ichki kataklar (9, 7), (10, 8), (11, 7) hammasi 1-o'yinchiga o'tgan bo'lishi shart
+		t.equal(world.grid.owner_at(9, 7), 1, "Ichki katak (9,7) o'yinchiniki")
+		t.equal(world.grid.owner_at(11, 8), 1, "Ichki katak (11,8) o'yinchiniki")
+		# Tashqi katak (16, 8) esa neytral qolishi shart
+		t.equal(world.grid.owner_at(16, 8), 0, "Tashqi katak (16,8) neytral qoldi")
+	)
+
+	# 5. Leaderboard tartibi va hudud foizi to'g'ri hisoblanishi
+	t.test("5. Leaderboard reytingi va foiz hisob-kitobi mutlaq to'g'ri ishlaydi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 40
+		cfg.grid_height = 20
+		var world := GameWorld.new(cfg)
+
+		var p1 := PlayerState.new(1, "Player1", 0, false, 8.0, 4.0)
+		p1.place_at(5.0, 5.0, 0.0)
+		var p2 := PlayerState.new(2, "Bot2", 1, true, 8.0, 4.0)
+		p2.place_at(20.0, 5.0, 0.0)
+		world.players.append_array([p1, p2])
+		world._by_id[1] = p1
+		world._by_id[2] = p2
+
+		# P1 ga 30 ta katak beramiz, P2 ga 15 ta katak beramiz
+		for i in 30:
+			world.grid.set_owner(i % 10 + 2, i / 10 + 2, p1.id)
+		for i in 15:
+			world.grid.set_owner(i % 5 + 20, i / 5 + 2, p2.id)
+
+		t.equal(world.rank_of(p1), 1, "P1 1-o'rinda (kataklari ko'proq)")
+		t.equal(world.rank_of(p2), 2, "P2 2-o'rinda")
+		t.check(world.percent_of(p1) > world.percent_of(p2), "P1 foizi P2 foizidan katta")
+	)
+
+	# 6. Uzoq sessiya simulyatsiyasi (5 ta ketma-ket match, toza holat va takrorlanmaslik)
+	t.test("6. Uzoq sessiya: 5 ta ketma-ket matchda state oqishi va resurs sizishi yo'q", func() -> void:
+		var tracker := CitySystem.CityRewardTracker.new()
+		var test_w_path := "user://test_long_session_wallet.cfg"
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+
+		var test_city := CitySystem.CityData.new()
+		test_city.id = 555
+		test_city.category = CitySystem.Category.MEDIUM
+		test_city.stable_id = "test_city_long_session_555"
+
+		for match_idx in 5:
+			var mid := "long_match_%d" % match_idx
+			tracker.reset(mid)
+			t.equal(tracker.get_match_id(), mid, "Yangi match_id o'rnatildi")
+			t.equal(tracker.get_claimed_count(), 0, "Yangi matchda da'volar soni 0")
+			t.check(tracker.is_city_eligible(test_city), "Har bir yangi matchda shahar munosib")
+
+			var res := tracker.claim_city(test_city, true)
+			t.equal(bool(res["eligible"]), true, "1-egallashda shahar mukofoti berildi")
+			var tx := str(res["tx_id"])
+			var credited := w.add_coins(int(res["coins"]), "city_conquest", tx)
+			t.equal(credited, 200, "Hamyonga +200 tanga tushdi")
+
+			# Shu match davomida qayta egallash
+			var dup_res := tracker.claim_city(test_city, true)
+			t.equal(bool(dup_res["eligible"]), false, "Shu match ichida takroriy da'vo rad etildi")
+			var dup_tx := str(dup_res.get("tx_id", ""))
+			if not dup_tx.is_empty():
+				var dup_cred := w.add_coins(200, "city_conquest", dup_tx)
+				t.equal(dup_cred, 0, "Takroriy tx bo'yicha 0 qo'shildi")
+
+		t.equal(w.get_coins(), 1000, "5 ta match natijasida hamyonda roppa-rosa 1000 tanga (5 x 200)")
+
+		if FileAccess.file_exists(test_w_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_w_path))
+	)
+

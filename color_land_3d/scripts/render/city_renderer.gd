@@ -24,9 +24,27 @@ const UiKit = preload("res://scripts/ui/ui_kit.gd")
 signal city_selected(city: CitySystem.CityData)
 
 # LOD masofalari (dunyo birliklarida)
-const LOD_CLOSE := 48.0
-const LOD_MID := 90.0
-const MAX_ACTIVE_3D_CITIES := 28
+var _lod_close: float = 50.0
+var _max_active_cities: int = 28
+var _update_interval: float = 0.12
+var quality_preset: String = "medium"
+
+func set_quality_preset(preset: String) -> void:
+	quality_preset = preset.to_lower()
+	match quality_preset:
+		"low":
+			_lod_close = 36.0
+			_max_active_cities = 14
+			_update_interval = 0.20
+		"high":
+			_lod_close = 68.0
+			_max_active_cities = 42
+			_update_interval = 0.08
+		_:
+			_lod_close = 50.0
+			_max_active_cities = 28
+			_update_interval = 0.12
+
 
 # Cached Shared Meshes
 static var _mesh_small: ArrayMesh
@@ -187,7 +205,7 @@ func update_lod(cam_pos: Vector3, dt: float) -> void:
 	_update_timer -= dt
 	if _update_timer > 0.0:
 		return
-	_update_timer = 0.12 # Sekundiga ~8 marta yangilash (yuqori FPS)
+	_update_timer = _update_interval
 
 	if _all_cities.is_empty():
 		return
@@ -198,7 +216,7 @@ func update_lod(cam_pos: Vector3, dt: float) -> void:
 	var visible_candidates: Array[Dictionary] = []
 	for c: CitySystem.CityData in _all_cities:
 		var d := c.pos.distance_to(cam_2d)
-		if d < LOD_CLOSE:
+		if d < _lod_close:
 			# Katta shaharlarga va yaqinlarga ustunlik
 			var priority := d - (15.0 if c.category == CitySystem.Category.LARGE else 0.0)
 			visible_candidates.append({"city": c, "dist": d, "prio": priority})
@@ -207,7 +225,7 @@ func update_lod(cam_pos: Vector3, dt: float) -> void:
 		return float(a["prio"]) < float(b["prio"]))
 
 	var needed_ids: Dictionary = {}
-	var count := mini(visible_candidates.size(), MAX_ACTIVE_3D_CITIES)
+	var count := mini(visible_candidates.size(), _max_active_cities)
 	for i in count:
 		var c: CitySystem.CityData = visible_candidates[i]["city"]
 		needed_ids[c.id] = true

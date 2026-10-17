@@ -1253,6 +1253,26 @@ func _build_settings() -> Control:
 
 	inner.add_child(grid)
 
+	# Grafika sifati (Graphics Quality Presets: LOW / MEDIUM / HIGH)
+	var q_box := VBoxContainer.new()
+	q_box.add_theme_constant_override("separation", 6)
+	q_box.add_child(UiKit.title("GRAFIKA SIFATI (QUALITY)", 14, UiKit.TEXT_FAINT))
+	var q_idx := 0 if store.graphics_quality == "low" else (2 if store.graphics_quality == "high" else 1)
+	var q_chips := UiKit.chips(
+		PackedStringArray(["PAST (LOW)", "O'RTA (MED)", "YUQORI (HIGH)"]),
+		q_idx,
+		func(idx: int) -> void:
+			Audio.tap()
+			match idx:
+				0: store.graphics_quality = "low"
+				1: store.graphics_quality = "medium"
+				2: store.graphics_quality = "high"
+			view_changed.emit()
+			_rebuild()
+	)
+	q_box.add_child(q_chips)
+	inner.add_child(q_box)
+
 	# 6 ta harakat tugmasi (2 ustun)
 	var act_grid := GridContainer.new()
 	act_grid.columns = 2
