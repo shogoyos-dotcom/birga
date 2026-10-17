@@ -1,13 +1,15 @@
 extends Node3D
 
+const WorldPacing = preload("res://scripts/logic/world_pacing.gd")
+
 ## 3D sahna: arena, o'yinchilar, kamera va boshqaruv.
 ##
 ## Mantiq butunlay [GameWorld] ichida — bu yerda faqat chizish va
 ## kiritish. Shuning uchun qoidalar headless testlardan o'tadi.
 
 ## Kamera o'yinchidan qancha orqada va baland turadi.
-const CAM_HEIGHT := 36.0
-const CAM_BACK := 30.0
+const CAM_HEIGHT := WorldPacing.CAM_HEIGHT_EXPANDED
+const CAM_BACK := WorldPacing.CAM_BACK_EXPANDED
 ## Hudud ustidagi avatarning quyuqligi.
 const AVATAR_ALPHA := 0.92
 ## Kamera o'yinchini qanchalik yumshoq kuzatadi (1/sekund).
@@ -101,6 +103,10 @@ func _ready() -> void:
 	sun.light_color = Color(1.0, 0.98, 0.94)
 	sun.light_energy = 1.25
 	sun.shadow_enabled = false
+
+	# Kamera ko'rinishi: kengaytirilgan dunyoni to'liq qamrab olish uchun
+	camera.near = 0.5
+	camera.far = WorldPacing.CAM_FAR_EXPANDED
 
 	# Yer va okean tekisliklari o'z ustiga qora chiziqli soya tashlamasligi uchun
 	arena.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -485,8 +491,8 @@ func _build_props() -> void:
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
-	# Zichroq multfilm daraxtlari — har 7-8 katakda
-	var step := clampi(grid.width / 32, 6, 8)
+	# Zichroq multfilm daraxtlari — maydon kattaligiga mos qadam
+	var step := clampi(grid.width / 50, 8, 14)
 	for y in range(4, grid.height - 4, step):
 		for x in range(4, grid.width - 4, step):
 			var px := x + rng.randi_range(-2, 2)
@@ -1069,8 +1075,8 @@ func _player_target() -> Vector3:
 
 func _place_camera_instantly() -> void:
 	if not _playing and world != null and world.grid != null:
-		var center := Vector3(240.0, ArenaBuilder.LAND_HEIGHT, 65.0)
-		camera.position = center + Vector3(0.0, 36.0, 28.0)
+		var center := Vector3(world.grid.width * 0.52, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.28)
+		camera.position = center + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
 		camera.look_at(center, Vector3.UP)
 		return
 	var target := _player_target()
@@ -1079,13 +1085,16 @@ func _place_camera_instantly() -> void:
 
 func _follow_camera(delta: float) -> void:
 	if not _playing and world != null and world.grid != null:
-		var center := Vector3(240.0, ArenaBuilder.LAND_HEIGHT, 65.0)
-		var want := center + Vector3(sin(Time.get_ticks_msec() * 0.0003) * 3.0, 36.0, 28.0)
+		var center := Vector3(world.grid.width * 0.52, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.28)
+		var want := center + Vector3(sin(Time.get_ticks_msec() * 0.0003) * 6.0, CAM_HEIGHT, CAM_BACK)
 		camera.position = camera.position.lerp(want, minf(1.0, 2.0 * delta))
 		camera.look_at(center, Vector3.UP)
 		return
 	var target := _player_target()
 	var want := target + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
+	if world != null and world.grid != null:
+		want.x = clampf(want.x, 15.0, float(world.grid.width) - 15.0)
+		want.z = clampf(want.z, CAM_BACK + 5.0, float(world.grid.height) + CAM_BACK - 5.0)
 	camera.position = camera.position.lerp(want, minf(1.0, CAM_FOLLOW * delta))
 	camera.look_at(target, Vector3.UP)
 
@@ -1224,11 +1233,19 @@ func _refresh_tags() -> void:
 func _refresh_hud() -> void:
 	_refresh_tags()
 	var p := world.human()
+	var bot_pts: Array = []
+	for pl in world.players:
+		if pl != p and pl.alive:
+			bot_pts.append({
+				"pos": Vector2(pl.x / world.grid.width, pl.y / world.grid.height),
+				"color": Palette.head(pl.color_index)
+			})
 	ui.update_hud(
 		world.percent_of(p), p.kills, world.elapsed,
 		world.rank_of(p), world.alive_count(), _leaderboard(),
 		Vector2(p.x / world.grid.width, p.y / world.grid.height),
-		_coin_field.collected() + _loose_coins)
+		_coin_field.collected() + _loose_coins,
+		bot_pts)
 
 ## Top-5 reyting.
 ## Reyting: eng kuchli uchtasi va o'yinchining o'z qatori.

@@ -23,7 +23,10 @@ const CIRCLE_SIZE := 320
 ## Koordinatalar faylda 1/FIXED katak aniqligida saqlanadi.
 const FIXED := 64.0
 
+const DEFAULT_SCALE := 2
+
 var id: String = "world"
+var scale_factor: int = DEFAULT_SCALE
 var width: int
 var height: int
 ## Har katak uchun 1 (quruqlik) yoki 0 (suv) — o'yin mantig'i shu
@@ -72,18 +75,19 @@ static func _load_index() -> void:
 		var meta: Dictionary = entry
 		_index[str(meta["id"])] = meta
 
-static func load_map(map_id: String) -> WorldMap:
+static func load_map(map_id: String, p_scale: int = DEFAULT_SCALE) -> WorldMap:
 	var map := WorldMap.new()
 	map.id = map_id
+	map.scale_factor = p_scale
 	if map_id == CIRCLE_ID:
-		map._build_circle()
+		map._build_circle(p_scale)
 	else:
-		map._read(map_id)
+		map._read(map_id, p_scale)
 	return map
 
 # ——— Fayldan o'qish ———
 
-func _read(map_id: String) -> void:
+func _read(map_id: String, p_scale: int = DEFAULT_SCALE) -> void:
 	_load_index()
 	if not _index.has(map_id):
 		push_error("Noma'lum maydon: %s" % map_id)
@@ -106,31 +110,74 @@ func _read(map_id: String) -> void:
 		push_error("Maydon fayli ochilmadi: %s" % path)
 		return
 
-	width = body.decode_u16(0)
-	height = body.decode_u16(2)
-	if width <= 0 or height <= 0:
+	var raw_w := body.decode_u16(0)
+	var raw_h := body.decode_u16(2)
+	if raw_w <= 0 or raw_h <= 0:
 		push_error("Maydon o'lchami noto'g'ri: %s" % path)
 		return
-	var cells := width * height
-	var at := 4 + (cells + 7) / 8
-	land = _unpack(body.slice(4, at), cells)
-	land_cells = 0
-	for v: int in land:
-		land_cells += v
+	var raw_cells := raw_w * raw_h
+	var at := 4 + (raw_cells + 7) / 8
+	var raw_land := _unpack(body.slice(4, at), raw_cells)
 
 	# Geometriya: uchburchaklar va devor kesmalari. Koordinatalar
 	# 1/FIXED katak aniqligida uint16 bo'lib yozilgan.
 	var tri_count := body.decode_u32(at)
 	at += 4
-	top_points = _read_points(body, at, tri_count * 3)
+	var raw_top := _read_points(body, at, tri_count * 3)
 	at += tri_count * 3 * 4
 	var wall_count := body.decode_u32(at)
 	at += 4
-	wall_points = _read_points(body, at, wall_count * 2)
+	var raw_wall := _read_points(body, at, wall_count * 2)
 
 	var meta: Dictionary = _index[map_id]
-	for c: Variant in meta.get("places", []):
-		places.append(c as Dictionary)
+	var raw_places: Array = meta.get("places", [])
+
+	scale_factor = maxi(1, p_scale)
+	if scale_factor == 1:
+		width = raw_w
+		height = raw_h
+		land = raw_land
+		land_cells = 0
+		for v: int in land:
+			land_cells += v
+		top_points = raw_top
+		wall_points = raw_wall
+		places.clear()
+		for c: Variant in raw_places:
+			places.append(c as Dictionary)
+	else:
+		width = raw_w * scale_factor
+		height = raw_h * scale_factor
+		land = PackedByteArray()
+		land.resize(width * height)
+		land_cells = 0
+		for y in height:
+			var orig_y: int = y / scale_factor
+			var row_out := y * width
+			var row_in := orig_y * raw_w
+			for x in width:
+				var val: int = raw_land[row_in + (x / scale_factor)]
+				land[row_out + x] = val
+				land_cells += val
+
+		top_points = PackedVector2Array()
+		top_points.resize(raw_top.size())
+		var sf := float(scale_factor)
+		for i in raw_top.size():
+			top_points[i] = raw_top[i] * sf
+
+		wall_points = PackedVector2Array()
+		wall_points.resize(raw_wall.size())
+		for i in raw_wall.size():
+			wall_points[i] = raw_wall[i] * sf
+
+		places.clear()
+		for c: Variant in raw_places:
+			var d := (c as Dictionary).duplicate()
+			d["x"] = int(d.get("x", 0)) * scale_factor + (scale_factor / 2)
+			d["y"] = int(d.get("y", 0)) * scale_factor + (scale_factor / 2)
+			places.append(d)
+
 	ok = true
 
 ## Ikkilik ma'lumotdan (x, z) juftliklarini o'qiydi.
@@ -157,9 +204,10 @@ static func _unpack(packed: PackedByteArray, count: int) -> PackedByteArray:
 
 ## Erkin maydon: xaritasiz, bitta katta doira. Chizish niqobi ham shu
 ## yerda hisoblanadi, shuning uchun cheti o'z-o'zidan silliq.
-func _build_circle() -> void:
-	width = CIRCLE_SIZE
-	height = CIRCLE_SIZE
+func _build_circle(p_scale: int = DEFAULT_SCALE) -> void:
+	scale_factor = maxi(1, p_scale)
+	width = CIRCLE_SIZE * scale_factor
+	height = CIRCLE_SIZE * scale_factor
 	var radius := width * 0.47
 	land = _disc(width, height, radius)
 	land_cells = 0

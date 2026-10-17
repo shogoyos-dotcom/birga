@@ -30,8 +30,8 @@ const DAILY_REWARD_MULTIPLIER := 2.0
 ## Har o'yin uchun asos (omon qolgan vaqtga qarab).
 const RUN_MIN := 10
 const RUN_MAX := 100
-## Shu soniyada RUN_MAX ga yetadi.
-const RUN_FULL_SECONDS := 180.0
+## Shu soniyada RUN_MAX ga yetadi (PHASE 3: 8-12 daqiqalik o'yin sur'ati).
+const RUN_FULL_SECONDS := 600.0
 
 ## Hudud uchun: egallangan foizga qarab.
 const TERRITORY_MIN := 10

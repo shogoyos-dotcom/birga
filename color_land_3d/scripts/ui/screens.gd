@@ -1641,7 +1641,7 @@ func toast(text: String) -> void:
 ## percent, is_human, country}].
 func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 		alive: int, rows: Array, marker: Vector2 = Vector2.ZERO,
-		coins: int = 0) -> void:
+		coins: int = 0, bots: Array = []) -> void:
 	if _screen != Screen.HUD or _progress == null:
 		return
 	if _donut != null and is_instance_valid(_donut):
@@ -1656,6 +1656,7 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 		_coin_label.text = str(coins)
 	if _minimap != null and is_instance_valid(_minimap):
 		_minimap.marker = marker
+		_minimap.bot_markers = bots
 
 	for child in _board.get_children():
 		child.queue_free()

@@ -31,7 +31,7 @@ func _init(p_config: GameConfig, seed_value: int = 0) -> void:
 	if config.world_map:
 		# Panjara o'lchami xaritadan olinadi — har maydonning o'z
 		# kengligi va balandligi bor.
-		map = WorldMap.load_map(config.map_id)
+		map = WorldMap.load_map(config.map_id, config.world_scale)
 		if map.ok:
 			land = map.land
 			places = map.places
@@ -100,8 +100,8 @@ func spawn_all() -> void:
 ## Bo'sh joy topib o'yinchini joylashtiradi. Joy topilmasa `false`.
 func spawn(p: PlayerState) -> bool:
 	var size := config.start_block
-	var margin := size + 2
-	for attempt in 400:
+	var margin := size + 3
+	for attempt in 600:
 		var left: int = margin + _rng.randi_range(0, grid.width - 2 * margin - size - 1)
 		var top: int = margin + _rng.randi_range(0, grid.height - 2 * margin - size - 1)
 		if not grid.is_block_free(left, top, size):
@@ -124,14 +124,16 @@ func spawn(p: PlayerState) -> bool:
 func _has_room(cx: int, cy: int) -> bool:
 	if grid.land.is_empty():
 		return true
-	const RADIUS := 8
-	var land := 0
-	for y in range(cy - RADIUS, cy + RADIUS + 1):
-		for x in range(cx - RADIUS, cx + RADIUS + 1):
+	var radius := int(8 * (float(grid.width) / 460.0))
+	radius = clampi(radius, 8, 16)
+	var land_found := 0
+	var total_checked := 0
+	for y in range(cy - radius, cy + radius + 1, 2):
+		for x in range(cx - radius, cx + radius + 1, 2):
+			total_checked += 1
 			if grid.playable(x, y):
-				land += 1
-	# (2*8+1)^2 = 289 katakdan kamida yarmi quruqlik bo'lsin.
-	return land >= 145
+				land_found += 1
+	return float(land_found) / float(maxi(total_checked, 1)) >= 0.45
 
 ## Bir kadrni hisoblaydi. `dt` juda katta bo'lsa bo'laklarga bo'linadi.
 func update(dt: float) -> void:

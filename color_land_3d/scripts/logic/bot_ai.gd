@@ -108,7 +108,8 @@ func _plan(world: GameWorld, me: PlayerState) -> void:
 		me.steer_to(_cardinal_toward(me, _target_x + 0.5, _target_y + 0.5))
 		return
 
-	var base: float = (4 + _rng.randi_range(0, 4)) * difficulty.bot_loop_factor
+	var scale_mult: float = 1.25 if world.grid.width > 500 else 1.0
+	var base: float = (4 + _rng.randi_range(0, 5)) * difficulty.bot_loop_factor * scale_mult
 	var out := _outward_angle(world, me)
 	var side: int = 1 if _rng.randf() < 0.5 else -1
 

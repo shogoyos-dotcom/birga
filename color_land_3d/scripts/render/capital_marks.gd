@@ -35,7 +35,7 @@ const SCREEN_SIZE := 0.00042
 
 ## Nom shu masofadan uzoqda ko'rsatilmaydi (katak), oxirgi
 ## [FADE] ulushida asta so'nadi.
-const NAME_RANGE := 24.0
+const NAME_RANGE := 36.0
 const FADE := 0.35
 
 ## Bir vaqtda ekranda bo'ladigan nomlar soni (maksimal 10 ta).

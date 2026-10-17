@@ -1,11 +1,16 @@
 class_name GameConfig
 extends RefCounted
 
+const WorldPacing = preload("res://scripts/logic/world_pacing.gd")
+
 ## O'yinning barcha sozlamalari bir joyda. Mantiq qatlami faqat shuni biladi.
 
+## Xarita shkalasi: 1 — klassik, 2 — kengaytirilgan (PHASE 3)
+var world_scale: int = WorldPacing.DEFAULT_SCALE
+
 ## Panjara o'lchami. Xarita yuklanganda uning o'lchamiga moslanadi.
-var grid_width: int = 460
-var grid_height: int = 233
+var grid_width: int = 920
+var grid_height: int = 466
 ## Maydon xaritadan yaratiladimi. `false` — butun to'rtburchak
 ## o'ynaladi (testlar uchun qulay).
 var world_map: bool = true
@@ -13,14 +18,14 @@ var world_map: bool = true
 var map_id: String = "world"
 
 ## Boshlang'ich hudud joylashadigan kvadrat tomoni.
-var start_block: int = 5
-var bot_count: int = 15
+var start_block: int = WorldPacing.START_BLOCK_EXPANDED
+var bot_count: int = WorldPacing.BOTS_EXPANDED
 var difficulty: Difficulty = Difficulty.new()
 
 ## Katak/sekund.
-var player_speed: float = 8.0
+var player_speed: float = WorldPacing.SPEED_EXPANDED
 ## Radian/sekund.
-var player_turn_rate: float = 14.0
+var player_turn_rate: float = WorldPacing.TURN_RATE_EXPANDED
 var bot_turn_rate: float = 9.0
 var bot_respawn_delay: float = 3.0
 ## Bir qadamda hisoblanadigan maksimal vaqt (lag paytida sakrashni oldini oladi).

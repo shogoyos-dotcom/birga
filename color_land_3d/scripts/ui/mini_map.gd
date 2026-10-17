@@ -26,6 +26,12 @@ var marker_color := Color.WHITE:
 		marker_color = value
 		queue_redraw()
 
+## Botlar joyi — [{pos: Vector2, color: Color}]
+var bot_markers: Array = []:
+	set(value):
+		bot_markers = value
+		queue_redraw()
+
 func _init(texture: Texture2D = null, color: Color = Color.WHITE) -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -54,6 +60,14 @@ func _draw() -> void:
 			var draw_h := (t_size.y / max_dim) * (radius * 1.62)
 			var rect := Rect2(center - Vector2(draw_w * 0.5, draw_h * 0.5), Vector2(draw_w, draw_h))
 			draw_texture_rect(map_texture, rect, false)
+
+			# Botlar nuqtalari
+			for bm: Dictionary in bot_markers:
+				var bpos: Vector2 = bm.get("pos", Vector2.ZERO)
+				var bcol: Color = bm.get("color", Color("f43f5e"))
+				var bat := rect.position + Vector2(bpos.x * draw_w, bpos.y * draw_h)
+				if bat.distance_to(center) <= radius - 2.0:
+					draw_circle(bat, DOT * 0.75, bcol)
 
 			# O'yinchi nuqtasi
 			var at := rect.position + Vector2(marker.x * draw_w, marker.y * draw_h)
