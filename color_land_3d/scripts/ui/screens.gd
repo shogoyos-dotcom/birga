@@ -1634,8 +1634,7 @@ func _flag_grid() -> Control:
 	# 249 bayroqni birdan qurish sekin — ro'yxat qisqartiriladi.
 	var chosen := _country()
 	var list := Profile.search_countries(_flag_query)
-	var limit: int = list.size() if not _flag_query.is_empty() else mini(list.size(), 80)
-	for i in limit:
+	for i in list.size():
 		var c: Dictionary = list[i]
 		var code := str(c["code"])
 		var value := Profile.encode(Profile.Kind.FLAG, code)

@@ -46,8 +46,10 @@ func _ready() -> void:
 ## Yangi o'yin: belgilar qaytadan chiziladi.
 func setup(world: GameWorld) -> void:
 	_world = world
+	_last_versions.clear()
+	_has_refreshed = false
 	_build_tiles()
-	refresh()
+	refresh(true)
 
 func texture() -> Texture2D:
 	return viewport.get_texture() if viewport != null else null
@@ -119,12 +121,27 @@ func _process(delta: float) -> void:
 		_timer = REFRESH
 		refresh()
 
-## Har o'yinchining hududidagi markazi va o'lchamini yangilaydi.
-func refresh() -> void:
-	if _world == null:
+var _last_versions: Dictionary = {}
+var _has_refreshed := false
+
+## Har o'yinchining hududidagi markazi va o'lchamini yangilaydi (faqat o'zgarganda).
+func refresh(force: bool = false) -> void:
+	if _world == null or _world.grid == null:
 		return
+	if not force and _has_refreshed:
+		var changed := false
+		for p in _world.players:
+			var v := _world.grid.version_of(p.id)
+			if _last_versions.get(p.id, -1) != v:
+				_last_versions[p.id] = v
+				changed = true
+		if not changed:
+			return
+
+	_has_refreshed = true
 	data_image.fill(Color(0, 0, 0, 0))
 	for p in _world.players:
+		_last_versions[p.id] = _world.grid.version_of(p.id)
 		var place := AvatarPlacement.of(_world.grid, p.id)
 		var center: Vector2 = place["center"]
 		var half_w: float = place.get("half_w", place["half"]) if p.alive else 0.0

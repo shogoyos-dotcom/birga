@@ -28,20 +28,40 @@ var _burst_step := -1
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
-	if args.size() > 0:
-		_seconds = float(args[0])
-	if args.size() > 1:
-		_out = args[1]
-	if args.size() > 2:
-		_mode = args[2]
-	if args.size() > 3:
-		_avatar = args[3]
-	if args.size() > 4:
-		_map = args[4]
-	if args.size() > 5:
-		_at = args[5]
-	if args.size() > 6:
-		_country = args[6]
+	print("screenshot args: ", args)
+	for i in args.size():
+		var s := str(args[i])
+		if s.begins_with("country="):
+			_country = s.substr(8)
+		elif s.begins_with("c="):
+			_country = s.substr(2)
+		elif s.begins_with("mode="):
+			_mode = s.substr(5)
+		elif s.begins_with("m="):
+			_mode = s.substr(2)
+		elif s.begins_with("out="):
+			_out = s.substr(4)
+		elif s.begins_with("avatar="):
+			_avatar = s.substr(7)
+		elif s.begins_with("map="):
+			_map = s.substr(4)
+		elif s.begins_with("at="):
+			_at = s.substr(3)
+		elif s.ends_with(".png"):
+			_out = s
+		elif s.is_valid_float() and i == 0:
+			_seconds = float(s)
+		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings"]:
+			_mode = s
+		elif s.length() == 2 and s == s.to_upper():
+			_country = s
+		elif i == 0 and s.is_valid_float():
+			_seconds = float(s)
+		elif i == 1 and not s.begins_with("-"):
+			_out = s
+		elif i == 2:
+			_mode = s
+	print("screenshot configured: seconds=%.1f out=%s mode=%s country=%s" % [_seconds, _out, _mode, _country])
 	_frames_left = int(_seconds * 60.0)
 	change_scene_to_file("res://scenes/main.tscn")
 
@@ -112,28 +132,23 @@ func _drive() -> void:
 			view._place_camera_instantly()
 		_at = ""
 
-	if _mode == "flag_base":
+	if _mode == "flag_base" or _mode == "flag_territory":
 		var p: Object = view.world.human()
-		var base_node: Node3D = view._flag_poles._base_poles.get(p.id)
-		var base_pos := base_node.global_position if base_node != null else Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
-		view.set_camera_demo_pose(base_pos + Vector3(-2.8, 6.2, 8.2), base_pos + Vector3(1.4, 4.0, 0.0))
-		return
-
-	if _mode == "flag_territory":
-		if _elapsed < 0.15:
-			var p: Object = view.world.human()
+		if _elapsed < 0.2:
 			var cx := int(p.x)
 			var cy := int(p.y)
-			for dy in range(-14, 15):
-				for dx in range(-21, 22):
+			for dy in range(-12, 13):
+				for dx in range(-18, 19):
 					var gx := cx + dx
 					var gy := cy + dy
-					if view.world.grid.playable(gx, gy) and Vector2(dx * 1.4, dy).length() <= 18.0:
+					if view.world.grid.playable(gx, gy) and Vector2(dx * 1.5, dy).length() <= 16.0:
 						view.world.grid.set_owner_cell(gx, gy, p.id)
 			view.paint.sync()
 			view._avatars.refresh()
-		view.steer_human(_elapsed * 0.45)
-		view.revive_human_for_demo()
+			view._flag_poles.update_poles()
+		var base_node: Node3D = view._flag_poles._base_poles.get(p.id)
+		var base_pos := base_node.global_position if base_node != null else Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
+		view.set_camera_demo_pose(base_pos + Vector3(-3.2, 7.0, 9.2), base_pos + Vector3(1.2, 3.6, 0.0))
 		return
 
 	if _mode == "burst" or _mode == "conquest":
