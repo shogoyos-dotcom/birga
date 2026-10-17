@@ -76,7 +76,20 @@ func _drive() -> void:
 		# kelgan javob darhol o'chib ketardi.
 		if not _opened:
 			_opened = true
-			view.show_screen_for_demo(_mode)
+			if _mode == "maps:continents":
+				view.show_screen_for_demo("maps")
+				view.ui._maps_category = 1
+				view.ui._rebuild()
+			elif _mode == "maps:cities":
+				view.show_screen_for_demo("maps")
+				view.ui._maps_category = 2
+				view.ui._rebuild()
+			elif _mode == "maps:special":
+				view.show_screen_for_demo("maps")
+				view.ui._maps_category = 3
+				view.ui._rebuild()
+			else:
+				view.show_screen_for_demo(_mode)
 		return
 	view.start_for_demo()
 	if not _at.is_empty():

@@ -63,6 +63,28 @@ const CITY_COIN_MAX := 25
 ## tanga qaytguncha boshqa yerdan yer egallash kerak.
 const CITY_COIN_RESPAWN := 30.0
 
+## Shahar toifalari va ulardan olinadigan haqiqiy tangalar (PHASE 5-6 va UI uchun umumiy)
+const CITY_REWARDS := {
+	"small": {
+		"title": "Small City",
+		"desc": "Aholisi 100k gacha shaharchalar",
+		"coins": 5,
+		"icon": "village"
+	},
+	"medium": {
+		"title": "Medium City",
+		"desc": "Aholisi 100k - 1M o'rta shaharlar",
+		"coins": 15,
+		"icon": "city"
+	},
+	"large": {
+		"title": "Large City",
+		"desc": "Aholisi 1M+ poytaxt va megapolislar",
+		"coins": 25,
+		"icon": "metropolis"
+	}
+}
+
 # ——— Chegaralar ———
 
 ## Bitta o'yindan olinadigan eng ko'p tanga — xatodan himoya.

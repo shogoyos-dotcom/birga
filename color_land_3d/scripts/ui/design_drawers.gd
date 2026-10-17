@@ -364,6 +364,30 @@ class MapThumbnailControl extends Control:
 				draw_line(jc, jc + Vector2(0, -30), Color.WHITE, 4.5)
 				draw_line(jc + Vector2(-16, -24), jc + Vector2(16, -24), Color.WHITE, 4.0)
 				draw_circle(jc + Vector2(0, -33), 4.0, Color.WHITE)
+			"oceania":
+				# Okeaniya: moviy tropik marjon orollari va Sidney teatri silueti
+				draw_rect(rect, Color("06b6d4"))
+				draw_circle(Vector2(size.x * 0.45, size.y + 12), 52.0, Color("22c55e"))
+				draw_circle(Vector2(size.x * 0.82, size.y + 16), 46.0, Color("16a34a"))
+				var so := Vector2(size.x * 0.38, size.y - 10)
+				for si in 3:
+					var ox: float = so.x + si * 10.0
+					var arc_poly := PackedVector2Array([
+						Vector2(ox - 8, so.y), Vector2(ox, so.y - 18 - si * 3),
+						Vector2(ox + 8, so.y)
+					])
+					draw_colored_polygon(arc_poly, Color.WHITE)
+				var palm := Vector2(size.x * 0.78, size.y - 10)
+				draw_line(palm, palm + Vector2(-3, -22), Color("78350f"), 3.0)
+				draw_circle(palm + Vector2(-3, -24), 8.0, Color("15803d"))
+			"circle":
+				# Erkin aylana jang maydoni
+				draw_rect(rect, Color("1e1b4b"))
+				var cc := Vector2(size.x * 0.5, size.y * 0.5)
+				draw_circle(cc, 34.0, Color("4338ca"))
+				draw_circle(cc, 26.0, Color("6366f1"))
+				draw_circle(cc, 18.0, Color("a5b4fc"))
+				draw_circle(cc, 8.0, Color.WHITE)
 			"small_city":
 				# Shaharcha: tarixiy uychalar va qo'ng'iroq minorasi
 				draw_rect(rect, Color("38bdf8"))

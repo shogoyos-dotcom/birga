@@ -36,13 +36,24 @@ var best_kills: int:
 	get: return int(_read("best_kills", 0))
 
 ## Natijani saqlaydi. Yangi rekord bo'lsa `true`.
-func submit_result(percent: float, kills: int) -> bool:
+func submit_result(percent: float, kills: int, m_id: String = "") -> bool:
 	var is_record := percent > best_percent
 	if is_record:
 		_write("best_percent", percent)
 	if kills > best_kills:
 		_write("best_kills", kills)
+	var active_map := m_id if not m_id.is_empty() else map_id
+	set_map_record(active_map, percent)
 	return is_record
+
+## Har xarita bo'yicha alohida rekord
+func get_map_record(id: String) -> float:
+	return float(_read("map_record_" + id, 0.0))
+
+func set_map_record(id: String, percent: float) -> void:
+	var prev := get_map_record(id)
+	if percent > prev:
+		_write("map_record_" + id, percent)
 
 ## Rekordni boshidan boshlaydi.
 func reset_record() -> void:
@@ -88,7 +99,7 @@ var show_city_names: bool:
 ## Boshlang'ich holat — **o'chiq**: hudud endi skin naqshi bilan
 ## bo'yaladi va ulkan avatar uni bosib ketardi.
 var show_flags: bool:
-	get: return bool(_read("flags", false))
+	get: return bool(_read("flags", true))
 	set(value): _write("flags", value)
 
 ## HUD da kichik xarita ko'rinadimi.

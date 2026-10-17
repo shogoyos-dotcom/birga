@@ -443,10 +443,13 @@ func _build_heroes_overview() -> Control:
 
 	var c_row := HBoxContainer.new()
 	c_row.add_theme_constant_override("separation", 8)
+	var sm_coins: int = MonetizationConfig.CITY_REWARDS["small"]["coins"]
+	var md_coins: int = MonetizationConfig.CITY_REWARDS["medium"]["coins"]
+	var lg_coins: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
 	var city_tiers := [
-		["Small City", "+50", "small_city"],
-		["Medium City", "+200", "medium_city"],
-		["Large City", "+500", "large_city"]
+		["Small City", "+%d" % sm_coins, "small_city"],
+		["Medium City", "+%d" % md_coins, "medium_city"],
+		["Large City", "+%d" % lg_coins, "large_city"]
 	]
 	for ct: Array in city_tiers:
 		var slot := PanelContainer.new()
@@ -558,10 +561,13 @@ func _cities_catalog() -> Control:
 	box.add_theme_constant_override("separation", 10)
 	box.add_child(UiKit.section(Strings.t("tabCities")))
 
+	var sm_val: int = MonetizationConfig.CITY_REWARDS["small"]["coins"]
+	var md_val: int = MonetizationConfig.CITY_REWARDS["medium"]["coins"]
+	var lg_val: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
 	var tiers := [
-		["Poytaxtlar (Capitals)", "+500 COINS", UiKit.YELLOW, "crown", "900+ poytaxt xaritada"],
-		["Katta shaharlar (Metropolis)", "+200 COINS", UiKit.BG_LOW, "trophy", "Aholisi 1M+ shaharlar"],
-		["Shahar va tumanlar (Towns)", "+50 COINS", UiKit.MINT, "coin", "Kichik shaharlar"]
+		["Poytaxtlar (Capitals)", "+%d COINS" % lg_val, UiKit.YELLOW, "crown", "900+ poytaxt xaritada"],
+		["Katta shaharlar (Metropolis)", "+%d COINS" % md_val, UiKit.BG_LOW, "trophy", "Aholisi 1M+ shaharlar"],
+		["Shahar va tumanlar (Towns)", "+%d COINS" % sm_val, UiKit.MINT, "coin", "Aholisi 100k gacha shaharchalar"]
 	]
 	for t in tiers:
 		var card := UiKit.panel(UiKit.PANEL, 10)
@@ -1440,7 +1446,7 @@ func _flag_grid() -> Control:
 	# 249 bayroqni birdan qurish sekin — ro'yxat qisqartiriladi.
 	var chosen := _country()
 	var list := Profile.search_countries(_flag_query)
-	var limit: int = mini(list.size(), 60)
+	var limit: int = list.size() if not _flag_query.is_empty() else mini(list.size(), 80)
 	for i in limit:
 		var c: Dictionary = list[i]
 		var code := str(c["code"])
@@ -2421,64 +2427,219 @@ func _build_maps() -> Control:
 	box.add_child(tabs)
 	box.add_child(UiKit.spacer(4))
 
+	match _maps_category:
+		0:
+			box.add_child(_build_maps_countries())
+		1:
+			box.add_child(_build_maps_continents())
+		2:
+			box.add_child(_build_maps_cities())
+		3:
+			box.add_child(_build_maps_special())
+		_:
+			box.add_child(_build_maps_continents())
+
+	return root
+
+func _build_maps_countries() -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+
+	var journey: Node = get_node_or_null("/root/Journey")
+	var done: int = journey.done_count() if journey != null else 0
+	var total: int = journey.countries.size() if journey != null else 1
+	var cur: Dictionary = journey.current() if journey != null else {}
+	var cur_name: String = str(cur.get("name", "Conquest"))
+	var cur_code: String = str(cur.get("code", "UZ"))
+	var pts: int = journey.points() if journey != null else 0
+	var g: int = journey.goal() if journey != null else 100
+	var pct: float = journey.percent() if journey != null else 0.0
+
+	# 1. Umumiy progress banneri
+	var banner := PanelContainer.new()
+	banner.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.18, 0.42, 0.90), 16, 4, 6))
+	var bv := VBoxContainer.new()
+	bv.add_theme_constant_override("separation", 6)
+	var b_top := HBoxContainer.new()
+	b_top.add_child(UiKit.title("Mamlakatlar sarguzashti", 15, Color.WHITE))
+	var bgap := Control.new()
+	bgap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b_top.add_child(bgap)
+	var b_stat := UiKit.title("%d / %d egallangan" % [done, total], 14, UiKit.YELLOW)
+	b_top.add_child(b_stat)
+	bv.add_child(b_top)
+	var pb := UiKit.progress_bar(float(done) * 100.0 / float(maxi(total, 1)), UiKit.MINT)
+	bv.add_child(pb)
+	banner.add_child(bv)
+	col.add_child(banner)
+
+	# 2. Hozirgi nishon mamlakat kartasi
+	var cur_card := PanelContainer.new()
+	cur_card.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.10, 0.26, 0.58, 0.95), 16, 4, 6))
+	var ch := HBoxContainer.new()
+	ch.add_theme_constant_override("separation", 12)
+	ch.alignment = BoxContainer.ALIGNMENT_CENTER
+	var flag_avatar := AvatarView.new("flag:" + cur_code, 42.0)
+	ch.add_child(flag_avatar)
+	var cv := VBoxContainer.new()
+	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cv.add_child(UiKit.title("Hozirgi nishon: " + cur_name, 15, Color.WHITE))
+	cv.add_child(UiKit.label("Egallash: %d / %d ochko (%.0f%%)" % [pts, g, pct], 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_LEFT))
+	cv.add_child(UiKit.progress_bar(pct, UiKit.YELLOW))
+	ch.add_child(cv)
+	var play_cur := UiKit.button("Jang!", UiKit.GREEN)
+	play_cur.custom_minimum_size = Vector2(80, 42)
+	play_cur.pressed.connect(func() -> void:
+		Audio.tap()
+		store.map_id = "world"
+		if _maps_then == "host":
+			host_pressed.emit()
+		else:
+			play_pressed.emit())
+	ch.add_child(play_cur)
+	cur_card.add_child(ch)
+	col.add_child(cur_card)
+
+	# 3. Mamlakatlar yo'li ro'yxati
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 260)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var list_box := VBoxContainer.new()
+	list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_box.add_theme_constant_override("separation", 6)
+
+	if journey != null:
+		var c_list: Array = journey.countries
+		for idx in c_list.size():
+			var item: Dictionary = c_list[idx]
+			var c_code: String = str(item.get("code", ""))
+			var c_n: String = str(item.get("name", ""))
+			var is_done: bool = idx < done
+			var is_cur: bool = idx == done
+			var row := PanelContainer.new()
+			var bg_c := Color(0.06, 0.22, 0.18, 0.85) if is_done else (Color(0.10, 0.24, 0.50, 0.90) if is_cur else Color(0.04, 0.10, 0.22, 0.70))
+			row.add_theme_stylebox_override("panel", UiKit.style_solid(bg_c, 12, 2, 4))
+			var rh := HBoxContainer.new()
+			rh.add_theme_constant_override("separation", 10)
+			rh.add_child(AvatarView.new("flag:" + c_code, 26.0))
+			var rn := UiKit.title(c_n, 13, Color.WHITE if (is_done or is_cur) else UiKit.TEXT_FAINT)
+			rn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			rh.add_child(rn)
+			if is_done:
+				rh.add_child(UiKit.label("Egallandi ✓", 12, UiKit.MINT))
+			elif is_cur:
+				rh.add_child(UiKit.label("%.0f%%" % pct, 12, UiKit.YELLOW))
+			else:
+				rh.add_child(GameIcon.new("skull", 16.0, UiKit.TEXT_FAINT))
+			row.add_child(rh)
+			list_box.add_child(row)
+	scroll.add_child(list_box)
+	col.add_child(scroll)
+	return col
+
+func _build_maps_continents() -> Control:
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 420)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+
+	var maps_data := [
+		["world", "World", 1113, ["US", "GB", "FR", "JP", "DE"]],
+		["europe", "Europe", 156, ["GB", "FR", "DE", "IT", "ES"]],
+		["asia", "Asia", 430, ["CN", "JP", "KR", "TH", "IN"]],
+		["africa", "Africa", 223, ["EG", "KE", "NG", "ZA", "MA"]],
+		["north_america", "North America", 202, ["US", "CA", "MX"]],
+		["south_america", "South America", 128, ["BR", "AR", "CO"]],
+		["oceania", "Oceania", 34, ["AU", "NZ", "FJ", "PG"]]
+	]
+
+	for entry: Array in maps_data:
+		var mid: String = str(entry[0])
+		var mname: String = str(entry[1])
+		var places_count: int = int(entry[2])
+		var rec: float = store.get_map_record(mid)
+		var stat_str: String = "%d shaharlar" % places_count
+		if rec > 0.0:
+			stat_str = "%d shaharlar • %.1f%%" % [places_count, rec]
+		grid.add_child(_map_rich_card(mid, mname, stat_str, entry[3] as Array))
+
+	scroll.add_child(grid)
+	return scroll
+
+func _build_maps_cities() -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+
+	# Banner
+	var banner := PanelContainer.new()
+	banner.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.16, 0.36, 0.90), 16, 4, 6))
+	var bv := VBoxContainer.new()
+	bv.alignment = BoxContainer.ALIGNMENT_CENTER
+	bv.add_theme_constant_override("separation", 4)
+	bv.add_child(UiKit.title("Cities Mode — Shaharlar Jangi", 16, Color.WHITE))
+	bv.add_child(UiKit.label("Katta poytaxt va megapolislarni egallab tanga yutib oling!", 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_CENTER))
+	banner.add_child(bv)
+	col.add_child(banner)
+
+	# City maps grid
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 
-	var maps_data := [
-		["world", "World", "195 / 195", ["US", "GB", "FR", "JP", "DE"]],
-		["europe", "Europe", "45 / 45", ["GB", "FR", "DE", "IT", "ES"]],
-		["asia", "Asia", "48 / 48", ["CN", "JP", "KR", "TH", "IN"]],
-		["africa", "Africa", "54 / 54", ["EG", "KE", "NG", "ZA", "MA"]],
-		["north_america", "North America", "40 / 40", ["US", "CA", "MX"]],
-		["south_america", "South America", "33 / 33", ["BR", "AR", "CO"]]
+	var sm_coins: int = MonetizationConfig.CITY_REWARDS["small"]["coins"]
+	var md_coins: int = MonetizationConfig.CITY_REWARDS["medium"]["coins"]
+	var lg_coins: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
+
+	var city_maps := [
+		["world", "Capitals World Tour", "+%d COINS" % lg_coins, ["JP", "GB", "FR", "US"]],
+		["asia", "Asian Megapolises", "+%d COINS" % md_coins, ["CN", "JP", "KR", "IN"]],
+		["europe", "European Capitals", "+%d COINS" % lg_coins, ["DE", "FR", "IT", "ES"]],
+		["oceania", "Pacific Ocean Ports", "+%d COINS" % sm_coins, ["AU", "NZ", "FJ"]]
 	]
 
-	for entry: Array in maps_data:
+	for entry: Array in city_maps:
 		grid.add_child(_map_rich_card(str(entry[0]), str(entry[1]), str(entry[2]), entry[3] as Array))
+	col.add_child(grid)
 
-	box.add_child(grid)
-	box.add_child(UiKit.spacer(6))
+	# Rewards info table
+	col.add_child(_cities_catalog())
+	return col
 
-	# Quyi qatordagi 2 ta maxsus karta: Cities Mode va Ancient World
-	var bottom_row := HBoxContainer.new()
-	bottom_row.add_theme_constant_override("separation", 12)
+func _build_maps_special() -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
 
-	# Cities Mode
-	var cm_card := PanelContainer.new()
-	cm_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cm_card.custom_minimum_size = Vector2(0, 84)
-	cm_card.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.06, 0.16, 0.36, 0.90), 16, 4, 6))
-	var cm_v := VBoxContainer.new()
-	cm_v.alignment = BoxContainer.ALIGNMENT_CENTER
-	cm_v.add_theme_constant_override("separation", 2)
-	cm_v.add_child(UiKit.title("Cities Mode", 14, Color.WHITE))
-	cm_v.add_child(UiKit.label("Conquer famous cities for bigger rewards!", 11, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_CENTER))
-	var cm_pill := HBoxContainer.new()
-	cm_pill.alignment = BoxContainer.ALIGNMENT_CENTER
-	cm_pill.add_child(GameIcon.new("crown", 16.0, UiKit.YELLOW))
-	cm_pill.add_child(UiKit.title("30 / 30", 12, UiKit.YELLOW))
-	cm_v.add_child(cm_pill)
-	cm_card.add_child(cm_v)
-	bottom_row.add_child(cm_card)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+
+	# Circle arena
+	var rec: float = store.get_map_record("circle")
+	var circle_stat := "Arena Battle" if rec <= 0.0 else "Arena • %.1f%%" % rec
+	grid.add_child(_map_rich_card("circle", "Circle Arena", circle_stat, ["UZ", "US", "DE"]))
 
 	# Ancient World (Locked)
 	var aw_card := PanelContainer.new()
+	aw_card.custom_minimum_size = Vector2(216, 172)
 	aw_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	aw_card.custom_minimum_size = Vector2(0, 84)
-	aw_card.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.04, 0.10, 0.22, 0.75), 16, 3, 4))
+	aw_card.add_theme_stylebox_override("panel", UiKit.style_solid(Color(0.04, 0.10, 0.22, 0.75), 18, 3, 6))
 	var aw_v := VBoxContainer.new()
 	aw_v.alignment = BoxContainer.ALIGNMENT_CENTER
-	aw_v.add_theme_constant_override("separation", 4)
-	aw_v.add_child(GameIcon.new("skull", 22.0, UiKit.TEXT_FAINT))
-	aw_v.add_child(UiKit.title("Ancient World", 14, UiKit.TEXT_FAINT))
-	aw_v.add_child(UiKit.label("Coming Soon", 11, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER))
+	aw_v.add_theme_constant_override("separation", 6)
+	aw_v.add_child(GameIcon.new("skull", 32.0, UiKit.TEXT_FAINT))
+	aw_v.add_child(UiKit.title("Ancient World", 16, UiKit.TEXT_FAINT))
+	aw_v.add_child(UiKit.label("Coming Soon", 12, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER))
 	aw_card.add_child(aw_v)
-	bottom_row.add_child(aw_card)
+	grid.add_child(aw_card)
 
-	box.add_child(bottom_row)
-	return root
+	col.add_child(grid)
+	return col
 
 func _map_rich_card(map_id: String, display_name: String, progress_str: String, flag_codes: Array) -> Control:
 	var chosen := map_id == store.map_id

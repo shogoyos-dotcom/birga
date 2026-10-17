@@ -513,12 +513,13 @@ func _build_props() -> void:
 
 	# 3D Mashhur Obidalar (Landmarks): Eyfel, Kolizey, Pagoda, Iso haykali va Ozodlik haykali
 	var landmarks_placed := 0
+	var lg_reward: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
 	var landmark_types := [
-		["eiffel", "FR", 500],
-		["colosseum", "IT", 300],
-		["pagoda", "JP", 200],
-		["christ", "BR", 250],
-		["statue", "US", 500]
+		["eiffel", "FR", lg_reward],
+		["colosseum", "IT", lg_reward],
+		["pagoda", "JP", lg_reward],
+		["christ", "BR", lg_reward],
+		["statue", "US", lg_reward]
 	]
 	for lt: Array in landmark_types:
 		var placed_one := false
@@ -964,14 +965,9 @@ func _handle_events() -> void:
 						ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS,
 						world.human().y))
 					_captures += 1
-					var cell_count: int = (event["cells"] as PackedInt32Array).size() if event.has("cells") else 10
-					var popup_val: int = 50
-					if cell_count > 120:
-						popup_val = 500
-					elif cell_count > 40:
-						popup_val = 200
-					_spawn_floating_coin(Vector3(world.human().x, ArenaBuilder.LAND_HEIGHT + 2.5, world.human().y), "+%d" % popup_val)
-				_coin_field.collect_cells(event["cells"], mine)
+				var coins_gained := _coin_field.collect_cells(event["cells"], mine)
+				if mine and coins_gained > 0:
+					_spawn_floating_coin(Vector3(world.human().x, ArenaBuilder.LAND_HEIGHT + 2.5, world.human().y), "+%d" % coins_gained)
 				var taken := _coin_field.flush_taken()
 				if not taken.is_empty():
 					_coins.take(taken)
