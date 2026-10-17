@@ -5,6 +5,7 @@ extends RefCounted
 ## Barcha 249 ta ISO 3166-1 davlat va hududlari uchun haqiqiy (authentic) bayroqlar ishlatiladi.
 ## Soxta yoki taxminiy (generic/imaginary) bayroqlar yaratilmaydi.
 ## Rasmiy manba: lipis/flag-icons (MIT litsenziyasi asosida).
+## Android APK va eksport paketlari bilan to'liq mos: ResourceLoader va FileAccess fallback.
 
 const WIDTH := 192
 const HEIGHT := 128
@@ -12,17 +13,69 @@ const HEIGHT := 128
 const FLAGS_PNG_DIR := "res://assets/flags/png"
 const FLAGS_SVG_DIR := "res://assets/flags/svg"
 
-## Kesh: har bir mamlakat kodi bo'yicha ImageTexture saqlanadi
+## Rasmiy milliy bayroq mutanosibliklari (Width / Height nisbati):
+## Ko'pchilik davlatlar 1.5:1 (3:2) yoki 1.33:1 (4:3) yoki 2:1 (1:2).
+const OFFICIAL_ASPECT_RATIOS: Dictionary = {
+	"CH": 1.0,   # Shveytsariya — kvadrat (1:1)
+	"VA": 1.0,   # Vatikan — kvadrat (1:1)
+	"NP": 0.82,  # Nepal — ikki pennantli, balandligi enidan katta (0.82:1)
+	"US": 1.90,  # AQSH — 10:19 nisbat (1.90:1)
+	"QA": 2.54,  # Qatar — 11:28 nisbat (2.54:1)
+	"GB": 2.0,   # Buyuk Britaniya — 1:2 nisbat (2.0:1)
+	"CA": 2.0,   # Kanada — 1:2 nisbat (2.0:1)
+	"AU": 2.0,   # Avstraliya — 1:2 nisbat (2.0:1)
+	"NZ": 2.0,   # Yangi Zelandiya — 1:2 nisbat (2.0:1)
+	"UZ": 2.0,   # O'zbekiston — rasmiy qonuniy nisbati 1:2 (2.0:1)
+	"IE": 2.0,   # Irlandiya — 1:2 (2.0:1)
+	"JM": 2.0,   # Yamayka — 1:2 (2.0:1)
+	"KW": 2.0,   # Quvayt — 1:2 (2.0:1)
+	"MY": 2.0,   # Malayziya — 1:2 (2.0:1)
+	"NG": 2.0,   # Nigeriya — 1:2 (2.0:1)
+	"BE": 1.15,  # Belgiya — 13:15 nisbat (1.15:1)
+	"MC": 1.25,  # Monako — 4:5 nisbat (1.25:1)
+	"IL": 1.375, # Isroil — 8:11 nisbat (1.375:1)
+	"BR": 1.43,  # Braziliya — 7:10 nisbat (1.43:1)
+	"DE": 1.67,  # Germaniya — 3:5 nisbat (1.67:1)
+}
+
+## Kesh: har bir mamlakat kodi bo'yicha Texture2D saqlanadi
 static var _cache: Dictionary = {}
 ## Image keshi: tezkor kirish uchun
 static var _img_cache: Dictionary = {}
 
-## Mamlakat kodi bo'yicha bayroq teksturasini qaytaradi (keshdan yoki yuklab)
-static func get_flag_texture(country_code: String) -> ImageTexture:
+## Mamlakat kodi bo'yicha bayroqning rasmiy mutanosiblik (aspect ratio) nisbatini olish
+static func get_flag_aspect_ratio(country_code: String) -> float:
+	var code := sanitize_code(country_code)
+	if OFFICIAL_ASPECT_RATIOS.has(code):
+		return float(OFFICIAL_ASPECT_RATIOS[code])
+	return 1.5
+
+## To'rtburchak bo'lmagan (shaffof fonli) bayroq ekanini tekshirish (masalan Nepal)
+static func is_non_rectangular(country_code: String) -> bool:
+	var code := sanitize_code(country_code)
+	return code == "NP"
+
+## Mamlakat kodi bo'yicha bayroq teksturasini qaytaradi (keshdan yoki yuklab).
+## Android APK ichida ResourceLoader orqali to'g'ridan-to'g'ri CompressedTexture2D yuklanadi.
+static func get_flag_texture(country_code: String) -> Texture2D:
 	var code := sanitize_code(country_code)
 	if _cache.has(code):
 		return _cache[code]
 
+	# 1. ResourceLoader (Android APK va import qilingan paketlarda eng ishonchli usul)
+	var png_path := "%s/%s.png" % [FLAGS_PNG_DIR, code]
+	if ResourceLoader.exists(png_path):
+		var res: Resource = ResourceLoader.load(png_path)
+		if res is Texture2D:
+			var tex: Texture2D = res as Texture2D
+			_cache[code] = tex
+			if not _img_cache.has(code):
+				var img := tex.get_image()
+				if img != null and not img.is_empty():
+					_img_cache[code] = img
+			return tex
+
+	# 2. Image orqali yaratish (fallback)
 	var img := get_flag_image(code)
 	var tex := ImageTexture.create_from_image(img)
 	_cache[code] = tex
@@ -36,8 +89,6 @@ static func get_flag_image(country_code: String) -> Image:
 
 	var img := _load_authentic_flag(code)
 	if img != null and not img.is_empty():
-		if img.get_width() != WIDTH or img.get_height() != HEIGHT:
-			img.resize(WIDTH, HEIGHT, Image.INTERPOLATE_LANCZOS)
 		_img_cache[code] = img
 		return img
 
@@ -53,13 +104,14 @@ static func create_flag_image(code: String) -> Image:
 	return get_flag_image(code)
 
 ## Mamlakat uchun haqiqiy rasmiy bayroq resursi mavjudligini tekshirish
+## (ResourceLoader orqali APK ichini va FileAccess orqali xom fayllarni tekshiradi)
 static func has_authentic_flag(country_code: String) -> bool:
 	var code := sanitize_code(country_code)
 	var png_path := "%s/%s.png" % [FLAGS_PNG_DIR, code]
-	if FileAccess.file_exists(png_path) or ResourceLoader.exists(png_path):
+	if ResourceLoader.exists(png_path) or FileAccess.file_exists(png_path):
 		return true
 	var svg_path := "%s/%s.svg" % [FLAGS_SVG_DIR, code]
-	return FileAccess.file_exists(svg_path) or ResourceLoader.exists(svg_path)
+	return ResourceLoader.exists(svg_path) or FileAccess.file_exists(svg_path)
 
 ## ISO kodini tozalash (2 ta bosh harf)
 static func sanitize_code(raw: String) -> String:
@@ -68,17 +120,41 @@ static func sanitize_code(raw: String) -> String:
 		return clean
 	return "UZ" if clean.is_empty() else clean.substr(0, 2)
 
-## Haqiqiy bayroq faylini yuklash (PNG -> SVG)
+## Haqiqiy bayroq faylini yuklash (ResourceLoader -> FileAccess PNG -> FileAccess SVG)
 static func _load_authentic_flag(code: String) -> Image:
-	# 1. Tezkor PNG faylidan yuklash
 	var png_path := "%s/%s.png" % [FLAGS_PNG_DIR, code]
-	if FileAccess.file_exists(png_path) or ResourceLoader.exists(png_path):
-		var img := Image.load_from_file(png_path)
-		if img != null and not img.is_empty():
-			return img
 
-	# 2. Vektor SVG faylidan yuklash (fallback)
+	# 1. ResourceLoader (Godot import qilgan .ctex / texture resurslari — APK ichida ishlaydi)
+	if ResourceLoader.exists(png_path):
+		var res: Resource = ResourceLoader.load(png_path)
+		if res is Texture2D:
+			var img: Image = (res as Texture2D).get_image()
+			if img != null and not img.is_empty():
+				return img
+
+	# 2. FileAccess orqali xom PNG faylini xotira buferi orqali yuklash
+	if FileAccess.file_exists(png_path):
+		var bytes := FileAccess.get_file_as_bytes(png_path)
+		if not bytes.is_empty():
+			var img := Image.new()
+			var err := img.load_png_from_buffer(bytes)
+			if err == OK and not img.is_empty():
+				return img
+
+		var img_file := Image.load_from_file(png_path)
+		if img_file != null and not img_file.is_empty():
+			return img_file
+
+	# 3. Vektor SVG resursini ResourceLoader orqali yuklash
 	var svg_path := "%s/%s.svg" % [FLAGS_SVG_DIR, code]
+	if ResourceLoader.exists(svg_path):
+		var res: Resource = ResourceLoader.load(svg_path)
+		if res is Texture2D:
+			var img: Image = (res as Texture2D).get_image()
+			if img != null and not img.is_empty():
+				return img
+
+	# 4. Xom SVG matnidan yuklash (fallback)
 	if FileAccess.file_exists(svg_path):
 		var f := FileAccess.open(svg_path, FileAccess.READ)
 		if f != null:

@@ -142,7 +142,7 @@ func refresh(force: bool = false) -> void:
 	data_image.fill(Color(0, 0, 0, 0))
 	for p in _world.players:
 		_last_versions[p.id] = _world.grid.version_of(p.id)
-		var place := AvatarPlacement.of(_world.grid, p.id)
+		var place := AvatarPlacement.of(_world.grid, p.id, p.country)
 		var center: Vector2 = place["center"]
 		var half_w: float = place.get("half_w", place["half"]) if p.alive else 0.0
 		var half_h: float = place.get("half_h", place["half"]) if p.alive else 0.0

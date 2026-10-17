@@ -181,16 +181,25 @@ vec3 with_avatar(int owner, vec3 base, vec2 cell_pos) {
 	if (place.b <= 0.0 || place.a <= 0.0) {
 		return base;
 	}
-	// Kengaytirilgan hudud bo'yicha UV proyeksiyasi:
-	vec2 local;
-	local.x = clamp((cell_pos.x - place.r) / (2.0 * place.b) + 0.5, 0.005, 0.995);
-	local.y = clamp((cell_pos.y - place.g) / (2.0 * place.a) + 0.5, 0.005, 0.995);
+	// Kengaytirilgan hudud bo'yicha nisbiy koordinatalar [0.0 .. 1.0]:
+	vec2 rel = (cell_pos - vec2(place.r, place.g)) / (2.0 * vec2(place.b, place.a)) + vec2(0.5);
+	if (rel.x < 0.0 || rel.x > 1.0 || rel.y < 0.0 || rel.y > 1.0) {
+		return base;
+	}
+
+	// Bayroq qirralarida silliq o'tish (edge fade) — noqulay cho'zilishlarni oldini oladi
+	float edge_fade = smoothstep(0.0, 0.04, rel.x) * smoothstep(1.0, 0.96, rel.x)
+		* smoothstep(0.0, 0.04, rel.y) * smoothstep(1.0, 0.96, rel.y);
+
+	vec2 local = clamp(rel, 0.005, 0.995);
 
 	// Har o'yinchiga ikkita katak: 0 — bosh belgisi, 1 — bayroq.
 	float tile = float((owner - 1) * 2 + 1);
 	vec2 at = vec2(mod(tile, avatar_grid.x), floor(tile / avatar_grid.x));
 	vec4 flag_color = textureLod(avatar_tex, (at + local) / avatar_grid, 0.0);
-	return mix(base, flag_color.rgb, flag_color.a * avatar_alpha);
+
+	// Nepal kabi shaffof fonga ega bayroqlarni va chekka hududlarni silliq qorishtirish
+	return mix(base, flag_color.rgb, flag_color.a * avatar_alpha * edge_fade);
 }
 
 void fragment() {

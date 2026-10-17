@@ -23,7 +23,7 @@ const SAMPLES := 400
 
 ## Natija: {"center": Vector2, "half": float}. Hudud bo'sh bo'lsa
 ## `half` nolga teng.
-static func of(grid: GameGrid, id: int) -> Dictionary:
+static func of(grid: GameGrid, id: int, country_code: String = "") -> Dictionary:
 	var none := {"center": Vector2.ZERO, "half": 0.0, "half_w": 0.0, "half_h": 0.0}
 	var b := grid.bounds_of(id)
 	if b.is_empty():
@@ -42,16 +42,17 @@ static func of(grid: GameGrid, id: int) -> Dictionary:
 	var raw_w: float = stats["span_w"]
 	var raw_h: float = stats["span_h"]
 
-	# Milliy bayroq nisbatini 1.5:1 atrofida saqlash va ortiqcha cho'zilishni oldini olish
+	# Milliy bayroqning rasmiy mutanosiblik nisbatini saqlash
+	var target_ratio: float = FlagRenderer.get_flag_aspect_ratio(country_code) if not country_code.is_empty() else 1.5
 	var span_w := maxf(raw_w, 6.0)
 	var span_h := maxf(raw_h, 4.0)
 	var ratio := span_w / maxf(span_h, 0.01)
-	if ratio < 1.35:
+	if ratio < target_ratio * 0.95:
 		# Hudud bo'yiga cho'ziq yoki kvadrat bo'lsa: eniga qarab bo'yini moslaymiz
-		span_h = span_w / 1.5
-	elif ratio > 1.65:
+		span_h = span_w / target_ratio
+	elif ratio > target_ratio * 1.05:
 		# Hudud eniga juda keng bo'lsa: bo'yiga qarab enini moslaymiz
-		span_w = span_h * 1.5
+		span_w = span_h * target_ratio
 
 	return {
 		"center": center,

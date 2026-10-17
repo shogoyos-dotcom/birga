@@ -1,25 +1,23 @@
 class_name FlagPoles
 extends Node3D
 
-## 3D milliy bayroq ustunlari tizimi:
-## - Boshlang'ich baza va yirik bog'langan hududlar uchun
-## - Suvda yoki raqib hududida aslo turmaydi (avtomatik tekshiruv va tozalash)
-## - Raqib bosib olganda eskirgan ustunlar darhol o'chiriladi
-## - Takroriy (dublikat) bayroqlar qo'yilmaydi
-## - GameGrid.version_of() orqali faqat hudud o'zgarganda hisoblanadi (keshlangan optimizatsiya)
+## 3D Davlat bayroqlari ustuni va hilpiraydigan mato rendereri.
+## Har bir o'yinchi va botning boshlang'ich bazasida 3D bayroq ustuni o'rnatiladi.
+## Yirik ajralgan (disconnected) hududlar alohida aniqlanib, ularga ham qo'shimcha bayroqlar o'rnatiladi.
+## Suvga yoki dushman hududiga aslo qo'yilmaydi.
+## Fizik to'qnashuvsiz (faqat vizual render).
 
-const ArenaBuilder := preload("res://scripts/render/arena_builder.gd")
-const FlagRenderer := preload("res://scripts/render/flag_renderer.gd")
+const FlagRenderer = preload("res://scripts/render/flag_renderer.gd")
+const AvatarPlacement = preload("res://scripts/logic/avatar_placement.gd")
 
 const POLE_HEIGHT := 6.8
 const POLE_RADIUS := 0.14
-const FLAG_WIDTH := 4.2
-const FLAG_HEIGHT := 2.8
+const BASE_FLAG_WIDTH := 4.2
+const BASE_FLAG_HEIGHT := 2.8
 
-## To'lqinlanuvchi mato shaderi (ikkala tomondan ko'rinuvchi, mayin shamol)
 const FLAG_SHADER := """
 shader_type spatial;
-render_mode cull_disabled;
+render_mode cull_disabled, depth_draw_opaque;
 
 uniform sampler2D flag_tex : source_color, filter_linear;
 uniform float wave_speed = 4.2;
@@ -35,7 +33,12 @@ void vertex() {
 
 void fragment() {
 	vec4 col = texture(flag_tex, UV);
+	// Nepal kabi to'rtburchak bo'lmagan bayroqlar uchun shaffoflikni saqlash
+	if (col.a < 0.1) {
+		discard;
+	}
 	ALBEDO = col.rgb;
+	ALPHA = col.a;
 	ROUGHNESS = 0.45;
 	SPECULAR = 0.25;
 }
@@ -45,13 +48,12 @@ var _pole_material: StandardMaterial3D
 var _finial_material: StandardMaterial3D
 var _pole_mesh: CylinderMesh
 var _finial_mesh: SphereMesh
-var _cloth_mesh: PlaneMesh
 var _flag_shader_res: Shader
 
 var _world: GameWorld
 ## Har bir o'yinchining boshlang'ich baza bayrog'i {player_id: Node3D}
 var _base_poles: Dictionary = {}
-## Har bir o'yinchining yirik hudud bayrog'i {player_id: Node3D}
+## Har bir o'yinchining yirik ajralgan hudud bayroqlari {player_id: Array[Node3D]}
 var _territory_poles: Dictionary = {}
 
 ## Profiling va optimizatsiya: har kadrda qayta hisoblamaslik uchun
@@ -65,7 +67,7 @@ func _ready() -> void:
 	_init_resources()
 
 func _init_resources() -> void:
-	if _cloth_mesh != null:
+	if _pole_material != null:
 		return
 
 	# Ustun materiali: yaltiroq kumushrang metall
@@ -97,13 +99,6 @@ func _init_resources() -> void:
 	_flag_shader_res = Shader.new()
 	_flag_shader_res.code = FLAG_SHADER
 
-	# Mato to'ri: mayin to'lqinlanish uchun
-	_cloth_mesh = PlaneMesh.new()
-	_cloth_mesh.size = Vector2(FLAG_WIDTH, FLAG_HEIGHT)
-	_cloth_mesh.subdivide_width = 8
-	_cloth_mesh.subdivide_depth = 4
-	_cloth_mesh.orientation = PlaneMesh.FACE_Z
-
 ## Dunyo o'yinchilari bo'yicha bayroqlarni qayta qurish
 func setup(world: GameWorld) -> void:
 	_world = world
@@ -121,9 +116,11 @@ func clear() -> void:
 			node.queue_free()
 	_base_poles.clear()
 
-	for node: Node3D in _territory_poles.values():
-		if is_instance_valid(node):
-			node.queue_free()
+	for poles_list in _territory_poles.values():
+		if poles_list is Array:
+			for node in poles_list:
+				if is_instance_valid(node):
+					(node as Node3D).queue_free()
 	_territory_poles.clear()
 	_last_grid_versions.clear()
 
@@ -144,7 +141,8 @@ func _create_base_flag(p: PlayerState) -> void:
 	var tw := base_node.create_tween()
 	tw.tween_property(base_node, "scale", Vector3.ONE, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
-## Bitta to'liq 3D bayroq ustuni obyektini yig'ish (fizik to'qnashuvsiz)
+## Bitta to'liq 3D bayroq ustuni obyektini yig'ish (fizik to'qnashuvsiz).
+## Har bir mamlakatning rasmiy proporsiyasi (aspect ratio) va shaffofligini saqlaydi.
 func _build_flagpole_node(country_code: String) -> Node3D:
 	var root := Node3D.new()
 
@@ -164,23 +162,37 @@ func _build_flagpole_node(country_code: String) -> Node3D:
 	finial.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(finial)
 
-	# Bayroq matosi
+	# Bayroq matosi — davlatning rasmiy nisbatiga mos o'lchamda
+	var aspect: float = FlagRenderer.get_flag_aspect_ratio(country_code)
+	var flag_h := BASE_FLAG_HEIGHT
+	var flag_w := flag_h * aspect
+
+	var cloth_mesh := PlaneMesh.new()
+	cloth_mesh.size = Vector2(flag_w, flag_h)
+	cloth_mesh.subdivide_width = 8
+	cloth_mesh.subdivide_depth = 4
+	cloth_mesh.orientation = PlaneMesh.FACE_Z
+
 	var flag_mat := ShaderMaterial.new()
 	flag_mat.shader = _flag_shader_res
 	var tex := FlagRenderer.get_flag_texture(country_code)
 	flag_mat.set_shader_parameter("flag_tex", tex)
 
 	var cloth := MeshInstance3D.new()
-	cloth.mesh = _cloth_mesh
+	cloth.mesh = cloth_mesh
 	cloth.material_override = flag_mat
-	cloth.position = Vector3(FLAG_WIDTH * 0.5, POLE_HEIGHT - FLAG_HEIGHT * 0.5 - 0.25, 0.0)
+	cloth.position = Vector3(flag_w * 0.5, POLE_HEIGHT - flag_h * 0.5 - 0.25, 0.0)
 	cloth.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(cloth)
 
 	return root
 
 func pole_count() -> int:
-	return _base_poles.size() + _territory_poles.size()
+	var count := _base_poles.size()
+	for p_list in _territory_poles.values():
+		if p_list is Array:
+			count += (p_list as Array).size()
+	return count
 
 ## O'yinchiga tegishli va suv bo'lmagan eng yaqin to'g'ri katakni topish.
 ## Hech qachon suvga yoki dushman hududiga o'rnatilmaydi.
@@ -216,6 +228,75 @@ func _find_valid_owned_cell(center: Vector2, player_id: int) -> Vector2:
 
 	return Vector2.ZERO
 
+## O'yinchiga tegishli ajralgan (connected components) bo'laklarni aniqlash.
+## min_size dan kichik mayda bo'laklar hisobga olinmaydi.
+static func find_connected_components(grid: GameGrid, player_id: int, min_size: int = 100) -> Array[Dictionary]:
+	var b := grid.bounds_of(player_id)
+	if b.is_empty():
+		return []
+	var min_x := b[0]
+	var min_y := b[1]
+	var max_x := b[2]
+	var max_y := b[3]
+	var bw := max_x - min_x + 1
+	var bh := max_y - min_y + 1
+	if bw <= 0 or bh <= 0:
+		return []
+
+	var visited := PackedByteArray()
+	visited.resize(bw * bh)
+
+	var components: Array[Dictionary] = []
+
+	for y in range(min_y, max_y + 1):
+		for x in range(min_x, max_x + 1):
+			var loc_idx := (y - min_y) * bw + (x - min_x)
+			if visited[loc_idx] != 0:
+				continue
+			visited[loc_idx] = 1
+			if grid.owner_at(x, y) != player_id:
+				continue
+
+			# BFS navbati
+			var queue: Array[Vector2i] = [Vector2i(x, y)]
+			var comp_count := 0
+			var sum_x := 0.0
+			var sum_y := 0.0
+
+			var q_head := 0
+			while q_head < queue.size():
+				var pt: Vector2i = queue[q_head]
+				q_head += 1
+				comp_count += 1
+				sum_x += pt.x
+				sum_y += pt.y
+
+				# 4 ta yo'nalish
+				var offsets: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+				for off in offsets:
+					var nx: int = pt.x + off.x
+					var ny: int = pt.y + off.y
+					if nx >= min_x and nx <= max_x and ny >= min_y and ny <= max_y:
+						var n_loc := (ny - min_y) * bw + (nx - min_x)
+						if visited[n_loc] == 0:
+							visited[n_loc] = 1
+							if grid.owner_at(nx, ny) == player_id:
+								queue.append(Vector2i(nx, ny))
+
+			if comp_count >= min_size:
+				var center := Vector2(sum_x / float(comp_count) + 0.5, sum_y / float(comp_count) + 0.5)
+				components.append({
+					"size": comp_count,
+					"center": center,
+					"sample_cell": Vector2i(x, y)
+				})
+
+	# Hajmi bo'yicha kamayish tartibida saralash
+	components.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a["size"]) > int(b["size"])
+	)
+	return components
+
 ## Kadr yangilanishi — OPTIMALLASHGAN:
 ## Faqat GameGrid.version_of() o'zgarganda ishlaydi.
 func update_poles() -> void:
@@ -236,7 +317,8 @@ func update_poles() -> void:
 	var start_time := Time.get_ticks_usec()
 
 	for p in _world.players:
-		# 1. Baza bayrog'ini tekshirish
+		# 1. Boshlang'ich baza bayrog'ini tekshirish
+		var base_pos_2d := Vector2.ZERO
 		if _base_poles.has(p.id):
 			var b_node: Node3D = _base_poles[p.id]
 			if not p.alive:
@@ -246,54 +328,96 @@ func update_poles() -> void:
 				var bz := int(b_node.position.z)
 				# Baza yeri dushman tomonidan bosib olinganmi yoki suvga aylanib qolganmi?
 				if not _world.grid.playable(bx, bz) or _world.grid.owner_at(bx, bz) != p.id:
-					# Eskirgan joydan o'yinchi egallab turgan boshqa haqiqiy yeriga ko'chirish
 					var new_pt := _find_valid_owned_cell(Vector2(p.x, p.y), p.id)
 					if new_pt != Vector2.ZERO:
 						b_node.position = Vector3(new_pt.x, ArenaBuilder.LAND_HEIGHT, new_pt.y)
 						b_node.visible = true
+						base_pos_2d = new_pt
 					else:
 						# O'yinchining umuman yeri qolmagan bo'lsa — dushman yerida qoldirilmaydi!
 						b_node.visible = false
 				else:
 					b_node.visible = true
+					base_pos_2d = Vector2(b_node.position.x, b_node.position.z)
 
-		# 2. Yirik hudud bayrog'ini tekshirish (> 250 katak)
+		# 2. Yirik ajralgan (disconnected) hududlar bayrog'ini tekshirish
 		var owned := _world.grid.territory_of(p.id)
-		if p.alive and owned >= 250:
-			var place := AvatarPlacement.of(_world.grid, p.id)
-			var center: Vector2 = place["center"]
-			var valid_pt := _find_valid_owned_cell(center, p.id)
-
-			# Baza ustuniga juda yaqin bo'lsa takroriy (duplicate) bo'lmasin (kamida 20 katak masofa)
-			var too_close := false
-			if _base_poles.has(p.id) and is_instance_valid(_base_poles[p.id]):
-				var bp: Node3D = _base_poles[p.id]
-				if bp.visible and Vector2(bp.position.x, bp.position.z).distance_to(valid_pt) < 20.0:
-					too_close = true
-
-			if valid_pt != Vector2.ZERO and not too_close:
-				if not _territory_poles.has(p.id):
-					var t_node := _build_flagpole_node(p.country)
-					t_node.position = Vector3(valid_pt.x, ArenaBuilder.LAND_HEIGHT, valid_pt.y)
-					add_child(t_node)
-					_territory_poles[p.id] = t_node
-					# Paydo bo'lish animatsiyasi
-					t_node.scale = Vector3(0.01, 0.0, 0.01)
-					var tw := t_node.create_tween()
-					tw.tween_property(t_node, "scale", Vector3(1.15, 1.15, 1.15), 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-				else:
-					var t_node: Node3D = _territory_poles[p.id]
-					var target_pos := Vector3(valid_pt.x, ArenaBuilder.LAND_HEIGHT, valid_pt.y)
-					t_node.position = t_node.position.lerp(target_pos, 0.1)
-			elif _territory_poles.has(p.id):
-				# Agar hudud qisqarib ketgan bo'lsa yoki dushmanga o'tgan bo'lsa — darhol o'chirish!
-				var t_node: Node3D = _territory_poles[p.id]
-				t_node.queue_free()
+		if not p.alive or owned < 120:
+			if _territory_poles.has(p.id):
+				for node in _territory_poles[p.id]:
+					if is_instance_valid(node):
+						(node as Node3D).queue_free()
 				_territory_poles.erase(p.id)
-		elif _territory_poles.has(p.id):
-			var t_node: Node3D = _territory_poles[p.id]
-			t_node.queue_free()
+			continue
+
+		# Yirik ajralgan qismlarni qidirish
+		var comps := find_connected_components(_world.grid, p.id, 100)
+		var desired_points: Array[Vector2] = []
+
+		for comp in comps:
+			var c_pt: Vector2 = comp["center"]
+			var valid_pt := _find_valid_owned_cell(c_pt, p.id)
+			if valid_pt == Vector2.ZERO:
+				continue
+			# Baza ustuniga juda yaqin bo'lmasin (kamida 22 katak masofa)
+			if base_pos_2d != Vector2.ZERO and valid_pt.distance_to(base_pos_2d) < 22.0:
+				continue
+			# Boshqa ajralgan ustunlarga ham juda yaqin bo'lmasin (duplicate prevention)
+			var too_close := false
+			for d_pt in desired_points:
+				if valid_pt.distance_to(d_pt) < 22.0:
+					too_close = true
+					break
+			if not too_close:
+				desired_points.append(valid_pt)
+				if desired_points.size() >= 2: # O'yinchi uchun ko'pi bilan 2 ta qo'shimcha bayroq
+					break
+
+		# Mavjud ustunlar bilan moslashtirish
+		var current_list: Array = _territory_poles.get(p.id, [])
+		var next_list: Array = []
+		var used_pts := {}
+
+		for node in current_list:
+			if not is_instance_valid(node):
+				continue
+			var node_3d: Node3D = node as Node3D
+			var n_pos := Vector2(node_3d.position.x, node_3d.position.z)
+			var best_idx := -1
+			var best_dist := 16.0
+			for i in desired_points.size():
+				if used_pts.has(i):
+					continue
+				var d := n_pos.distance_to(desired_points[i])
+				if d < best_dist:
+					best_dist = d
+					best_idx = i
+			if best_idx >= 0:
+				used_pts[best_idx] = true
+				var target_pos := Vector3(desired_points[best_idx].x, ArenaBuilder.LAND_HEIGHT, desired_points[best_idx].y)
+				node_3d.position = node_3d.position.lerp(target_pos, 0.1)
+				next_list.append(node_3d)
+			else:
+				# Bu ajralgan qism dushman tomonidan egallangan yoki yo'qolgan — ustun o'chiriladi
+				node_3d.queue_free()
+
+		# Yangi ajralgan hududlar uchun yangi ustunlar yaratish
+		for i in desired_points.size():
+			if not used_pts.has(i):
+				var target_pt := desired_points[i]
+				var t_node := _build_flagpole_node(p.country)
+				t_node.position = Vector3(target_pt.x, ArenaBuilder.LAND_HEIGHT, target_pt.y)
+				add_child(t_node)
+				next_list.append(t_node)
+				# Paydo bo'lish animatsiyasi
+				t_node.scale = Vector3(0.01, 0.0, 0.01)
+				var tw := t_node.create_tween()
+				tw.tween_property(t_node, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+		if next_list.is_empty():
 			_territory_poles.erase(p.id)
+		else:
+			_territory_poles[p.id] = next_list
 
 	_last_update_usec = Time.get_ticks_usec() - start_time
 	_total_usec += _last_update_usec

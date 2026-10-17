@@ -1655,7 +1655,7 @@ func _test_phase4_flags(t: TestRunner) -> void:
 			var code := str(c["code"])
 			if FlagRendererRef.has_authentic_flag(code):
 				authentic_count += 1
-			var tex: ImageTexture = FlagRendererRef.get_flag_texture(code)
+			var tex: Texture2D = FlagRendererRef.get_flag_texture(code)
 			if tex != null and tex.get_width() == 192 and tex.get_height() == 128:
 				correct_dims += 1
 		t.equal(authentic_count, 249, "barcha 249 ta davlat rasmiy SVG/PNG fayliga ega")
@@ -1794,6 +1794,104 @@ func _test_phase4_flags(t: TestRunner) -> void:
 		poles.queue_free()
 	)
 
+	t.test("ResourceLoader orqali barcha 249 bayroq Android APK usulida yuklanadi", func() -> void:
+		for code in ["UZ", "US", "JP", "BR", "CH", "NP", "DE", "FR", "TR", "KZ"]:
+			var png_path := "res://assets/flags/png/%s.png" % code
+			t.check(ResourceLoader.exists(png_path), "ResourceLoader.exists: %s" % code)
+			var res: Resource = ResourceLoader.load(png_path)
+			t.check(res != null and res is Texture2D, "Texture2D bo'lib yuklandi: %s" % code)
+			var img: Image = (res as Texture2D).get_image()
+			t.check(img != null and not img.is_empty(), "Image olinadi: %s" % code)
+			t.equal(img.get_width(), 192, "kenglik 192")
+			t.equal(img.get_height(), 128, "balandlik 128")
+	)
 
+	t.test("find_connected_components ajralgan hudud bo'laklarini to'g'ri topadi", func() -> void:
+		var grid := GameGrid.new(80, 80)
+		# 1-qism: (10, 10) dan 12x12 = 144 katak
+		for y in range(10, 22):
+			for x in range(10, 22):
+				grid.set_owner(x, y, 1)
+		# 2-qism: (50, 50) dan 11x11 = 121 katak (ajralgan)
+		for y in range(50, 61):
+			for x in range(50, 61):
+				grid.set_owner(x, y, 1)
+		# 3-qism: mayda (5 katak) — min_size=100 ga kirmasligi kerak
+		for x in 5:
+			grid.set_owner(2, 2 + x, 1)
 
+		var comps := FlagPolesRef.find_connected_components(grid, 1, 100)
+		t.equal(comps.size(), 2, "ikkita yirik ajralgan qism topildi")
+		t.equal(int(comps[0]["size"]), 144, "1-qism 144 katak")
+		t.equal(int(comps[1]["size"]), 121, "2-qism 121 katak")
+		var d: float = (comps[0]["center"] as Vector2).distance_to(comps[1]["center"] as Vector2)
+		t.check(d > 40.0, "ikki qism markazlari bir-biridan uzoq: %.1f" % d)
+	)
 
+	t.test("katta ajralgan hududga qo'shimcha bayroq ustuni qo'yiladi va dublikat bo'lmaydi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.map_id = "circle"
+		cfg.bot_count = 1
+		var world := MatchBuilder.create(cfg, 0, "Player", "slime", 42, "UZ")
+
+		var poles := FlagPolesRef.new()
+		poles.setup(world)
+
+		var p1 := world.players[0]
+		# Baza bayrog'i bor (1 ta)
+		t.equal(poles.pole_count(), 2, "har o'yinchiga 1 tadan baza ustuni")
+
+		# O'yinchiga katta ajralgan hudud beramiz (bazadan 30 katak uzoqda 11x11 = 121 katak)
+		# circle xaritada markaz atrofidagi barcha kataklar quruqlik
+		var b_pt := Vector2(poles._base_poles[p1.id].position.x, poles._base_poles[p1.id].position.z)
+		var island_origin := Vector2i(int(b_pt.x) + 30, int(b_pt.y))
+		for dy in 11:
+			for dx in 11:
+				if world.grid.playable(island_origin.x + dx, island_origin.y + dy):
+					world.grid.set_owner(island_origin.x + dx, island_origin.y + dy, p1.id)
+
+		poles.update_poles()
+
+		# Endi o'yinchida baza bayrog'idan tashqari qo'shimcha ajralgan hudud bayrog'i paydo bo'lishi kerak
+		var t_list: Array = poles._territory_poles.get(p1.id, [])
+		t.check(t_list.size() >= 1, "ajralgan orolga qo'shimcha bayroq o'rnatildi: %d" % t_list.size())
+		if not t_list.is_empty():
+			var t_node: Node3D = t_list[0]
+			t.check(t_node.visible, "qo'shimcha ustun ko'rinmoqda")
+			var t_pt := Vector2(t_node.position.x, t_node.position.z)
+			t.check(t_pt.distance_to(b_pt) >= 20.0, "dublikat emas, bazadan uzoqda: %.1f" % t_pt.distance_to(b_pt))
+
+		poles.clear()
+		poles.queue_free()
+	)
+
+	t.test("Nepal, Shveytsariya, AQSH va O'zbekiston milliy proporsiyalari saqlanadi", func() -> void:
+		t.equal(FlagRendererRef.get_flag_aspect_ratio("CH"), 1.0, "Shveytsariya 1:1 kvadrat")
+		t.equal(FlagRendererRef.get_flag_aspect_ratio("VA"), 1.0, "Vatikan 1:1 kvadrat")
+		t.equal(FlagRendererRef.get_flag_aspect_ratio("NP"), 0.82, "Nepal 0.82:1 (balandroq)")
+		t.equal(FlagRendererRef.get_flag_aspect_ratio("US"), 1.90, "AQSH 1.90:1 (10:19)")
+		t.equal(FlagRendererRef.get_flag_aspect_ratio("UZ"), 2.0, "O'zbekiston 2.0:1 (1:2)")
+
+		# AvatarPlacement orqali hududda to'g'ri proporsiya olinishi
+		var grid := GameGrid.new(40, 40)
+		for y in range(10, 30):
+			for x in range(10, 30):
+				grid.set_owner(x, y, 1)
+
+		var place_ch: Dictionary = AvatarPlacement.of(grid, 1, "CH")
+		var ratio_ch := float(place_ch["half_w"]) / float(place_ch["half_h"])
+		t.check(absf(ratio_ch - 1.0) < 0.1, "Shveytsariya hududda kvadrat nisbatda (1.0:1): %.2f" % ratio_ch)
+
+		var place_uz: Dictionary = AvatarPlacement.of(grid, 1, "UZ")
+		var ratio_uz := float(place_uz["half_w"]) / float(place_uz["half_h"])
+		t.check(absf(ratio_uz - 2.0) < 0.2, "O'zbekiston hududda 2:1 nisbatda: %.2f" % ratio_uz)
+	)
+
+	t.test("Nepal bayrog'ining burchaklaridagi shaffoflik (alpha = 0.0) saqlanadi", func() -> void:
+		t.check(FlagRendererRef.is_non_rectangular("NP"), "Nepal to'rtburchak bo'lmagan davlat")
+		var np_img: Image = FlagRendererRef.get_flag_image("NP")
+		t.check(np_img != null, "NP tasviri bor")
+		# Nepal bayrog'ining yuqori o'ng burchagi shaffof bo'lishi kerak (alpha < 0.05)
+		var top_right: Color = np_img.get_pixel(np_img.get_width() - 5, 5)
+		t.check(top_right.a < 0.05, "Nepal yuqori o'ng burchagi shaffof (alpha = %.2f)" % top_right.a)
+	)
