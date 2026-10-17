@@ -56,6 +56,7 @@ var _name_tags: Array[Label3D] = []
 ## birinchi o'rindagisi ko'rinadi.
 var _crowns: Array[Sprite3D] = []
 var _percent_tags: Array[Label3D] = []
+var _shadow_discs: Array[MeshInstance3D] = []
 var _avatars: Node
 var _trails: MeshInstance3D
 var _arena_material: ShaderMaterial
@@ -114,7 +115,12 @@ func _ready() -> void:
 	sun.rotation_degrees = Vector3(-56.0, -35.0, 0.0)
 	sun.light_color = Color(1.0, 0.98, 0.94)
 	sun.light_energy = 1.25
-	sun.shadow_enabled = false
+	sun.shadow_enabled = true
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_blend_splits = true
+	sun.shadow_bias = 0.05
+	sun.shadow_normal_bias = 0.8
+	sun.shadow_blur = 1.2
 
 	# Kamera ko'rinishi: kengaytirilgan dunyoni to'liq qamrab olish uchun
 	camera.near = 0.5
@@ -416,9 +422,12 @@ func _apply_view_settings() -> void:
 	if _pickups != null:
 		_pickups.visible = _playing
 	if _flag_poles != null:
-		_flag_poles.visible = store.show_flags
+		_flag_poles.visible = _playing and store.show_flags
 	if _coins != null:
 		_coins.visible = _playing
+	var high_gfx: bool = (store == null or store.graphics_quality != "low")
+	if sun != null:
+		sun.shadow_enabled = high_gfx
 	ui.set_minimap(paint.texture if store.show_minimap else null)
 
 ## Osmon va tuman rangi uslubdan olinadi.
@@ -451,6 +460,10 @@ func _clear_scene() -> void:
 	for head in _heads:
 		head.queue_free()
 	_heads.clear()
+	for s in _shadow_discs:
+		if is_instance_valid(s):
+			s.queue_free()
+	_shadow_discs.clear()
 	_name_tags.clear()
 	_percent_tags.clear()
 	_crowns.clear()
@@ -830,7 +843,23 @@ func _build_players() -> void:
 	ball.radial_segments = 32
 	ball.rings = 16
 
+	var shadow_mesh := CylinderMesh.new()
+	shadow_mesh.top_radius = HEAD_RADIUS * 0.82
+	shadow_mesh.bottom_radius = HEAD_RADIUS * 0.82
+	shadow_mesh.height = 0.02
+	var shadow_mat := StandardMaterial3D.new()
+	shadow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shadow_mat.albedo_color = Color(0.02, 0.06, 0.14, 0.38)
+
 	for p in world.players:
+		var shadow := MeshInstance3D.new()
+		shadow.mesh = shadow_mesh
+		shadow.material_override = shadow_mat
+		shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		players_root.add_child(shadow)
+		_shadow_discs.append(shadow)
+
 		var head := MeshInstance3D.new()
 		head.mesh = ball
 		head.set_surface_override_material(0, _head_material(p))
@@ -1060,6 +1089,7 @@ func _process(delta: float) -> void:
 		_follow_camera(delta)
 		if _flag_poles != null and _playing:
 			_flag_poles.update_poles()
+			_flag_poles.update_camera_culling(camera)
 		if _city_renderer != null and _playing:
 			_city_renderer.update_lod(camera.global_position, delta)
 
@@ -1290,13 +1320,22 @@ func _sync_heads() -> void:
 	for i in world.players.size():
 		var p := world.players[i]
 		var head := _heads[i]
-		head.visible = p.alive
-		if not p.alive:
+		head.visible = _playing and p.alive
+		if i < _shadow_discs.size() and _shadow_discs[i] != null:
+			_shadow_discs[i].visible = _playing and p.alive
+		if not head.visible:
 			continue
 		head.position = Vector3(
 			p.x, ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS, p.y)
 		var bounce := sin(world.elapsed * 12.0 + float(i) * 1.5) * 0.08
 		head.scale = Vector3(1.0 + bounce, 1.0 - bounce * 0.85, 1.0 + bounce)
+
+		# Kontakt soya diski
+		if i < _shadow_discs.size() and _shadow_discs[i] != null:
+			var s := _shadow_discs[i]
+			s.position = Vector3(p.x, ArenaBuilder.LAND_HEIGHT + 0.03, p.y)
+			var s_scale := 1.0 - bounce * 0.5
+			s.scale = Vector3(s_scale, 1.0, s_scale)
 
 		# Harakatlanish tomonga burilish va multfilm qiyaligi (movement tilt)
 		var dir_angle: float = p.angle
@@ -1322,13 +1361,18 @@ func _player_target() -> Vector3:
 	var p := world.human()
 	return Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
 
+func _scenic_menu_target() -> Vector3:
+	if world == null or world.grid == null:
+		return Vector3(100.0, ArenaBuilder.LAND_HEIGHT, 60.0)
+	return Vector3(float(world.grid.width) * 0.5, ArenaBuilder.LAND_HEIGHT, float(world.grid.height) * 0.5)
+
 func _place_camera_instantly() -> void:
 	var ch := _cam_height()
 	var cb := _cam_back()
 	if not _playing and world != null:
-		var target := _player_target() if world.human() != null else Vector3(world.grid.width * 0.5, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.5)
-		camera.position = target + Vector3(-9.0, 14.5, 17.0)
-		camera.look_at(target + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+		var target := _scenic_menu_target()
+		camera.position = target + Vector3(-16.0, 28.0, 34.0)
+		camera.look_at(target + Vector3(0.0, 1.5, 0.0), Vector3.UP)
 		return
 	var target := _player_target()
 	camera.position = target + Vector3(0.0, ch, cb)
@@ -1347,11 +1391,12 @@ func _follow_camera(delta: float) -> void:
 	var ch := _cam_height()
 	var cb := _cam_back()
 	if not _playing and world != null:
-		var target := _player_target() if world.human() != null else Vector3(world.grid.width * 0.5, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.5)
-		var drift := sin(Time.get_ticks_msec() * 0.00025) * 3.5
-		var want := target + Vector3(-9.0 + drift, 14.5, 17.0)
-		camera.position = camera.position.lerp(want, minf(1.0, 1.8 * delta))
-		camera.look_at(target + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+		var target := _scenic_menu_target()
+		var drift_x := sin(Time.get_ticks_msec() * 0.00015) * 6.0
+		var drift_z := cos(Time.get_ticks_msec() * 0.00012) * 5.0
+		var want := target + Vector3(-16.0 + drift_x, 28.0, 34.0 + drift_z)
+		camera.position = camera.position.lerp(want, minf(1.0, 1.5 * delta))
+		camera.look_at(target + Vector3(0.0, 1.5, 0.0), Vector3.UP)
 		return
 	var target := _player_target()
 	var want := target + Vector3(0.0, ch, cb)

@@ -328,3 +328,8 @@ func record_economy_stats(conquest_coins: int, pickup_coins: int, cities_rewarde
 	if duplicates_prevented > 0:
 		_write("total_duplicates_prevented", total_duplicates_prevented + duplicates_prevented)
 
+## Grafika sifati ("high" / "low").
+var graphics_quality: String:
+	get: return str(_read("graphics_quality", "high"))
+	set(value): _write("graphics_quality", value)
+

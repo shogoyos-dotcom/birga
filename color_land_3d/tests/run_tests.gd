@@ -2746,3 +2746,31 @@ func _test_phase6_corrections_integration(t: TestRunner) -> void:
 		if FileAccess.file_exists(test_path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
 	)
+
+	# 10. CityRewardTracker.load_state faqat mos match_id li holatni yuklaydi
+	t.test("10. load_state kutilmagan match_id dagi holatni rad etadi", func() -> void:
+		var test_save := "user://test_tracker_match_mismatch.cfg"
+		var t1 := CitySystem.CityRewardTracker.new()
+		t1.reset("match_alpha")
+		var c := CitySystem.CityData.new()
+		c.id = 99
+		c.category = CitySystem.Category.SMALL
+		c.stable_id = "test_city_99"
+		t1.claim_city(c, true)
+		t1.save_state(test_save)
+
+		# Boshqa match_id ga ega bo'lgan tracker yuklashga urinadi
+		var t2 := CitySystem.CityRewardTracker.new()
+		t2.reset("match_beta")
+		var loaded_wrong := t2.load_state(test_save, "match_beta")
+		t.equal(loaded_wrong, false, "Mos kelmagan match_id yuklanmadi")
+		t.equal(t2.is_city_eligible(c), true, "Shahar t2 da hali da'vo qilinmagan")
+
+		# Mos match_id bilan yuklash
+		var loaded_ok := t2.load_state(test_save, "match_alpha")
+		t.equal(loaded_ok, true, "To'g'ri match_id yuklandi")
+		t.equal(t2.is_city_eligible(c), false, "Endi shahar da'vo qilingan deb saqlanadi")
+
+		if FileAccess.file_exists(test_save):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_save))
+	)

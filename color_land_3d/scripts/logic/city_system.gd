@@ -504,13 +504,18 @@ class CityRewardTracker:
 		return err == OK
 
 	## Saqlangan o'yin sessiyasini diskdan yuklab tiklash
-	func load_state(path: String = SAVE_FILE_PATH) -> bool:
+	func load_state(path: String = SAVE_FILE_PATH, expected_match_id: String = "") -> bool:
 		var cfg := ConfigFile.new()
 		var err := cfg.load(path)
 		if err != OK:
 			return false
 		var data: Variant = cfg.get_value("match", "state", {})
 		if data is Dictionary and not data.is_empty():
+			var saved_mid := str(data.get("match_id", ""))
+			var target_mid := expected_match_id if not expected_match_id.is_empty() else _match_id
+			# Agar kutilgan match_id ko'rsatilgan bo'lsa va u saqlanganga mos kelmasa — yuklamaymiz!
+			if not target_mid.is_empty() and saved_mid != target_mid:
+				return false
 			from_dict(data)
 			return true
 		return false

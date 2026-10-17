@@ -346,24 +346,22 @@ func _spawn_city_node(city: CitySystem.CityData) -> void:
 	flag_group.add_child(pole)
 
 	# Shtoka balandligi toifaga qarab
-	var flag_h := 3.2
-	var flag_w := 1.4
-	var pole_h := 3.8
+	var flag_w := 0.75
+	var pole_h := 1.9
 	if city.category == CitySystem.Category.LARGE:
-		pole_h = 5.2
-		flag_h = 4.4
-		flag_w = 2.0
+		pole_h = 3.2
+		flag_w = 1.2
 	elif city.category == CitySystem.Category.MEDIUM:
-		pole_h = 4.2
-		flag_h = 3.5
-		flag_w = 1.6
+		pole_h = 2.5
+		flag_w = 0.95
 
 	pole.position = Vector3(0, pole_h * 0.5, 0)
-	pole.scale = Vector3(1.0, pole_h / 4.5, 1.0)
+	pole.scale = Vector3(0.7, pole_h / 4.5, 0.7)
 
 	# Bayroq matosi (QuadMesh)
 	var flag_quad := QuadMesh.new()
-	flag_quad.size = Vector2(flag_w, flag_w * 0.65)
+	var flag_h := flag_w * 0.65
+	flag_quad.size = Vector2(flag_w, flag_h)
 	var f_mat := ShaderMaterial.new()
 	f_mat.shader = _flag_shader
 
@@ -375,8 +373,8 @@ func _spawn_city_node(city: CitySystem.CityData) -> void:
 	flag_mesh_inst.mesh = flag_quad
 	flag_mesh_inst.material_override = f_mat
 	flag_mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Bayroq ustun yonidan o'ngga qarab hilpiraydi
-	flag_mesh_inst.position = Vector3(flag_w * 0.5, flag_h, 0.0)
+	# Bayroq ustunning yuqori qismidan o'ngga qarab hilpiraydi
+	flag_mesh_inst.position = Vector3(flag_w * 0.5, pole_h - flag_h * 0.5 - 0.05, 0.0)
 	flag_group.add_child(flag_mesh_inst)
 
 	# Maydondagi joylashuv

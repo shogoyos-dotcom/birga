@@ -10,10 +10,10 @@ extends Node3D
 const FlagRenderer = preload("res://scripts/render/flag_renderer.gd")
 const AvatarPlacement = preload("res://scripts/logic/avatar_placement.gd")
 
-const POLE_HEIGHT := 6.8
-const POLE_RADIUS := 0.14
-const BASE_FLAG_WIDTH := 4.2
-const BASE_FLAG_HEIGHT := 2.8
+const POLE_HEIGHT := 3.6
+const POLE_RADIUS := 0.07
+const BASE_FLAG_WIDTH := 1.8
+const BASE_FLAG_HEIGHT := 1.2
 
 const FLAG_SHADER := """
 shader_type spatial;
@@ -22,13 +22,14 @@ render_mode cull_disabled, depth_draw_opaque;
 uniform sampler2D flag_tex : source_color, filter_linear;
 uniform float wave_speed = 4.2;
 uniform float wave_freq = 3.0;
-uniform float wave_amp = 0.28;
+uniform float wave_amp = 0.22;
+uniform float fade_alpha = 1.0;
 
 void vertex() {
 	// UV.x = 0 (ustun tomoni) mahkamlangan, UV.x = 1 (uch tomoni) kuchliroq to'lqinlanadi
 	float dist = UV.x;
 	VERTEX.z += sin(TIME * wave_speed + UV.x * wave_freq) * wave_amp * dist;
-	VERTEX.y += cos(TIME * (wave_speed * 0.75) + UV.x * 2.2) * (wave_amp * 0.18) * dist;
+	VERTEX.y += cos(TIME * (wave_speed * 0.75) + UV.x * 2.2) * (wave_amp * 0.16) * dist;
 }
 
 void fragment() {
@@ -38,7 +39,7 @@ void fragment() {
 		discard;
 	}
 	ALBEDO = col.rgb;
-	ALPHA = col.a;
+	ALPHA = col.a * fade_alpha;
 	ROUGHNESS = 0.45;
 	SPECULAR = 0.25;
 }
@@ -423,3 +424,27 @@ func update_poles() -> void:
 	_total_usec += _last_update_usec
 	_total_updates += 1
 	average_update_usec = float(_total_usec) / float(_total_updates)
+
+## Kamera yaqinlashganda bayroqlarni ko'rish maydonini to'sib qo'ymasligi uchun moslashtirish
+func update_camera_culling(cam: Camera3D) -> void:
+	if cam == null:
+		return
+	var cam_pos := cam.global_position
+	for node in _base_poles.values():
+		if is_instance_valid(node):
+			_apply_proximity_culling(node as Node3D, cam_pos)
+	for poles_list in _territory_poles.values():
+		if poles_list is Array:
+			for node in poles_list:
+				if is_instance_valid(node):
+					_apply_proximity_culling(node as Node3D, cam_pos)
+
+func _apply_proximity_culling(node: Node3D, cam_pos: Vector3) -> void:
+	var dist := node.global_position.distance_to(cam_pos)
+	if dist < 5.5:
+		var factor := clampf((dist - 2.0) / 3.5, 0.2, 1.0)
+		node.scale = Vector3(factor, factor, factor)
+		node.visible = dist > 2.0
+	else:
+		node.scale = Vector3.ONE
+		node.visible = true

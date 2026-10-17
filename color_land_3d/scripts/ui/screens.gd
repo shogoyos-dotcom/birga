@@ -2891,9 +2891,6 @@ func _build_maps() -> Control:
 	return root
 
 func _build_maps_continents() -> Control:
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 420)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2923,8 +2920,7 @@ func _build_maps_continents() -> Control:
 			stat_str = "%d cities • %.1f%%" % [places_count, rec]
 		grid.add_child(_map_rich_card(mid, mname, stat_str, entry[3] as Array))
 
-	scroll.add_child(grid)
-	return scroll
+	return grid
 
 func _build_maps_countries() -> Control:
 	var col := VBoxContainer.new()

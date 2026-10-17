@@ -2,30 +2,35 @@ shader_type spatial;
 render_mode unshaded;
 
 // Color Land 3D — Tropical Cartoon Ocean Shader
-// Chiroyli tropik zangori okean, yumshoq animatsiyali to'lqinlar va oq ko'pik
+// Chiroyli tropik moviy okean, dunyo koordinatalarida jonli to'lqinlar va oq ko'pik
 
-uniform vec4 deep_color : source_color = vec4(0.01, 0.45, 0.75, 1.0);
-uniform vec4 shallow_color : source_color = vec4(0.06, 0.75, 0.88, 1.0);
-uniform vec4 foam_color : source_color = vec4(0.95, 0.98, 1.0, 0.9);
-uniform float wave_speed : hint_range(0.0, 2.0) = 0.45;
-uniform float wave_scale : hint_range(0.01, 0.5) = 0.06;
+uniform vec4 deep_color : source_color = vec4(0.02, 0.42, 0.76, 1.0);
+uniform vec4 shallow_color : source_color = vec4(0.08, 0.78, 0.90, 1.0);
+uniform vec4 foam_color : source_color = vec4(0.96, 0.99, 1.0, 0.95);
+uniform float wave_speed : hint_range(0.0, 2.0) = 0.65;
 
 void fragment() {
-	vec2 uv = UV * 16.0;
+	// Dunyo koordinatalari bo'yicha to'lqin chastotasi — har qanday xarita o'lchamida mukammal ko'rinadi
+	vec3 world_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec2 uv = world_pos.xz * 0.24;
 	float t = TIME * wave_speed;
 
-	// Stylized layered wave pattern
-	float w1 = sin(uv.x * 2.5 + t * 1.2) * cos(uv.y * 2.0 + t * 0.8);
-	float w2 = sin((uv.x * 1.5 - uv.y * 1.8) + t * 0.9);
-	float w3 = cos(uv.x * 3.2 + uv.y * 2.8 - t * 1.4);
+	// Ko'p qatlamli multfilm to'lqin harakati
+	float w1 = sin(uv.x * 2.2 + t * 1.4) * cos(uv.y * 1.8 + t * 1.1);
+	float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9);
+	float w3 = cos(uv.x * 3.1 + uv.y * 2.4 - t * 1.6);
 	float wave = (w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
 
-	// Blend deep and shallow tropical turquoise ocean
-	vec3 water = mix(deep_color.rgb, shallow_color.rgb, 0.55 + 0.45 * wave);
+	// Chuqur va sayoz tropik ranglar uyg'unligi
+	vec3 water = mix(deep_color.rgb, shallow_color.rgb, 0.52 + 0.48 * wave);
 
-	// Gentle foam crests on wave peaks
-	float crest = smoothstep(0.48, 0.82, wave);
-	water = mix(water, foam_color.rgb, crest * 0.38);
+	// To'lqin cho'qqilarida oq multfilm ko'pigi (crisp cartoon foam)
+	float crest = smoothstep(0.42, 0.80, wave);
+	water = mix(water, foam_color.rgb, crest * 0.45);
+
+	// Nozik quyosh yaltirashi (specular ripple)
+	float glint = pow(max(0.0, wave), 4.0) * 0.25;
+	water += vec3(glint);
 
 	ALBEDO = water;
 }
