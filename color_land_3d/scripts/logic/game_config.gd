@@ -48,3 +48,22 @@ func cell_count() -> int:
 
 func bot_speed() -> float:
 	return player_speed * difficulty.bot_speed_factor
+
+## O'yin konfiguratsiyasini xarita shkalasiga moslash (Klassik vs Kengaytirilgan)
+func apply_pacing(scale: int = WorldPacing.DEFAULT_SCALE) -> void:
+	world_scale = scale
+	if scale == WorldPacing.SCALE_CLASSIC:
+		grid_width = 460
+		grid_height = 233
+		start_block = WorldPacing.START_BLOCK_CLASSIC
+		bot_count = WorldPacing.BOTS_CLASSIC
+		player_speed = WorldPacing.SPEED_CLASSIC
+		player_turn_rate = WorldPacing.TURN_RATE_CLASSIC
+	else:
+		grid_width = 920
+		grid_height = 466
+		start_block = WorldPacing.START_BLOCK_EXPANDED
+		bot_count = WorldPacing.BOTS_EXPANDED
+		player_speed = WorldPacing.SPEED_EXPANDED
+		player_turn_rate = WorldPacing.TURN_RATE_EXPANDED
+

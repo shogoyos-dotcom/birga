@@ -101,9 +101,23 @@ func spawn_all() -> void:
 func spawn(p: PlayerState) -> bool:
 	var size := config.start_block
 	var margin := size + 3
+	var h: PlayerState = human() if (p.is_bot and not players.is_empty()) else null
+	var prefer_near: bool = p.is_bot and h != null and h.alive and (p.id % 2 == 0) and grid.width > 500
+
 	for attempt in 600:
-		var left: int = margin + _rng.randi_range(0, grid.width - 2 * margin - size - 1)
-		var top: int = margin + _rng.randi_range(0, grid.height - 2 * margin - size - 1)
+		var left: int = 0
+		var top: int = 0
+		if prefer_near and attempt < 300:
+			# Kengaytirilgan xaritada o'yinchi bo'shliqda yolg'iz qolmasligi uchun
+			# botlarning bir qismi o'yinchi atrofidagi (50-200 katak) mintaqaga joylashtiriladi
+			var ang := _rng.randf() * TAU
+			var dist := _rng.randf_range(50.0, 200.0)
+			left = clampi(int(h.x + cos(ang) * dist) - size / 2, margin, grid.width - margin - size - 1)
+			top = clampi(int(h.y + sin(ang) * dist) - size / 2, margin, grid.height - margin - size - 1)
+		else:
+			left = margin + _rng.randi_range(0, grid.width - 2 * margin - size - 1)
+			top = margin + _rng.randi_range(0, grid.height - 2 * margin - size - 1)
+
 		if not grid.is_block_free(left, top, size):
 			continue
 		var cx: int = left + size / 2

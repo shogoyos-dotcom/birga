@@ -359,6 +359,10 @@ func _apply_view_settings() -> void:
 	if _arena_material != null:
 		_arena_material.set_shader_parameter(
 			"avatar_alpha", AVATAR_ALPHA if store.show_flags else 0.0)
+	if camera != null:
+		var is_classic: bool = (world != null and world.config != null and world.config.world_scale == WorldPacing.SCALE_CLASSIC)
+		camera.far = WorldPacing.CAM_FAR_CLASSIC if is_classic else WorldPacing.CAM_FAR_EXPANDED
+
 	# Til o'zgargan bo'lsa shahar nomlari qayta tuziladi; maydon
 	# o'sha-o'sha bo'lsa bu chaqiriq darhol qaytadi.
 	_build_capitals()
@@ -1069,32 +1073,46 @@ func _sync_heads() -> void:
 		var bounce := sin(world.elapsed * 12.0 + float(i) * 1.5) * 0.08
 		head.scale = Vector3(1.0 + bounce, 1.0 - bounce * 0.8, 1.0 + bounce)
 
+func _cam_height() -> float:
+	if world != null and world.config != null and world.config.world_scale == WorldPacing.SCALE_CLASSIC:
+		return WorldPacing.CAM_HEIGHT_CLASSIC
+	return WorldPacing.CAM_HEIGHT_EXPANDED
+
+func _cam_back() -> float:
+	if world != null and world.config != null and world.config.world_scale == WorldPacing.SCALE_CLASSIC:
+		return WorldPacing.CAM_BACK_CLASSIC
+	return WorldPacing.CAM_BACK_EXPANDED
+
 func _player_target() -> Vector3:
 	var p := world.human()
 	return Vector3(p.x, ArenaBuilder.LAND_HEIGHT, p.y)
 
 func _place_camera_instantly() -> void:
+	var ch := _cam_height()
+	var cb := _cam_back()
 	if not _playing and world != null and world.grid != null:
 		var center := Vector3(world.grid.width * 0.52, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.28)
-		camera.position = center + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
+		camera.position = center + Vector3(0.0, ch, cb)
 		camera.look_at(center, Vector3.UP)
 		return
 	var target := _player_target()
-	camera.position = target + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
+	camera.position = target + Vector3(0.0, ch, cb)
 	camera.look_at(target, Vector3.UP)
 
 func _follow_camera(delta: float) -> void:
+	var ch := _cam_height()
+	var cb := _cam_back()
 	if not _playing and world != null and world.grid != null:
 		var center := Vector3(world.grid.width * 0.52, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.28)
-		var want := center + Vector3(sin(Time.get_ticks_msec() * 0.0003) * 6.0, CAM_HEIGHT, CAM_BACK)
+		var want := center + Vector3(sin(Time.get_ticks_msec() * 0.0003) * 6.0, ch, cb)
 		camera.position = camera.position.lerp(want, minf(1.0, 2.0 * delta))
 		camera.look_at(center, Vector3.UP)
 		return
 	var target := _player_target()
-	var want := target + Vector3(0.0, CAM_HEIGHT, CAM_BACK)
+	var want := target + Vector3(0.0, ch, cb)
 	if world != null and world.grid != null:
 		want.x = clampf(want.x, 15.0, float(world.grid.width) - 15.0)
-		want.z = clampf(want.z, CAM_BACK + 5.0, float(world.grid.height) + CAM_BACK - 5.0)
+		want.z = clampf(want.z, cb + 5.0, float(world.grid.height) + cb - 5.0)
 	camera.position = camera.position.lerp(want, minf(1.0, CAM_FOLLOW * delta))
 	camera.look_at(target, Vector3.UP)
 

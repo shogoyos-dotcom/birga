@@ -35,6 +35,7 @@ func _process(_delta: float) -> bool:
 	_test_shield(t)
 	_test_journey(t)
 	_test_heroes(t)
+	_test_phase3_scaling(t)
 	quit(0 if t.report() else 1)
 	return true
 
@@ -1559,4 +1560,83 @@ func _test_heroes(t: TestRunner) -> void:
 		view_unlocked.queue_free()
 		view_locked.queue_free()
 	)
+
+# ——— PHASE 3: Kengaytirilgan hududlar va pacing ———
+
+func _test_phase3_scaling(t: TestRunner) -> void:
+	t.group("phase 3 kengaytirilgan xaritalar")
+
+	t.test("dunyo xaritalari 2x shkalada 4x maydonga kengayadi", func() -> void:
+		for mid in ["world", "europe", "asia", "africa", "north_america", "south_america", "oceania"]:
+			var cls := WorldMap.load_map(mid, WorldPacing.SCALE_CLASSIC)
+			var exp := WorldMap.load_map(mid, WorldPacing.SCALE_EXPANDED)
+			t.equal(exp.width, cls.width * 2, "%s eni 2 barobar" % mid)
+			t.equal(exp.height, cls.height * 2, "%s bo'yi 2 barobar" % mid)
+			t.equal(exp.land_cells, cls.land_cells * 4, "%s quruqlik 4 barobar" % mid)
+	)
+
+	t.test("shahar koordinatalari kengaytirilgan xaritada quruqlikda qoladi", func() -> void:
+		for mid in ["world", "europe", "asia", "africa"]:
+			var exp := WorldMap.load_map(mid, WorldPacing.SCALE_EXPANDED)
+			t.check(exp.places.size() > 0, "%s shaharlar mavjud" % mid)
+			for p in exp.places:
+				var px := int(p["x"])
+				var py := int(p["y"])
+				t.check(exp.is_land(px, py), "%s: %s quruqlikda" % [mid, p.get("name", "")])
+	)
+
+	t.test("botlar kengaytirilgan xaritada xavfsiz tug'iladi va joylashadi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.apply_pacing(WorldPacing.SCALE_EXPANDED)
+		cfg.map_id = "world"
+		cfg.bot_count = 20
+		var world := MatchBuilder.create(cfg, 0, "Player", "slime", 1, "UZ")
+		t.equal(world.players.size(), 21, "20 bot + 1 odam")
+		for p in world.players:
+			t.check(p.alive, "o'yinchi tirik tug'ildi")
+			t.check(world.grid.playable(int(p.x), int(p.y)), "o'yinchi quruqlikda")
+	)
+
+	t.test("o'yinchi va botlar xarita chegarasidan chiqib ketmaydi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.apply_pacing(WorldPacing.SCALE_EXPANDED)
+		cfg.map_id = "world"
+		var world := MatchBuilder.create(cfg, 0, "Player", "slime", 1, "UZ")
+		var p := world.human()
+		p.x = 2.0
+		p.y = 2.0
+		p.angle = PI # chapga yuradi
+		for step in 60:
+			world.update(1.0 / 30.0)
+		t.check(p.x >= 0.0 and p.x < float(world.grid.width), "X chegaradan chiqmadi")
+		t.check(p.y >= 0.0 and p.y < float(world.grid.height), "Y chegaradan chiqmadi")
+	)
+
+	t.test("minimap koordinatalari va bot nishonlari to'g'ri normallanadi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.apply_pacing(WorldPacing.SCALE_EXPANDED)
+		cfg.map_id = "world"
+		var world := MatchBuilder.create(cfg, 0, "Player", "slime", 1, "UZ")
+		for pl in world.players:
+			var norm_x: float = pl.x / float(world.grid.width)
+			var norm_y: float = pl.y / float(world.grid.height)
+			t.check(norm_x >= 0.0 and norm_x <= 1.0, "minimap X 0..1 oralig'ida")
+			t.check(norm_y >= 0.0 and norm_y <= 1.0, "minimap Y 0..1 oralig'ida")
+	)
+
+	t.test("GameConfig apply_pacing klassik va kengaytirilgan rejimni to'g'ri o'zgartiradi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.apply_pacing(WorldPacing.SCALE_CLASSIC)
+		t.equal(cfg.world_scale, WorldPacing.SCALE_CLASSIC, "klassik shkala")
+		t.equal(cfg.player_speed, WorldPacing.SPEED_CLASSIC, "klassik tezlik")
+		t.equal(cfg.bot_count, WorldPacing.BOTS_CLASSIC, "klassik botlar soni")
+		t.equal(cfg.start_block, WorldPacing.START_BLOCK_CLASSIC, "klassik boshlang'ich blok")
+
+		cfg.apply_pacing(WorldPacing.SCALE_EXPANDED)
+		t.equal(cfg.world_scale, WorldPacing.SCALE_EXPANDED, "kengaytirilgan shkala")
+		t.equal(cfg.player_speed, WorldPacing.SPEED_EXPANDED, "kengaytirilgan tezlik")
+		t.equal(cfg.bot_count, WorldPacing.BOTS_EXPANDED, "kengaytirilgan botlar soni")
+		t.equal(cfg.start_block, WorldPacing.START_BLOCK_EXPANDED, "kengaytirilgan boshlang'ich blok")
+	)
+
 
