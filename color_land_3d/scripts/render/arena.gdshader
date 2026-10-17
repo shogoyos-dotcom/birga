@@ -39,6 +39,8 @@ uniform vec2 grid_size;
 uniform vec2 avatar_grid = vec2(8.0, 4.0);
 uniform float avatar_alpha : hint_range(0.0, 1.0) = 0.9;
 uniform float surface_roughness : hint_range(0.0, 1.0) = 0.9;
+uniform vec3 beach_color = vec3(0.99, 0.88, 0.28);
+uniform float beach_width : hint_range(0.5, 3.5) = 1.8;
 
 // Ovoz oynasining radiusi (katak) va kengligi.
 //
@@ -239,6 +241,7 @@ void fragment() {
 	float pixel = max(max(fwidth(p.x), fwidth(p.y)), 0.0005);
 
 	vec3 shade;
+	int win_owner = near_owner[0];
 	bool same = near_owner[0] == near_owner[1]
 		&& near_owner[0] == near_owner[2]
 		&& near_owner[0] == near_owner[3];
@@ -285,6 +288,7 @@ void fragment() {
 				best = k;
 			}
 		}
+		win_owner = near_owner[best];
 		int second = -1;
 		for (int k = 0; k < 4; k++) {
 			if (near_owner[k] != near_owner[best]
@@ -318,6 +322,29 @@ void fragment() {
 			shade = mix(other, shade, clamp(0.5 + 0.5 * lead, 0.5, 1.0));
 		}
 	}
+
+	// Qirg'oq sohili (beach sand transition)
+	if (win_owner == 0) {
+		float water_dist = 99.0;
+		for (int dy = -2; dy <= 2; dy++) {
+			for (int dx = -2; dx <= 2; dx++) {
+				vec4 c = cell_texel(base + vec2(float(dx), float(dy)));
+				if (int(c.r * 255.0 + 0.5) == WATER) {
+					float d = length(f - vec2(float(dx), float(dy)));
+					water_dist = min(water_dist, d);
+				}
+			}
+		}
+		if (water_dist < beach_width) {
+			float t = smoothstep(0.3, beach_width, water_dist);
+			shade = mix(beach_color, shade, t);
+		}
+	}
+
+	// Yumshoq multfilm quyosh nuri (subtle organic relief)
+	vec2 terr_uv = cell_pos * 0.06;
+	float terr_var = sin(terr_uv.x * 2.5) * cos(terr_uv.y * 2.5) * 0.035;
+	shade *= (0.97 + terr_var);
 
 	ALBEDO = shade;
 }

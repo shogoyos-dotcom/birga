@@ -29,6 +29,7 @@ const DRAG_LEASH := 70.0
 ## Avatar teksturasi va poytaxt belgilari — kod bilan qo'shiladi,
 ## sahnada alohida tugun saqlanmaydi.
 const ARENA_SHADER := preload("res://scripts/render/arena.gdshader")
+const WATER_SHADER := preload("res://scripts/render/water.gdshader")
 const AvatarAtlasNode := preload("res://scripts/render/avatar_atlas.gd")
 const TrailRibbonsNode := preload("res://scripts/render/trail_ribbons.gd")
 const CapitalMarksNode := preload("res://scripts/render/capital_marks.gd")
@@ -351,17 +352,36 @@ func _on_play() -> void:
 ## Tarmoq o'yinida uy egasi hisoblashni to'xtatmaydi: xonadagi
 ## boshqalar uchun o'yin davom etishi kerak. Buni [method
 ## _set_playing] o'zi hal qiladi.
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED:
+			if _playing and _city_reward_tracker != null:
+				_city_reward_tracker.save_state()
+				_on_pause()
+		NOTIFICATION_APPLICATION_RESUMED:
+			if _city_reward_tracker != null:
+				_city_reward_tracker.load_state()
+		NOTIFICATION_WM_CLOSE_REQUEST:
+			if _playing and _city_reward_tracker != null:
+				_city_reward_tracker.save_state()
+
 func _on_pause() -> void:
+	if _playing and _city_reward_tracker != null:
+		_city_reward_tracker.save_state()
 	_set_playing(false)
 	_dragging = false
 	ui.show_screen(ui.Screen.PAUSE)
 
 func _on_resume() -> void:
+	if _city_reward_tracker != null:
+		_city_reward_tracker.load_state()
 	_set_playing(true)
 	ui.show_screen(ui.Screen.HUD)
 	_apply_view_settings()
 
 func _on_menu() -> void:
+	if _city_reward_tracker != null:
+		_city_reward_tracker.clear_saved_state()
 	_set_playing(false)
 	_match_running = false
 	Net.leave()
@@ -390,13 +410,13 @@ func _apply_view_settings() -> void:
 	_capitals.enabled = (_city_renderer == null) and store.show_capitals and _playing
 	_capitals.names_visible = (_city_renderer == null) and store.show_city_names and _playing
 	if _city_renderer != null:
-		_city_renderer.visible = _playing
+		_city_renderer.visible = true
 	if players_root != null:
-		players_root.visible = _playing
+		players_root.visible = true
 	if _pickups != null:
 		_pickups.visible = _playing
 	if _flag_poles != null:
-		_flag_poles.visible = store.show_flags and _playing
+		_flag_poles.visible = store.show_flags
 	if _coins != null:
 		_coins.visible = _playing
 	ui.set_minimap(paint.texture if store.show_minimap else null)
@@ -471,22 +491,27 @@ func _build_arena() -> void:
 	_arena_material.set_shader_parameter("avatar_tex", _avatars.texture())
 	_arena_material.set_shader_parameter("avatar_data", _avatars.data_texture)
 	_arena_material.set_shader_parameter("avatar_grid", _avatars.grid_size())
+	var beach_c := Palette.beach()
+	_arena_material.set_shader_parameter("beach_color", Vector3(beach_c.r, beach_c.g, beach_c.b))
 	arena.set_surface_override_material(0, _arena_material)
 
 	var wall := StandardMaterial3D.new()
 	wall.albedo_color = Palette.land_side()
-	wall.roughness = 1.0
+	wall.roughness = 0.95
 	arena.set_surface_override_material(1, wall)
 
-	# Okean — xaritadan kattaroq tekis yuza (yorqin tropik moviy okean).
+	# Okean — xaritadan kattaroq tekis yuza (yorqin tropik moviy okean to'lqinlari).
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(world.grid.width * 3.0, world.grid.height * 3.0)
+	plane.size = Vector2(world.grid.width * 3.4, world.grid.height * 3.4)
 	ocean.mesh = plane
 	ocean.position = Vector3(world.grid.width / 2.0, 0.0, world.grid.height / 2.0)
-	var sea := StandardMaterial3D.new()
-	sea.albedo_color = Color("14bed8") if Palette.theme_id() == "paper" else Palette.ocean()
-	sea.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ocean.set_surface_override_material(0, sea)
+	var water_mat := ShaderMaterial.new()
+	water_mat.shader = WATER_SHADER
+	var deep := Palette.ocean().darkened(0.22)
+	var shallow := Palette.ocean().lightened(0.18)
+	water_mat.set_shader_parameter("deep_color", deep)
+	water_mat.set_shader_parameter("shallow_color", shallow)
+	ocean.set_surface_override_material(0, water_mat)
 	_build_props()
 
 var _props_root: Node3D
@@ -497,33 +522,57 @@ func _build_props() -> void:
 	_props_root = Node3D.new()
 	add_child(_props_root)
 
+	# 1. Keng bargli multfilm daraxti
 	var tree_trunk_mesh := CylinderMesh.new()
-	tree_trunk_mesh.top_radius = 0.20
-	tree_trunk_mesh.bottom_radius = 0.25
-	tree_trunk_mesh.height = 1.0
+	tree_trunk_mesh.top_radius = 0.18
+	tree_trunk_mesh.bottom_radius = 0.24
+	tree_trunk_mesh.height = 0.9
 	var trunk_mat := StandardMaterial3D.new()
 	trunk_mat.albedo_color = Color("6d4c41")
-	trunk_mat.roughness = 0.8
+	trunk_mat.roughness = 0.85
 	tree_trunk_mesh.material = trunk_mat
 
 	var foliage_mesh := SphereMesh.new()
-	foliage_mesh.radius = 0.82
+	foliage_mesh.radius = 0.85
 	foliage_mesh.height = 1.35
-	foliage_mesh.radial_segments = 12
+	foliage_mesh.radial_segments = 10
 	foliage_mesh.rings = 6
 	var foliage_mat := StandardMaterial3D.new()
-	foliage_mat.albedo_color = Color("2dc653")
-	foliage_mat.roughness = 0.40
+	foliage_mat.albedo_color = Color("22c55e")
+	foliage_mat.roughness = 0.45
 	foliage_mesh.material = foliage_mat
+
+	# 2. Multfilm archasi (Pine / Conifer)
+	var pine_cone_mesh := CylinderMesh.new()
+	pine_cone_mesh.top_radius = 0.05
+	pine_cone_mesh.bottom_radius = 0.90
+	pine_cone_mesh.height = 1.7
+	pine_cone_mesh.radial_segments = 7
+	var pine_mat := StandardMaterial3D.new()
+	pine_mat.albedo_color = Color("1e5e3a")
+	pine_mat.roughness = 0.50
+	pine_cone_mesh.material = pine_mat
+
+	# 3. Yaxlit daryo toshlari (Low-poly boulders)
+	var rock_mesh := SphereMesh.new()
+	rock_mesh.radius = 0.65
+	rock_mesh.height = 0.70
+	rock_mesh.radial_segments = 6
+	rock_mesh.rings = 4
+	var rock_mat := StandardMaterial3D.new()
+	rock_mat.albedo_color = Color("64748b")
+	rock_mat.roughness = 0.85
+	rock_mesh.material = rock_mat
 
 	var grid := world.grid
 	var tree_transforms: Array[Transform3D] = []
 	var foliage_transforms: Array[Transform3D] = []
+	var pine_transforms: Array[Transform3D] = []
+	var rock_transforms: Array[Transform3D] = []
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
-	# Zichroq multfilm daraxtlari — maydon kattaligiga mos qadam
-	var step := clampi(grid.width / 50, 8, 14)
+	var step := clampi(grid.width / 55, 7, 13)
 	for y in range(4, grid.height - 4, step):
 		for x in range(4, grid.width - 4, step):
 			var px := x + rng.randi_range(-2, 2)
@@ -536,19 +585,43 @@ func _build_props() -> void:
 						break
 				if not on_capital:
 					var base_pos := Vector3(px + 0.5, ArenaBuilder.LAND_HEIGHT, py + 0.5)
-					tree_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 0.5, 0)))
-					foliage_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 1.3, 0)))
+					var roll := rng.randf()
+					if roll < 0.45:
+						# Keng bargli daraxt
+						tree_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 0.45, 0)))
+						foliage_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 1.25, 0)))
+					elif roll < 0.85:
+						# Archa (Pine)
+						tree_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 0.35, 0)))
+						pine_transforms.append(Transform3D(Basis.IDENTITY, base_pos + Vector3(0, 1.20, 0)))
+					else:
+						# Qoya tosh
+						var r_scale := Vector3(rng.randf_range(0.8, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.4))
+						var r_rot := Basis(Vector3.UP, rng.randf_range(0.0, TAU))
+						var r_trans := Transform3D(r_rot.scaled(r_scale), base_pos + Vector3(0, 0.35, 0))
+						rock_transforms.append(r_trans)
 
 	if not tree_transforms.is_empty():
 		var trunk_mm := MultiMeshInstance3D.new()
 		trunk_mm.multimesh = _make_multimesh(tree_trunk_mesh, tree_transforms)
 		_props_root.add_child(trunk_mm)
 
-		var foliage_mm := MultiMeshInstance3D.new()
-		foliage_mm.multimesh = _make_multimesh(foliage_mesh, foliage_transforms)
-		_props_root.add_child(foliage_mm)
+		if not foliage_transforms.is_empty():
+			var foliage_mm := MultiMeshInstance3D.new()
+			foliage_mm.multimesh = _make_multimesh(foliage_mesh, foliage_transforms)
+			_props_root.add_child(foliage_mm)
 
-	# 3D Mashhur Obidalar (Landmarks): Eyfel, Kolizey, Pagoda, Iso haykali va Ozodlik haykali
+		if not pine_transforms.is_empty():
+			var pine_mm := MultiMeshInstance3D.new()
+			pine_mm.multimesh = _make_multimesh(pine_cone_mesh, pine_transforms)
+			_props_root.add_child(pine_mm)
+
+	if not rock_transforms.is_empty():
+		var rock_mm := MultiMeshInstance3D.new()
+		rock_mm.multimesh = _make_multimesh(rock_mesh, rock_transforms)
+		_props_root.add_child(rock_mm)
+
+	# 3D Mashhur Obidalar (Landmarks): Eyfel, Kolizey, Pagoda, Iso haykali, Ozodlik, Big Ben va Ehrom
 	var landmarks_placed := 0
 	var lg_reward: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
 	var landmark_types := [
@@ -556,7 +629,9 @@ func _build_props() -> void:
 		["colosseum", "IT", lg_reward],
 		["pagoda", "JP", lg_reward],
 		["christ", "BR", lg_reward],
-		["statue", "US", lg_reward]
+		["statue", "US", lg_reward],
+		["big_ben", "GB", lg_reward],
+		["pyramid", "EG", lg_reward]
 	]
 	for lt: Array in landmark_types:
 		var placed_one := false
@@ -1206,6 +1281,8 @@ func _end_match() -> void:
 	}
 	ui.set_result(percent, p.kills, world.elapsed,
 		Strings.death_reason(p.death_cause), is_record, reward, moved, city_conquest_data)
+	if _city_reward_tracker != null:
+		_city_reward_tracker.clear_saved_state()
 	ui.show_screen(ui.Screen.RESULT)
 
 
@@ -1219,7 +1296,17 @@ func _sync_heads() -> void:
 		head.position = Vector3(
 			p.x, ArenaBuilder.LAND_HEIGHT + HEAD_RADIUS, p.y)
 		var bounce := sin(world.elapsed * 12.0 + float(i) * 1.5) * 0.08
-		head.scale = Vector3(1.0 + bounce, 1.0 - bounce * 0.8, 1.0 + bounce)
+		head.scale = Vector3(1.0 + bounce, 1.0 - bounce * 0.85, 1.0 + bounce)
+
+		# Harakatlanish tomonga burilish va multfilm qiyaligi (movement tilt)
+		var dir_angle: float = p.angle
+		head.rotation.y = -dir_angle + PI * 0.5
+		head.rotation.z = sin(world.elapsed * 10.0 + float(i)) * 0.04
+
+		# Oltin tojning bosh ustida mayin muallaq suzishi (floating crown bob)
+		if i < _crowns.size() and _crowns[i] != null and _crowns[i].visible:
+			var crown_bob := sin(world.elapsed * 4.5) * 0.08
+			_crowns[i].position.y = HEAD_RADIUS * 1.45 + crown_bob
 
 func _cam_height() -> float:
 	if world != null and world.config != null and world.config.world_scale == WorldPacing.SCALE_CLASSIC:
@@ -1238,10 +1325,10 @@ func _player_target() -> Vector3:
 func _place_camera_instantly() -> void:
 	var ch := _cam_height()
 	var cb := _cam_back()
-	if not _playing and world != null and world.grid != null:
-		var center := Vector3(world.grid.width * 0.52, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.28)
-		camera.position = center + Vector3(0.0, ch, cb)
-		camera.look_at(center, Vector3.UP)
+	if not _playing and world != null:
+		var target := _player_target() if world.human() != null else Vector3(world.grid.width * 0.5, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.5)
+		camera.position = target + Vector3(-9.0, 14.5, 17.0)
+		camera.look_at(target + Vector3(0.0, 1.2, 0.0), Vector3.UP)
 		return
 	var target := _player_target()
 	camera.position = target + Vector3(0.0, ch, cb)
@@ -1259,11 +1346,12 @@ func _follow_camera(delta: float) -> void:
 		return
 	var ch := _cam_height()
 	var cb := _cam_back()
-	if not _playing and world != null and world.grid != null:
-		var center := Vector3(world.grid.width * 0.52, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.28)
-		var want := center + Vector3(sin(Time.get_ticks_msec() * 0.0003) * 6.0, ch, cb)
-		camera.position = camera.position.lerp(want, minf(1.0, 2.0 * delta))
-		camera.look_at(center, Vector3.UP)
+	if not _playing and world != null:
+		var target := _player_target() if world.human() != null else Vector3(world.grid.width * 0.5, ArenaBuilder.LAND_HEIGHT, world.grid.height * 0.5)
+		var drift := sin(Time.get_ticks_msec() * 0.00025) * 3.5
+		var want := target + Vector3(-9.0 + drift, 14.5, 17.0)
+		camera.position = camera.position.lerp(want, minf(1.0, 1.8 * delta))
+		camera.look_at(target + Vector3(0.0, 1.2, 0.0), Vector3.UP)
 		return
 	var target := _player_target()
 	var want := target + Vector3(0.0, ch, cb)
@@ -1424,7 +1512,7 @@ func _refresh_tags() -> void:
 		if i >= _percent_tags.size():
 			break
 		var p := world.players[i]
-		var near := p.alive and Vector2(p.x, p.y).distance_to(eye) < TAG_RANGE
+		var near := _playing and p.alive and Vector2(p.x, p.y).distance_to(eye) < TAG_RANGE
 		_name_tags[i].visible = near
 		_percent_tags[i].visible = near
 		_crowns[i].visible = p.alive and i == leader

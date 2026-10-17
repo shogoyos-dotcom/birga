@@ -284,8 +284,22 @@ func _thin_bar(percent: float, tint: Color) -> Control:
 
 ## Pastki qator: 4 ta asosiy bo'lim (Shop, Heroes, Leaderboard, Profile).
 func _tab_bar() -> Control:
+	var dock := PanelContainer.new()
+	var d_style := StyleBoxFlat.new()
+	d_style.bg_color = Color(0.06, 0.12, 0.28, 0.92)
+	d_style.border_color = Color("00d4ff")
+	d_style.set_border_width_all(2)
+	d_style.set_corner_radius_all(24)
+	d_style.content_margin_left = 10
+	d_style.content_margin_right = 10
+	d_style.content_margin_top = 6
+	d_style.content_margin_bottom = 6
+	d_style.shadow_color = Color(0.04, 0.08, 0.20, 0.6)
+	d_style.shadow_size = 10
+	dock.add_theme_stylebox_override("panel", d_style)
+
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for item: Array in [
 			["bag", Strings.t("shop"), UiKit.YELLOW, Screen.SHOP],
@@ -305,7 +319,8 @@ func _tab_bar() -> Control:
 			else:
 				show_screen(target))
 		row.add_child(tab)
-	return row
+	dock.add_child(row)
+	return dock
 
 ## Jihozlar ekrani: kuchaytirgichlar, kiyilgan ko'rinish va rekord.
 ##
@@ -951,9 +966,50 @@ func _buy_upgrade(kind: String) -> void:
 		"max":
 			toast(Strings.t("levelMax"))
 
-## Hamyondagi bitta qiymat: chizilgan belgi va son.
-func _purse_chip(icon: String, value: int, tint: Color) -> Control:
-	return UiKit.capsule(icon, _short(value), tint)
+## Hamyondagi bitta qiymat: chizilgan belgi, son va yashil (+) tugma.
+func _purse_chip(icon: String, value: int, tint: Color, with_plus: bool = true) -> Control:
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(104, 38)
+	btn.flat = false
+	var bg := Color(0.06, 0.14, 0.32, 0.88)
+	var box := UiKit.style_solid(bg, 19, 2, 4)
+	box.border_color = Color("00d4ff") if icon == "coin" else Color("c084fc")
+	box.set_border_width_all(2)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		btn.add_theme_stylebox_override(st, box)
+	btn.pressed.connect(func() -> void:
+		Audio.tap()
+		open_shop(Screen.MENU))
+
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 5)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(row)
+
+	row.add_child(GameIcon.new(icon, 20.0, tint))
+	var val_str: String = _short(value)
+	var lbl := UiKit.title(val_str, 14, Color.WHITE)
+	lbl.add_theme_constant_override("outline_size", 4)
+	lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	row.add_child(lbl)
+
+	if with_plus:
+		var plus_p := PanelContainer.new()
+		var p_box := StyleBoxFlat.new()
+		p_box.bg_color = UiKit.GREEN
+		p_box.set_corner_radius_all(9)
+		p_box.content_margin_left = 5
+		p_box.content_margin_right = 5
+		p_box.content_margin_top = 1
+		p_box.content_margin_bottom = 1
+		plus_p.add_theme_stylebox_override("panel", p_box)
+		var p_lbl := UiKit.title("+", 12, UiKit.INK)
+		plus_p.add_child(p_lbl)
+		row.add_child(plus_p)
+
+	return btn
 
 ## Katta sonni qisqartiradi: 12 400 -> 12.4K.
 static func _short(value: int) -> String:
@@ -965,49 +1021,66 @@ static func _short(value: int) -> String:
 
 ## O'yin nomi — toj, COLOR LAND va 3D nishoni bilan.
 func _logo() -> Control:
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 0)
-
-	# Yuqorida yaltirab turuvchi oltin toj
-	var crown := GameIcon.new("crown", 48.0, UiKit.YELLOW)
-	crown.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	box.add_child(crown)
-
+	var box := CenterContainer.new()
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 2)
 
-	# "COLOR" harflari har biri o'z multfilm rangida
-	var letters := [
-		["C", Color("00e5ff")],
-		["O", Color("ffd700")],
-		["L", Color("ff3b5c")],
-		["O", Color("ff33cc")],
-		["R", Color("22c55e")]
-	]
-	for pair: Array in letters:
-		var lbl := UiKit.title(str(pair[0]), 50, pair[1] as Color)
-		lbl.add_theme_constant_override("outline_size", 12)
-		lbl.add_theme_color_override("font_outline_color", UiKit.INK)
-		row.add_child(lbl)
+	# 1. "C" (Cyan)
+	var c_lbl := UiKit.title("C", 52, Color("00e5ff"))
+	c_lbl.add_theme_constant_override("outline_size", 12)
+	c_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	row.add_child(c_lbl)
+
+	# 2. "O" (Orange) with golden crown perched right on top
+	var o_slot := Control.new()
+	o_slot.custom_minimum_size = Vector2(38, 58)
+	var o_lbl := UiKit.title("O", 52, Color("ff7a18"))
+	o_lbl.add_theme_constant_override("outline_size", 12)
+	o_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	o_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	o_slot.add_child(o_lbl)
+
+	var crown := GameIcon.new("crown", 28.0, UiKit.YELLOW)
+	crown.position = Vector2(5, -16)
+	crown.rotation_degrees = -8.0
+	o_slot.add_child(crown)
+	row.add_child(o_slot)
+
+	# 3. "L" (Magenta / Pink)
+	var l_lbl := UiKit.title("L", 52, Color("ff2e93"))
+	l_lbl.add_theme_constant_override("outline_size", 12)
+	l_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	row.add_child(l_lbl)
+
+	# 4. "O" (Lime Green)
+	var o2_lbl := UiKit.title("O", 52, Color("22c55e"))
+	o2_lbl.add_theme_constant_override("outline_size", 12)
+	o2_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	row.add_child(o2_lbl)
+
+	# 5. "R" (Cyan / Blue)
+	var r_lbl := UiKit.title("R", 52, Color("0ea5e9"))
+	r_lbl.add_theme_constant_override("outline_size", 12)
+	r_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
+	row.add_child(r_lbl)
 
 	row.add_child(UiKit.spacer(6))
 
-	# Oq 3D "LAND"
-	var land_lbl := UiKit.title("LAND", 50, Color.WHITE)
+	# 6. "LAND" (Crisp White with navy 3D outline)
+	var land_lbl := UiKit.title("LAND", 52, Color.WHITE)
 	land_lbl.add_theme_constant_override("outline_size", 12)
 	land_lbl.add_theme_color_override("font_outline_color", UiKit.INK)
 	row.add_child(land_lbl)
 
 	row.add_child(UiKit.spacer(6))
 
-	# 3D nishoni (oltin badge)
+	# 7. "3D" Badge (Juicy Golden Capsule)
 	var d3_badge := PanelContainer.new()
-	d3_badge.add_theme_stylebox_override("panel", UiKit.style_solid(UiKit.YELLOW, 16, 5, 4))
-	d3_badge.custom_minimum_size = Vector2(58, 48)
+	d3_badge.add_theme_stylebox_override("panel", UiKit.style_solid(Color("f59e0b"), 16, 6, 4))
+	d3_badge.custom_minimum_size = Vector2(62, 50)
 	d3_badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var d3_lbl := UiKit.title("3D", 28, UiKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
+	var d3_lbl := UiKit.title("3D", 30, UiKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
 	d3_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	d3_lbl.add_theme_constant_override("outline_size", 0)
 	d3_badge.add_child(d3_lbl)
@@ -2791,9 +2864,9 @@ func _build_maps() -> Control:
 	head.add_child(_purse_chip("coin", Wallet.get_coins(), UiKit.YELLOW))
 	box.add_child(head)
 
-	# 4 ta toifa (Countries, Continents, Cities, Special)
+	# 4 ta toifa (Continents, Countries, Cities, Special)
 	var tab_names := PackedStringArray([
-		Strings.t("tabCountries"), Strings.t("tabContinents"),
+		Strings.t("tabContinents"), Strings.t("tabCountries"),
 		Strings.t("tabCities"), Strings.t("tabSpecial")
 	])
 	var tabs := UiKit.chips(tab_names, _maps_category, func(idx: int) -> void:
@@ -2805,9 +2878,9 @@ func _build_maps() -> Control:
 
 	match _maps_category:
 		0:
-			box.add_child(_build_maps_countries())
-		1:
 			box.add_child(_build_maps_continents())
+		1:
+			box.add_child(_build_maps_countries())
 		2:
 			box.add_child(_build_maps_cities())
 		3:
@@ -2816,6 +2889,42 @@ func _build_maps() -> Control:
 			box.add_child(_build_maps_continents())
 
 	return root
+
+func _build_maps_continents() -> Control:
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 420)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+
+	var maps_data := [
+		["world", "World", 1113, ["US", "GB", "FR", "JP", "DE"]],
+		["europe", "Europe", 156, ["GB", "FR", "DE", "IT", "ES"]],
+		["asia", "Asia", 430, ["CN", "JP", "KR", "TH", "IN"]],
+		["africa", "Africa", 223, ["EG", "KE", "NG", "ZA", "MA"]],
+		["north_america", "North America", 202, ["US", "CA", "MX"]],
+		["south_america", "South America", 128, ["BR", "AR", "CO"]],
+		["oceania", "Oceania", 34, ["AU", "NZ", "FJ", "PG"]],
+		["ancient", "Ancient World", 95, ["EG", "GR", "IT", "CN"]]
+	]
+
+	for entry: Array in maps_data:
+		var mid: String = str(entry[0])
+		var mname: String = str(entry[1])
+		var places_count: int = int(entry[2])
+		var rec: float = store.get_map_record(mid)
+		var stat_str: String = "%d cities" % places_count
+		if mid == "ancient":
+			stat_str = "Event Map"
+		elif rec > 0.0:
+			stat_str = "%d cities • %.1f%%" % [places_count, rec]
+		grid.add_child(_map_rich_card(mid, mname, stat_str, entry[3] as Array))
+
+	scroll.add_child(grid)
+	return scroll
 
 func _build_maps_countries() -> Control:
 	var col := VBoxContainer.new()
@@ -2913,39 +3022,6 @@ func _build_maps_countries() -> Control:
 	col.add_child(scroll)
 	return col
 
-func _build_maps_continents() -> Control:
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 420)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
-
-	var maps_data := [
-		["world", "World", 1113, ["US", "GB", "FR", "JP", "DE"]],
-		["europe", "Europe", 156, ["GB", "FR", "DE", "IT", "ES"]],
-		["asia", "Asia", 430, ["CN", "JP", "KR", "TH", "IN"]],
-		["africa", "Africa", 223, ["EG", "KE", "NG", "ZA", "MA"]],
-		["north_america", "North America", 202, ["US", "CA", "MX"]],
-		["south_america", "South America", 128, ["BR", "AR", "CO"]],
-		["oceania", "Oceania", 34, ["AU", "NZ", "FJ", "PG"]]
-	]
-
-	for entry: Array in maps_data:
-		var mid: String = str(entry[0])
-		var mname: String = str(entry[1])
-		var places_count: int = int(entry[2])
-		var rec: float = store.get_map_record(mid)
-		var stat_str: String = "%d shaharlar" % places_count
-		if rec > 0.0:
-			stat_str = "%d shaharlar • %.1f%%" % [places_count, rec]
-		grid.add_child(_map_rich_card(mid, mname, stat_str, entry[3] as Array))
-
-	scroll.add_child(grid)
-	return scroll
-
 func _build_maps_cities() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
@@ -3036,6 +3112,9 @@ func _map_rich_card(map_id: String, display_name: String, progress_str: String, 
 
 	card.pressed.connect(func() -> void:
 		Audio.tap()
+		if map_id == "ancient":
+			toast("Ancient World: Coming Soon in next update!")
+			return
 		store.map_id = map_id
 		if _maps_then == "host":
 			host_pressed.emit()

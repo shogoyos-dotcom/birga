@@ -257,25 +257,43 @@ class MapThumbnailControl extends Control:
 		var rect := Rect2(Vector2.ZERO, size)
 		match map_id:
 			"featured_promo":
-				# Asosiy menyu World Expedition bannari: tropik orollar, qal'a va bayroqlar
+				# Asosiy menyu World Expedition bannari: tropik orollar, qal'a, Eyfel va bayroqlar
 				draw_rect(rect, Color("0284c7"))
-				# Moviy okean va to'lqinlar
-				draw_rect(Rect2(0, size.y * 0.5, size.x, size.y * 0.5), Color("0369a1"))
-				# Yashil tropik orolcha
-				draw_circle(Vector2(size.x * 0.5, size.y * 0.8), 38.0, Color("4ade80"))
-				draw_circle(Vector2(size.x * 0.5, size.y * 0.75), 32.0, Color("22c55e"))
+				# Moviy okean to'lqinlari
+				draw_rect(Rect2(0, size.y * 0.48, size.x, size.y * 0.52), Color("0369a1"))
+				draw_line(Vector2(0, size.y * 0.5), Vector2(size.x, size.y * 0.5), Color("38bdf8"), 2.0)
+				# Sariq qumli qirg'oq va yashil tropik orol
+				draw_circle(Vector2(size.x * 0.5, size.y + 12), 48.0, Color("fde047"))
+				draw_circle(Vector2(size.x * 0.5, size.y + 12), 43.0, Color("22c55e"))
+				draw_circle(Vector2(size.x * 0.5, size.y + 10), 38.0, Color("16a34a"))
 				# Orol ustidagi kichik Eyfel minorasi va Qal'a silueti
 				var tw := PackedVector2Array([
-					Vector2(size.x * 0.45, size.y * 0.65), Vector2(size.x * 0.5, size.y * 0.25),
-					Vector2(size.x * 0.55, size.y * 0.65)
+					Vector2(size.x * 0.44, size.y * 0.72), Vector2(size.x * 0.50, size.y * 0.22),
+					Vector2(size.x * 0.56, size.y * 0.72)
 				])
 				draw_colored_polygon(tw, Color("b45309"))
+				draw_circle(Vector2(size.x * 0.50, size.y * 0.20), 3.0, Color("facc15"))
+				# Qal'a minorasi
+				draw_rect(Rect2(Vector2(size.x * 0.25, size.y * 0.48), Vector2(16, 22)), Color("f8fafc"))
+				var cone := PackedVector2Array([
+					Vector2(size.x * 0.23, size.y * 0.48), Vector2(size.x * 0.33, size.y * 0.32),
+					Vector2(size.x * 0.43, size.y * 0.48)
+				])
+				draw_colored_polygon(cone, Color("dc2626"))
 				# Mini bayroqlar
-				draw_rect(Rect2(Vector2(size.x * 0.32, size.y * 0.35), Vector2(12, 8)), Color("002395"))
-				draw_rect(Rect2(Vector2(size.x * 0.62, size.y * 0.35), Vector2(12, 8)), Color("b22234"))
-				# Bulutlar
-				draw_circle(Vector2(size.x * 0.2, size.y * 0.25), 10.0, Color(1, 1, 1, 0.8))
-				draw_circle(Vector2(size.x * 0.8, size.y * 0.3), 12.0, Color(1, 1, 1, 0.8))
+				draw_rect(Rect2(Vector2(size.x * 0.65, size.y * 0.38), Vector2(14, 9)), Color("002395"))
+				draw_rect(Rect2(Vector2(size.x * 0.70, size.y * 0.38), Vector2(5, 9)), Color.WHITE)
+				draw_rect(Rect2(Vector2(size.x * 0.74, size.y * 0.38), Vector2(5, 9)), Color("ed2939"))
+				# Suzuvchi oppoq yelkan
+				var sail_pts := PackedVector2Array([
+					Vector2(size.x * 0.82, size.y * 0.68), Vector2(size.x * 0.88, size.y * 0.52),
+					Vector2(size.x * 0.94, size.y * 0.68)
+				])
+				draw_colored_polygon(sail_pts, Color.WHITE)
+				# Oq bulutlar
+				draw_circle(Vector2(size.x * 0.16, size.y * 0.22), 9.0, Color(1, 1, 1, 0.85))
+				draw_circle(Vector2(size.x * 0.25, size.y * 0.18), 12.0, Color(1, 1, 1, 0.85))
+				draw_circle(Vector2(size.x * 0.84, size.y * 0.24), 10.0, Color(1, 1, 1, 0.85))
 			"world":
 				draw_rect(rect, Color("0284c7"))
 				var gc := Vector2(size.x * 0.5, size.y * 0.5)
@@ -394,27 +412,58 @@ class MapThumbnailControl extends Control:
 				draw_circle(cc, 18.0, Color("a5b4fc"))
 				draw_circle(cc, 8.0, Color.WHITE)
 			"small_city":
-				# Shaharcha: tarixiy uychalar va qo'ng'iroq minorasi
-				draw_rect(rect, Color("38bdf8"))
-				draw_circle(Vector2(size.x * 0.5, size.y + 10), 45.0, Color("4ade80"))
-				draw_rect(Rect2(Vector2(size.x * 0.25, size.y - 28), Vector2(18, 20)), Color("ea580c"))
-				draw_rect(Rect2(Vector2(size.x * 0.55, size.y - 36), Vector2(14, 28)), Color("d97706"))
+				# Shaharcha (+50): Qishloq uychalari, daraxtlar va cherkov qo'ng'irog'i
+				draw_rect(rect, Color("0284c7"))
+				draw_circle(Vector2(size.x * 0.5, size.y + 16), 56.0, Color("fde047"))
+				draw_circle(Vector2(size.x * 0.5, size.y + 16), 50.0, Color("22c55e"))
+				# Qizil tomli uychalar
+				draw_rect(Rect2(Vector2(size.x * 0.20, size.y - 28), Vector2(22, 18)), Color("fed7aa"))
+				var r1 := PackedVector2Array([
+					Vector2(size.x * 0.18, size.y - 28), Vector2(size.x * 0.31, size.y - 42),
+					Vector2(size.x * 0.44, size.y - 28)
+				])
+				draw_colored_polygon(r1, Color("ea580c"))
+				# Qo'ng'iroq minorasi
+				draw_rect(Rect2(Vector2(size.x * 0.58, size.y - 38), Vector2(16, 28)), Color("f8fafc"))
+				var r2 := PackedVector2Array([
+					Vector2(size.x * 0.56, size.y - 38), Vector2(size.x * 0.66, size.y - 54),
+					Vector2(size.x * 0.76, size.y - 38)
+				])
+				draw_colored_polygon(r2, Color("b45309"))
+				# Yashil daraxt
+				draw_circle(Vector2(size.x * 0.84, size.y - 18), 9.0, Color("15803d"))
 			"medium_city":
-				# O'rta shahar: biznes markazi va ko'k minoralar
-				draw_rect(rect, Color("1e3a8a"))
+				# O'rta shahar (+200): Rang-barang biznes markazi, minoralar va yashil xiyobon
+				draw_rect(rect, Color("0369a1"))
+				draw_rect(Rect2(0, size.y - 10, size.x, 10), Color("15803d"))
+				var b_colors := [Color("38bdf8"), Color("60a5fa"), Color("818cf8"), Color("0284c7")]
 				for i in 5:
-					var bx: float = 12.0 + i * 16.0
-					var bh: float = 20.0 + (i % 3) * 12.0
-					draw_rect(Rect2(Vector2(bx, size.y - bh), Vector2(13, bh)), Color("38bdf8"))
+					var bx: float = 8.0 + i * 16.0
+					var bh: float = 24.0 + (i % 3) * 14.0
+					draw_rect(Rect2(Vector2(bx, size.y - bh - 8), Vector2(13, bh)), b_colors[i % b_colors.size()])
+					# Oltin deraza nurlari
+					draw_rect(Rect2(Vector2(bx + 3, size.y - bh), Vector2(3, 3)), Color("fde047"))
+					draw_rect(Rect2(Vector2(bx + 7, size.y - bh), Vector2(3, 3)), Color("fde047"))
+				# Markaziy shpil
+				draw_line(Vector2(size.x * 0.5, size.y - 50), Vector2(size.x * 0.5, size.y - 62), Color("facc15"), 2.5)
 			"large_city", "cities":
-				# Megapolis shahar: tungi chiroqlar va osmono'parlar
+				# Megapolis (+500): Tungi nurlar, osmono'parlar va oltin Eyfel silueti
 				draw_rect(rect, Color("0f172a"))
 				for i in 6:
-					var bx: float = 12.0 + i * 26.0
-					var bh: float = 24.0 + (i % 3) * 14.0
-					draw_rect(Rect2(Vector2(bx, size.y - bh), Vector2(19, bh)), Color("2563eb"))
-					draw_rect(Rect2(Vector2(bx + 4, size.y - bh + 6), Vector2(3, 3)), Color("fde047"))
-					draw_rect(Rect2(Vector2(bx + 11, size.y - bh + 6), Vector2(3, 3)), Color("fde047"))
+					var bx: float = 6.0 + i * 14.0
+					var bh: float = 26.0 + (i % 3) * 16.0
+					draw_rect(Rect2(Vector2(bx, size.y - bh), Vector2(12, bh)), Color("1e3a8a"))
+					draw_rect(Rect2(Vector2(bx + 2, size.y - bh + 4), Vector2(3, 3)), Color("fde047"))
+					draw_rect(Rect2(Vector2(bx + 7, size.y - bh + 4), Vector2(3, 3)), Color("fde047"))
+				# Oltin Eyfel minorasi
+				var tc := Vector2(size.x * 0.76, size.y - 4)
+				var e_pts := PackedVector2Array([
+					tc + Vector2(-12, 4), tc + Vector2(-4, -34),
+					tc + Vector2(0, -52), tc + Vector2(4, -34),
+					tc + Vector2(12, 4)
+				])
+				draw_colored_polygon(e_pts, Color("f59e0b"))
+				draw_circle(tc + Vector2(0, -53), 3.0, Color("fde047"))
 			"ancient":
 				# Qadimgi dunyo: tosh ibodatxona va lianalar
 				draw_rect(rect, Color("14532d"))
@@ -596,6 +645,43 @@ static func build_landmark_node(kind: String, country_flag: String = "", coin_re
 			tmi.set_surface_override_material(0, _make_mat(Color("f59e0b")))
 			root.add_child(tmi)
 
+		"pyramid":
+			# Misr ehromi — 4 tomonlama oltin qumtosh piramida
+			var p_mesh := CylinderMesh.new()
+			p_mesh.top_radius = 0.05
+			p_mesh.bottom_radius = 2.4
+			p_mesh.height = 3.2
+			p_mesh.radial_segments = 4
+			p_mesh.rings = 2
+			var p_mi := MeshInstance3D.new()
+			p_mi.mesh = p_mesh
+			p_mi.position = Vector3(0, 1.6, 0)
+			p_mi.rotation_degrees.y = 45.0
+			p_mi.set_surface_override_material(0, _make_mat(Color("fde047")))
+			root.add_child(p_mi)
+
+		"big_ben":
+			# London Big Ben — soat minorasi va zarhal shpil
+			var tower := BoxMesh.new()
+			tower.size = Vector3(1.1, 4.2, 1.1)
+			var t_mi := MeshInstance3D.new()
+			t_mi.mesh = tower
+			t_mi.position = Vector3(0, 2.1, 0)
+			t_mi.set_surface_override_material(0, _make_mat(Color("d97706")))
+			root.add_child(t_mi)
+
+			var roof := CylinderMesh.new()
+			roof.top_radius = 0.05
+			roof.bottom_radius = 0.75
+			roof.height = 1.8
+			roof.radial_segments = 4
+			var r_mi := MeshInstance3D.new()
+			r_mi.mesh = roof
+			r_mi.position = Vector3(0, 5.1, 0)
+			r_mi.rotation_degrees.y = 45.0
+			r_mi.set_surface_override_material(0, _make_mat(Color("1e3a8a")))
+			root.add_child(r_mi)
+
 		"sailboat":
 			# Okeandagi oq yelkanli qayiqcha
 			var hull := BoxMesh.new()
@@ -665,6 +751,9 @@ static func _make_mat(color: Color) -> StandardMaterial3D:
 	return mat
 
 static func _flag_texture(code: String) -> Texture2D:
+	var tex := FlagRenderer.get_flag_texture(code)
+	if tex != null:
+		return tex
 	var img := Image.create(64, 44, false, Image.FORMAT_RGBA8)
 	var upper := code.to_upper()
 	match upper:

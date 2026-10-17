@@ -594,34 +594,46 @@ static func capsule(icon: String, value: String, tint: Color = YELLOW,
 	return shell
 
 ## Katta 3D Play tugmasi — Screen 1 dagi oq uchburchak va "PLAY" yozuvi bilan.
-static func play_button(text: String = "PLAY", color: Color = YELLOW,
+static func play_button(text: String = "PLAY", color: Color = Color("f59e0b"),
 		p_width: int = 340, p_height: int = 88) -> Button:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(p_width, p_height)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
-		var bg := color if state != "pressed" else color.darkened(0.12)
-		var lift := 10 if state != "pressed" else 3
-		var m_top := 10 if state != "pressed" else 18
-		var box := style_solid(bg, 32, lift, 18)
+		var bg := color
+		var lift := 12
+		var m_top := 12
+		match state:
+			"pressed":
+				bg = Color("d97706")
+				lift = 4
+				m_top = 20
+			"hover":
+				bg = Color("fbbf24")
+		var box := style_solid(bg, 36, lift, 18)
+		box.border_color = Color("78350f") if state != "hover" else Color("92400e")
+		box.set_border_width_all(3)
+		box.shadow_color = Color(0.04, 0.08, 0.25, 0.65)
+		box.shadow_size = 14
+		box.shadow_offset = Vector2(0, lift * 0.5 + 4)
 		box.content_margin_top = m_top
 		b.add_theme_stylebox_override(state, box)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.add_theme_constant_override("separation", 14)
+	row.add_theme_constant_override("separation", 16)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(row)
 
 	var tri := Control.new()
-	tri.custom_minimum_size = Vector2(28, 32)
+	tri.custom_minimum_size = Vector2(32, 36)
 	tri.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tri.draw.connect(func() -> void:
 		var pts := PackedVector2Array([
-			Vector2(4, 2), Vector2(26, 16), Vector2(4, 30)
+			Vector2(4, 3), Vector2(30, 18), Vector2(4, 33)
 		])
 		tri.draw_colored_polygon(pts, Color.WHITE)
-		tri.draw_polyline(pts, INK, 4.0, true))
+		tri.draw_polyline(pts, INK, 4.5, true))
 	row.add_child(tri)
 
 	var lbl := title(text.to_upper(), 38, Color.WHITE)
@@ -629,7 +641,7 @@ static func play_button(text: String = "PLAY", color: Color = YELLOW,
 	lbl.add_theme_color_override("font_outline_color", INK)
 	row.add_child(lbl)
 
-	_gloss(b, 20, 22)
+	_gloss(b, 22, 26)
 	return b
 
 ## Keng progress chizig'i — egallangan foiz.

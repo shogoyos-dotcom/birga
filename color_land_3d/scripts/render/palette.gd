@@ -38,12 +38,12 @@ const PASTEL: PackedColorArray = [
 ## id -> {name, land, land_side, ocean, sky, heads}
 const THEMES := {
 	"paper": {
-		"name": "Paper", "land": "c8eb9e", "land_side": "488a22",
-		"ocean": "14bed8", "sky": "38bdf8", "heads": "colorlands",
+		"name": "Paper", "land": "3bb273", "land_side": "1e5e3a",
+		"ocean": "0ea5e9", "sky": "38bdf8", "heads": "colorlands",
 	},
 	"colorlands": {
-		"name": "Color Lands", "land": "c2e896", "land_side": "40821c",
-		"ocean": "14bed8", "sky": "38bdf8", "heads": "colorlands",
+		"name": "Color Lands", "land": "48bb78", "land_side": "22543d",
+		"ocean": "0284c7", "sky": "38bdf8", "heads": "colorlands",
 	},
 	"arcade": {
 		"name": "Arcade", "land": "3b3370", "land_side": "231c47",
@@ -138,6 +138,15 @@ static func city_dot() -> Color:
 
 static func land() -> Color:
 	return Color(str(_current()["land"]))
+
+static func beach() -> Color:
+	match _theme_id:
+		"arcade", "neon", "night":
+			return Color("2e1065")
+		"pastel":
+			return Color("fde68a")
+		_:
+			return Color("fde047") # Warm golden tropical sand
 
 static func land_side() -> Color:
 	return Color(str(_current()["land_side"]))

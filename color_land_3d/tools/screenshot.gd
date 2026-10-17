@@ -54,7 +54,7 @@ func _initialize() -> void:
 			_out = s
 		elif s.is_valid_float() and i == 0:
 			_seconds = float(s)
-		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings"] or s.begins_with("p6_") or s.begins_with("city_"):
+		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings", "environment"] or s.begins_with("p6_") or s.begins_with("city_"):
 			_mode = s
 		elif s.length() == 2 and s == s.to_upper():
 			_country = s
@@ -80,6 +80,7 @@ func _process(delta: float) -> bool:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	var err := image.save_png(_out)
 	print("skrinshot: %s (%s)" % [_out, "ok" if err == OK else "xato %d" % err])
+	quit(0)
 	return true
 
 ## O'yinchini avtomatik yurgizadi: hududdan chiqib katta halqa chizadi
@@ -104,7 +105,7 @@ func _drive() -> void:
 
 	var is_3d_action: bool = (_mode == "play" or _mode == "trail" or _mode == "burst" \
 		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest" \
-		or _mode.begins_with("city_") or _mode.begins_with("p6_"))
+		or _mode.begins_with("city_") or _mode.begins_with("p6_") or _mode == "environment")
 	if _mode == "p6_match_summary":
 		is_3d_action = false
 
@@ -542,6 +543,14 @@ func _drive() -> void:
 		if _mode == "p6_gameplay_flags_cities":
 			view.steer_human(_elapsed * 0.48)
 			view.revive_human_for_demo()
+		return
+
+	if _mode == "environment":
+		if not _opened:
+			_opened = true
+			var p: Object = view.world.human()
+			var cpos := Vector3(p.x - 6.0, ArenaBuilder.LAND_HEIGHT, p.y + 10.0)
+			view.set_camera_demo_pose(cpos + Vector3(-16.0, 19.0, 25.0), cpos + Vector3(4.0, 1.0, -4.0))
 		return
 
 	if _mode == "flag_base" or _mode == "flag_territory":

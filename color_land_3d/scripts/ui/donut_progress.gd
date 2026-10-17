@@ -34,16 +34,16 @@ func _init(p_percent: float = 0.0, p_tint: Color = UiKit.YELLOW) -> void:
 	_value_label.text = "%d%%" % int(round(percent))
 	_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_value_label.add_theme_font_size_override("font_size", 25)
+	_value_label.add_theme_font_size_override("font_size", 26)
 	var font := UiKit.display_font()
 	if font != null:
 		_value_label.add_theme_font_override("font", font)
 	_value_label.add_theme_color_override("font_color", UiKit.TEXT)
-	_value_label.add_theme_constant_override("outline_size", 7)
+	_value_label.add_theme_constant_override("outline_size", 6)
 	_value_label.add_theme_color_override("font_outline_color", UiKit.INK)
 	_value_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_value_label.offset_top = 35
-	_value_label.offset_bottom = 69
+	_value_label.offset_top = 28
+	_value_label.offset_bottom = 58
 	_value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_value_label)
 
@@ -51,15 +51,15 @@ func _init(p_percent: float = 0.0, p_tint: Color = UiKit.YELLOW) -> void:
 	_sub_label.text = Strings.t("yourTerritory")
 	_sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_sub_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_sub_label.add_theme_font_size_override("font_size", 12)
+	_sub_label.add_theme_font_size_override("font_size", 10)
 	if font != null:
 		_sub_label.add_theme_font_override("font", font)
-	_sub_label.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	_sub_label.add_theme_constant_override("outline_size", 4)
+	_sub_label.add_theme_color_override("font_color", Color("7dd3fc"))
+	_sub_label.add_theme_constant_override("outline_size", 3)
 	_sub_label.add_theme_color_override("font_outline_color", UiKit.INK)
-	_sub_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_sub_label.offset_top = -24
-	_sub_label.offset_bottom = 0
+	_sub_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_sub_label.offset_top = 58
+	_sub_label.offset_bottom = 74
 	_sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_sub_label)
 
