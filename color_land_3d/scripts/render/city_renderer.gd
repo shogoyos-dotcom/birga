@@ -158,6 +158,19 @@ static func _init_resources() -> void:
 	_pole_mesh.radial_segments = 10
 	_pole_mesh.material = _pole_material
 
+static func clear_cache() -> void:
+	_flag_shader = null
+	_pole_mesh = null
+	_pole_material = null
+	_mesh_small = null
+	_mesh_medium = null
+	_mesh_large = null
+	_mesh_paris = null
+	_mesh_uzbek = null
+	_mesh_rome = null
+	_mesh_japan = null
+	_mesh_egypt = null
+
 ## Dunyoni va barcha shaharlarni sozlash
 func setup(p_system: CitySystem, p_grid: GameGrid) -> void:
 	_system = p_system

@@ -43,6 +43,7 @@ var _city_capsule: PanelContainer
 var _kill_label: Label
 var _coin_label: Label
 var _city_label: Label
+var _fps_label: Label
 var _city_modal: Control
 var _board: VBoxContainer
 var _result_data := {}
@@ -1789,6 +1790,17 @@ func _build_hud() -> Control:
 		pause_pressed.emit())
 	root.add_child(pause)
 
+	# Ixtiyoriy unumdorlik (FPS / RAM) monitoringi (QA/Test uchun)
+	_fps_label = UiKit.label("", 11, Color(0.7, 0.85, 1.0, 0.75), HORIZONTAL_ALIGNMENT_RIGHT)
+	_fps_label.anchor_left = 1.0
+	_fps_label.anchor_right = 1.0
+	_fps_label.offset_left = -160
+	_fps_label.offset_right = -14
+	_fps_label.offset_top = 92
+	_fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fps_label.visible = store.show_fps if store != null else false
+	root.add_child(_fps_label)
+
 	# O'ngda: eng kuchli o'yinchilar reytingi (bitta silliq panel ichida)
 	var board_panel := PanelContainer.new()
 	var b_style := StyleBoxFlat.new()
@@ -1950,6 +1962,10 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 	if _minimap != null and is_instance_valid(_minimap):
 		_minimap.marker = marker
 		_minimap.bot_markers = bots
+	if _fps_label != null and is_instance_valid(_fps_label) and _fps_label.visible:
+		var fps := Engine.get_frames_per_second()
+		var mem := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+		_fps_label.text = "%d FPS | %.0f MB" % [fps, mem]
 
 	for child in _board.get_children():
 		child.queue_free()

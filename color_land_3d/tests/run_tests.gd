@@ -84,6 +84,7 @@ func _process(_delta: float) -> bool:
 	_test_phase8_real_gameplay_integration(t)
 	_test_phase8_spatial_city_performance(t)
 	_test_phase8_long_session_endurance(t)
+	_test_fonts_and_glyphs(t)
 
 	var ok := t.report()
 
@@ -97,6 +98,14 @@ func _process(_delta: float) -> bool:
 
 	# Faqat vaqtinchalik test_sandbox ichidagi fayllarni tozalash
 	SavePaths.cleanup_test_data()
+
+	# Xotiradagi statik keshlar va resurslarni tozalash (DummyTexture, DummyMaterial, DummyShader leaks oldini olish)
+	var FlagRendererRef = preload("res://scripts/render/flag_renderer.gd")
+	FlagRendererRef.clear_cache()
+	var CityRendererRef = preload("res://scripts/render/city_renderer.gd")
+	CityRendererRef.clear_cache()
+	var CityMeshBuilderRef = preload("res://scripts/render/city_mesh_builder.gd")
+	CityMeshBuilderRef.clear_cache()
 
 	# Test rejimini o'chirish
 	SavePaths.set_test_mode(false)
@@ -1636,8 +1645,8 @@ func _test_heroes(t: TestRunner) -> void:
 		var golem := HeroCatalog.get_hero("hero_golem")
 		var view_locked := HeroView.new(golem, false, false, 1, 3)
 		t.check(view_locked != null, "qulflangan qahramon kartasi")
-		view_unlocked.queue_free()
-		view_locked.queue_free()
+		view_unlocked.free()
+		view_locked.free()
 	)
 
 # ——— PHASE 3: Kengaytirilgan hududlar va pacing ———
@@ -1800,7 +1809,7 @@ func _test_phase4_flags(t: TestRunner) -> void:
 			t.equal(world.grid.owner_at(x, y), p.id, "ustun o'z hududida")
 
 		poles.clear()
-		poles.queue_free()
+		poles.free()
 	)
 
 	t.test("hudud boshqaga o'tganda eskirgan bayroq ustunlari tozalanadi", func() -> void:
@@ -1829,7 +1838,7 @@ func _test_phase4_flags(t: TestRunner) -> void:
 			t.equal(world.grid.owner_at(cur_bx, cur_bz), p1.id, "ustun dushmanga berilmadi, o'z yeriga ko'chirildi")
 
 		poles.clear()
-		poles.queue_free()
+		poles.free()
 	)
 
 	t.test("ajralgan (disconnected) hududlar to'g'ri o'lcham va markaz oladi", func() -> void:
@@ -1869,7 +1878,7 @@ func _test_phase4_flags(t: TestRunner) -> void:
 		t.check(dt < 2500, "50 ta bo'sh chaqiruv tez ishladi (optimizatsiya ishladi): %d usec" % dt)
 
 		poles.clear()
-		poles.queue_free()
+		poles.free()
 	)
 
 	t.test("ResourceLoader orqali barcha 249 bayroq Android APK usulida yuklanadi", func() -> void:
@@ -1940,7 +1949,7 @@ func _test_phase4_flags(t: TestRunner) -> void:
 			t.check(t_pt.distance_to(b_pt) >= 20.0, "dublikat emas, bazadan uzoqda: %.1f" % t_pt.distance_to(b_pt))
 
 		poles.clear()
-		poles.queue_free()
+		poles.free()
 	)
 
 	t.test("Nepal, Shveytsariya, AQSH va O'zbekiston milliy proporsiyalari saqlanadi", func() -> void:
@@ -3060,7 +3069,8 @@ func _test_phase8_blockers_validation(t: TestRunner) -> void:
 			view._on_menu()
 			t.equal(bool(view._coins.visible), false, "Menyuga qaytgach CityCoins yashirin")
 
-			view.queue_free()
+			root.remove_child(view)
+			view.free()
 	)
 
 	# 4. Haqiqiy o'yin integratsiyasi: Halqa yopish, shaharlar egallash va hamyon to'lovlari (50, 200, 500)
@@ -3733,6 +3743,46 @@ func _test_phase8_long_session_endurance(t: TestRunner) -> void:
 				break
 		t.equal(all_coords_valid, true, "Barcha bot koordinatalari xarita chegarasida to'g'ri saqlangan")
 		t.check(total_captures > 0, "O'yin davomida real egallashlar yuz berdi (%d ta)" % total_captures)
+	)
+
+
+func _test_fonts_and_glyphs(t: TestRunner) -> void:
+	t.group("shriftlar va gliflar tekshiruvi")
+
+	t.test("1. Asosiy va zaxira shriftlar to'liq yuklanadi", func() -> void:
+		UiKit.ensure_fonts()
+		var base := UiKit.bold_font()
+		t.check(base != null, "Asosiy Rubik-Bold shrifti yuklandi")
+		var display := UiKit.display_font()
+		t.check(display != null, "Sarlavha Nunito-ExtraBold shrifti yuklandi")
+		var fallback_dejavu: Font = load(UiKit.FALLBACK_FONT_PATH)
+		t.check(fallback_dejavu != null, "Zaxira DejaVuSans.ttf shrifti yuklandi")
+	)
+
+	t.test("2. O'zbek (lotin/kirill), rus va xalqaro matnlar to'g'ri o'lchanadi va ko'rsatiladi", func() -> void:
+		UiKit.ensure_fonts()
+		var font := UiKit.bold_font()
+		var sample_texts := [
+			"O'zbekiston", "Toshkent", "G'alaba", "Ko'prik",
+			"Ўзбекистон", "Тошкент", "Ғалаба", "Ҳудуд",
+			"Победа", "Захват", "Настройки", "Играть",
+			"Score: 1000", "Level 1", "Flag Conquest"
+		]
+		var all_ok := true
+		for s: String in sample_texts:
+			var sz := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20)
+			if sz.x <= 0.0 or sz.y <= 0.0:
+				all_ok = false
+				break
+		t.check(all_ok, "Barcha o'zbek, kirill va lotin matnlari musbat o'lchamga ega")
+	)
+
+	t.test("3. Qo'shimcha xalqaro yozuvlar va bayroq emojilari qo'llab-quvvatlanadi", func() -> void:
+		var emoji_font: Font = load(UiKit.EMOJI_FONT_PATH)
+		t.check(emoji_font != null, "NotoColorEmoji shrifti yuklandi")
+		for path: String in UiKit.SCRIPT_FONT_PATHS:
+			var f: Font = load(path)
+			t.check(f != null, "Xalqaro yozuv shrifti yuklandi: %s" % path.get_file())
 	)
 
 

@@ -114,14 +114,21 @@ func setup(world: GameWorld) -> void:
 func clear() -> void:
 	for node: Node3D in _base_poles.values():
 		if is_instance_valid(node):
-			node.queue_free()
+			if node.is_inside_tree():
+				node.queue_free()
+			else:
+				node.free()
 	_base_poles.clear()
 
 	for poles_list in _territory_poles.values():
 		if poles_list is Array:
 			for node in poles_list:
 				if is_instance_valid(node):
-					(node as Node3D).queue_free()
+					var n: Node3D = node as Node3D
+					if n.is_inside_tree():
+						n.queue_free()
+					else:
+						n.free()
 	_territory_poles.clear()
 	_last_grid_versions.clear()
 

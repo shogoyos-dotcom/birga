@@ -23,6 +23,9 @@ static func get_material() -> StandardMaterial3D:
 		_shared_material.cull_mode = BaseMaterial3D.CULL_BACK
 	return _shared_material
 
+static func clear_cache() -> void:
+	_shared_material = null
+
 # ==============================================================================
 # GEOMETRIYA ASOSLARI (PRIMITIVES)
 # ==============================================================================

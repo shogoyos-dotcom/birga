@@ -131,6 +131,11 @@ var show_minimap: bool:
 	get: return minimap_side != "off"
 	set(value): minimap_side = "left" if value else "off"
 
+## HUD da FPS va xotira monitoringi (test/QA uchun, odatda o'chiq).
+var show_fps: bool:
+	get: return bool(_read("show_fps", false))
+	set(value): _write("show_fps", value)
+
 ## Kichik xarita qaysi tomonda: "left", "right" yoki "off".
 var minimap_side: String:
 	get:
