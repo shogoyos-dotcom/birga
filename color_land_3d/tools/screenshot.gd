@@ -102,6 +102,13 @@ func _drive() -> void:
 		view.set_avatar_for_demo(_avatar)
 	if not _country.is_empty() and view.has_method("set_country_for_demo"):
 		view.set_country_for_demo(_country)
+	if view.store != null and (view.store.theme_id == "pastel" or view.store.theme_id.is_empty()):
+		view.store.theme_id = "paper"
+		Palette.set_theme("paper")
+		if view.has_method("_apply_sky"):
+			view._apply_sky()
+		if view.has_method("_apply_view_settings"):
+			view._apply_view_settings()
 
 	var is_3d_action: bool = (_mode == "play" or _mode == "trail" or _mode == "burst" \
 		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest" \

@@ -33,18 +33,18 @@ void fragment() {
 		wave = (w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
 	}
 
-	// Chuqur va sayoz tropik ranglar uyg'unligi
-	vec3 water = mix(deep_color.rgb, shallow_color.rgb, 0.52 + 0.48 * wave);
+	// Chuqur va sayoz tropik ranglar uyg'unligi — to'yingan moviy va zangori okean
+	vec3 water = mix(deep_color.rgb, shallow_color.rgb, 0.35 + 0.45 * wave);
 
 	// To'lqin cho'qqilarida oq multfilm ko'pigi (MEDIUM va HIGH)
 	if (quality_level > 0) {
-		float crest = smoothstep(0.42, 0.80, wave);
-		water = mix(water, foam_color.rgb, crest * 0.45);
+		float crest = smoothstep(0.46, 0.82, wave);
+		water = mix(water, foam_color.rgb, crest * 0.48);
 	}
 
 	// Nozik quyosh yaltirashi (faqat HIGH)
 	if (quality_level == 2) {
-		float glint = pow(max(0.0, wave), 4.0) * 0.25;
+		float glint = pow(max(0.0, wave), 4.0) * 0.20;
 		water += vec3(glint);
 	}
 

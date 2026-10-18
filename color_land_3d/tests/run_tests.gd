@@ -58,6 +58,7 @@ func _process(_delta: float) -> bool:
 	_test_phase6_economy(t)
 	_test_phase6_corrections_integration(t)
 	_test_phase8_optimization_qa(t)
+	_test_phase8_blockers_validation(t)
 
 	var ok := t.report()
 
@@ -2940,5 +2941,281 @@ func _test_phase8_optimization_qa(t: TestRunner) -> void:
 
 		if FileAccess.file_exists(test_w_path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_w_path))
+	)
+
+
+# ——— Phase 8 Final Blockers: Signing, Exposure, Coin Visibility, Real Conquest & 20-Bot Endurance ———
+func _test_phase8_blockers_validation(t: TestRunner) -> void:
+	t.group("Phase 8 Yakuniy Blokatorlar va Real O'yin Validatsiyasi")
+
+	# 1. Android imzolash xavfsizligi va maxfiylik
+	t.test("1. export_presets.cfg da ochiq parollar yo'q va AAB tayyor", func() -> void:
+		var preset_cfg_path := "res://export_presets.cfg"
+		t.check(FileAccess.file_exists(preset_cfg_path), "export_presets.cfg mavjud")
+		var f := FileAccess.open(preset_cfg_path, FileAccess.READ)
+		t.check(f != null, "export_presets.cfg o'qildi")
+		if f != null:
+			var content := f.get_as_text()
+			f.close()
+			t.check(not content.contains('keystore/release_password="android"'), "Release paroli ochiq saqlanmagan")
+			t.check(not content.contains('keystore/debug_password="android"'), "Debug paroli ochiq saqlanmagan")
+			t.check(content.contains('package/unique_name="com.mening.colorland3d"'), "Paket nomi to'g'ri: com.mening.colorland3d")
+			t.check(content.contains('name="Android (AAB)"'), "Google Play uchun AAB preseti mavjud")
+			t.check(content.contains('gradle_build/export_format=1'), "AAB formati 1 qilib sozlangan")
+	)
+
+	# 2. Vizual haddan tashqari yorug'lik (overexposure) va ranglarning to'yinganligi
+	t.test("2. Er va okean ranglari multfilm uslubiga mos to'yingan va yorug'lik muvozanatda", func() -> void:
+		Palette.set_theme("paper")
+		var land_c := Palette.land()
+		var ocean_c := Palette.ocean()
+		var beach_c := Palette.beach()
+		t.equal(land_c.to_html(false).to_lower(), "32a852", "Quruqlik to'yingan yam-yashil (#32a852)")
+		t.equal(ocean_c.to_html(false).to_lower(), "0284c7", "Okean chuqur tropik moviy (#0284c7)")
+		t.check(beach_c.r > 0.8 and beach_c.g > 0.7, "Sohil qumi issiq tillarang")
+
+		# Asosiy sahnada Quyosh va Atrof-muhit yorug'lik balansi
+		var main_scene: PackedScene = load("res://scenes/main.tscn")
+		t.check(main_scene != null, "main.tscn yuklandi")
+		if main_scene != null:
+			var node := main_scene.instantiate()
+			t.check(node != null, "main.tscn nusxalandi")
+			if node != null:
+				var sun_node: DirectionalLight3D = node.get_node_or_null("Sun")
+				t.check(sun_node != null, "Sun mavjud")
+				if sun_node != null:
+					t.check(sun_node.light_energy <= 1.10, "Quyosh nuri 1.10 dan oshmaydi (overexposure yo'q)")
+				var w_env: WorldEnvironment = node.get_node_or_null("WorldEnvironment")
+				t.check(w_env != null, "WorldEnvironment mavjud")
+				if w_env != null and w_env.environment != null:
+					t.check(w_env.environment.ambient_light_energy <= 0.40, "Atrof-muhit nuri 0.40 dan oshmaydi")
+					t.equal(w_env.environment.tonemap_mode, Environment.TONE_MAPPER_FILMIC, "Filmic tonemapping yoqilgan")
+				node.queue_free()
+	)
+
+	# 3. Shahar tangalari (CityCoins) ko'rinish regressiyasi
+	t.test("3. CityCoins va Pickups ko'rinishi: menyuda yashirin, o'yinda va pauzada ko'rinadi", func() -> void:
+		var main_scene: PackedScene = load("res://scenes/main.tscn")
+		if main_scene != null:
+			var view := main_scene.instantiate()
+			root.add_child(view)
+
+			# Boshida menyu rejimida tangalar va narsalar ko'rinmasligi kerak
+			view.show_screen_for_demo("menu")
+			t.equal(bool(view._coins.visible), false, "Bosh menyuda CityCoins yashirin")
+			t.equal(bool(view._pickups.visible), false, "Bosh menyuda Pickups yashirin")
+
+			# Sozlamalar va boshqa UI ekranlarida ham yashirin
+			view.show_screen_for_demo("settings")
+			t.equal(bool(view._coins.visible), false, "Sozlamalarda CityCoins yashirin")
+			view.show_screen_for_demo("heroes")
+			t.equal(bool(view._coins.visible), false, "Qahramonlar ekranida CityCoins yashirin")
+
+			# O'yin boshlanganda ko'rinadi
+			view._on_play()
+			t.equal(bool(view._coins.visible), true, "O'yin ketayotganda CityCoins ko'rinadi")
+			t.equal(bool(view._pickups.visible), true, "O'yin ketayotganda Pickups ko'rinadi")
+
+			# Pauza qilinganda o'yin fonida ko'rinib turadi
+			view._on_pause()
+			t.equal(bool(view._coins.visible), true, "Pauzada 3D sahnada CityCoins ko'rinib turadi")
+			t.equal(bool(view._pickups.visible), true, "Pauzada 3D sahnada Pickups ko'rinib turadi")
+
+			# Davom ettirilganda (Resume) ko'rinadi
+			view._on_resume()
+			t.equal(bool(view._coins.visible), true, "Pauzadan qaytgach CityCoins ko'rinadi")
+
+			# Natija ekranida yashirin
+			view._end_match()
+			t.equal(bool(view._coins.visible), false, "Natija (Result) ekranida CityCoins yashirin")
+
+			# Menyuga qaytganda yashirin
+			view._on_menu()
+			t.equal(bool(view._coins.visible), false, "Menyuga qaytgach CityCoins yashirin")
+
+			view.queue_free()
+	)
+
+	# 4. Haqiqiy o'yin integratsiyasi: Halqa yopish, shaharlar egallash va hamyon to'lovlari (50, 200, 500)
+	t.test("4. Haqiqiy o'yin integratsiyasi: 3 xil shahar istilosi va roppa-rosa +50, +200, +500 tanga", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 50
+		cfg.grid_height = 40
+		var world := GameWorld.new(cfg)
+
+		# 3 xil toifadagi real shaharlar
+		var c_small := CitySystem.CityData.new()
+		c_small.id = 101
+		c_small.name = "Kichik Shahar"
+		c_small.display_name = "Kichik Shahar"
+		c_small.category = CitySystem.Category.SMALL # 50 tanga
+		c_small.x = 10
+		c_small.y = 8
+		c_small.stable_id = "real_city_small_101"
+
+		var c_med := CitySystem.CityData.new()
+		c_med.id = 102
+		c_med.name = "O'rta Shahar"
+		c_med.display_name = "O'rta Shahar"
+		c_med.category = CitySystem.Category.MEDIUM # 200 tanga
+		c_med.x = 22
+		c_med.y = 8
+		c_med.stable_id = "real_city_med_102"
+
+		var c_large := CitySystem.CityData.new()
+		c_large.id = 103
+		c_large.name = "Katta Poytaxt"
+		c_large.display_name = "Katta Poytaxt"
+		c_large.category = CitySystem.Category.LARGE # 500 tanga
+		c_large.capital = true
+		c_large.x = 35
+		c_large.y = 8
+		c_large.stable_id = "real_city_large_103"
+
+		# Shaharlar tizimiga kiritamiz
+		world.cities = CitySystem.new()
+		world.cities.build([
+			{"x": 10, "y": 8, "name": c_small.name, "capital": false, "pop": 50000},
+			{"x": 22, "y": 8, "name": c_med.name, "capital": false, "pop": 350000},
+			{"x": 35, "y": 8, "name": c_large.name, "capital": true, "pop": 2500000},
+		], world.grid)
+
+		var human := PlayerState.new(1, "Player", 0, false, 8.0, 4.0)
+		human.place_at(10.0, 15.0, 0.0)
+		world.players.append(human)
+		world._by_id[1] = human
+
+		# Test hamyonini izolyatsiyalangan fayl bilan tayyorlaymiz
+		var test_w_path := "user://test_real_conquest_wallet.cfg"
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+		t.equal(w.get_coins(), 0, "Boshida hamyon 0 tanga")
+
+		var tracker := CitySystem.CityRewardTracker.new()
+		tracker.reset("real_gameplay_match_1")
+
+		# A. Kichik shaharni qamrab oluvchi halqa chizamiz: (7,5) -> (13,5) -> (13,11) -> (7,11) -> (7,5)
+		var trail_s: Array[Vector2i] = []
+		for x in range(7, 14): trail_s.append(Vector2i(x, 5))
+		for y in range(6, 12): trail_s.append(Vector2i(13, y))
+		for x in range(12, 6, -1): trail_s.append(Vector2i(x, 11))
+		for y in range(10, 5, -1): trail_s.append(Vector2i(7, y))
+
+		for pt in trail_s:
+			var idx := world.grid.index(pt.x, pt.y)
+			world.grid.set_trail_index(idx, human.id)
+			human.add_trail(idx)
+		world._finish_loop(human)
+
+		# Kichik shahar katagi (10, 8) o'yinchiga o'tdi
+		t.equal(world.grid.owner_at(10, 8), human.id, "Kichik shahar katagi egallandi")
+		var claim_s := tracker.claim_city(c_small, true)
+		t.equal(bool(claim_s["eligible"]), true, "Kichik shahar mukofotga munosib")
+		t.equal(int(claim_s["coins"]), 50, "Kichik shahar uchun 50 tanga berildi")
+		var cred_s := w.add_coins(int(claim_s["coins"]), "city_conquest", str(claim_s["tx_id"]))
+		t.equal(cred_s, 50, "Hamyon roppa-rosa +50 tangaga ko'paydi")
+		t.equal(w.get_coins(), 50, "Hamyon balansi = 50")
+
+		# B. O'rta shaharni qamrab oluvchi halqa: (19,5) -> (25,5) -> (25,11) -> (19,11) -> (19,5)
+		var trail_m: Array[Vector2i] = []
+		for x in range(19, 26): trail_m.append(Vector2i(x, 5))
+		for y in range(6, 12): trail_m.append(Vector2i(25, y))
+		for x in range(24, 18, -1): trail_m.append(Vector2i(x, 11))
+		for y in range(10, 5, -1): trail_m.append(Vector2i(19, y))
+
+		for pt in trail_m:
+			var idx := world.grid.index(pt.x, pt.y)
+			world.grid.set_trail_index(idx, human.id)
+			human.add_trail(idx)
+		world._finish_loop(human)
+
+		t.equal(world.grid.owner_at(22, 8), human.id, "O'rta shahar katagi egallandi")
+		var claim_m := tracker.claim_city(c_med, true)
+		t.equal(bool(claim_m["eligible"]), true, "O'rta shahar mukofotga munosib")
+		t.equal(int(claim_m["coins"]), 200, "O'rta shahar uchun 200 tanga berildi")
+		var cred_m := w.add_coins(int(claim_m["coins"]), "city_conquest", str(claim_m["tx_id"]))
+		t.equal(cred_m, 200, "Hamyon roppa-rosa +200 tangaga ko'paydi")
+		t.equal(w.get_coins(), 250, "Hamyon balansi = 250 (50 + 200)")
+
+		# C. Katta poytaxtni qamrab oluvchi halqa: (32,5) -> (38,5) -> (38,11) -> (32,11) -> (32,5)
+		var trail_l: Array[Vector2i] = []
+		for x in range(32, 39): trail_l.append(Vector2i(x, 5))
+		for y in range(6, 12): trail_l.append(Vector2i(38, y))
+		for x in range(37, 31, -1): trail_l.append(Vector2i(x, 11))
+		for y in range(10, 5, -1): trail_l.append(Vector2i(32, y))
+
+		for pt in trail_l:
+			var idx := world.grid.index(pt.x, pt.y)
+			world.grid.set_trail_index(idx, human.id)
+			human.add_trail(idx)
+		world._finish_loop(human)
+
+		t.equal(world.grid.owner_at(35, 8), human.id, "Katta poytaxt katagi egallandi")
+		var claim_l := tracker.claim_city(c_large, true)
+		t.equal(bool(claim_l["eligible"]), true, "Katta poytaxt mukofotga munosib")
+		t.equal(int(claim_l["coins"]), 500, "Katta poytaxt uchun 500 tanga berildi")
+		var cred_l := w.add_coins(int(claim_l["coins"]), "city_conquest", str(claim_l["tx_id"]))
+		t.equal(cred_l, 500, "Hamyon roppa-rosa +500 tangaga ko'paydi")
+		t.equal(w.get_coins(), 750, "Hamyon balansi roppa-rosa 750 (50 + 200 + 500)")
+
+		# D. O'yin to'xtatilib (save_state), qayta tiklanganda (load_state) saqlanishi
+		tracker.save_state()
+		var restored_tracker := CitySystem.CityRewardTracker.new()
+		restored_tracker.load_state()
+		t.equal(restored_tracker.get_match_id(), "real_gameplay_match_1", "Match ID saqlanib qoldi")
+		t.equal(restored_tracker.get_claimed_count(), 3, "Egallangan 3 shahar to'liq qayta tiklandi")
+		t.equal(restored_tracker.is_city_eligible(c_small), false, "Kichik shahar qayta da'voga yopiq")
+		t.equal(restored_tracker.is_city_eligible(c_med), false, "O'rta shahar qayta da'voga yopiq")
+		t.equal(restored_tracker.is_city_eligible(c_large), false, "Katta shahar qayta da'voga yopiq")
+
+		# E. Takroriy egallashda ikkinchi marta pul to'lanmasligi
+		var dup_claim := restored_tracker.claim_city(c_large, true)
+		t.equal(bool(dup_claim["eligible"]), false, "Takroriy istiloda mukofot berilmaydi")
+		t.equal(w.get_coins(), 750, "Hamyon o'zgarmasdan 750 bo'lib qoldi")
+
+		if FileAccess.file_exists(test_w_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_w_path))
+		restored_tracker.clear_saved_state()
+	)
+
+	# 5. Uzoq sessiya va 20 ta bot bilan 5 ta to'liq match simulyatsiyasi
+	t.test("5. Uzoq sessiya: 20 ta bot bilan 5 ta match, xotira barqarorligi va kadrlar tushmasligi", func() -> void:
+		var mem_before := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+
+		for match_num in 5:
+			var cfg := GameConfig.new()
+			cfg.world_map = false
+			cfg.grid_width = 80
+			cfg.grid_height = 80
+			cfg.bot_count = 20
+			var world := GameWorld.new(cfg)
+
+			# 20 ta bot + 1 o'yinchi joylashtirish
+			var h := PlayerState.new(1, "Player", 0, false, 8.0, 4.0)
+			h.place_at(40.0, 40.0, 0.0)
+			world.players.append(h)
+			world._by_id[1] = h
+
+			for b_id in range(2, 22):
+				var bot := PlayerState.new(b_id, "Bot%d" % b_id, b_id % 16, true, 8.0, 4.0)
+				var bx := float((b_id * 3) % 70 + 5)
+				var by := float((b_id * 7) % 70 + 5)
+				bot.place_at(bx, by, 0.0)
+				world.players.append(bot)
+				world._by_id[b_id] = bot
+
+			# 100 ta kadr simulyatsiyasi
+			var t_start := Time.get_ticks_usec()
+			for frame in 100:
+				world.update(0.016)
+			var t_dur := (Time.get_ticks_usec() - t_start) / 1000.0 # ms
+
+			t.check(t_dur < 500.0, "Match %d: 100 kadr tez bajarildi (%.1f ms)" % [match_num + 1, t_dur])
+			t.equal(world.players.size(), 21, "Barcha 21 o'yinchi (1+20) mavjud")
+
+		var mem_after := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+		var mem_growth := mem_after - mem_before
+		t.check(mem_growth < 15.0, "5 ta to'liq matchdan keyin xotira o'sishi minimal (%.2f MB)" % mem_growth)
 	)
 

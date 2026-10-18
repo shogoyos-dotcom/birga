@@ -1,1 +1,56 @@
+# Godot 4.x import va kesh fayllari
+.godot/
+*.translation
+
+# Qurish (Build) va eksport natijalari
+build/
 *.apk
+*.aab
+*.ipa
+*.x86_64
+*.exe
+*.zip
+*.tar.gz
+*.bundle
+
+# Android shabloni va gradle keshi
+android/
+.gradle/
+local.properties
+
+# Keystore, maxfiy kalitlar va sertifikatlar
+*.keystore
+*.jks
+*.key
+*.p12
+*.pem
+*.der
+*.pk8
+
+# Maxfiy konfiguratsiyalar va mahalliy sozlamalar
+*.env
+*.env.*
+*.local.*
+*.local.ps1
+*.local.env
+*.local.cfg
+signing.env
+signing.local.*
+
+# Godot foydalanuvchi ma'lumotlari va loglar
+*.log
+user/
+app_userdata/
+
+# Python va IDE keshlari
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Operatsion tizim fayllari
+Thumbs.db
+Desktop.ini
+.DS_Store

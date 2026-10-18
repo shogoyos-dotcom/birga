@@ -99,6 +99,12 @@ var _match_running := false
 func _set_playing(value: bool) -> void:
 	_playing = value
 	_match_running = Net.is_host() if Net.is_online() else value
+	if _coins != null:
+		_coins.visible = value
+	if _pickups != null:
+		_pickups.visible = value
+	if _flag_poles != null:
+		_flag_poles.visible = value and (store.show_flags if store != null else true)
 
 var store: SettingsStore
 ## O'limda bo'shagan kataklar — belet bilan davom etilganda qaytariladi.
@@ -114,7 +120,7 @@ func _ready() -> void:
 	# Quyosh yuqoridan va yon tomondan tushadi: yorqin va toza kunduzgi yorug'lik
 	sun.rotation_degrees = Vector3(-56.0, -35.0, 0.0)
 	sun.light_color = Color(1.0, 0.98, 0.94)
-	sun.light_energy = 1.25
+	sun.light_energy = 1.02
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
@@ -137,8 +143,10 @@ func _ready() -> void:
 	_capitals = CapitalMarksNode.new()
 	add_child(_capitals)
 	_coins = CityCoinsNode.new()
+	_coins.visible = false
 	add_child(_coins)
 	_pickups = PickupMarksNode.new()
+	_pickups.visible = false
 	add_child(_pickups)
 	_burst = CaptureBurstNode.new()
 	add_child(_burst)
@@ -376,12 +384,20 @@ func _on_pause() -> void:
 		_city_reward_tracker.save_state()
 	_set_playing(false)
 	_dragging = false
+	if _coins != null:
+		_coins.visible = true
+	if _pickups != null:
+		_pickups.visible = true
 	ui.show_screen(ui.Screen.PAUSE)
 
 func _on_resume() -> void:
 	if _city_reward_tracker != null:
 		_city_reward_tracker.load_state()
 	_set_playing(true)
+	if _coins != null:
+		_coins.visible = true
+	if _pickups != null:
+		_pickups.visible = true
 	ui.show_screen(ui.Screen.HUD)
 	_apply_view_settings()
 
@@ -391,6 +407,10 @@ func _on_menu() -> void:
 	_set_playing(false)
 	_match_running = false
 	Net.leave()
+	if _coins != null:
+		_coins.visible = false
+	if _pickups != null:
+		_pickups.visible = false
 	_apply_view_settings()
 	_place_camera_instantly()
 	ui.show_screen(ui.Screen.MENU)
@@ -419,8 +439,10 @@ func _apply_view_settings() -> void:
 		_city_renderer.visible = true
 	if players_root != null:
 		players_root.visible = true
+	if _coins != null:
+		_coins.visible = _playing or (ui != null and ui.current_screen() == ui.Screen.PAUSE)
 	if _pickups != null:
-		_pickups.visible = _playing
+		_pickups.visible = _playing or (ui != null and ui.current_screen() == ui.Screen.PAUSE)
 	if _flag_poles != null:
 		_flag_poles.visible = _playing and store.show_flags
 	var q: String = store.graphics_quality if store != null else "medium"
@@ -465,8 +487,11 @@ func _apply_sky() -> void:
 	env.background_color = sky
 	env.fog_light_color = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = sky.lerp(Color.WHITE, 0.4)
-	env.ambient_light_energy = 0.50
+	env.ambient_light_color = sky.lerp(Color(0.85, 0.92, 1.0), 0.15)
+	env.ambient_light_energy = 0.32
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 1.0
 
 func _on_continue_with_ticket() -> void:
 	if not store.spend_ticket():
@@ -768,6 +793,7 @@ func _skins_by_id() -> PackedStringArray:
 func _build_coins() -> void:
 	_coin_field.build(world.places, world.grid)
 	_coins.build(_coin_field)
+	_coins.visible = _playing or (ui != null and ui.current_screen() == ui.Screen.PAUSE)
 
 ## Xaritada bir vaqtda yotadigan narsalar zichligi: har shuncha
 ## quruqlik katagiga bittadan. Soni maydonga qarab o'zgaradi —
@@ -794,6 +820,7 @@ func _build_pickups() -> void:
 	_pickup_field.build(world.grid, pickup_count(world.grid),
 		int(Time.get_unix_time_from_system()))
 	_pickups.build(_pickup_field)
+	_pickups.visible = _playing or (ui != null and ui.current_screen() == ui.Screen.PAUSE)
 
 ## Shu maydonga nechta narsa to'kiladi.
 static func pickup_count(grid: GameGrid) -> int:
@@ -1492,6 +1519,10 @@ func _steer(at: Vector2) -> void:
 
 ## Skrinshot vositasi uchun: kerakli ekranni ochadi.
 func show_screen_for_demo(name: String) -> void:
+	if name in ["menu", "settings", "profile", "shop", "maps", "gear", "heroes", "noads", "result"]:
+		_set_playing(false)
+		if _coins != null: _coins.visible = false
+		if _pickups != null: _pickups.visible = false
 	match name:
 		"menu": ui.show_screen(ui.Screen.MENU)
 		"settings": ui.show_screen(ui.Screen.SETTINGS)

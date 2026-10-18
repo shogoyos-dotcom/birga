@@ -12,3 +12,10 @@ android/
 
 # Python keshi
 __pycache__/
+
+# Maxfiy mahalliy sozlamalar va imzolar
+*.local.ps1
+*.local.env
+*.local.cfg
+signing.env
+signing.local.*

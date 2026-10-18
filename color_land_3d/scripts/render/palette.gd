@@ -38,11 +38,11 @@ const PASTEL: PackedColorArray = [
 ## id -> {name, land, land_side, ocean, sky, heads}
 const THEMES := {
 	"paper": {
-		"name": "Paper", "land": "3bb273", "land_side": "1e5e3a",
-		"ocean": "0ea5e9", "sky": "38bdf8", "heads": "colorlands",
+		"name": "Paper", "land": "32a852", "land_side": "1b5e20",
+		"ocean": "0284c7", "sky": "38bdf8", "heads": "colorlands",
 	},
 	"colorlands": {
-		"name": "Color Lands", "land": "48bb78", "land_side": "22543d",
+		"name": "Color Lands", "land": "34c759", "land_side": "1e6b36",
 		"ocean": "0284c7", "sky": "38bdf8", "heads": "colorlands",
 	},
 	"arcade": {
@@ -62,8 +62,8 @@ const THEMES := {
 		"ocean": "a9c4de", "sky": "cfe0f0", "heads": "arcade",
 	},
 	"pastel": {
-		"name": "Pastel", "land": "f3e8d4", "land_side": "c9b795",
-		"ocean": "b6d2dc", "sky": "e8dcc6", "heads": "pastel",
+		"name": "Pastel", "land": "c8e6c9", "land_side": "81c784",
+		"ocean": "4fc3f7", "sky": "b3e5fc", "heads": "pastel",
 	},
 }
 

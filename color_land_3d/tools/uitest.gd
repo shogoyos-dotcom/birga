@@ -66,6 +66,10 @@ func _build_steps() -> void:
 		_view.store.show_minimap = true
 		_view._apply_view_settings()])
 	_steps.append(["oxirgi o'yin", func() -> void: _view._on_play()])
+	_steps.append(["tozalash va tiklash", func() -> void:
+		_view.store.theme_id = Palette.DEFAULT_THEME
+		Strings.set_language("uz")
+		_view._on_menu()])
 
 func _process(delta: float) -> bool:
 	if _view == null:
