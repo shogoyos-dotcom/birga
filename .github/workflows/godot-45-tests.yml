@@ -1,0 +1,89 @@
+# Color Land 3D — Godot 4.5 Avtomatlashtirilgan Testlar
+#
+# Ushbu workflow color_land_3d loyihasining headless rejimida resurslarni
+# import qiladi va barcha unit hamda integratsion testlarni (tests/run_tests.gd)
+# tekshiruvdan o'tkazadi.
+#
+# Xavfsizlik:
+# - permissions: contents: read (faqat o'qish huquqi)
+# - COLOR_LAND_TEST_MODE: "1" (test sandbox izolyatsiyasi faol)
+# - Hech qanday maxfiy kalitlar yoki ishlab chiqarish parollari ishlatilmaydi
+
+name: Godot 4.5 Tests
+
+'on':
+  push:
+    branches:
+      - main
+      - 'fix/**'
+    paths:
+      - 'color_land_3d/**'
+      - '.github/workflows/godot-45-tests.yml'
+  pull_request:
+    branches:
+      - main
+      - 'fix/**'
+    paths:
+      - 'color_land_3d/**'
+      - '.github/workflows/godot-45-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.5-stable"
+  COLOR_LAND_TEST_MODE: "1"
+
+jobs:
+  test:
+    name: Headless Unit & QA Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Godot binary
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download & Install Godot 4.5-stable
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          curl -sSL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o ~/godot/godot.zip
+          unzip -q ~/godot/godot.zip -d ~/godot/
+          mv ~/godot/Godot_v${GODOT_VERSION}_linux.x86_64 ~/godot/godot
+          chmod +x ~/godot/godot
+          rm -f ~/godot/godot.zip
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot" >> $GITHUB_PATH
+
+      - name: Verify Godot version
+        run: godot --version
+
+      - name: Import project resources
+        run: |
+          set -o pipefail
+          godot --headless --path color_land_3d --import 2>&1 | tee import.log
+
+      - name: Run automated test suite
+        run: |
+          set -o pipefail
+          godot --headless --path color_land_3d --script res://tests/run_tests.gd 2>&1 | tee test.log
+
+      - name: Upload import and test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-45-test-logs
+          path: |
+            import.log
+            test.log
+          if-no-files-found: warn
