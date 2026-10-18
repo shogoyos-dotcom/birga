@@ -1,6 +1,8 @@
 class_name MissionManager
 extends Node
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## Kunlik topshiriqlar.
 ##
 ## Har kuni uchta topshiriq beriladi. Ro'yxat sanadan kelib chiqib
@@ -26,6 +28,7 @@ const POOL: Array[Dictionary] = [
 	{"id": "coins150", "kind": "coins", "target": 150, "reward": 300},
 ]
 
+var _file_path: String = ""
 var _config := ConfigFile.new()
 var _day := ""
 ## id -> yig'ilgan qiymat.
@@ -33,13 +36,30 @@ var _progress: Dictionary = {}
 ## Mukofoti olingan topshiriqlar.
 var _done: Dictionary = {}
 
-func _init() -> void:
-	_config.load(PATH)
+func _init(custom_path: String = "") -> void:
+	if not custom_path.is_empty():
+		_file_path = custom_path
+	_load()
+
+func get_file_path() -> String:
+	if not _file_path.is_empty():
+		return _file_path
+	return SavePaths.path_for(SavePaths.MISSIONS)
+
+func set_file_path(path: String) -> void:
+	_file_path = path
+	_load()
+
+func _load() -> void:
+	_config = ConfigFile.new()
+	var path := get_file_path()
+	if FileAccess.file_exists(path):
+		_config.load(path)
 	_day = str(_config.get_value(SECTION, "day", ""))
 	var p: Variant = _config.get_value(SECTION, "progress", {})
-	_progress = p if p is Dictionary else {}
+	_progress = (p as Dictionary).duplicate() if p is Dictionary else {}
 	var d: Variant = _config.get_value(SECTION, "done", {})
-	_done = d if d is Dictionary else {}
+	_done = (d as Dictionary).duplicate() if d is Dictionary else {}
 	refresh()
 
 ## Kun almashgan bo'lsa yangi topshiriqlar beriladi.
@@ -135,7 +155,9 @@ func _save() -> void:
 	_config.set_value(SECTION, "day", _day)
 	_config.set_value(SECTION, "progress", _progress)
 	_config.set_value(SECTION, "done", _done)
-	_config.save(PATH)
+	var path := get_file_path()
+	SavePaths.ensure_dir_exists(path.get_base_dir())
+	_config.save(path)
 
 # ——— Qo'shni modullar ———
 #

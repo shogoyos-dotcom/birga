@@ -1,6 +1,8 @@
 class_name SettingsStore
 extends RefCounted
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## O'yinchi sozlamalari va rekordi — `user://settings.cfg` da saqlanadi.
 ##
 ## Flutter variantidagi `shared_preferences` ning o'rnini bosadi: bir xil
@@ -12,11 +14,27 @@ const SECTION := "game"
 ## Ilova birinchi marta ochilganda beriladigan beletlar.
 const WELCOME_TICKETS := 3
 
+var _file_path: String = ""
 var _config := ConfigFile.new()
 
-static func load_store() -> SettingsStore:
+func get_file_path() -> String:
+	if not _file_path.is_empty():
+		return _file_path
+	return SavePaths.path_for(SavePaths.SETTINGS)
+
+func set_file_path(path: String) -> void:
+	_file_path = path
+	_config = ConfigFile.new()
+	if FileAccess.file_exists(path):
+		_config.load(path)
+
+static func load_store(custom_path: String = "") -> SettingsStore:
 	var store := SettingsStore.new()
-	store._config.load(PATH)
+	if not custom_path.is_empty():
+		store._file_path = custom_path
+	var path := store.get_file_path()
+	if FileAccess.file_exists(path):
+		store._config.load(path)
 	return store
 
 ## `_get` / `_set` nomlari Godot'ning ichki virtual metodlari bilan
@@ -26,7 +44,9 @@ func _read(key: String, fallback: Variant) -> Variant:
 
 func _write(key: String, value: Variant) -> void:
 	_config.set_value(SECTION, key, value)
-	_config.save(PATH)
+	var path := get_file_path()
+	SavePaths.ensure_dir_exists(path.get_base_dir())
+	_config.save(path)
 
 # ——— Rekord ———
 

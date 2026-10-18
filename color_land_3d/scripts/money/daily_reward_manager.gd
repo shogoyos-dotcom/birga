@@ -1,6 +1,8 @@
 class_name DailyRewardManager
 extends Node
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## Kunlik sovg'a va kirish ketma-ketligi (streak).
 ##
 ## Yetti kunlik aylanma; yettinchi kundan keyin boshidan boshlanadi.
@@ -13,6 +15,7 @@ const SECTION := "daily"
 
 signal changed()
 
+var _file_path: String = ""
 var _config := ConfigFile.new()
 ## Oxirgi olingan kun, "YYYY-MM-DD".
 var _last := ""
@@ -21,8 +24,25 @@ var _day := 0
 ## Eng uzun ketma-ketlik — faqat ko'rsatish uchun.
 var _best := 0
 
-func _init() -> void:
-	_config.load(PATH)
+func _init(custom_path: String = "") -> void:
+	if not custom_path.is_empty():
+		_file_path = custom_path
+	_load()
+
+func get_file_path() -> String:
+	if not _file_path.is_empty():
+		return _file_path
+	return SavePaths.path_for(SavePaths.DAILY)
+
+func set_file_path(path: String) -> void:
+	_file_path = path
+	_load()
+
+func _load() -> void:
+	_config = ConfigFile.new()
+	var path := get_file_path()
+	if FileAccess.file_exists(path):
+		_config.load(path)
 	_last = str(_config.get_value(SECTION, "last", ""))
 	_day = int(_config.get_value(SECTION, "day", 0))
 	_best = int(_config.get_value(SECTION, "best", 0))
@@ -97,7 +117,9 @@ func _save() -> void:
 	_config.set_value(SECTION, "last", _last)
 	_config.set_value(SECTION, "day", _day)
 	_config.set_value(SECTION, "best", _best)
-	_config.save(PATH)
+	var path := get_file_path()
+	SavePaths.ensure_dir_exists(path.get_base_dir())
+	_config.save(path)
 
 # ——— Qo'shni modullar ———
 #

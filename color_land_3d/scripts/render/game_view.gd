@@ -1183,12 +1183,14 @@ func _handle_events() -> void:
 					_city_renderer.on_city_captured(c_cap)
 
 				if is_human and not is_starting:
-					var claim_res: Dictionary = _city_reward_tracker.claim_city(c_cap, true)
-					if bool(claim_res.get("eligible", false)):
-						var reward_amount: int = int(claim_res.get("coins", 0))
-						var tx_id: String = str(claim_res.get("tx_id", ""))
+					var current_map_id: String = config.map_id if (config != null and not config.map_id.is_empty()) else (world.config.map_id if (world != null and world.config != null) else "")
+					var prep: Dictionary = _city_reward_tracker.prepare_claim(c_cap, true, current_map_id)
+					if bool(prep.get("eligible", false)):
+						var reward_amount: int = int(prep.get("coins", 0))
+						var tx_id: String = str(prep.get("tx_id", ""))
 						var credited := Wallet.add_coins(reward_amount, "city_conquest", tx_id)
 						if credited > 0:
+							_city_reward_tracker.finalize_claim(c_cap, credited)
 							_match_conquest_coins += credited
 							Metrics.send(Analytics.COIN_EARNED, {"amount": credited, "source": "city_conquest", "city": c_cap.name})
 							Audio.capture()
@@ -1197,6 +1199,14 @@ func _handle_events() -> void:
 							ui.flash(Color("facc15"), 0.25)
 							_spawn_conquest_reward_fx(c_cap, credited)
 							ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), credited])
+						else:
+							_city_reward_tracker.finalize_claim(c_cap, 0)
+							Audio.capture()
+							ui.flash(Color("38bdf8"), 0.16)
+							if Wallet.get_coins() >= MonetizationConfig.MAX_BALANCE:
+								ui.toast("★ %s EGALLANDI! (Hamyon to'la)" % c_cap.display_name.to_upper())
+							else:
+								ui.toast("★ %s EGALLANDI!" % c_cap.display_name.to_upper())
 					else:
 						_duplicates_prevented_count += 1
 						Audio.capture()

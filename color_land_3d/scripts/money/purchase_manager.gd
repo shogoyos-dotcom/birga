@@ -1,6 +1,8 @@
 class_name PurchaseManager
 extends Node
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## Haqiqiy pulga qilinadigan xaridlar.
 ##
 ## Hozircha bitta mahsulot bor: **NO ADS**. U majburiy va banner
@@ -19,13 +21,31 @@ const NO_ADS := "no_ads"
 
 signal changed()
 
+var _file_path: String = ""
 var _config := ConfigFile.new()
 var _owned: Dictionary = {}
 
-func _init() -> void:
-	_config.load(PATH)
+func _init(custom_path: String = "") -> void:
+	if not custom_path.is_empty():
+		_file_path = custom_path
+	_load()
+
+func get_file_path() -> String:
+	if not _file_path.is_empty():
+		return _file_path
+	return SavePaths.path_for(SavePaths.PURCHASES)
+
+func set_file_path(path: String) -> void:
+	_file_path = path
+	_load()
+
+func _load() -> void:
+	_config = ConfigFile.new()
+	var path := get_file_path()
+	if FileAccess.file_exists(path):
+		_config.load(path)
 	var saved: Variant = _config.get_value(SECTION, "owned", {})
-	_owned = saved if saved is Dictionary else {}
+	_owned = (saved as Dictionary).duplicate() if saved is Dictionary else {}
 
 func has_no_ads() -> bool:
 	return bool(_owned.get(NO_ADS, false))
@@ -64,7 +84,9 @@ func _grant(id: String) -> void:
 
 func _save() -> void:
 	_config.set_value(SECTION, "owned", _owned)
-	_config.save(PATH)
+	var path := get_file_path()
+	SavePaths.ensure_dir_exists(path.get_base_dir())
+	_config.save(path)
 
 # ——— Do'kon bilan aloqa (namuna) ———
 

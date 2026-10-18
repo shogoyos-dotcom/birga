@@ -1,6 +1,8 @@
 class_name CurrencyManager
 extends Node
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## Ikki valyuta: **tanga** (bepul) va **gem** (premium).
 ##
 ## Faqat hisob yuritadi — o'yin qoidalariga ham, interfeysga ham
@@ -19,15 +21,15 @@ extends Node
 ##    alohida test fayliga yo'naltirilib to'liq himoyalanadi.
 
 const DEFAULT_PATH := "user://wallet.cfg"
-const TEST_PATH := "user://test_wallet.cfg"
+const TEST_PATH := "user://test_sandbox/wallet.cfg"
 const PATH := DEFAULT_PATH
 const SECTION := "wallet"
 ## Jurnalda saqlanadigan oxirgi yozuvlar soni (UI display).
 const LOG_LIMIT := 60
-## Xotirada va faylda saqlanadigan maksimal tranzaksiyalar ID soni.
+## Tranzaksiyalarni xavfsiz tozalash chegarasi (faqat eskirganlari o'chiriladi).
 const MAX_PROCESSED_TX := 2000
 
-static var default_file_path: String = DEFAULT_PATH
+static var default_file_path: String = ""
 static var is_test_mode: bool = false
 
 var _file_path: String = ""
@@ -40,28 +42,31 @@ var _log: Array = []
 var _processed_tx: Dictionary = {}
 
 func _init(custom_path: String = "") -> void:
-	# Avtoyuklanadigan tugun sifatida ham, testda `.new()` bilan ham
-	# ishlashi kerak — shuning uchun `_ready` emas, `_init`.
 	if not custom_path.is_empty():
 		_file_path = custom_path
-	elif is_test_mode:
-		_file_path = TEST_PATH
-	else:
+	elif not default_file_path.is_empty():
 		_file_path = default_file_path
+	else:
+		_file_path = SavePaths.path_for(SavePaths.WALLET)
 	load_currency()
 
-## Test rejimi: barcha yangi va mavjud hamyonlarni test_wallet.cfg ga yo'naltiradi
-static func set_test_mode(enabled: bool, test_path: String = TEST_PATH) -> void:
+## Test rejimi: barcha yangi va mavjud hamyonlarni test muhitiga yo'naltiradi
+static func set_test_mode(enabled: bool, test_path: String = "") -> void:
 	is_test_mode = enabled
-	if enabled:
+	if not test_path.is_empty():
 		default_file_path = test_path
+	elif enabled:
+		default_file_path = SavePaths.path_for(SavePaths.WALLET)
 	else:
-		default_file_path = DEFAULT_PATH
+		default_file_path = ""
+	SavePaths.set_test_mode(enabled)
 
 func get_file_path() -> String:
 	if not _file_path.is_empty():
 		return _file_path
-	return TEST_PATH if is_test_mode else default_file_path
+	if not default_file_path.is_empty():
+		return default_file_path
+	return SavePaths.path_for(SavePaths.WALLET)
 
 func set_file_path(path: String) -> void:
 	_file_path = path
@@ -119,16 +124,29 @@ func has_transaction(transaction_id: String) -> bool:
 
 # ——— Saqlash ———
 
-func save_currency() -> void:
+func save_currency() -> bool:
 	_config.set_value(SECTION, "coins", _coins)
 	_config.set_value(SECTION, "gems", _gems)
 	_config.set_value(SECTION, "log", _log)
 	_config.set_value(SECTION, "processed_tx", _processed_tx)
-	_config.save(get_file_path())
+	var path := get_file_path()
+	SavePaths.ensure_dir_exists(path.get_base_dir())
+	var err := _config.save(path)
+	if err != OK:
+		printerr("Hamyon saqlashda xatolik: ", err, " fayl: ", path)
+		return false
+	return true
 
 func load_currency() -> void:
 	_config = ConfigFile.new()
-	_config.load(get_file_path())
+	var path := get_file_path()
+	if not FileAccess.file_exists(path):
+		_coins = 0
+		_gems = 0
+		_log.clear()
+		_processed_tx.clear()
+		return
+	_config.load(path)
 	_coins = _clamp(int(_config.get_value(SECTION, "coins", 0)))
 	_gems = _clamp(int(_config.get_value(SECTION, "gems", 0)))
 	var saved: Variant = _config.get_value(SECTION, "log", [])
@@ -169,7 +187,7 @@ func _change(currency: String, amount: int, reward_type: String,
 	if amount <= 0:
 		return 0
 	if not transaction_id.is_empty() and has_transaction(transaction_id):
-		# Takroriy mukofot: jim o'tkazib yuboriladi.
+		# Takroriy mukofot: rad etiladi, balans o'zgarmaydi.
 		return 0
 	var before := _coins if currency == "coins" else _gems
 	var after := _clamp(before + amount)
@@ -179,7 +197,9 @@ func _change(currency: String, amount: int, reward_type: String,
 	else:
 		_gems = after
 	_write_log(transaction_id, reward_type, gained, currency)
-	save_currency()
+	var ok := save_currency()
+	if not ok:
+		printerr("Ogohlantirish: hamyon o'zgarishi diskka saqlanmadi!")
 	return gained
 
 func _spend(currency: String, amount: int, reason: String) -> bool:
@@ -214,19 +234,38 @@ func _write_log(transaction_id: String, reward_type: String, amount: int,
 	if _log.size() > LOG_LIMIT:
 		_log = _log.slice(_log.size() - LOG_LIMIT)
 
-## Tranzaksiyalar haddan tashqari ko'payib ketsa, eng eskilarini xavfsiz tozalash.
+## Tranzaksiya identifikatorining munosiblik muddati tugaganligini aniqlaydi.
+## Faqatgina qayta da'vo qilinishi 100% imkonsiz bo'lgan eskirgan tranzaksiyalar tozalanishi mumkin.
+static func is_transaction_expired(tx_id: String, tx_time: int, now: int) -> bool:
+	if tx_id.begins_with("daily-"):
+		# Kunlik kirish mukofoti: 7 kundan keyin qayta talab qilib bo'lmaydi (Daily.claim faqat bugunni so'raydi)
+		return (now - tx_time) > (7 * 86400)
+	elif tx_id.begins_with("mission-"):
+		# Kunlik topshiriq: 7 kundan keyin muddati tugagan
+		return (now - tx_time) > (7 * 86400)
+	elif tx_id.begins_with("conquest_"):
+		# O'yin istilosi: yakunlangan match tranzaksiyalari 30 kundan keyin eskiradi
+		return (now - tx_time) > (30 * 86400)
+	elif tx_id.begins_with("promo_") or tx_id.begins_with("lifetime_"):
+		# Bir martalik doimiy mukofotlar: HECH QACHON O'CHIRILMAYDI
+		return false
+	# Noma'lum yoki umumiy tranzaksiyalar dublikatdan himoya uchun saqlanadi
+	return false
+
+## Tranzaksiyalar soni MAX_PROCESSED_TX dan oshsa, FAQAT eskirganlarini xavfsiz tozalash.
+## Hech qanday faol yoki bir martalik mukofot ID si yo'qotilmaydi.
 func _prune_processed_tx() -> void:
 	if _processed_tx.size() <= MAX_PROCESSED_TX:
 		return
-	# Saralab eng yangi 1500 tasini saqlab qolamiz
-	var entries: Array = []
+	var now := int(Time.get_unix_time_from_system())
+	var expired_keys: Array[String] = []
 	for k in _processed_tx:
-		entries.append({"id": k, "at": int(_processed_tx[k])})
-	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a["at"]) < int(b["at"]))
-	var remove_count := _processed_tx.size() - 1500
-	for i in range(mini(remove_count, entries.size())):
-		_processed_tx.erase(entries[i]["id"])
+		var t_at := int(_processed_tx[k])
+		if is_transaction_expired(str(k), t_at, now):
+			expired_keys.append(str(k))
+
+	for k in expired_keys:
+		_processed_tx.erase(k)
 
 static func _new_id(reward_type: String) -> String:
 	return "%s-%d-%d" % [reward_type,

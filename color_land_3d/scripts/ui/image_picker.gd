@@ -1,6 +1,8 @@
 class_name ImagePicker
 extends RefCounted
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## O'yinchining o'z rasmini tanlash va o'yinga moslash.
 ##
 ## Tanlangan rasm kvadrat qilib qirqiladi, kichraytiriladi va
@@ -23,8 +25,10 @@ const FILTERS: PackedStringArray = [
 ]
 
 ## Avatar va bayroq uchun fayl nomlari.
-const AVATAR_FILE := "user://avatar.png"
-const FLAG_FILE := "user://flag.png"
+static var AVATAR_FILE: String:
+	get: return SavePaths.path_for(SavePaths.AVATAR)
+static var FLAG_FILE: String:
+	get: return SavePaths.path_for(SavePaths.FLAG)
 
 ## Rasm tanlash oynasini ochadi. Tugagach `on_done` chaqiriladi:
 ## muvaffaqiyatli bo'lsa `dest`, aks holda bo'sh satr bilan.

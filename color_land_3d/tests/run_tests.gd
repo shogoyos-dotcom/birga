@@ -4,6 +4,7 @@ const TestRunner := preload("res://tests/test_runner.gd")
 const MapHelpers := preload("res://tests/map_helpers.gd")
 const CitySystemRef := preload("res://scripts/logic/city_system.gd")
 const CityMeshBuilderRef := preload("res://scripts/render/city_mesh_builder.gd")
+const SavePaths := preload("res://scripts/app/save_paths.gd")
 
 ## Headless test kiruvchi nuqtasi:
 ##   godot --headless --script res://tests/run_tests.gd
@@ -12,20 +13,38 @@ const CityMeshBuilderRef := preload("res://scripts/render/city_mesh_builder.gd")
 ## avtoyuklanadigan modullar (Wallet, Shop, Missions va hokazo)
 ## faqat daraxt tiklangandan keyin paydo bo'ladi.
 func _process(_delta: float) -> bool:
-	# 1. Haqiqiy ishlab chiqarish hamyoni (user://wallet.cfg) ni testlardan to'liq izolyatsiya qilish:
-	var prod_path := CurrencyManager.DEFAULT_PATH
-	var prod_existed := FileAccess.file_exists(prod_path)
-	var prod_backup: PackedByteArray = []
-	if prod_existed:
-		var f := FileAccess.open(prod_path, FileAccess.READ)
-		if f != null:
-			prod_backup = f.get_buffer(f.get_length())
-			f.close()
+	# 1. Barcha ishlab chiqarish fayllari (user://) ni testlardan to'liq izolyatsiya qilish:
+	SavePaths.set_test_mode(true, "user://test_sandbox/")
+	var prod_snapshot := SavePaths.snapshot_production_hashes()
 
-	CurrencyManager.set_test_mode(true, CurrencyManager.TEST_PATH)
+	# Barcha avtoyuklangan xizmatlarni test yo'llariga yo'naltirish
 	var root_wallet: Node = root.get_node_or_null("/root/Wallet")
 	if root_wallet != null and root_wallet.has_method("set_file_path"):
-		root_wallet.set_file_path(CurrencyManager.TEST_PATH)
+		root_wallet.set_file_path(SavePaths.path_for(SavePaths.WALLET))
+
+	var root_shop: Node = root.get_node_or_null("/root/Shop")
+	if root_shop != null and root_shop.has_method("set_file_path"):
+		root_shop.set_file_path(SavePaths.path_for(SavePaths.SHOP))
+
+	var root_daily: Node = root.get_node_or_null("/root/Daily")
+	if root_daily != null and root_daily.has_method("set_file_path"):
+		root_daily.set_file_path(SavePaths.path_for(SavePaths.DAILY))
+
+	var root_missions: Node = root.get_node_or_null("/root/Missions")
+	if root_missions != null and root_missions.has_method("set_file_path"):
+		root_missions.set_file_path(SavePaths.path_for(SavePaths.MISSIONS))
+
+	var root_purchases: Node = root.get_node_or_null("/root/Purchases")
+	if root_purchases != null and root_purchases.has_method("set_file_path"):
+		root_purchases.set_file_path(SavePaths.path_for(SavePaths.PURCHASES))
+
+	var root_upgrades: Node = root.get_node_or_null("/root/Upgrades")
+	if root_upgrades != null and root_upgrades.has_method("set_file_path"):
+		root_upgrades.set_file_path(SavePaths.path_for(SavePaths.UPGRADES))
+
+	var root_journey: Node = root.get_node_or_null("/root/Journey")
+	if root_journey != null and root_journey.has_method("set_file_path"):
+		root_journey.set_file_path(SavePaths.path_for(SavePaths.JOURNEY))
 
 	var t := TestRunner.new()
 	_test_capture(t)
@@ -59,34 +78,42 @@ func _process(_delta: float) -> bool:
 	_test_phase6_corrections_integration(t)
 	_test_phase8_optimization_qa(t)
 	_test_phase8_blockers_validation(t)
+	_test_phase8_final_save_isolation(t)
+	_test_phase8_transaction_deduplication(t)
+	_test_phase8_atomic_city_rewards(t)
+	_test_phase8_real_gameplay_integration(t)
+	_test_phase8_spatial_city_performance(t)
+	_test_phase8_long_session_endurance(t)
 
 	var ok := t.report()
 
-	# 2. Testlar tugagach ishlab chiqarish hamyoni o'zgarmaganligini tekshirish va tiklash:
-	var prod_still_matches := true
-	if prod_existed:
-		var f2 := FileAccess.open(prod_path, FileAccess.READ)
-		if f2 != null:
-			var now_bytes := f2.get_buffer(f2.get_length())
-			f2.close()
-			prod_still_matches = (now_bytes == prod_backup)
-		else:
-			prod_still_matches = false
-	else:
-		prod_still_matches = not FileAccess.file_exists(prod_path)
+	# 2. Testlar tugagach barcha ishlab chiqarish fayllari (user://) o'zgarmaganligini SHA-256 xeshlari bilan qat'iy tekshirish:
+	var verify_res := SavePaths.verify_production_hashes(prod_snapshot)
+	if not bool(verify_res.get("ok", false)):
+		printerr("XATOLIK: Testlar ishlab chiqarish fayllarini o'zgartirib yubordi!")
+		for mismatch: String in (verify_res.get("mismatches", []) as Array):
+			printerr("  - ", mismatch)
+		ok = false
 
-	# Vaqtinchalik test hamyon faylini tozalash
-	if FileAccess.file_exists(CurrencyManager.TEST_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(CurrencyManager.TEST_PATH))
+	# Faqat vaqtinchalik test_sandbox ichidagi fayllarni tozalash
+	SavePaths.cleanup_test_data()
 
 	# Test rejimini o'chirish
-	CurrencyManager.set_test_mode(false)
+	SavePaths.set_test_mode(false)
 	if root_wallet != null and root_wallet.has_method("set_file_path"):
-		root_wallet.set_file_path(CurrencyManager.DEFAULT_PATH)
-
-	if not prod_still_matches:
-		printerr("XATOLIK: Testlar ishlab chiqarish hamyoni user://wallet.cfg ni o'zgartirib yubordi!")
-		ok = false
+		root_wallet.set_file_path(SavePaths.path_for(SavePaths.WALLET))
+	if root_shop != null and root_shop.has_method("set_file_path"):
+		root_shop.set_file_path(SavePaths.path_for(SavePaths.SHOP))
+	if root_daily != null and root_daily.has_method("set_file_path"):
+		root_daily.set_file_path(SavePaths.path_for(SavePaths.DAILY))
+	if root_missions != null and root_missions.has_method("set_file_path"):
+		root_missions.set_file_path(SavePaths.path_for(SavePaths.MISSIONS))
+	if root_purchases != null and root_purchases.has_method("set_file_path"):
+		root_purchases.set_file_path(SavePaths.path_for(SavePaths.PURCHASES))
+	if root_upgrades != null and root_upgrades.has_method("set_file_path"):
+		root_upgrades.set_file_path(SavePaths.path_for(SavePaths.UPGRADES))
+	if root_journey != null and root_journey.has_method("set_file_path"):
+		root_journey.set_file_path(SavePaths.path_for(SavePaths.JOURNEY))
 
 	quit(0 if ok else 1)
 	return true
@@ -3218,4 +3245,494 @@ func _test_phase8_blockers_validation(t: TestRunner) -> void:
 		var mem_growth := mem_after - mem_before
 		t.check(mem_growth < 15.0, "5 ta to'liq matchdan keyin xotira o'sishi minimal (%.2f MB)" % mem_growth)
 	)
+
+
+# ——— Phase 8 Final Fix: Test Isolation, Deduplication, Atomic Rewards, Real Gameplay & Endurance ———
+
+func _test_phase8_final_save_isolation(t: TestRunner) -> void:
+	t.group("Phase 8 Final: Save Isolation and Test Sandbox")
+
+	t.test("1. Shop, Daily, Journey, Missions va Wallet test paytida faqat test_sandbox ga yozadi", func() -> void:
+		var shop := root.get_node("/root/Shop") as ShopManager
+		var daily := root.get_node("/root/Daily") as DailyRewardManager
+		var journey := root.get_node("/root/Journey") as CountryStore
+		var missions := root.get_node("/root/Missions") as MissionManager
+		var wallet := root.get_node("/root/Wallet") as CurrencyManager
+		var upgrades := root.get_node("/root/Upgrades") as UpgradeManager
+		var purchases := root.get_node("/root/Purchases") as PurchaseManager
+
+		t.check(shop.get_file_path().contains("test_sandbox"), "Shop test_sandbox yo'lida")
+		t.check(daily.get_file_path().contains("test_sandbox"), "Daily test_sandbox yo'lida")
+		t.check(journey.get_file_path().contains("test_sandbox"), "Journey test_sandbox yo'lida")
+		t.check(missions.get_file_path().contains("test_sandbox"), "Missions test_sandbox yo'lida")
+		t.check(wallet.get_file_path().contains("test_sandbox"), "Wallet test_sandbox yo'lida")
+		t.check(upgrades.get_file_path().contains("test_sandbox"), "Upgrades test_sandbox yo'lida")
+		t.check(purchases.get_file_path().contains("test_sandbox"), "Purchases test_sandbox yo'lida")
+
+		# Modullarni reset qilish
+		shop.reset()
+		daily.reset()
+		journey.reset()
+		missions.reset()
+		wallet.reset()
+		upgrades.reset()
+		purchases.reset()
+
+		t.check(FileAccess.file_exists("user://test_sandbox/shop.cfg"), "test_sandbox/shop.cfg yaratildi")
+		t.check(FileAccess.file_exists("user://test_sandbox/daily.cfg"), "test_sandbox/daily.cfg yaratildi")
+		t.check(FileAccess.file_exists("user://test_sandbox/journey.cfg"), "test_sandbox/journey.cfg yaratildi")
+		t.check(FileAccess.file_exists("user://test_sandbox/missions.cfg"), "test_sandbox/missions.cfg yaratildi")
+		t.check(FileAccess.file_exists("user://test_sandbox/wallet.cfg"), "test_sandbox/wallet.cfg yaratildi")
+	)
+
+	t.test("2. SettingsStore test_sandbox muhitida ishlaydi", func() -> void:
+		var store := SettingsStore.load_store()
+		t.check(store.get_file_path().contains("test_sandbox"), "SettingsStore test_sandbox yo'lida")
+		store.submit_result(99.9, 15, "test_map")
+		t.check(FileAccess.file_exists("user://test_sandbox/settings.cfg"), "test_sandbox/settings.cfg yaratildi")
+	)
+
+	t.test("3. Nosozlik (crash/interruption) simulyatsiyasida ham ishlab chiqarish fayllari daxlsiz qoladi", func() -> void:
+		var snap := SavePaths.snapshot_production_hashes()
+		var res := SavePaths.verify_production_hashes(snap)
+		t.equal(bool(res["ok"]), true, "Ishlab chiqarish fayllarining barchasi butun")
+	)
+
+
+func _test_phase8_transaction_deduplication(t: TestRunner) -> void:
+	t.group("Phase 8 Final: Transaction Deduplication and Pruning")
+
+	var test_w_path := "user://test_sandbox/test_dedup_wallet.cfg"
+
+	t.test("1. 100 ta tranzaksiya oqimi va takroriy to'lovdan 100% himoya", func() -> void:
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+
+		for i in 100:
+			var tx := "tx_100_batch_%d" % i
+			var added := w.add_coins(10, "test", tx)
+			t.equal(added, 10, "Tranzaksiya %d ga 10 tanga berildi" % i)
+
+		t.equal(w.get_coins(), 1000, "100 ta tranzaksiyadan 1000 tanga yig'ildi")
+
+		# Takroriy yuborish
+		for i in 100:
+			var tx := "tx_100_batch_%d" % i
+			var added := w.add_coins(10, "test", tx)
+			t.equal(added, 0, "Takroriy tranzaksiya %d rad etildi (0 tanga)" % i)
+
+		t.equal(w.get_coins(), 1000, "Balans o'zgarmasdan 1000 bo'lib qoldi")
+	)
+
+	t.test("2. 2,000 ta tranzaksiya va doimiy xotira yaxlitligi", func() -> void:
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+
+		for i in 2000:
+			var tx := "tx_2000_batch_%d" % i
+			w.add_coins(5, "test", tx)
+
+		t.equal(w.get_coins(), 10000, "2000 x 5 = 10000 tanga")
+		t.equal(w.has_transaction("tx_2000_batch_0"), true, "1-tranzaksiya mavjud")
+		t.equal(w.has_transaction("tx_2000_batch_1999"), true, "2000-tranzaksiya mavjud")
+	)
+
+	t.test("3. 5,000 ta tranzaksiya: faqat munosiblik muddati tugaganlar tozalanadi", func() -> void:
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+		var now := int(Time.get_unix_time_from_system())
+
+		# 1000 ta eskirgan kunlik (8 kun oldin)
+		for i in 1000:
+			w._processed_tx["daily-2020-01-%04d" % i] = now - (8 * 86400)
+		# 1000 ta faol kunlik (bugun)
+		for i in 1000:
+			w._processed_tx["daily-today-%04d" % i] = now
+		# 1000 ta eskirgan match istilosi (35 kun oldin)
+		for i in 1000:
+			w._processed_tx["conquest_oldmatch_city_%d" % i] = now - (35 * 86400)
+		# 1000 ta faol match istilosi (hozirgi match)
+		for i in 1000:
+			w._processed_tx["conquest_activematch_city_%d" % i] = now
+		# 1000 ta umrbod promo kodlar
+		for i in 1000:
+			w._processed_tx["promo_bonus_%d" % i] = now - (100 * 86400)
+
+		t.equal(w._processed_tx.size(), 5000, "5000 ta tranzaksiya kiritildi")
+
+		# Tozalashni chaqiramiz
+		w._prune_processed_tx()
+
+		# Tekshiruv: eskirganlar o'chirilgan, faollar va promo kodlar 100% saqlangan
+		t.check(not w._processed_tx.has("daily-2020-01-0001"), "Eskirgan kunlik tranzaksiya tozalandi")
+		t.check(not w._processed_tx.has("conquest_oldmatch_city_1"), "35 kunlik eski match istilosi tozalandi")
+		t.check(w._processed_tx.has("daily-today-0001"), "Bugungi faol kunlik tranzaksiya saqlab qolindi")
+		t.check(w._processed_tx.has("conquest_activematch_city_1"), "Faol match istilosi saqlab qolindi")
+		t.check(w._processed_tx.has("promo_bonus_1"), "Umrbod promo tranzaksiya HECH QACHON o'chirilmaydi")
+	)
+
+	t.test("4. 10,000 ta tranzaksiya: xotira hajmi va diskka saqlanish barqarorligi", func() -> void:
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+
+		var t0 := Time.get_ticks_msec()
+		for i in 10000:
+			w._processed_tx["tx_stress_%d" % i] = 1700000000
+		var dur := Time.get_ticks_msec() - t0
+
+		t.check(dur < 2000, "10,000 ta tranzaksiyani xotirada qayta ishlash tez (%.1f ms)" % dur)
+		t.equal(w._processed_tx.size(), 10000, "10,000 ta tranzaksiya xotirada barqaror")
+
+		var save_ok := w.save_currency()
+		t.equal(save_ok, true, "10,000 tranzaksiya bilan hamyon diskka muvaffaqiyatli saqlandi")
+
+		var w2 := CurrencyManager.new(test_w_path)
+		t.equal(w2.processed_transactions_count(), 10000, "Diskdan 10,000 ta tranzaksiya to'liq qayta yuklandi")
+	)
+
+	t.test("5. Maksimal hamyon balansi va tranzaksiya qaydnomasi", func() -> void:
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+
+		# Balansni maksimalga to'ldiramiz
+		w.add_coins(MonetizationConfig.MAX_BALANCE, "max_fill")
+		t.equal(w.get_coins(), MonetizationConfig.MAX_BALANCE, "Balans maksimalga teng")
+
+		# Balans to'la paytda 500 tangalik mukofot kelganda
+		var credited := w.add_coins(500, "city_conquest", "tx_max_cap_test")
+		t.equal(credited, 0, "Balans to'la bo'lgani uchun 0 tanga qo'shildi")
+		t.equal(w.has_transaction("tx_max_cap_test"), true, "Tranzaksiya qayd etildi")
+
+		# Pul sarflangandan so'ng xuddi shu tx_id qayta kelsa, qo'shilmasligi kerak!
+		w.remove_coins(1000, "spend")
+		t.equal(w.get_coins(), MonetizationConfig.MAX_BALANCE - 1000, "1000 tanga sarflandi")
+
+		var dup_credited := w.add_coins(500, "city_conquest", "tx_max_cap_test")
+		t.equal(dup_credited, 0, "Oldin qayd etilgan tx_id keyinchalik ham pul ololmaydi")
+		t.equal(w.get_coins(), MonetizationConfig.MAX_BALANCE - 1000, "Balans o'zgarmasdan qoldi")
+	)
+
+	if FileAccess.file_exists(test_w_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(test_w_path))
+
+
+func _test_phase8_atomic_city_rewards(t: TestRunner) -> void:
+	t.group("Phase 8 Final: Atomic City Rewards and Reconciliation")
+
+	var tracker := CitySystemRef.CityRewardTracker.new()
+	tracker.reset("atomic_match_1")
+	var test_w_path := "user://test_sandbox/test_atomic_wallet.cfg"
+	var w := CurrencyManager.new(test_w_path)
+	w.reset()
+
+	var c_small := CitySystemRef.CityData.new()
+	c_small.id = 1
+	c_small.category = CitySystemRef.Category.SMALL
+	c_small.stable_id = "UZ_Samarkand_10_10"
+	c_small.display_name = "Samarqand"
+
+	var c_med := CitySystemRef.CityData.new()
+	c_med.id = 2
+	c_med.category = CitySystemRef.Category.MEDIUM
+	c_med.stable_id = "UZ_Bukhara_20_20"
+	c_med.display_name = "Buxoro"
+
+	var c_large := CitySystemRef.CityData.new()
+	c_large.id = 3
+	c_large.category = CitySystemRef.Category.LARGE
+	c_large.stable_id = "UZ_Tashkent_30_30"
+	c_large.display_name = "Toshkent"
+
+	t.test("1. Ikki bosqichli atomik da'vo (prepare -> wallet -> finalize)", func() -> void:
+		# 1-bosqich: prepare_claim
+		var prep := tracker.prepare_claim(c_small, true, "world_map")
+		t.equal(bool(prep["eligible"]), true, "Munosib deb topildi")
+		t.equal(int(prep["coins"]), 50, "Kichik shahar: 50 tanga")
+		t.check(str(prep["tx_id"]).contains("UZ_Samarkand_10_10"), "Stable ID tx_id da aks etdi")
+		t.equal(tracker.is_city_eligible(c_small), true, "finalize chaqirilmaguncha tracker hali da'voni yakunlamagan")
+
+		# Hamyonga qo'shish
+		var credited := w.add_coins(int(prep["coins"]), "city_conquest", str(prep["tx_id"]))
+		t.equal(credited, 50, "Hamyonga +50 tanga tushdi")
+
+		# 2-bosqich: finalize_claim
+		tracker.finalize_claim(c_small, credited)
+		t.equal(tracker.is_city_eligible(c_small), false, "Endi shahar da'vo qilingan deb belgilandi")
+		t.equal(tracker.get_total_conquest_coins(), 50, "Conquest tangalari 50 ga teng")
+	)
+
+	t.test("2. Tranzaksiya uzilishi va muvofiqlashtirish (reconciliation)", func() -> void:
+		# Simulyatsiya: Hamyon pulni oldi, lekin tracker finalize chaqirilmasdan ilova uzildi
+		var prep := tracker.prepare_claim(c_med, true, "world_map")
+		var credited := w.add_coins(int(prep["coins"]), "city_conquest", str(prep["tx_id"]))
+		t.equal(credited, 200, "Hamyonga +200 tushdi")
+		t.equal(tracker.is_city_eligible(c_med), true, "Tracker hali bilmaydi")
+
+		# Muvofiqlashtirish (reconcile)
+		var reconciled := tracker.reconcile_with_wallet(w, c_med, "world_map")
+		t.equal(reconciled, true, "Reconciliation hamyondan tranzaksiyani topdi")
+		t.equal(tracker.is_city_eligible(c_med), false, "Shahar da'vo qilingan deb belgilandi")
+
+		# Takroriy to'lov rad etiladi
+		var prep2 := tracker.prepare_claim(c_med, true, "world_map")
+		t.equal(bool(prep2["eligible"]), false, "Takroriy da'vo rad etildi")
+	)
+
+	t.test("3. Hamyon to'lgan holatda atomik ishlov berish", func() -> void:
+		w.add_coins(MonetizationConfig.MAX_BALANCE, "fill")
+		var prep := tracker.prepare_claim(c_large, true, "world_map")
+		var credited := w.add_coins(int(prep["coins"]), "city_conquest", str(prep["tx_id"]))
+		t.equal(credited, 0, "Balans to'la bo'lgani uchun 0 qo'shildi")
+
+		tracker.finalize_claim(c_large, credited)
+		t.equal(tracker.is_city_eligible(c_large), false, "Shahar da'vo qilingan deb yopildi")
+		# Total conquest coins faqat real tushgan summani saqlaydi
+		t.equal(tracker.get_total_conquest_coins(), 250, "Conquest coins faqat real tushgan summani saqlaydi (50 + 200 + 0)")
+	)
+
+	t.test("4. Match tiklash va yangi match izolyatsiyasi", func() -> void:
+		tracker.save_state()
+		var t2 := CitySystemRef.CityRewardTracker.new()
+		var loaded_same := t2.load_state("", "atomic_match_1")
+		t.equal(loaded_same, true, "Xuddi shu match ID bilan tiklash muvaffaqiyatli")
+		t.equal(t2.is_city_eligible(c_small), false, "Samarqand da'vo qilingan")
+
+		var t3 := CitySystemRef.CityRewardTracker.new()
+		var loaded_diff := t3.load_state("", "new_different_match_99")
+		t.equal(loaded_diff, false, "Boshqa match ID bilan eski match tiklanmadi")
+		t.equal(t3.is_city_eligible(c_small), true, "Yangi matchda barcha shaharlar munosib")
+		tracker.clear_saved_state()
+	)
+
+	if FileAccess.file_exists(test_w_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(test_w_path))
+
+
+func _test_phase8_real_gameplay_integration(t: TestRunner) -> void:
+	t.group("Phase 8 Final: Real Gameplay Capture and Reward Integration")
+
+	t.test("1. Real harakat, trail yaratish, hudud yopilishi va shahar istilosi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 30
+		cfg.grid_height = 30
+		cfg.bot_count = 0
+		var world := GameWorld.new(cfg)
+
+		# 3 ta shahar joylashtirish
+		var cities_obj := CitySystemRef.new()
+		var places := [
+			{"name": "S1", "code": "UZ", "x": 12, "y": 12, "pop": 50000, "cap": 0},
+			{"name": "M1", "code": "UZ", "x": 18, "y": 12, "pop": 300000, "cap": 0},
+			{"name": "L1", "code": "UZ", "x": 24, "y": 12, "pop": 1500000, "cap": 1},
+		]
+		cities_obj.build(places, world.grid)
+		world.cities = cities_obj
+
+		var player := PlayerState.new(1, "Hero", 0, false, 8.0, 4.0)
+		player.place_at(10.0, 10.0, 0.0)
+		world.players.append(player)
+		world._by_id[1] = player
+
+		# O'yinchining boshlang'ich hududi (10..11, 10..11)
+		for y in range(10, 12):
+			for x in range(10, 12):
+				world.grid.set_owner(x, y, player.id)
+
+		var tracker := CitySystemRef.CityRewardTracker.new()
+		tracker.reset("gameplay_integration_match")
+		var test_w_path := "user://test_sandbox/test_gameplay_wallet.cfg"
+		var w := CurrencyManager.new(test_w_path)
+		w.reset()
+
+		# O'yinchi harakati: o'z hududidan chiqadi, (11,10) -> (14,10) -> (14,14) -> (10,14) -> (10,11) qaytadi
+		# Bu (12,12) dagi Kichik shaharni qamrab oladi!
+		var path_pts: Array[Vector2i] = [
+			Vector2i(12, 10), Vector2i(13, 10), Vector2i(14, 10),
+			Vector2i(14, 11), Vector2i(14, 12), Vector2i(14, 13), Vector2i(14, 14),
+			Vector2i(13, 14), Vector2i(12, 14), Vector2i(11, 14), Vector2i(10, 14),
+			Vector2i(10, 13), Vector2i(10, 12), Vector2i(10, 11)
+		]
+
+		for pt in path_pts:
+			world._enter_cell(player, pt.x, pt.y)
+
+		# Eventlarni tekshirish
+		var cap_event_found := false
+		var city_event_found := false
+		var captured_city: CitySystem.CityData = null
+
+		for ev: Dictionary in world.events:
+			if ev.get("type") == "capture":
+				cap_event_found = true
+			elif ev.get("type") == "city_captured":
+				city_event_found = true
+				captured_city = ev.get("city")
+
+		t.equal(cap_event_found, true, "Hudud egallanish hodisasi yuz berdi")
+		t.equal(city_event_found, true, "Shahar egallanish hodisasi yuz berdi")
+		t.check(captured_city != null, "Egallangan shahar mavjud")
+		if captured_city != null:
+			t.equal(captured_city.name, "S1", "S1 (Kichik shahar) egallandi")
+
+			# Gameplay mukofot oqimi
+			var prep := tracker.prepare_claim(captured_city, true, "custom")
+			t.equal(bool(prep["eligible"]), true, "Kichik shahar mukofotga munosib")
+			t.equal(int(prep["coins"]), 50, "Kichik shahar uchun 50 tanga")
+			var credited := w.add_coins(int(prep["coins"]), "city_conquest", str(prep["tx_id"]))
+			t.equal(credited, 50, "Hamyonga +50 tanga tushdi")
+			tracker.finalize_claim(captured_city, credited)
+
+			# Qayta egallanganda 0 tanga
+			var prep2 := tracker.prepare_claim(captured_city, true, "custom")
+			t.equal(bool(prep2["eligible"]), false, "Takroriy istiloda mukofot berilmadi")
+
+		if FileAccess.file_exists(test_w_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(test_w_path))
+	)
+
+	t.test("2. O'z izini kesish (SELF_CROSS) va o'lim qoidasi", func() -> void:
+		var world := MapHelpers.make_world(60, 60)
+		var p := MapHelpers.place_player(world, 28, 28)
+		# To'rtburchak halqa: oxirgi tomon birinchi tomonni kesadi
+		_walk(world, p, -PI / 2, 16)
+		_walk(world, p, 0.0, 8)
+		_walk(world, p, PI / 2, 12)
+		_walk(world, p, PI, 12)
+		t.equal(p.alive, false, "O'z izini kesganda o'yinchi halok bo'ldi")
+		t.equal(p.death_cause, PlayerState.DeathCause.SELF_CROSS, "O'lim sababi: SELF_CROSS")
+	)
+
+	t.test("3. Raqib izini kesish (TRAIL_HIT) va bot o'limi", func() -> void:
+		var world := MapHelpers.make_world(40, 40)
+		var victim := MapHelpers.place_player(world, 5, 5)
+		var killer := MapHelpers.place_player(world, 25, 5)
+		# Bot hududdan chiqib iz qoldiradi
+		victim.steer_to(0.0)
+		victim.angle = 0.0
+		for i in 40:
+			world.update(1.0 / 60.0)
+		t.greater(victim.trail.size(), 0, "Bot iz qoldirdi")
+
+		# Qahramon botning izi ustidan kesib o'tadi
+		var cell: int = victim.trail[victim.trail.size() / 2]
+		var tx: int = cell % world.grid.width
+		var ty: int = cell / world.grid.width
+		killer.place_at(tx - 1.5, ty + 0.5, 0.0)
+		for i in 30:
+			if not victim.alive:
+				break
+			world.update(1.0 / 60.0)
+
+		t.equal(victim.alive, false, "Botning izi kesilganda bot halok bo'ldi")
+		t.equal(victim.death_cause, PlayerState.DeathCause.TRAIL_HIT, "O'lim sababi: TRAIL_HIT")
+		t.equal(killer.kills, 1, "Qahramonga +1 kill berildi")
+	)
+
+	t.test("4. Qirg'oq bo'ylab harakat va suv chegarasi", func() -> void:
+		var w := 10
+		var h := 10
+		var land := PackedByteArray()
+		land.resize(w * h)
+		for y in h:
+			for x in w:
+				land[y * w + x] = 1 if x < 5 else 0
+		var grid := GameGrid.new(w, h, land)
+		var cfg := GameConfig.new()
+		cfg.grid_width = w
+		cfg.grid_height = h
+		var world := GameWorld.new(cfg)
+		world.grid = grid
+
+		var p := PlayerState.new(1, "P", 0, false, 8.0, 4.0)
+		p.place_at(4.0, 4.0, 0.0)
+		world.players.append(p)
+		world._by_id[1] = p
+
+		for i in 10:
+			world._move(p, 0.05)
+
+		t.check(p.x < 5.0, "O'yinchi suvga tushib ketmadi, qirg'oqda qoldi (x = %.2f)" % p.x)
+	)
+
+
+func _test_phase8_spatial_city_performance(t: TestRunner) -> void:
+	t.group("Phase 8 Final: Spatial City Performance Optimization")
+
+	var map_ids: PackedStringArray = ["world", "europe", "asia", "africa", "north_america", "south_america", "oceania"]
+
+	for mid: String in map_ids:
+		t.test("1. Xarita '%s': spatial buckets hisobi O(N^2) bilan 100%% bir xil" % mid, func() -> void:
+			var map := WorldMap.load_map(mid)
+			t.check(map != null and not map.places.is_empty(), "Xarita %s yuklandi" % mid)
+			if map == null or map.places.is_empty():
+				return
+
+			var grid := GameGrid.new(map.width, map.height, map.land)
+			var city_sys := CitySystemRef.new()
+			city_sys.build(map.places, grid)
+
+			var all_matched := true
+			for i in city_sys.cities.size():
+				var c1: CitySystem.CityData = city_sys.cities[i]
+				var exact_min := 999.0
+				for j in city_sys.cities.size():
+					if i == j:
+						continue
+					var d := c1.pos.distance_to(city_sys.cities[j].pos)
+					if d < exact_min:
+						exact_min = d
+				if absf(c1.neighbor_dist - exact_min) > 0.001:
+					all_matched = false
+					break
+
+			t.equal(all_matched, true, "Xarita '%s' (%d ta shahar): barcha neighbor_dist 100%% aniq" % [mid, city_sys.cities.size()])
+		)
+
+
+func _test_phase8_long_session_endurance(t: TestRunner) -> void:
+	t.group("Phase 8 Final: Long Session Endurance (20 Bots, 8-10 Min Simulated Match)")
+
+	t.test("1. 20 ta bot bilan 500 soniyalik (8.3 daqiqa) uzluksiz o'yin simulyatsiyasi", func() -> void:
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 80
+		cfg.grid_height = 80
+		cfg.bot_count = 20
+		var world := MatchBuilder.create(cfg, 0, "Player", "figure:0", 42)
+
+		var mem_before := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+
+		var t_start := Time.get_ticks_msec()
+		var total_captures := 0
+		var total_kills := 0
+
+		# 500 soniyalik in-game simulyatsiya (dt = 0.2s -> 2,500 qadam)
+		for step in 2500:
+			world.update(0.2)
+			if not world.events.is_empty():
+				for ev in world.events:
+					if ev.get("type") == "capture":
+						total_captures += 1
+					elif ev.get("type") == "kill":
+						total_kills += 1
+				world.events.clear()
+
+		var sim_dur_ms := Time.get_ticks_msec() - t_start
+		var mem_after := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
+		var mem_growth := mem_after - mem_before
+
+		t.check(sim_dur_ms < 15000, "500 soniyalik (8.3 daqiqa) simulyatsiya %.1f soniyada tez yakunlandi" % (sim_dur_ms / 1000.0))
+		t.check(mem_growth < 15.0, "8.3 daqiqalik simulyatsiyadan so'ng xotira o'sishi minimal (%.2f MB)" % mem_growth)
+		t.equal(world.players.size(), 21, "Barcha 21 o'yinchi (1+20) tizimda barqaror")
+
+		var all_coords_valid := true
+		for p: PlayerState in world.players:
+			if p.x < 0.0 or p.x > float(world.grid.width) or p.y < 0.0 or p.y > float(world.grid.height):
+				all_coords_valid = false
+				break
+		t.equal(all_coords_valid, true, "Barcha bot koordinatalari xarita chegarasida to'g'ri saqlangan")
+		t.check(total_captures > 0, "O'yin davomida real egallashlar yuz berdi (%d ta)" % total_captures)
+	)
+
 

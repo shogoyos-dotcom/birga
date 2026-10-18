@@ -11,6 +11,7 @@ const CityNames = preload("res://scripts/app/city_names.gd")
 const RewardManager = preload("res://scripts/money/reward_manager.gd")
 const MonetizationConfig = preload("res://scripts/money/monetization_config.gd")
 const Profile = preload("res://scripts/app/profile.gd")
+const SavePaths := preload("res://scripts/app/save_paths.gd")
 
 enum Category {
 	SMALL = 0,
@@ -144,16 +145,54 @@ func build(places: Array, grid: GameGrid) -> void:
 		_by_cell[y * grid.width + x] = city
 
 	# Qo'shni shaharlar orasidagi minimal masofani hisoblash (Zichlik va o'lcham uchun)
-	for i in cities.size():
-		var c1: CityData = cities[i]
-		var min_d := 999.0
-		for j in cities.size():
-			if i == j:
-				continue
-			var d := c1.pos.distance_to(cities[j].pos)
-			if d < min_d:
-				min_d = d
-		c1.neighbor_dist = min_d
+	# Spatial buckets orqali optimallashtirilgan: O(N^2) dan O(N) ga tushiriladi
+	if cities.size() <= 16:
+		for i in cities.size():
+			var c1: CityData = cities[i]
+			var min_d := 999.0
+			for j in cities.size():
+				if i == j:
+					continue
+				var d := c1.pos.distance_to(cities[j].pos)
+				if d < min_d:
+					min_d = d
+			c1.neighbor_dist = min_d
+	else:
+		var bucket_size := 25.0
+		var buckets: Dictionary = {} # Vector2i -> Array[CityData]
+		for c in cities:
+			var bkey := Vector2i(int(floor(c.pos.x / bucket_size)), int(floor(c.pos.y / bucket_size)))
+			if not buckets.has(bkey):
+				buckets[bkey] = [] as Array[CityData]
+			(buckets[bkey] as Array[CityData]).append(c)
+
+		for c1 in cities:
+			var cbx := int(floor(c1.pos.x / bucket_size))
+			var cby := int(floor(c1.pos.y / bucket_size))
+			var min_d := 999.0
+
+			# 1-qadam: Atrofdagi 9 ta qo'shni chelakni (radius 1) tekshiramiz
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var nb_key := Vector2i(cbx + dx, cby + dy)
+					if buckets.has(nb_key):
+						for c2: CityData in (buckets[nb_key] as Array[CityData]):
+							if c1.id == c2.id:
+								continue
+							var d := c1.pos.distance_to(c2.pos)
+							if d < min_d:
+								min_d = d
+
+			# Agar min_d bucket_size dan katta bo'lsa yoki topilmasa, to'liq tekshiramiz
+			if min_d > bucket_size:
+				for c2 in cities:
+					if c1.id == c2.id:
+						continue
+					var d := c1.pos.distance_to(c2.pos)
+					if d < min_d:
+						min_d = d
+
+			c1.neighbor_dist = min_d
 
 	_total_count = cities.size()
 
@@ -360,7 +399,8 @@ class CityRewardTracker:
 	##    match ID va barcha stable_id lar 100% tiklanadi.
 	##  * Yangi match boshlangandagina reset() orqali yangi sessiya boshlanadi.
 
-	const SAVE_FILE_PATH := "user://active_match_rewards.cfg"
+	static var SAVE_FILE_PATH: String:
+		get: return SavePaths.path_for(SavePaths.ACTIVE_MATCH_REWARDS)
 
 	var _claimed_ids: Dictionary = {} # city_id (int) -> bool
 	var _claimed_stable_keys: Dictionary = {} # stable_id (String) -> bool
@@ -409,26 +449,55 @@ class CityRewardTracker:
 			return false
 		return true
 
-	func claim_city(city: CityData, is_human: bool) -> Dictionary:
+	## 1-bosqich: Munosiblikni tekshirish va tranzaksiya ma'lumotlarini tayyorlash (da'vo hali yozilmaydi)
+	func prepare_claim(city: CityData, is_human: bool, map_id: String = "") -> Dictionary:
 		if not is_human:
 			return {"eligible": false, "coins": 0, "reason": "bot"}
 		if not is_city_eligible(city):
 			_duplicates_prevented += 1
 			return {"eligible": false, "coins": 0, "reason": "already_claimed"}
-		_claimed_ids[city.id] = true
-		if not city.stable_id.is_empty():
-			_claimed_stable_keys[city.stable_id] = true
 		var coins: int = MonetizationConfig.get_city_capture_reward(city.category)
-		_rewarded_counts_by_category[city.category] = int(_rewarded_counts_by_category.get(city.category, 0)) + 1
-		_total_conquest_coins += coins
-		var tx_id := "conquest_%s_city_%d" % [_match_id, city.id]
+		var city_key := city.stable_id if not city.stable_id.is_empty() else ("city_%d" % city.id)
+		var tx_id := ("conquest_%s_%s_%s" % [map_id, _match_id, city_key]) if not map_id.is_empty() else ("conquest_%s_%s" % [_match_id, city_key])
 		return {
 			"eligible": true,
 			"coins": coins,
 			"category": city.category,
 			"tx_id": tx_id,
 			"city_name": city.display_name,
+			"city_id": city.id,
+			"stable_id": city.stable_id,
 		}
+
+	## 2-bosqich: Hamyonga pul tushgandan so'ng da'voni atomik yakunlash
+	func finalize_claim(city: CityData, credited_coins: int) -> void:
+		if city == null:
+			return
+		_claimed_ids[city.id] = true
+		if not city.stable_id.is_empty():
+			_claimed_stable_keys[city.stable_id] = true
+		_rewarded_counts_by_category[city.category] = int(_rewarded_counts_by_category.get(city.category, 0)) + 1
+		_total_conquest_coins += credited_coins
+
+	## Bir bosqichli da'vo (orqaga moslik uchun)
+	func claim_city(city: CityData, is_human: bool, map_id: String = "") -> Dictionary:
+		var prep := prepare_claim(city, is_human, map_id)
+		if bool(prep.get("eligible", false)):
+			finalize_claim(city, int(prep.get("coins", 0)))
+		return prep
+
+	## Hamyon tranzaksiyalari bilan o'zaro muvofiqlashtirish (reconciliation)
+	func reconcile_with_wallet(wallet: CurrencyManager, city: CityData, map_id: String = "") -> bool:
+		if city == null or wallet == null:
+			return false
+		var city_key := city.stable_id if not city.stable_id.is_empty() else ("city_%d" % city.id)
+		var tx_id := ("conquest_%s_%s_%s" % [map_id, _match_id, city_key]) if not map_id.is_empty() else ("conquest_%s_%s" % [_match_id, city_key])
+		if wallet.has_transaction(tx_id):
+			if not _claimed_ids.has(city.id) or not _claimed_stable_keys.has(city.stable_id):
+				var reward: int = MonetizationConfig.get_city_capture_reward(city.category)
+				finalize_claim(city, reward)
+			return true
+		return false
 
 	func get_rewarded_count(cat: int) -> int:
 		return int(_rewarded_counts_by_category.get(cat, 0))
@@ -497,23 +566,25 @@ class CityRewardTracker:
 		}
 
 	## O'yin sessiyasini diskka saqlash (Recovery fayli)
-	func save_state(path: String = SAVE_FILE_PATH) -> bool:
+	func save_state(path: String = "") -> bool:
+		var target_path := path if not path.is_empty() else SAVE_FILE_PATH
+		SavePaths.ensure_dir_exists(target_path.get_base_dir())
 		var cfg := ConfigFile.new()
 		cfg.set_value("match", "state", to_dict())
-		var err := cfg.save(path)
+		var err := cfg.save(target_path)
 		return err == OK
 
 	## Saqlangan o'yin sessiyasini diskdan yuklab tiklash
-	func load_state(path: String = SAVE_FILE_PATH, expected_match_id: String = "") -> bool:
+	func load_state(path: String = "", expected_match_id: String = "") -> bool:
+		var target_path := path if not path.is_empty() else SAVE_FILE_PATH
 		var cfg := ConfigFile.new()
-		var err := cfg.load(path)
+		var err := cfg.load(target_path)
 		if err != OK:
 			return false
 		var data: Variant = cfg.get_value("match", "state", {})
 		if data is Dictionary and not data.is_empty():
 			var saved_mid := str(data.get("match_id", ""))
 			var target_mid := expected_match_id if not expected_match_id.is_empty() else _match_id
-			# Agar kutilgan match_id ko'rsatilgan bo'lsa va u saqlanganga mos kelmasa — yuklamaymiz!
 			if not target_mid.is_empty() and saved_mid != target_mid:
 				return false
 			from_dict(data)
@@ -521,7 +592,8 @@ class CityRewardTracker:
 		return false
 
 	## O'yin tugaganda saqlangan tiklash faylini o'chirish
-	func clear_saved_state(path: String = SAVE_FILE_PATH) -> void:
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	func clear_saved_state(path: String = "") -> void:
+		var target_path := path if not path.is_empty() else SAVE_FILE_PATH
+		if FileAccess.file_exists(target_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(target_path))
 

@@ -1,6 +1,8 @@
 class_name CountryStore
 extends Node
 
+const SavePaths := preload("res://scripts/app/save_paths.gd")
+
 ## O'yinchining mamlakatlar yo'lidagi o'rni.
 ##
 ## Har o'yin oxirida ochko qo'shiladi; nishonga yetganda navbatdagi
@@ -15,13 +17,31 @@ signal changed()
 ## [{code, name, goal, rings}] — tartibi faylda belgilangan.
 var countries: Array = []
 
+var _file_path: String = ""
 var _index := 0
 var _points := 0
 var _config := ConfigFile.new()
 
-func _init() -> void:
+func _init(custom_path: String = "") -> void:
 	countries = CountryPath.load_all()
-	_config.load(FILE)
+	if not custom_path.is_empty():
+		_file_path = custom_path
+	_load()
+
+func get_file_path() -> String:
+	if not _file_path.is_empty():
+		return _file_path
+	return SavePaths.path_for(SavePaths.JOURNEY)
+
+func set_file_path(path: String) -> void:
+	_file_path = path
+	_load()
+
+func _load() -> void:
+	_config = ConfigFile.new()
+	var path := get_file_path()
+	if FileAccess.file_exists(path):
+		_config.load(path)
 	_index = clampi(int(_config.get_value(SECTION, "index", 0)),
 		0, maxi(countries.size() - 1, 0))
 	_points = maxi(int(_config.get_value(SECTION, "points", 0)), 0)
@@ -87,4 +107,6 @@ func reset() -> void:
 func _save() -> void:
 	_config.set_value(SECTION, "index", _index)
 	_config.set_value(SECTION, "points", _points)
-	_config.save(FILE)
+	var path := get_file_path()
+	SavePaths.ensure_dir_exists(path.get_base_dir())
+	_config.save(path)
