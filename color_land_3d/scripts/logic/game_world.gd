@@ -309,6 +309,14 @@ func _enter_cell(p: PlayerState, nx: int, ny: int) -> void:
 	if grid.trail_cells[i] == p.id:
 		if not _own_trail_allowed(p, i):
 			kill(p, PlayerState.DeathCause.SELF_CROSS, null)
+		else:
+			# O'z izi bo'ylab ortga qaytganda — oldinda qolib ketgan "arvoh" izlar
+			# panjaradan va yo'ldan tozalanadi (z-fighting va yopishib qolishni oldini oladi).
+			var k: int = p.trail_at.get(i, -1)
+			if k >= 0 and k < p.trail.size() - 1:
+				var pruned := p.pop_trail_back_to(k)
+				for cell in pruned:
+					grid.set_trail_index(cell, 0)
 		return
 
 	p.since_retrace += 1

@@ -44,6 +44,14 @@ var _x0: int
 var _y0: int
 var _x1: int
 var _y1: int
+var _bound_x0: int
+var _bound_y0: int
+var _bound_x1: int
+var _bound_y1: int
+var _esc_left: bool
+var _esc_top: bool
+var _esc_right: bool
+var _esc_bottom: bool
 
 func _init(p_grid: GameGrid) -> void:
 	grid = p_grid
@@ -62,10 +70,11 @@ func capture(player_id: int, trail: PackedInt32Array) -> Dictionary:
 	_cells = PackedInt32Array()
 	_taken_from = {}
 
-	# 1. Iz kataklari o'yinchiniki bo'ladi.
+	# 1. Iz kataklari o'yinchiniki bo'ladi (faqat quruqlik).
 	for i: int in trail:
 		grid.set_trail_index(i, 0)
-		_claim(i)
+		if grid.is_land_index(i):
+			_claim(i)
 	if trail.is_empty():
 		return _result()
 
@@ -75,10 +84,24 @@ func capture(player_id: int, trail: PackedInt32Array) -> Dictionary:
 	var b := grid.bounds_of(player_id)
 	if b.is_empty():
 		return _result()
-	_x0 = maxi(0, b[0] - 1)
-	_y0 = maxi(0, b[1] - 1)
-	_x1 = mini(grid.width - 1, b[2] + 1)
-	_y1 = mini(grid.height - 1, b[3] + 1)
+	_bound_x0 = b[0]
+	_bound_y0 = b[1]
+	_bound_x1 = b[2]
+	_bound_y1 = b[3]
+
+	# Agar o'yinchi hududi xarita chegarasiga (0 yoki width-1) tegib turgan bo'lsa,
+	# xarita cheti tabiiy to'siq bo'lib xizmat qiladi — u tomondan chiqib ketish (escape)
+	# bo'lishi mumkin emas. Faqat hududdan narida erkin o'yin maydoni mavjud bo'lsagina
+	# shu tomondan "tashqariga chiqdi" deb hisoblanadi.
+	_esc_left = (_bound_x0 > 0)
+	_esc_top = (_bound_y0 > 0)
+	_esc_right = (_bound_x1 < grid.width - 1)
+	_esc_bottom = (_bound_y1 < grid.height - 1)
+
+	_x0 = maxi(0, _bound_x0 - 1)
+	_y0 = maxi(0, _bound_y0 - 1)
+	_x1 = mini(grid.width - 1, _bound_x1 + 1)
+	_y1 = mini(grid.height - 1, _bound_y1 + 1)
 	_mark += 1
 
 	# 3. Izning har bir qo'shnisidan to'ldirish.
@@ -98,7 +121,7 @@ func _fill_from(x: int, y: int) -> void:
 	if x < _x0 or x > _x1 or y < _y0 or y > _y1:
 		return
 	var i: int = y * grid.width + x
-	if _seen[i] == _mark or grid.owner_cells[i] == _player_id:
+	if _seen[i] == _mark or grid.owner_cells[i] == _player_id or not grid.is_land_index(i):
 		return
 
 	_head = 0
@@ -112,10 +135,12 @@ func _fill_from(x: int, y: int) -> void:
 		_head += 1
 		var ax: int = at % w
 		var ay: int = at / w
-		if ax <= _x0 or ax >= _x1 or ay <= _y0 or ay >= _y1:
-			# Chetga chiqdi — tashqari. Belgilab qo'yilgan kataklar
-			# saqlanib qoladi, shuning uchun keyingi urug'lar shu
-			# yerni qaytadan kezmaydi.
+		# Faqat hududdan tashqarida erkin o'yin maydoni mavjud bo'lgan tomongagina
+		# chiqib ketish haqiqiy "tashqari" hisoblanadi. Xarita cheti esa to'siqdir.
+		if (_esc_left and ax < _bound_x0) \
+				or (_esc_right and ax > _bound_x1) \
+				or (_esc_top and ay < _bound_y0) \
+				or (_esc_bottom and ay > _bound_y1):
 			return
 		if ax > _x0:
 			_push(at - 1)
@@ -128,11 +153,15 @@ func _fill_from(x: int, y: int) -> void:
 
 	# To'ldirish chetga chiqmay tugadi — demak o'ralgan joy.
 	for cell: int in _region:
-		if grid.is_land_index(cell):
-			_claim(cell)
+		_claim(cell)
 
 func _push(i: int) -> void:
 	if _seen[i] == _mark or grid.owner_cells[i] == _player_id:
+		return
+	# Suv kataklari — o'yinda o'tib bo'lmaydigan tabiiy chegara va hech qachon egallanmaydi.
+	# To'ldirish suvga o'tmaydi, shu sababli qirg'oq bo'yidagi halqalar okeanga sizib chiqib
+	# bekor bo'lmaydi va barcha quruqlik kataklari to'liq egallanadi.
+	if not grid.is_land_index(i):
 		return
 	_seen[i] = _mark
 	_queue[_tail] = i

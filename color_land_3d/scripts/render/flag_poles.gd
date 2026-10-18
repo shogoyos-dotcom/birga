@@ -305,26 +305,35 @@ static func find_connected_components(grid: GameGrid, player_id: int, min_size: 
 	)
 	return components
 
+var _last_comp_search_msec: int = 0
+
 ## Kadr yangilanishi — OPTIMALLASHGAN:
-## Faqat GameGrid.version_of() o'zgarganda ishlaydi.
+## Faqat GameGrid.version_of() o'zgarganda va kerakli o'yinchilar uchungina ishlaydi.
 func update_poles() -> void:
 	if _world == null or _world.grid == null:
 		return
 
 	# Tezkor tekshiruv: hech qanday o'yinchining hudud versiyasi o'zgarmagan bo'lsa, chiqish ($O(1)$)
 	var any_changed := false
+	var changed_players: Array[PlayerState] = []
 	for p in _world.players:
 		var current_ver := _world.grid.version_of(p.id)
 		if _last_grid_versions.get(p.id, -1) != current_ver:
 			_last_grid_versions[p.id] = current_ver
 			any_changed = true
+			changed_players.append(p)
 
 	if not any_changed:
 		return
 
 	var start_time := Time.get_ticks_usec()
+	var now_msec := Time.get_ticks_msec()
+	# Og'ir BFS komponentlar qidiruvini 450 ms interval bilan cheklash (mobil kadr tushishini oldini oladi)
+	var run_comp_search := (now_msec - _last_comp_search_msec >= 450)
+	if run_comp_search:
+		_last_comp_search_msec = now_msec
 
-	for p in _world.players:
+	for p in changed_players:
 		# 1. Boshlang'ich baza bayrog'ini tekshirish
 		var base_pos_2d := Vector2.ZERO
 		if _base_poles.has(p.id):
@@ -356,6 +365,9 @@ func update_poles() -> void:
 					if is_instance_valid(node):
 						(node as Node3D).queue_free()
 				_territory_poles.erase(p.id)
+			continue
+
+		if not run_comp_search:
 			continue
 
 		# Yirik ajralgan qismlarni qidirish

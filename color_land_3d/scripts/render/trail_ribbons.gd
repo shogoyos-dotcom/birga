@@ -102,6 +102,8 @@ func _process(_delta: float) -> void:
 			# chetli bo'lib chiqadi.
 			_add_ribbon(p, true)
 			_add_ribbon(p, false)
+		else:
+			_smooth_cache.erase(p.id)
 
 ## Iz lentasini silliqlash: nechta marta o'tiladi va har o'tishda
 ## nuqta qo'shnilarining o'rtasiga qanchalik tortiladi.

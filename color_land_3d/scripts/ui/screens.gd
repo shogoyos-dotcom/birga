@@ -45,6 +45,8 @@ var _coin_label: Label
 var _city_label: Label
 var _fps_label: Label
 var _city_modal: Control
+var _city_hud_card: Control
+var _hud_joy_knob: Panel
 var _board: VBoxContainer
 var _result_data := {}
 var _flag_query := ""
@@ -136,7 +138,11 @@ func _build_menu() -> Control:
 	# Markazda — World Expedition banner kartasi
 	box.add_child(_journey_card())
 
-	box.add_child(UiKit.spacer(8))
+	# Ixcham kunlik sovg'a vidjeti (Issue 4)
+	box.add_child(UiKit.spacer(4))
+	box.add_child(_daily_gift_widget())
+
+	box.add_child(UiKit.spacer(6))
 	# Katta 3D bo'rtib chiqqan Play tugmasi
 	var play := UiKit.play_button("PLAY", UiKit.YELLOW, 340, 84)
 	play.pressed.connect(func() -> void:
@@ -174,11 +180,7 @@ func _top_bar() -> Control:
 	row.add_child(gap)
 
 	var coins_val: int = Wallet.get_coins()
-	if coins_val == 0:
-		coins_val = 12450
 	var gems_val: int = Wallet.get_gems()
-	if gems_val == 0:
-		gems_val = 320
 	row.add_child(_purse_chip("coin", coins_val, UiKit.YELLOW))
 	row.add_child(_purse_chip("gem", gems_val, UiKit.VIOLET))
 
@@ -261,6 +263,66 @@ func _journey_card() -> Control:
 	arr_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	arrow_circle.add_child(arr_lbl)
 	row.add_child(arrow_circle)
+
+	return btn
+
+## Asosiy menyudagi ixcham kunlik sovg'a vidjeti (Issue 4).
+func _daily_gift_widget() -> Control:
+	var claimed: bool = Daily.claimed_today()
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(420, 52)
+	btn.flat = false
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var bg := Color(0.06, 0.14, 0.32, 0.90) if claimed else Color(0.10, 0.24, 0.52, 0.95)
+	var box := UiKit.style_solid(bg, 14, 2, 4)
+	box.border_color = Color("94a3b8") if claimed else Color("ffd93b")
+	box.set_border_width_all(2)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		btn.add_theme_stylebox_override(st, box)
+
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(row)
+
+	var icon_lbl := Label.new()
+	icon_lbl.text = "🎁"
+	icon_lbl.add_theme_font_size_override("font_size", 22)
+	row.add_child(icon_lbl)
+
+	var title_text := ""
+	var title_color := UiKit.TEXT
+	if claimed:
+		title_text = "Kunlik sovg'a: Olingan ✓ (Ertaga qayting)"
+		title_color = Color("94a3b8")
+	else:
+		title_text = "Kunlik sovg'a (%s %d): +%d 🪙" % [
+			Strings.t("streakDay"), Daily.next_day(), Daily.reward_for_today()]
+		title_color = UiKit.YELLOW
+
+	var t_lbl := UiKit.title(title_text, 14, title_color)
+	row.add_child(t_lbl)
+
+	if not claimed:
+		var chip := PanelContainer.new()
+		var chip_sb := StyleBoxFlat.new()
+		chip_sb.bg_color = UiKit.GREEN
+		chip_sb.set_corner_radius_all(8)
+		chip_sb.content_margin_left = 10
+		chip_sb.content_margin_right = 10
+		chip_sb.content_margin_top = 3
+		chip_sb.content_margin_bottom = 3
+		chip.add_theme_stylebox_override("panel", chip_sb)
+		var c_lbl := UiKit.title("OLISH", 12, UiKit.INK)
+		chip.add_child(c_lbl)
+		row.add_child(chip)
+
+	btn.pressed.connect(func() -> void:
+		Audio.tap()
+		open_shop(Screen.MENU))
 
 	return btn
 
@@ -1469,12 +1531,44 @@ func _build_profile() -> Control:
 	_nickname_edit.max_length = Profile.MAX_NICKNAME
 	_nickname_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_nickname_edit.add_theme_font_size_override("font_size", 18)
-	_nickname_edit.add_theme_stylebox_override("normal",
-		UiKit.style(UiKit.SURFACE.lightened(0.4), 10, 2, 8))
-	_nickname_edit.add_theme_stylebox_override("focus",
-		UiKit.style(UiKit.SURFACE.lightened(0.4), 10, 2, 8))
-	_nickname_edit.text_changed.connect(func(text: String) -> void:
-		store.nickname = Profile.sanitize(text, Strings.t("you")))
+	_nickname_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_DEFAULT
+	_nickname_edit.select_all_on_focus = true
+	_nickname_edit.context_menu_enabled = true
+
+	# Yuqori kontrastli zamonaviy ko'rinish: toza oq fon, qalin kontur va to'q ko'k matn
+	var normal_box := StyleBoxFlat.new()
+	normal_box.bg_color = Color(1.0, 1.0, 1.0, 1.0)
+	normal_box.border_color = Color("3c8bf5")
+	normal_box.set_border_width_all(2)
+	normal_box.set_corner_radius_all(10)
+	normal_box.content_margin_left = 12
+	normal_box.content_margin_right = 12
+	normal_box.content_margin_top = 8
+	normal_box.content_margin_bottom = 8
+	_nickname_edit.add_theme_stylebox_override("normal", normal_box)
+
+	var focus_box := StyleBoxFlat.new()
+	focus_box.bg_color = Color(1.0, 1.0, 1.0, 1.0)
+	focus_box.border_color = UiKit.INK
+	focus_box.set_border_width_all(3)
+	focus_box.set_corner_radius_all(10)
+	focus_box.content_margin_left = 12
+	focus_box.content_margin_right = 12
+	focus_box.content_margin_top = 8
+	focus_box.content_margin_bottom = 8
+	_nickname_edit.add_theme_stylebox_override("focus", focus_box)
+
+	# Ranglar: To'q qora/ko'k yozuv, ko'rinadigan kursor, aniq placeholder
+	_nickname_edit.add_theme_color_override("font_color", UiKit.INK)
+	_nickname_edit.add_theme_color_override("font_placeholder_color", Color("6c85a8"))
+	_nickname_edit.add_theme_color_override("caret_color", UiKit.INK)
+	_nickname_edit.add_theme_color_override("font_selected_color", Color.WHITE)
+	_nickname_edit.add_theme_color_override("selection_color", Color("2e6bf0"))
+
+	_nickname_edit.text_submitted.connect(func(_t: String) -> void:
+		_save_nickname())
+	_nickname_edit.focus_exited.connect(func() -> void:
+		_save_nickname())
 	edit_row.add_child(_nickname_edit)
 	inner.add_child(edit_card)
 
@@ -1661,8 +1755,13 @@ func _photo_row(current: String, dest: String,
 
 func _save_nickname() -> void:
 	if _nickname_edit != null and is_instance_valid(_nickname_edit):
-		store.nickname = Profile.sanitize(
-			_nickname_edit.text, Strings.t("you"))
+		var raw: String = _nickname_edit.text.strip_edges()
+		if not raw.is_empty():
+			var sanitized := Profile.sanitize(raw, Strings.t("you"))
+			if store.nickname != sanitized:
+				store.nickname = sanitized
+				store.save()
+				settings_changed.emit()
 
 func _pick_avatar(value: String) -> void:
 	Audio.tap()
@@ -1825,53 +1924,55 @@ func _build_hud() -> Control:
 	board_panel.add_child(_board)
 	root.add_child(board_panel)
 
-	# Pastda chapda: Vizual joystick ko'rsatkichi (yo'nalish strelkalari bilan)
+	# Pastda chapda: Vizual va interaktiv joystick (telefonlar uchun qulay o'lcham)
 	var joy := Control.new()
 	joy.anchor_top = 1.0
 	joy.anchor_bottom = 1.0
-	joy.offset_left = 24
-	joy.offset_top = -160
-	joy.offset_right = 154
-	joy.offset_bottom = -30
-	joy.custom_minimum_size = Vector2(130, 130)
+	joy.offset_left = 36
+	joy.offset_top = -210
+	joy.offset_right = 206
+	joy.offset_bottom = -40
+	joy.custom_minimum_size = Vector2(170, 170)
 	joy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var joy_base := Panel.new()
 	joy_base.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var jb := StyleBoxFlat.new()
-	jb.bg_color = Color(0.08, 0.16, 0.35, 0.50)
-	jb.border_color = Color(1.0, 1.0, 1.0, 0.40)
+	jb.bg_color = Color(0.06, 0.14, 0.32, 0.60)
+	jb.border_color = Color("00d4ff")
 	jb.set_border_width_all(3)
-	jb.set_corner_radius_all(65)
+	jb.set_corner_radius_all(85)
 	joy_base.add_theme_stylebox_override("panel", jb)
 	joy_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	joy.add_child(joy_base)
 
 	var arrow_dirs := [
-		["▲", Vector2(0.5, 0.15)], ["▼", Vector2(0.5, 0.85)],
-		["◀", Vector2(0.15, 0.5)], ["▶", Vector2(0.85, 0.5)]
+		["▲", Vector2(0.5, 0.12)], ["▼", Vector2(0.5, 0.88)],
+		["◀", Vector2(0.12, 0.5)], ["▶", Vector2(0.88, 0.5)]
 	]
 	for ad: Array in arrow_dirs:
 		var arr := Label.new()
 		arr.text = str(ad[0])
-		arr.add_theme_font_size_override("font_size", 13)
-		arr.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
+		arr.add_theme_font_size_override("font_size", 16)
+		arr.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
 		arr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		arr.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		arr.size = Vector2(20, 20)
-		arr.position = Vector2(float(ad[1].x) * 130 - 10, float(ad[1].y) * 130 - 10)
+		arr.size = Vector2(24, 24)
+		arr.position = Vector2(float(ad[1].x) * 170 - 12, float(ad[1].y) * 170 - 12)
 		joy.add_child(arr)
 
 	var joy_knob := Panel.new()
-	joy_knob.custom_minimum_size = Vector2(50, 50)
-	joy_knob.set_anchors_preset(Control.PRESET_CENTER)
+	joy_knob.size = Vector2(64, 64)
+	joy_knob.custom_minimum_size = Vector2(64, 64)
+	joy_knob.position = Vector2(53, 53)
 	var jk := StyleBoxFlat.new()
-	jk.bg_color = Color(0.15, 0.60, 1.0, 0.70)
-	jk.border_color = Color(1.0, 1.0, 1.0, 0.85)
-	jk.set_border_width_all(2)
-	jk.set_corner_radius_all(25)
+	jk.bg_color = Color(0.12, 0.45, 0.95, 0.85)
+	jk.border_color = Color(1.0, 1.0, 1.0, 0.95)
+	jk.set_border_width_all(3)
+	jk.set_corner_radius_all(32)
 	joy_knob.add_theme_stylebox_override("panel", jk)
 	joy_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	joy.add_child(joy_knob)
+	_hud_joy_knob = joy_knob
 	root.add_child(joy)
 
 	# Pastda o'ngda: Aylanma radar mini-xarita
@@ -1965,17 +2066,148 @@ func update_hud(percent: float, kills: int, elapsed: float, rank: int,
 	if _fps_label != null and is_instance_valid(_fps_label) and _fps_label.visible:
 		var fps := Engine.get_frames_per_second()
 		var mem := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
-		_fps_label.text = "%d FPS | %.0f MB" % [fps, mem]
+		var dc := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		var ft := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		_fps_label.text = "%d FPS (%.1f ms) | %d DC | %.0f MB" % [fps, ft, dc, mem]
 
-	for child in _board.get_children():
-		child.queue_free()
-	for row: Dictionary in rows:
-		_board.add_child(_board_row(row))
+	var cur_children := _board.get_children()
+	if cur_children.size() != rows.size():
+		for c in cur_children:
+			c.queue_free()
+		for row: Dictionary in rows:
+			_board.add_child(_board_row(row))
+	else:
+		for i in rows.size():
+			_update_board_row(cur_children[i], rows[i])
+
+func _update_board_row(card: Control, row: Dictionary) -> void:
+	var line: HBoxContainer = card.get_child(0) as HBoxContainer if card.get_child_count() > 0 else null
+	if line == null:
+		return
+	var labels: Array[Label] = []
+	for c in line.get_children():
+		if c is Label:
+			labels.append(c as Label)
+	if labels.size() >= 2:
+		labels[0].text = str(row["name"])
+		labels[1].text = "%.1f%%" % float(row["percent"])
+
+## Joystick faolligi va markazga silliq qaytishi (Issue 5)
+func set_joystick_active(active: bool, _screen_pos: Vector2) -> void:
+	if _hud_joy_knob != null and is_instance_valid(_hud_joy_knob):
+		if not active:
+			var tw := _hud_joy_knob.create_tween()
+			tw.tween_property(_hud_joy_knob, "position", Vector2(53, 53), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+## Joystick tugmachasi siljishini yangilash (Issue 5)
+func update_joystick_offset(offset: Vector2) -> void:
+	if _hud_joy_knob != null and is_instance_valid(_hud_joy_knob):
+		var base_center := Vector2(53, 53)
+		var max_r := 52.0
+		var clamped := offset.limit_length(max_r) if offset.length() > max_r else offset
+		_hud_joy_knob.position = base_center + clamped
 
 ## HUD shahar hisoblagichini yangilaydi (Phase 5).
 func update_hud_cities(captured: int, total: int) -> void:
 	if _city_label != null and is_instance_valid(_city_label):
 		_city_label.text = "%d / %d" % [captured, total]
+
+## O'yin davomida ekranni to'smaydigan ixcham shahar kartasi (Issue 3)
+func show_city_hud_card(city: CitySystem.CityData, _coin_available: bool = true, already_claimed: bool = false, is_owned: bool = false) -> void:
+	if city == null:
+		return
+	if _city_hud_card != null and is_instance_valid(_city_hud_card):
+		if _city_hud_card.has_meta("city_id") and int(_city_hud_card.get_meta("city_id")) == city.id:
+			return
+		_city_hud_card.queue_free()
+
+	var card := PanelContainer.new()
+	_city_hud_card = card
+	card.set_meta("city_id", city.id)
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.offset_left = -160
+	card.offset_right = 160
+	card.offset_top = 70
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.12, 0.28, 0.94)
+	sb.border_color = Color("00d4ff")
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	card.add_theme_stylebox_override("panel", sb)
+
+	var vcol := VBoxContainer.new()
+	vcol.add_theme_constant_override("separation", 4)
+	vcol.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.add_child(vcol)
+
+	# 1-qator: Bayroq + Shahar nomi + Toifa nishoni + Yopish [✕]
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 8)
+	top_row.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var flag_tex := FlagRenderer.get_flag_texture(city.country_code)
+	if flag_tex != null:
+		var f_rect := TextureRect.new()
+		f_rect.texture = flag_tex
+		f_rect.custom_minimum_size = Vector2(28, 18)
+		f_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		f_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		top_row.add_child(f_rect)
+
+	var name_lbl := UiKit.title(city.display_name, 16, UiKit.TEXT)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.clip_text = true
+	top_row.add_child(name_lbl)
+
+	var badge_col := Color("fbbf24") if city.category == CitySystem.Category.LARGE else (Color("38bdf8") if city.category == CitySystem.Category.MEDIUM else Color("84cc16"))
+	var badge := UiKit.label(city.category_badge(), 11, badge_col)
+	top_row.add_child(badge)
+
+	var close_btn := Button.new()
+	close_btn.text = "✕"
+	close_btn.flat = true
+	close_btn.add_theme_color_override("font_color", Color("94a3b8"))
+	close_btn.add_theme_font_size_override("font_size", 14)
+	close_btn.pressed.connect(func() -> void:
+		if is_instance_valid(card):
+			card.queue_free())
+	top_row.add_child(close_btn)
+	vcol.add_child(top_row)
+
+	# 2-qator: Ega + Istilo mukofoti
+	var bot_row := HBoxContainer.new()
+	bot_row.add_theme_constant_override("separation", 8)
+	bot_row.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var owner_text := "Neytral" if not city.is_captured() else city.owner_name
+	var owner_lbl := UiKit.label("Ega: %s" % owner_text, 12, Color("cbd5e1"))
+	owner_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	owner_lbl.clip_text = true
+	bot_row.add_child(owner_lbl)
+
+	var conquest_reward: int = MonetizationConfig.get_city_capture_reward(city.category)
+	var rew_str := "+%d 🪙" % conquest_reward if not already_claimed else ("Olingan ✓" if is_owned else "0 🪙")
+	var rew_color := Color("facc15") if not already_claimed else Color("94a3b8")
+	var rew_lbl := UiKit.label(rew_str, 13, rew_color)
+	bot_row.add_child(rew_lbl)
+	vcol.add_child(bot_row)
+
+	add_child(card)
+
+	# 2.5 soniyadan so'ng silliq so'nib o'zini tozalaydi
+	var tw := card.create_tween()
+	tw.tween_interval(2.2)
+	tw.tween_property(card, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(card):
+			card.queue_free())
 
 ## Shahar ma'lumotlari oynasi (Phase 5-6 City Info Modal).
 func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true, already_claimed: bool = false, is_owned: bool = false) -> void:

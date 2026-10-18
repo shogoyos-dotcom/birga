@@ -95,6 +95,23 @@ func add_trail(cell: int) -> void:
 	trail_at[cell] = trail.size()
 	trail.append(cell)
 
+## Izni ortga qaytganda oxirgi kataklargacha qisqartiradi va uzilgan kataklarni qaytaradi
+func pop_trail_back_to(k: int) -> PackedInt32Array:
+	var pruned := PackedInt32Array()
+	if k < 0 or k >= trail.size() - 1:
+		return pruned
+	for idx in range(k + 1, trail.size()):
+		var cell: int = trail[idx]
+		trail_at.erase(cell)
+		pruned.append(cell)
+	trail.resize(k + 1)
+	if not trail_path.is_empty():
+		var max_path := maxi(k + 1, 1)
+		if trail_path.size() > max_path:
+			trail_path.resize(max_path)
+		trail_path[trail_path.size() - 1] = Vector2(x, y)
+	return pruned
+
 func steer_to(dir: float) -> void:
 	target_angle = normalize_angle(dir)
 

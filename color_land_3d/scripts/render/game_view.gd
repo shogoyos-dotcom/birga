@@ -84,6 +84,9 @@ var _base_speed := 0.0
 var _burst: CPUParticles3D
 var _drag_origin := Vector2.ZERO
 var _dragging := false
+var _steer_touch_index: int = -1
+var _touch_start_time: int = 0
+var _touch_start_pos := Vector2.ZERO
 var _hud_timer := 0.0
 ## Mahalliy o'yinchi boshqaruvdami (o'lsa yoki pauzada — yo'q).
 var _playing := false
@@ -1478,25 +1481,52 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
-			_drag_origin = touch.position
-			_dragging = true
-			if _city_renderer != null:
-				var hit_c = _city_renderer.get_city_at_screen_ray(camera, touch.position)
-				if hit_c != null:
-					_on_city_selected(hit_c)
+			var vp_size := get_viewport().get_visible_rect().size
+			# Chap yoki pastki zonada bosilsa — boshqaruv (joystick) boshlanadi
+			var in_steer_zone: bool = touch.position.x < vp_size.x * 0.65 and touch.position.y > vp_size.y * 0.35
+			if _steer_touch_index == -1 and in_steer_zone:
+				_steer_touch_index = touch.index
+				_drag_origin = touch.position
+				_dragging = true
+				ui.set_joystick_active(true, touch.position)
+			else:
+				# Boshqa teginishlar — potensial shahar tanlash bosishi (tap)
+				_touch_start_time = Time.get_ticks_msec()
+				_touch_start_pos = touch.position
 		else:
-			_dragging = false
+			if touch.index == _steer_touch_index:
+				_steer_touch_index = -1
+				_dragging = false
+				ui.set_joystick_active(false, Vector2.ZERO)
+			else:
+				var tap_duration := Time.get_ticks_msec() - _touch_start_time
+				var tap_dist := (touch.position - _touch_start_pos).length()
+				if tap_duration < 350 and tap_dist < 20.0 and _city_renderer != null:
+					var hit_c = _city_renderer.get_city_at_screen_ray(camera, touch.position)
+					if hit_c != null:
+						_on_city_selected(hit_c)
 	elif event is InputEventMouseButton:
 		var click := event as InputEventMouseButton
 		if click.button_index == MOUSE_BUTTON_LEFT:
-			_drag_origin = click.position
-			_dragging = click.pressed
-			if click.pressed and _city_renderer != null:
-				var hit_c = _city_renderer.get_city_at_screen_ray(camera, click.position)
-				if hit_c != null:
-					_on_city_selected(hit_c)
+			if click.pressed:
+				_drag_origin = click.position
+				_dragging = true
+				_touch_start_time = Time.get_ticks_msec()
+				_touch_start_pos = click.position
+				ui.set_joystick_active(true, click.position)
+			else:
+				_dragging = false
+				ui.set_joystick_active(false, Vector2.ZERO)
+				var tap_duration := Time.get_ticks_msec() - _touch_start_time
+				var tap_dist := (click.position - _touch_start_pos).length()
+				if tap_duration < 350 and tap_dist < 20.0 and _city_renderer != null:
+					var hit_c = _city_renderer.get_city_at_screen_ray(camera, click.position)
+					if hit_c != null:
+						_on_city_selected(hit_c)
 	elif event is InputEventScreenDrag:
-		_steer((event as InputEventScreenDrag).position)
+		var drag := event as InputEventScreenDrag
+		if drag.index == _steer_touch_index or (_steer_touch_index == -1 and _dragging):
+			_steer(drag.position)
 	elif event is InputEventMouseMotion and _dragging:
 		_steer((event as InputEventMouseMotion).position)
 
@@ -1509,13 +1539,15 @@ func _on_city_selected(city: CitySystem.CityData) -> void:
 	var h = world.human()
 	var human_id: int = h.id if h != null else 1
 	var is_owned: bool = city.is_owned_by(human_id)
-	ui.show_city_info_modal(city, avail, already_claimed, is_owned)
+	# Markaziy modal o'rniga o'yinni to'smaydigan ixcham HUD kartasi (Issue 3)
+	ui.show_city_hud_card(city, avail, already_claimed, is_owned)
 
 func _steer(at: Vector2) -> void:
 	if not _dragging:
 		return
 	var delta := at - _drag_origin
 	if delta.length() < DRAG_DEADZONE:
+		ui.update_joystick_offset(Vector2.ZERO)
 		return
 	# Ekran o'qlari dunyo o'qlariga to'g'ri keladi: kamera tepadan
 	# qaraydi va burilmaydi, shuning uchun qo'shimcha aylantirish kerak
@@ -1523,9 +1555,42 @@ func _steer(at: Vector2) -> void:
 	var angle := atan2(delta.y, delta.x)
 	world.human().steer_to(angle)
 	Net.send_steer(angle)
+	# Joystick tugmachasini harakatlantirish
+	ui.update_joystick_offset(delta.normalized() * mini(int(delta.length()), 52))
 	# Barmoq uzoqlashsa boshlang'ich nuqtani ergashtiramiz.
 	if delta.length() > DRAG_LEASH:
 		_drag_origin = at - delta.normalized() * DRAG_LEASH
+
+## Tekshirish va QA uchun mantiqiy va vizual render panjarasini taqqoslash (Issue 2)
+func get_debug_grid_comparison() -> Dictionary:
+	if world == null or world.grid == null or paint == null:
+		return {}
+	var g := world.grid
+	var mismatches := 0
+	var logical_owned := 0
+	var rendered_owned := 0
+	var trail_count := 0
+	for y in g.height:
+		for x in g.width:
+			var log_own := g.owner_at(x, y)
+			var rend_val := paint.index_at(x, y)
+			var rend_own := 0 if rend_val >= 256 else rend_val
+			var has_trail := g.trail_at(x, y) != 0
+			if log_own != 0:
+				logical_owned += 1
+			if rend_own != 0:
+				rendered_owned += 1
+			if has_trail:
+				trail_count += 1
+			if log_own != rend_own:
+				mismatches += 1
+	return {
+		"logical_owned": logical_owned,
+		"rendered_owned": rendered_owned,
+		"trail_cells": trail_count,
+		"mismatched_cells": mismatches,
+		"is_consistent": mismatches == 0
+	}
 
 ## Skrinshot vositasi uchun: kerakli ekranni ochadi.
 func show_screen_for_demo(name: String) -> void:

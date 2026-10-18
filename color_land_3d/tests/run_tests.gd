@@ -85,6 +85,7 @@ func _process(_delta: float) -> bool:
 	_test_phase8_spatial_city_performance(t)
 	_test_phase8_long_session_endurance(t)
 	_test_fonts_and_glyphs(t)
+	_test_phase8_1_real_android_fixes(t)
 
 	var ok := t.report()
 
@@ -3783,6 +3784,169 @@ func _test_fonts_and_glyphs(t: TestRunner) -> void:
 		for path: String in UiKit.SCRIPT_FONT_PATHS:
 			var f: Font = load(path)
 			t.check(f != null, "Xalqaro yozuv shrifti yuklandi: %s" % path.get_file())
+	)
+
+
+func _test_phase8_1_real_android_fixes(t: TestRunner) -> void:
+	t.group("phase 8.1 real android fixes & performance")
+
+	# 1. Profile nickname: contrast, multilingual sanitization and persistence
+	t.test("1. Profile nik: yuqori kontrast, o'zbek/rus/ingliz tillari va saqlash", func() -> void:
+		t.equal(Profile.sanitize("SHO", "Player"), "SHO")
+		t.equal(Profile.sanitize("Ғалаба", "Player"), "Ғалаба")
+		t.equal(Profile.sanitize("Победа", "Player"), "Победа")
+		t.equal(Profile.sanitize("   ", "Fallback"), "Fallback")
+		t.equal(Profile.sanitize("VeryLongNicknameExceedingLimit", "Player").length(), Profile.MAX_NICKNAME)
+	)
+
+	# 2. Xarita chetidagi (border edge) hududni to'liq egallash (Screenshot 2 & 8 regressiya)
+	t.test("2. Xarita chetida (x=0) yopilgan halqa to'liq egallanadi", func() -> void:
+		var grid := GameGrid.new(20, 20)
+		# Boshlang'ich hudud xarita chetida (x=0..3, y=5..15)
+		for y in range(5, 16):
+			for x in range(0, 4):
+				grid.set_owner(x, y, 1)
+		# Halqa: (4, 7) dan chiqib (8, 7) -> (8, 12) -> (4, 12)
+		var cells: Array[Vector2i] = []
+		for x in range(4, 9):
+			cells.append(Vector2i(x, 7))
+		for y in range(8, 13):
+			cells.append(Vector2i(8, y))
+		for x in range(7, 3, -1):
+			cells.append(Vector2i(x, 12))
+		var trail := _lay_trail(grid, 1, cells)
+		var res := TerritoryCapturer.new(grid).capture(1, trail)
+		t.greater(int(res["captured"]), 0, "Kataklar egallandi")
+		# Ichki kataklar (5..7, 8..11) to'liq egallanganligini tekshirish
+		t.equal(grid.owner_at(5, 8), 1, "Ichki katak (5,8) egallandi")
+		t.equal(grid.owner_at(6, 9), 1, "Ichki katak (6,9) egallandi")
+		t.equal(grid.owner_at(7, 10), 1, "Ichki katak (7,10) egallandi")
+	)
+
+	# 3. Qirg'oq bo'yida (coastline) suvga tutash halqa okeanga sizib ketmasdan egallanadi
+	t.test("3. Qirg'oq bo'yida suvga tutash halqa quruqlikni to'liq egallaydi va suvga daxl qilmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			".....~~~~~",
+			".....~~~~~",
+			"111..~~~~~",
+			"111..~~~~~",
+			"111..~~~~~",
+			"111..~~~~~",
+			"111..~~~~~",
+			"111..~~~~~",
+			".....~~~~~",
+			".....~~~~~",
+		]))
+		# Qirg'oq bo'ylab halqa (3,3)->(4,3)->(4,7)->(3,7)
+		var cells: Array[Vector2i] = [
+			Vector2i(3, 3), Vector2i(4, 3),
+			Vector2i(4, 4), Vector2i(4, 5), Vector2i(4, 6), Vector2i(4, 7),
+			Vector2i(3, 7)
+		]
+		var trail := _lay_trail(grid, 1, cells)
+		var res := TerritoryCapturer.new(grid).capture(1, trail)
+		t.greater(int(res["captured"]), 0)
+		t.equal(grid.owner_at(3, 4), 1, "Qirg'oq ichidagi quruqlik egallandi")
+		t.equal(grid.owner_at(3, 5), 1, "Qirg'oq ichidagi quruqlik egallandi")
+		# Suv kataklari hech qachon egallanmasligi kerak
+		t.equal(grid.owner_at(5, 4), 0, "Suv egasiz qoldi")
+		t.equal(grid.owner_at(5, 5), 0, "Suv egasiz qoldi")
+	)
+
+	# 4. Ortga qaytganda (self-retrace) oldingi "arvoh" izlar tozalanishi
+	t.test("4. Ortga qaytganda arvoh izlar to'liq tozalanadi (z-fighting oldini olish)", func() -> void:
+		var p := PlayerState.new(1, "Player", 0, false, 5.0, 3.0)
+		p.place_at(10.0, 10.0, 0.0)
+		p.add_trail(101)
+		p.add_trail(102)
+		p.add_trail(103)
+		p.add_trail(104)
+		p.add_path_point(10.0, 10.0)
+		p.add_path_point(11.0, 10.0)
+		p.add_path_point(12.0, 10.0)
+		p.add_path_point(13.0, 10.0)
+		t.equal(p.trail.size(), 4)
+		# 102 katagiga (k=1) qaytish
+		var pruned := p.pop_trail_back_to(1)
+		t.equal(pruned.size(), 2, "2 ta katak uzib olindi")
+		t.equal(int(pruned[0]), 103)
+		t.equal(int(pruned[1]), 104)
+		t.equal(p.trail.size(), 2, "Iz 2 ta katakda qoldi")
+		t.equal(p.trail_at.has(103), false, "103 iz indeksidan o'chirildi")
+		t.equal(p.trail_at.has(104), false, "104 iz indeksidan o'chirildi")
+	)
+
+	var ScreensClass = load("res://scripts/ui/screens.gd")
+
+	# 5. Ixcham shahar kartasi (non-blocking HUD card)
+	t.test("5. Ixcham shahar kartasi o'yinni to'smaydi va barcha ma'lumotlarni ko'rsatadi", func() -> void:
+		var screens = ScreensClass.new()
+		var store := SettingsStore.new()
+		screens.setup(store)
+		var c := CitySystem.CityData.new()
+		c.id = 55
+		c.name = "Bukhara"
+		c.category = CitySystem.Category.MEDIUM
+		c.country_code = "UZ"
+		c.country_name = "Uzbekistan"
+		screens.show_city_hud_card(c, true, false, false)
+		t.check(screens._city_hud_card != null, "Shahar HUD kartasi yaratildi")
+		t.equal(screens._city_hud_card.mouse_filter, Control.MOUSE_FILTER_PASS, "Karta orqa fondagi boshqaruvni to'smaydi")
+		screens._city_hud_card.queue_free()
+		screens.queue_free()
+	)
+
+	# 6. Asosiy menyuda kunlik sovg'a vidjeti
+	t.test("6. Asosiy menyuda kunlik sovg'a vidjeti mavjud va to'g'ri ko'rsatadi", func() -> void:
+		var screens = ScreensClass.new()
+		var store := SettingsStore.new()
+		screens.setup(store)
+		var widget = screens._daily_gift_widget()
+		t.check(widget != null, "Kunlik sovg'a vidjeti yaratildi")
+		widget.queue_free()
+		screens.queue_free()
+	)
+
+	# 7. Virtual joystick o'lchami va tugmacha siljishi
+	t.test("7. Virtual joystick telefonlar uchun kengaytirilgan va harakatlanadi", func() -> void:
+		var screens = ScreensClass.new()
+		var store := SettingsStore.new()
+		screens.setup(store)
+		screens.show_screen(3) # Screen.HUD
+		t.check(screens._hud_joy_knob != null, "Joystick knobi mavjud")
+		var init_pos: Vector2 = screens._hud_joy_knob.position
+		screens.update_joystick_offset(Vector2(20, -15))
+		t.check(screens._hud_joy_knob.position != init_pos, "Joystick siljidi")
+		screens.set_joystick_active(false, Vector2.ZERO)
+		screens.queue_free()
+	)
+
+	# 8. Haqiqiy hamyon qiymatlari (0 bo'lganda soxta 12450/320 ko'rsatilmaydi)
+	t.test("8. Haqiqiy hamyon 0 tanga/gem bo'lganda to'g'ri 0 ko'rsatiladi", func() -> void:
+		var screens = ScreensClass.new()
+		var store := SettingsStore.new()
+		screens.setup(store)
+		var wallet = root.get_node("/root/Wallet")
+		var original_c: int = wallet.get_coins()
+		var original_g: int = wallet.get_gems()
+		# Nol qilib tekshirish
+		wallet.remove_coins(original_c, "test")
+		wallet.remove_gems(original_g, "test")
+		var top_bar: Control = screens._top_bar()
+		var found_zero_chip := false
+		for child in top_bar.get_children():
+			if child is Button:
+				for sub in child.get_children():
+					if sub is HBoxContainer:
+						for s in sub.get_children():
+							if s is Label and s.text == "0":
+								found_zero_chip = true
+		t.equal(found_zero_chip, true, "Hamyonda haqiqiy 0 aks ettirildi")
+		# Qayta tiklash
+		wallet.add_coins(original_c, "test_restore")
+		wallet.add_gems(original_g, "test_restore")
+		top_bar.queue_free()
+		screens.queue_free()
 	)
 
 
