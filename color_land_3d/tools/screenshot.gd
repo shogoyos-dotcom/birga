@@ -54,7 +54,7 @@ func _initialize() -> void:
 			_out = s
 		elif s.is_valid_float() and i == 0:
 			_seconds = float(s)
-		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings", "environment", "coastline"] or s.begins_with("p6_") or s.begins_with("city_"):
+		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings", "environment", "coastline"] or s.begins_with("p6_") or s.begins_with("city_") or s.begins_with("p8_"):
 			_mode = s
 		elif s.length() == 2 and s == s.to_upper():
 			_country = s
@@ -112,7 +112,8 @@ func _drive() -> void:
 
 	var is_3d_action: bool = (_mode == "play" or _mode == "trail" or _mode == "burst" \
 		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest" \
-		or _mode.begins_with("city_") or _mode.begins_with("p6_") or _mode == "environment" or _mode == "coastline")
+		or _mode.begins_with("city_") or _mode.begins_with("p6_") or _mode == "environment" or _mode == "coastline" \
+		or _mode.begins_with("p8_"))
 	if _mode == "p6_match_summary":
 		is_3d_action = false
 
@@ -622,6 +623,104 @@ func _drive() -> void:
 		view._avatars.refresh()
 		var cpos := Vector3(438.0, ArenaBuilder.LAND_HEIGHT, 142.0)
 		view.set_camera_demo_pose(cpos + Vector3(-8.0, 11.0, 9.0), cpos + Vector3(1.0, 0.0, 0.0))
+		return
+
+	if _mode.begins_with("p8_2_"):
+		var p: Object = view.world.human()
+		var grid: GameGrid = view.world.grid
+		if view._city_renderer != null:
+			view._city_renderer.visible = false
+		if view._coins != null:
+			view._coins.visible = false
+		if view._pickups != null:
+			view._pickups.visible = false
+		if view._flag_poles != null:
+			view._flag_poles.visible = false
+		p.alive = true
+
+		if view._arena_material != null:
+			view._arena_material.set_shader_parameter("avatar_alpha", 0.0)
+
+		if _mode == "p8_2_curved_coast_approach":
+			var cx := 440
+			var cy := 142
+			p.place_at(437.2, 142.0, -0.15)
+			for dy in range(-6, 7):
+				for dx in range(-7, 8):
+					var gx := cx + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 6.0:
+						grid.set_owner(gx, gy, p.id)
+			view.paint.sync()
+			view._avatars.refresh()
+			var cpos := Vector3(437.2, ArenaBuilder.LAND_HEIGHT, 142.0)
+			view.set_camera_demo_pose(cpos + Vector3(-6.5, 9.0, 8.0), cpos + Vector3(0.5, 0.0, 0.0))
+
+		elif _mode == "p8_2_sharp_bend_movement":
+			var cx := 436
+			var cy := 139
+			p.place_at(436.4, 139.8, -PI / 4.0)
+			for dy in range(-5, 6):
+				for dx in range(-5, 6):
+					var gx := cx + 3 + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 5.0:
+						grid.set_owner(gx, gy, p.id)
+			view.paint.sync()
+			view._avatars.refresh()
+			var cpos := Vector3(436.2, ArenaBuilder.LAND_HEIGHT, 139.8)
+			view.set_camera_demo_pose(cpos + Vector3(-6.0, 8.5, 7.5), cpos + Vector3(0.5, 0.0, 0.0))
+
+		elif _mode == "p8_2_coast_loop_capture":
+			var cx := 440
+			var cy := 143
+			for dy in range(-4, 5):
+				for dx in range(-4, 5):
+					var gx := cx + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy):
+						grid.set_owner(gx, gy, p.id)
+			for dy in range(-7, 8):
+				for dx in range(-8, 9):
+					var gx := cx - 2 + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 6.5:
+						grid.set_owner(gx, gy, p.id)
+			p.place_at(436.8, 143.0, 0.0)
+			view.paint.sync()
+			view._avatars.refresh()
+			var cpos := Vector3(437.0, ArenaBuilder.LAND_HEIGHT, 143.0)
+			view.set_camera_demo_pose(cpos + Vector3(-8.0, 11.0, 9.5), cpos + Vector3(0.5, 0.0, 0.0))
+
+		elif _mode == "p8_2_concave_coastline":
+			var cx := 437
+			var cy := 139
+			for dy in range(-6, 7):
+				for dx in range(-6, 7):
+					var gx := cx + 2 + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 6.0:
+						grid.set_owner(gx, gy, p.id)
+			p.place_at(438.0, 139.0, 0.0)
+			view.paint.sync()
+			view._avatars.refresh()
+			var cpos := Vector3(436.5, ArenaBuilder.LAND_HEIGHT, 139.0)
+			view.set_camera_demo_pose(cpos + Vector3(-7.5, 10.0, 8.5), cpos + Vector3(1.0, 0.0, 0.0))
+
+		elif _mode == "p8_2_convex_coastline":
+			var cx := 436
+			var cy := 142
+			for dy in range(-6, 7):
+				for dx in range(-7, 8):
+					var gx := cx + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 6.0:
+						grid.set_owner(gx, gy, p.id)
+			p.place_at(436.0, 142.5, 0.0)
+			view.paint.sync()
+			view._avatars.refresh()
+			var cpos := Vector3(436.0, ArenaBuilder.LAND_HEIGHT, 142.5)
+			view.set_camera_demo_pose(cpos + Vector3(-8.0, 10.5, 9.0), cpos + Vector3(0.5, 0.0, 0.0))
 		return
 
 	if _mode == "trail":

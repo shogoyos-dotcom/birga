@@ -87,6 +87,7 @@ func _process(_delta: float) -> bool:
 	_test_fonts_and_glyphs(t)
 	_test_phase8_1_real_android_fixes(t)
 	_test_phase8_1_smooth_coastlines(t)
+	_test_phase8_2_coastline_movement_collision(t)
 
 	var ok := t.report()
 
@@ -4080,6 +4081,209 @@ func _test_phase8_1_smooth_coastlines(t: TestRunner) -> void:
 		t.close_to(grid.percent_of(1), (8.0 / float(total_land)) * 100.0, 0.01, "Foiz to'g'ri")
 		t.equal(grid.owner_at(0, 1), 0, "Suv katagi qo'shilmagan")
 	)
+
+
+func _test_phase8_2_coastline_movement_collision(t: TestRunner) -> void:
+	t.group("phase 8.2 coastline movement, collision & territory geometry")
+
+	# 1. Uzluksiz masofa va normal hisoblash (Continuous distance & normal sampling)
+	t.test("1. Quruqlik va suv masofasi hamda qirg'oq normali silliq hisoblanadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~",
+			"~111111~",
+			"~111111~",
+			"~~~~~~~~",
+		]))
+		t.check(not grid.coast_dist.is_empty(), "coast_dist massivi mavjud")
+		t.equal(grid.coast_dist.size(), 8 * 4, "Masofa massivi o'lchami to'g'ri")
+		# Suv kataklarida masofa 0
+		t.equal(grid.coast_dist[0], 0.0, "Suv katagida masofa 0")
+		# Qirg'oqdagi quruqlik katagi masofasi ~1.0
+		var c_dist := grid.sample_coast_dist(2.5, 1.5)
+		t.greater(c_dist, 0.5, "Quruqlik markazida masofa musbat")
+		t.check(c_dist <= 1.5, "Qirg'oqqa yaqin masofa ~1.0")
+
+		# Normal tekshiruvi: (2.5, 1.1) da suv yuqorida (y=0) bo'lgani uchun normal pastga (y musbat) qarashi kerak
+		var normal := grid.sample_coast_normal(2.5, 1.1)
+		t.greater(normal.length(), 0.8, "Normal nolga teng emas")
+		t.greater(normal.y, 0.5, "Normal ichkari quruqlikka (pastga) qaraydi")
+	)
+
+	# 2. Qirg'oq bo'ylab silliq harakat va tebranishsizlik (No oscillation & smooth sliding)
+	t.test("2. Qirg'oqqa qiya yurganda o'yinchi titramaydi va silliq sirpanadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~",
+			"~11111111~",
+			"~11111111~",
+			"~11111111~",
+			"~~~~~~~~~~",
+		]))
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 10
+		cfg.grid_height = 5
+		cfg.player_speed = 10.0
+		var world := GameWorld.new(cfg)
+		world.grid = grid
+		var p := world.add_player("Hero", 0, false)
+		# Boshlang'ich joylashuv (2.5, 1.2), qirg'oq y=1 da
+		p.place_at(2.5, 1.2, -PI / 4.0) # Shimoli-sharqqa qarab qirg'oqqa qiya
+		p.steer_to(-PI / 4.0)
+
+		var prev_x := p.x
+		var prev_angle := p.angle
+		var angle_flips := 0
+		var total_moved_x := 0.0
+
+		for step in 30:
+			world._move(p, 1.0 / 60.0)
+			# Harakatda X bo'yicha oldinga siljishini kuzatish
+			if p.x > prev_x:
+				total_moved_x += (p.x - prev_x)
+			# Agar burchak sun'iy ravishda u yoqdan-bu yoqqa siltansa, buni qayd etamiz
+			if signf(p.angle - prev_angle) != 0.0 and signf(p.angle - prev_angle) != signf(prev_angle):
+				angle_flips += 1
+			prev_x = p.x
+			prev_angle = p.angle
+
+			# Hech qachon suvga tushib qolmasligi shart
+			t.check(grid.is_land(int(floor(p.x)), int(floor(p.y))), "Har qadamda quruqlikda")
+
+		t.greater(total_moved_x, 1.0, "Qirg'oq bo'ylab oldinga silliq siljidi")
+		t.check(angle_flips <= 1, "Burchak tebranmadi (titrash 0)")
+	)
+
+	# 3. Suvga qat'iy kirmaslik (Strict water barrier)
+	t.test("3. To'g'ridan-to'g'ri suvga qarab yurganda ham suvga kirmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~",
+			"~11111111~",
+			"~11111111~",
+			"~~~~~~~~~~",
+		]))
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 10
+		cfg.grid_height = 4
+		cfg.player_speed = 15.0
+		var world := GameWorld.new(cfg)
+		world.grid = grid
+		var p := world.add_player("Hero", 0, false)
+		p.place_at(4.5, 1.8, -PI / 2.0) # Tik shimolga, to'g'ri suvga qarab
+		p.steer_to(-PI / 2.0)
+
+		for step in 60:
+			world._move(p, 1.0 / 60.0)
+			t.check(grid.is_land(int(floor(p.x)), int(floor(p.y))), "Suvga o'tmadi")
+			t.check(p.y >= 1.0, "Y koordinatasi suv chegarasidan pastda qoldi")
+	)
+
+	# 4. Tor sohil koridori (Narrow coastal corridor)
+	t.test("4. Ikki tomoni suv bo'lgan tor koridordan to'xtovsiz o'tadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~~~",
+			"~1111111111~",
+			"~~~~~~~~~~~~",
+		]))
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 12
+		cfg.grid_height = 3
+		cfg.player_speed = 10.0
+		var world := GameWorld.new(cfg)
+		world.grid = grid
+		var p := world.add_player("Hero", 0, false)
+		p.place_at(1.5, 1.5, 0.0) # Sharqqa yo'nalgan
+		p.steer_to(0.0)
+
+		for step in 50:
+			world._move(p, 1.0 / 60.0)
+			t.check(grid.is_land(int(floor(p.x)), int(floor(p.y))), "Koridorda quruqlikda")
+
+		t.greater(p.x, 6.0, "Koridordan erkin o'tib ketdi")
+	)
+
+	# 5. O'tkir burchakda qotib qolmaslik va barqarorlik (Concave corner stability)
+	t.test("5. Qirg'oqning ichki o'tkir burchagida tebranmasdan to'xtaydi va orqaga erkin qaytadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~",
+			"~1111~~~~~",
+			"~1111~~~~~",
+			"~11111111~",
+			"~~~~~~~~~~",
+		]))
+		var cfg := GameConfig.new()
+		cfg.world_map = false
+		cfg.grid_width = 10
+		cfg.grid_height = 5
+		cfg.player_speed = 10.0
+		var world := GameWorld.new(cfg)
+		world.grid = grid
+		var p := world.add_player("Hero", 0, false)
+		# Burchak (4.5, 2.5) ga qarab harakatlanish
+		p.place_at(2.5, 2.5, 0.0)
+		p.steer_to(0.0)
+
+		# Burchakka qarab yurish
+		for step in 40:
+			world._move(p, 1.0 / 60.0)
+			t.check(grid.is_land(int(floor(p.x)), int(floor(p.y))), "Burchakda ham quruqlikda")
+
+		var stuck_pos := Vector2(p.x, p.y)
+
+		# Endi orqaga burilish (G'arbga, -PI)
+		p.angle = PI
+		p.steer_to(PI)
+		for step in 30:
+			world._move(p, 1.0 / 60.0)
+
+		t.less(p.x, stuck_pos.x - 1.0, "Burchakdan orqaga erkin chiqib ketdi")
+	)
+
+	# 6. Sohil bo'yida to'liq halqa egallash (Coastline loop capture & no water ownership)
+	t.test("6. Sohil bo'ylab chizilgan halqa to'liq egallanadi va suvga o'tmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~",
+			"~........~",
+			"~........~",
+			"~........~",
+			"~~~~~~~~~~",
+		]))
+		# Boshlang'ich hudud
+		for y in range(2, 4):
+			for x in range(2, 5):
+				grid.set_owner(x, y, 1)
+
+		var capturer := TerritoryCapturer.new(grid)
+		# Sohil (y=1) ga chiqib halqa chizish: (2,2) -> (2,1) -> (3,1) -> (4,1) -> (5,1) -> (5,2)
+		var trail := PackedInt32Array([
+			1 * 10 + 2, 1 * 10 + 3, 1 * 10 + 4, 1 * 10 + 5, 2 * 10 + 5
+		])
+		var res := capturer.capture(1, trail)
+		t.greater(int(res["captured"]), 0, "Sohil halqasi egallandi")
+		# Barcha iz quruqlikda bo'lgani uchun egallangan bo'lishi kerak
+		for ti in trail:
+			t.equal(grid.owner_cells[ti], 1, "Iz katagi o'yinchiniki")
+		# Suv kataklari hech qachon egallanmasligi kerak
+		t.equal(grid.owner_at(3, 0), 0, "Suv katagi (3,0) egasiz")
+		t.equal(grid.owner_at(4, 0), 0, "Suv katagi (4,0) egasiz")
+	)
+
+	# 7. PaintLayer va GameGrid masofa integratsiyasi
+	t.test("7. PaintLayer va GameGrid qirg'oq masofasi to'liq sinxron", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~",
+			"~1111~",
+			"~1111~",
+			"~~~~~~",
+		]))
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		t.equal(paint._coast_dist.size(), grid.coast_dist.size(), "Masofa o'lchamlari teng")
+		t.equal(paint._coast_dist[7], grid.coast_dist[7], "Masofa qiymatlari mos")
+	)
+
 
 
 

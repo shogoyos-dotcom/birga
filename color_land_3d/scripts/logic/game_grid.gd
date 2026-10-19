@@ -33,6 +33,13 @@ var _min_y: PackedInt32Array
 var _max_x: PackedInt32Array
 var _max_y: PackedInt32Array
 
+## Har bir katak uchun suvdan masofa (katak birligida).
+## 0 — suv, 1 — sohil quruqligi, 2+ — ichki quruqlik.
+var coast_dist: PackedFloat32Array
+## Suv kataklari uchun eng yaqin quruqlik katagining indeksi (-1 — yo'q).
+## Quruqlik katagi uchun esa o'zining indeksi.
+var nearest_land: PackedInt32Array
+
 func _init(p_width: int, p_height: int, p_land: PackedByteArray = PackedByteArray()) -> void:
 	assert(p_land.is_empty() or p_land.size() == p_width * p_height,
 		"Quruqlik niqobi panjara o'lchamiga mos kelmadi")
@@ -64,6 +71,7 @@ func _init(p_width: int, p_height: int, p_land: PackedByteArray = PackedByteArra
 	_max_y = PackedInt32Array()
 	_max_y.resize(256)
 	_reset_bounds()
+	_build_distance_field()
 
 func _reset_bounds() -> void:
 	for i in 256:
@@ -238,3 +246,160 @@ func take_net_dirty() -> PackedInt32Array:
 	var copy := net_dirty
 	net_dirty = PackedInt32Array()
 	return copy
+
+func _build_distance_field() -> void:
+	var total := width * height
+	coast_dist = PackedFloat32Array()
+	coast_dist.resize(total)
+	nearest_land = PackedInt32Array()
+	nearest_land.resize(total)
+
+	if land.is_empty():
+		for y in height:
+			var row := y * width
+			for x in width:
+				var idx := row + x
+				var d: float = minf(minf(float(x), float(width - 1 - x)), minf(float(y), float(height - 1 - y)))
+				coast_dist[idx] = d
+				nearest_land[idx] = idx
+		return
+
+	coast_dist.fill(999.0)
+	for i in total:
+		if land[i] == 1:
+			nearest_land[i] = i
+		else:
+			nearest_land[i] = -1
+			coast_dist[i] = 0.0
+
+	# 1-o'tish: yuqori-chapdan pastki-o'ngga (quruqlik masofasi)
+	for y in height:
+		var row := y * width
+		for x in width:
+			var idx := row + x
+			if land[idx] == 1:
+				var m: float = coast_dist[idx]
+				if x > 0:
+					m = minf(m, coast_dist[idx - 1] + 1.0)
+				if y > 0:
+					m = minf(m, coast_dist[idx - width] + 1.0)
+					if x > 0:
+						m = minf(m, coast_dist[idx - width - 1] + 1.414)
+					if x < width - 1:
+						m = minf(m, coast_dist[idx - width + 1] + 1.414)
+				coast_dist[idx] = m
+
+	# 2-o'tish: pastki-o'ngdan yuqori-chapga (quruqlik masofasi)
+	for y in range(height - 1, -1, -1):
+		var row := y * width
+		for x in range(width - 1, -1, -1):
+			var idx := row + x
+			if land[idx] == 1:
+				var m: float = coast_dist[idx]
+				if x < width - 1:
+					m = minf(m, coast_dist[idx + 1] + 1.0)
+				if y < height - 1:
+					m = minf(m, coast_dist[idx + width] + 1.0)
+					if x < width - 1:
+						m = minf(m, coast_dist[idx + width + 1] + 1.414)
+					if x > 0:
+						m = minf(m, coast_dist[idx + width - 1] + 1.414)
+				coast_dist[idx] = m
+
+	# Suv kataklari uchun eng yaqin quruqlik katagini topish (Voronoi)
+	var water_dist := PackedFloat32Array()
+	water_dist.resize(total)
+	water_dist.fill(999.0)
+	for i in total:
+		if land[i] == 1:
+			water_dist[i] = 0.0
+
+	for y in height:
+		var row := y * width
+		for x in width:
+			var idx := row + x
+			if land[idx] == 0:
+				var m: float = water_dist[idx]
+				var nl: int = nearest_land[idx]
+				if x > 0 and water_dist[idx - 1] + 1.0 < m:
+					m = water_dist[idx - 1] + 1.0
+					nl = nearest_land[idx - 1]
+				if y > 0:
+					if water_dist[idx - width] + 1.0 < m:
+						m = water_dist[idx - width] + 1.0
+						nl = nearest_land[idx - width]
+					if x > 0 and water_dist[idx - width - 1] + 1.414 < m:
+						m = water_dist[idx - width - 1] + 1.414
+						nl = nearest_land[idx - width - 1]
+					if x < width - 1 and water_dist[idx - width + 1] + 1.414 < m:
+						m = water_dist[idx - width + 1] + 1.414
+						nl = nearest_land[idx - width + 1]
+				water_dist[idx] = m
+				nearest_land[idx] = nl
+
+	for y in range(height - 1, -1, -1):
+		var row := y * width
+		for x in range(width - 1, -1, -1):
+			var idx := row + x
+			if land[idx] == 0:
+				var m: float = water_dist[idx]
+				var nl: int = nearest_land[idx]
+				if x < width - 1 and water_dist[idx + 1] + 1.0 < m:
+					m = water_dist[idx + 1] + 1.0
+					nl = nearest_land[idx + 1]
+				if y < height - 1:
+					if water_dist[idx + width] + 1.0 < m:
+						m = water_dist[idx + width] + 1.0
+						nl = nearest_land[idx + width]
+					if x < width - 1 and water_dist[idx + width + 1] + 1.414 < m:
+						m = water_dist[idx + width + 1] + 1.414
+						nl = nearest_land[idx + width + 1]
+					if x > 0 and water_dist[idx + width - 1] + 1.414 < m:
+						m = water_dist[idx + width - 1] + 1.414
+						nl = nearest_land[idx + width - 1]
+				water_dist[idx] = m
+				nearest_land[idx] = nl
+
+## Uzluksiz koordinata (px, py) da suvdan masofani chiziqli interpolatsiya bilan qaytaradi.
+func sample_coast_dist(px: float, py: float) -> float:
+	if coast_dist.is_empty():
+		return 10.0
+	var sx: float = clampf(px - 0.5, 0.0, float(width - 1))
+	var sy: float = clampf(py - 0.5, 0.0, float(height - 1))
+	var x0: int = int(floor(sx))
+	var y0: int = int(floor(sy))
+	var x1: int = mini(x0 + 1, width - 1)
+	var y1: int = mini(y0 + 1, height - 1)
+	var fx: float = sx - float(x0)
+	var fy: float = sy - float(y0)
+	var d00: float = coast_dist[y0 * width + x0]
+	var d10: float = coast_dist[y0 * width + x1]
+	var d01: float = coast_dist[y1 * width + x0]
+	var d11: float = coast_dist[y1 * width + x1]
+	var d0: float = d00 + (d10 - d00) * fx
+	var d1: float = d01 + (d11 - d01) * fx
+	return d0 + (d1 - d0) * fy
+
+## Qirg'oqning ichki tomonga (quruqlikka) qaragan silliq normalini qaytaradi.
+func sample_coast_normal(px: float, py: float) -> Vector2:
+	if coast_dist.is_empty():
+		return Vector2.ZERO
+	var sx: float = clampf(px - 0.5, 0.0, float(width - 1))
+	var sy: float = clampf(py - 0.5, 0.0, float(height - 1))
+	var x0: int = int(floor(sx))
+	var y0: int = int(floor(sy))
+	var x1: int = mini(x0 + 1, width - 1)
+	var y1: int = mini(y0 + 1, height - 1)
+	var fx: float = sx - float(x0)
+	var fy: float = sy - float(y0)
+	var d00: float = coast_dist[y0 * width + x0]
+	var d10: float = coast_dist[y0 * width + x1]
+	var d01: float = coast_dist[y1 * width + x0]
+	var d11: float = coast_dist[y1 * width + x1]
+	var gx: float = (1.0 - fy) * (d10 - d00) + fy * (d11 - d01)
+	var gy: float = (1.0 - fx) * (d01 - d00) + fx * (d11 - d10)
+	var len2: float = gx * gx + gy * gy
+	if len2 < 1e-6:
+		return Vector2.ZERO
+	return Vector2(gx, gy) / sqrt(len2)
+

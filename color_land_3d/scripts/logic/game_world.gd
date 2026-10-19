@@ -192,34 +192,57 @@ func _turn(p: PlayerState, dt: float) -> void:
 
 func _move(p: PlayerState, dt: float) -> void:
 	var dist: float = p.speed * dt
-	var nx: float = p.x + cos(p.angle) * dist
-	var ny: float = p.y + sin(p.angle) * dist
+	var move_vec := Vector2(cos(p.angle) * dist, sin(p.angle) * dist)
 
-	# Xarita cheti va suv — to'siq, o'lim emas. O'qlar alohida
-	# tekshiriladi: faqat suvga qaragan tezlik yo'qoladi, shuning uchun
-	# o'yinchi qirg'oq bo'ylab sirpanib boraveradi.
-	const EDGE := 1e-4
-	var cx_clamped: float = clampf(nx, EDGE, grid.width - EDGE)
-	var cy_clamped: float = clampf(ny, EDGE, grid.height - EDGE)
+	# Xarita chetlari
+	const EDGE := 0.5
+	var min_x := EDGE
+	var min_y := EDGE
+	var max_x := float(grid.width) - EDGE
+	var max_y := float(grid.height) - EDGE
 
 	if grid.land.is_empty():
-		p.x = cx_clamped
-		p.y = cy_clamped
+		p.x = clampf(p.x + move_vec.x, min_x, max_x)
+		p.y = clampf(p.y + move_vec.y, min_y, max_y)
 	else:
-		var row: int = int(floor(p.y))
-		var from_x := p.x
-		var from_y := p.y
-		if grid.playable(int(floor(cx_clamped)), row):
-			p.x = cx_clamped
-		if grid.playable(int(floor(p.x)), int(floor(cy_clamped))):
-			p.y = cy_clamped
-		# Haqiqatan ham siljidimi. "O'q o'tdi" deb hisoblash kifoya
-		# emas: tik shimolga yurganda X o'zgarishi nolga teng va
-		# tekshiruv o'z-o'zidan o'tib ketardi — o'yinchi esa devorga
-		# tirab turaverardi.
-		var moved := Vector2(p.x - from_x, p.y - from_y).length()
-		if moved < dist * 0.25:
-			_slide_along_shore(p, dist)
+		# Uzluksiz qirg'oq silliq sirpanishi (Phase 8.2)
+		# 1. Masofani tekshiramiz: agar suv yaqinida bo'lsa (1.8 katak), normal bo'yicha silliq proyeksiyalanadi
+		var cur_d: float = grid.sample_coast_dist(p.x, p.y)
+		if cur_d < 1.8:
+			var normal := grid.sample_coast_normal(p.x, p.y)
+			var dot_n: float = move_vec.dot(normal)
+			if dot_n < 0.0:
+				# Suv tomon harakatlanayotgan komponentni olib tashlash (tangensial silliq sirpanish)
+				move_vec -= normal * dot_n
+			# Agar o'yinchi juda yaqin kelgan bo'lsa (0.65 katakdan kam), quruqlik ichkarisiga yumshoq itarish
+			if cur_d < 0.65:
+				move_vec += normal * ((0.65 - cur_d) * 2.0)
+
+		var target_x: float = clampf(p.x + move_vec.x, min_x, max_x)
+		var target_y: float = clampf(p.y + move_vec.y, min_y, max_y)
+		var target_cell_x: int = int(floor(target_x))
+		var target_cell_y: int = int(floor(target_y))
+
+		if grid.playable(target_cell_x, target_cell_y):
+			p.x = target_x
+			p.y = target_y
+		else:
+			# O'tkir ichki burchaklar yoki qirralarda o'qlar bo'yicha xavfsiz sirpanish
+			if grid.playable(target_cell_x, int(floor(p.y))):
+				p.x = target_x
+			elif grid.playable(int(floor(p.x)), target_cell_y):
+				p.y = target_y
+			else:
+				# Har ikkala o'q ham qat'iy to'silganda qirg'oq normali bo'yicha sirpanish
+				var normal := grid.sample_coast_normal(p.x, p.y)
+				if normal.length_squared() > 0.01:
+					var tangent := Vector2(-normal.y, normal.x)
+					var t_proj: float = move_vec.dot(tangent)
+					var alt_x: float = clampf(p.x + tangent.x * t_proj, min_x, max_x)
+					var alt_y: float = clampf(p.y + tangent.y * t_proj, min_y, max_y)
+					if grid.playable(int(floor(alt_x)), int(floor(alt_y))):
+						p.x = alt_x
+						p.y = alt_y
 
 	if not p.trail.is_empty():
 		p.add_path_point(p.x, p.y)
@@ -242,43 +265,6 @@ func _move(p: PlayerState, dt: float) -> void:
 				sx = p.cx
 		_enter_cell(p, sx, sy)
 
-## Ikkala o'q ham to'silganda — qirg'oqning ichki burchagida — o'yinchi
-## butunlay to'xtab qolardi.
-##
-## Shu yerda yo'nalishga eng yaqin bo'sh tomon qidiriladi va o'yinchi
-## o'sha tomonga sirpanadi. Yo'nalishning o'zi o'zgarmaydi: barmoq
-## qayerni ko'rsatsa, o'sha yoqqa intilaveradi.
-func _slide_along_shore(p: PlayerState, dist: float) -> void:
-	for step in SHORE_TURNS:
-		for turn in [1.0, -1.0]:
-			var angle: float = p.angle + step * turn
-			var nx: float = p.x + cos(angle) * dist
-			var ny: float = p.y + sin(angle) * dist
-			if nx <= 0.0 or ny <= 0.0 \
-					or nx >= grid.width or ny >= grid.height:
-				continue
-			if not grid.playable(int(floor(nx)), int(floor(ny))):
-				continue
-			p.x = nx
-			p.y = ny
-			# Harakat yo'nalishi ham shu tomonga buriladi: aks holda
-			# keyingi kadrda yana devorga tiqilardi.
-			p.angle = angle
-			# Bot qirg'oqqa tirab turmasin — maqsadi ham o'zgaradi.
-			# O'yinchiniki o'zgarmaydi: barmoq qayerni ko'rsatsa,
-			# chetlab o'tgach yana o'sha yoqqa intiladi.
-			if p.is_bot:
-				p.steer_to(angle)
-			return
-
-## Qirg'oq bo'ylab sirpanish uchun sinab ko'riladigan burchaklar.
-##
-## 150 gradusgacha boradi: ingichka cho'ntakda faqat deyarli orqaga
-## burilish qoladi, aks holda o'yinchi tiqilib qolardi.
-const SHORE_TURNS: PackedFloat32Array = [
-	PI / 6.0, PI / 3.0, PI / 2.0, PI * 2.0 / 3.0,
-	PI * 5.0 / 6.0, PI * 0.97,
-]
 
 func _enter_cell(p: PlayerState, nx: int, ny: int) -> void:
 	# Suv va xarita cheti — to'siq.

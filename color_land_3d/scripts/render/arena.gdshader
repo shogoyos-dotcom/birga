@@ -42,51 +42,9 @@ uniform float surface_roughness : hint_range(0.0, 1.0) = 0.9;
 uniform vec3 beach_color = vec3(0.99, 0.88, 0.28);
 uniform float beach_width : hint_range(0.5, 3.5) = 1.8;
 
-// Ovoz oynasining radiusi (katak) va kengligi.
-//
-// Kataklarga tushirilgan doira o'z o'qlari yonida uzun **to'g'ri**
-// qatorlarga aylanadi: masalan 13 katak radiusli doirada 4 katakli
-// tekis qism bo'ladi. Radiusi 1.5 katak bo'lgan oyna bunday
-// qatorni yumshata olmaydi — faqat burchaklarini kesadi, va
-// chegara ko'pburchak bo'lib ko'rinadi. Shuning uchun oyna
-// to'g'ri qatordan kengroq bo'lishi kerak.
-const int VOTE_R = 3;
-const int VOTE_W = 2 * VOTE_R;
-
-// Kubik B-splayn: markazdagi katak ustun turadi, uzoqdagisi asta
-// so'nadi — shuning uchun chegara silliq, rang esa toza chiqadi.
-float weight_of(float x) {
-	float a = abs(x);
-	if (a < 1.0) {
-		return (4.0 - 6.0 * a * a + 3.0 * a * a * a) / 6.0;
-	}
-	if (a < 2.0) {
-		float t = 2.0 - a;
-		return t * t * t / 6.0;
-	}
-	return 0.0;
-}
-
-// Ovoz og'irligi: tor va keng splayn yig'indisi.
-//
-// Tor splayn (±2 katak) markazdagi katakni ustun qilib turadi —
-// bir katak kengligidagi tilim ham ekranda qolishi kerak, aks
-// holda egallangan yer ko'rinmay qolardi. Keng splayn (±VOTE_R)
-// esa uzun to'g'ri qatorlarni yumshatadi.
-//
-// WIDE_MIX — keng qismning ulushi. Markazdagi katakning ulushi
-// 0.667*(1+k) / (1 + 1.506*k) ga teng; u 0.5 dan oshib turishi
-// uchun k 1.9 dan kichik bo'lishi shart.
-const float WIDE_MIX = 0.7;
-
-// Hudud chetidagi hoshiya kengligi (ovoz birligida; 0.35 taxminan
-// bir katak). Hoshiya skinning urg'u rangida bo'ladi — tarvuzda
-// yashil po'st, muzda och moviy.
-const float RIM_WIDTH = 0.80;
-
-float vote_weight(float x) {
-	return weight_of(x) + WIDE_MIX * weight_of(x * (2.0 / float(VOTE_R)));
-}
+// Hudud chetidagi hoshiya kengligi (ovoz birligida).
+// Hoshiya skinning urg'u rangida bo'ladi — tarvuzda yashil po'st, muzda och moviy.
+const float RIM_WIDTH = 0.70;
 
 vec4 cell_texel(vec2 cell) {
 	// textureLod: namuna shartli shoxobchalar ichida ham olinadi,
@@ -208,118 +166,67 @@ void fragment() {
 	ROUGHNESS = surface_roughness;
 
 	vec2 cell_pos = UV * grid_size;
-	// Katak markazlari to'ri: butun qiymat — katak markazi.
 	vec2 p = cell_pos - vec2(0.5);
 	vec2 base = floor(p);
 	vec2 f = p - base;
 
-	// Eng yaqin 4 katak — tez yo'l uchun.
+	// Eng yaqin 4 katak — tez yo'l va egalik chegaralari uchun
 	vec4 t00 = cell_texel(base);
 	vec4 t10 = cell_texel(base + vec2(1.0, 0.0));
 	vec4 t01 = cell_texel(base + vec2(0.0, 1.0));
 	vec4 t11 = cell_texel(base + vec2(1.0, 1.0));
-	int raw_owner[4] = int[](
+
+	int near_owner[4] = int[](
 		int(t00.r * 255.0 + 0.5), int(t10.r * 255.0 + 0.5),
 		int(t01.r * 255.0 + 0.5), int(t11.r * 255.0 + 0.5));
 
-	// Qaysi burchaklar quruqlik va qaysilari suv ekanini aniqlash.
-	// Suv burchaklariga eng yaqin quruqlik burchagining egasi biriktiriladi.
-	int land_corners = 0;
-	int closest_land_idx = 0;
-	float min_corner_d = 999.0;
-	vec2 corner_offsets[4] = vec2[](
-		vec2(0.0, 0.0), vec2(1.0, 0.0),
-		vec2(0.0, 1.0), vec2(1.0, 1.0)
-	);
-
-	for (int k = 0; k < 4; k++) {
-		if (raw_owner[k] != WATER) {
-			land_corners++;
-			float d = length(f - corner_offsets[k]);
-			if (d < min_corner_d) {
-				min_corner_d = d;
-				closest_land_idx = k;
-			}
-		}
-	}
-
-	int near_owner[4];
-	if (land_corners > 0) {
-		// Eng yaqin quruqlik burchagining egasi
-		int closest_owner = raw_owner[closest_land_idx];
-		for (int k = 0; k < 4; k++) {
-			if (raw_owner[k] != WATER) {
-				near_owner[k] = raw_owner[k];
-			} else {
-				near_owner[k] = closest_owner;
-			}
-		}
-	} else {
-		// Agar to'rttala burchak ham suv bo'lsa (qirg'oq qirrasidagi fragment):
-		// 1-kataklik tashqi aylanadan eng yaqin quruqlik qidiriladi
-		int closest_ext_owner = 0;
-		float best_ext_d = 999.0;
-		for (int dy = -1; dy <= 2; dy++) {
-			for (int dx = -1; dx <= 2; dx++) {
-				if (dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1) {
-					continue;
-				}
-				vec4 c = cell_texel(base + vec2(float(dx), float(dy)));
-				int o = int(c.r * 255.0 + 0.5);
-				if (o != WATER) {
-					float d = length(f - vec2(float(dx), float(dy)));
-					if (d < best_ext_d) {
-						best_ext_d = d;
-						closest_ext_owner = o;
-					}
-				}
-			}
-		}
-		for (int k = 0; k < 4; k++) {
-			near_owner[k] = closest_ext_owner;
-		}
-	}
-
-	// Bir ekran pikseliga nechta katak to'g'ri keladi — chegarani
-	// shunga qarab yumshatamiz.
-	float pixel = max(max(fwidth(p.x), fwidth(p.y)), 0.0005);
+	// Suv burchaklariga eng yaqin qo'shni quruqlik burchagining egasi biriktiriladi
+	// Bu qirg'oq bo'ylab uzluksiz, zinapoyasiz silliq o'tishni ta'minlaydi
+	if (near_owner[0] == WATER && near_owner[1] != WATER) near_owner[0] = near_owner[1];
+	if (near_owner[0] == WATER && near_owner[2] != WATER) near_owner[0] = near_owner[2];
+	if (near_owner[1] == WATER && near_owner[0] != WATER) near_owner[1] = near_owner[0];
+	if (near_owner[1] == WATER && near_owner[3] != WATER) near_owner[1] = near_owner[3];
+	if (near_owner[2] == WATER && near_owner[0] != WATER) near_owner[2] = near_owner[0];
+	if (near_owner[2] == WATER && near_owner[3] != WATER) near_owner[2] = near_owner[3];
+	if (near_owner[3] == WATER && near_owner[1] != WATER) near_owner[3] = near_owner[1];
+	if (near_owner[3] == WATER && near_owner[2] != WATER) near_owner[3] = near_owner[2];
+	if (near_owner[0] == WATER && near_owner[3] != WATER) near_owner[0] = near_owner[3];
+	if (near_owner[3] == WATER && near_owner[0] != WATER) near_owner[3] = near_owner[0];
+	if (near_owner[1] == WATER && near_owner[2] != WATER) near_owner[1] = near_owner[2];
+	if (near_owner[2] == WATER && near_owner[1] != WATER) near_owner[2] = near_owner[1];
 
 	vec3 shade;
 	int win_owner = near_owner[0];
-	bool same = near_owner[0] == near_owner[1]
-		&& near_owner[0] == near_owner[2]
-		&& near_owner[0] == near_owner[3];
+	bool same = (near_owner[0] == near_owner[1])
+		&& (near_owner[0] == near_owner[2])
+		&& (near_owner[0] == near_owner[3]);
+
 	if (same) {
-		// Eng yaqin to'rttasi bir xil bo'lsa, keng oyna ham shu egani
-		// tanlaydi (uning ulushi har doim yarmidan ko'p) — qolgan 12
-		// katakni o'qishning hojati yo'q.
-		shade = with_avatar(near_owner[0],
-			skin_shade(near_owner[0], color_of(near_owner[0]), cell_pos),
+		// Eng yaqin 4 katak bir xil bo'lsa — tezkor to'g'ri chizish
+		shade = with_avatar(win_owner,
+			skin_shade(win_owner, color_of(win_owner), cell_pos),
 			cell_pos);
 	} else {
-		// ——— Hudud: VOTE_W x VOTE_W katak bo'yicha ovoz berish.
-		//
-		// Og'irlik kubik B-splayn, lekin argumenti siqilgan:
-		// splayn ±2 da tugaydi, oyna esa ±VOTE_R gacha boradi.
-		float wx[VOTE_W];
-		float wy[VOTE_W];
-		for (int i = 0; i < VOTE_W; i++) {
-			float at = float(i - VOTE_R + 1);
-			wx[i] = vote_weight(at - f.x);
-			wy[i] = vote_weight(at - f.y);
-		}
+		// Hudud chegarasi: 4x4 doiraviy radial izotrop silliqlash (quartic kernel)
+		// Radial masofa tufayli zinapoya va to'rtburchak shakllar butunlay yo'qoladi,
+		// chegaralar tabiiy va egri chiziqli bo'ladi.
 		float score[4] = float[](0.0, 0.0, 0.0, 0.0);
-		float total_land_w = 0.0;
-		for (int j = 0; j < VOTE_W; j++) {
-			for (int i = 0; i < VOTE_W; i++) {
-				int owner = int(cell_texel(base + vec2(
-					float(i - VOTE_R + 1), float(j - VOTE_R + 1))).r
-					* 255.0 + 0.5);
-				if (owner == WATER) {
+		float total_w = 0.0;
+		for (int dy = -1; dy <= 2; dy++) {
+			for (int dx = -1; dx <= 2; dx++) {
+				vec2 offset = vec2(float(dx), float(dy));
+				vec2 delta = offset - f;
+				float r2 = dot(delta, delta);
+				if (r2 >= 4.84) {
 					continue;
 				}
-				float w = wx[i] * wy[j];
-				total_land_w += w;
+				float t = 1.0 - r2 / 4.84;
+				float w = t * t;
+				total_w += w;
+				int owner = int(cell_texel(base + offset).r * 255.0 + 0.5);
+				if (owner == WATER) {
+					owner = near_owner[0];
+				}
 				for (int k = 0; k < 4; k++) {
 					if (near_owner[k] == owner) {
 						score[k] += w;
@@ -328,10 +235,8 @@ void fragment() {
 			}
 		}
 
-		// Qirg'oq bo'yida va orollarda ovozlarni quruqlik ulushiga
-		// normalizatsiya qilish — soxta qora/qizil hoshiya va zinapoyani oldini oladi
-		if (total_land_w > 0.001) {
-			float inv_w = 1.0 / total_land_w;
+		if (total_w > 0.0001) {
+			float inv_w = 1.0 / total_w;
 			score[0] *= inv_w;
 			score[1] *= inv_w;
 			score[2] *= inv_w;
@@ -345,6 +250,7 @@ void fragment() {
 			}
 		}
 		win_owner = near_owner[best];
+
 		int second = -1;
 		for (int k = 0; k < 4; k++) {
 			if (near_owner[k] != near_owner[best]
@@ -354,11 +260,10 @@ void fragment() {
 		}
 
 		shade = with_avatar(near_owner[best],
-			skin_shade(near_owner[best], color_of(near_owner[best]),
-				cell_pos), cell_pos);
-		// Hudud chetidagi hoshiya: chegaraga yaqin joy skin
-		// rangida bo'yaladi. Faqat 2 ta turli ega to'qnashgan chegarada
-		// (second >= 0) chiziladi — okean qirg'og'ida soxta hoshiya tushmaydi.
+			skin_shade(near_owner[best], color_of(near_owner[best]), cell_pos),
+			cell_pos);
+
+		// Hudud chetidagi hoshiya: chegaraga yaqin joy skin rangida bo'yaladi
 		float second_score = (second >= 0) ? score[second] : 0.0;
 		float gap = score[best] - second_score;
 		if (near_owner[best] > 0 && gap < RIM_WIDTH && second >= 0) {
@@ -367,13 +272,14 @@ void fragment() {
 		}
 		if (second >= 0) {
 			vec3 other = with_avatar(near_owner[second],
-				skin_shade(near_owner[second],
-					color_of(near_owner[second]), cell_pos), cell_pos);
+				skin_shade(near_owner[second], color_of(near_owner[second]), cell_pos),
+				cell_pos);
 			float gap2 = second_score - score[best];
 			if (near_owner[second] > 0 && -gap2 < RIM_WIDTH) {
 				vec3 rim2 = color_of(256 + near_owner[second]);
 				other = mix(rim2, other, smoothstep(0.0, RIM_WIDTH, -gap2));
 			}
+			float pixel = max(max(fwidth(p.x), fwidth(p.y)), 0.0005);
 			float lead = (score[best] - second_score) / pixel;
 			shade = mix(other, shade, clamp(0.5 + 0.5 * lead, 0.5, 1.0));
 		}
@@ -381,7 +287,6 @@ void fragment() {
 
 	// Qirg'oq sohili (beach sand transition) — faqat egasiz quruqlikda (win_owner == 0).
 	// Egallangan hudud ichida sariq tirqishlar yoki to'rtburchaklar hosil qilmaydi.
-	// 25 ta loop o'rniga Channel B dagi bilinearly interpolatsiyalangan silliq masofa ishlatiladi:
 	if (win_owner == 0) {
 		float water_dist = mix(mix(t00.b, t10.b, f.x), mix(t01.b, t11.b, f.x), f.y) * 4.0;
 		if (water_dist < beach_width) {
