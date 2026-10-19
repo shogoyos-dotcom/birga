@@ -104,7 +104,7 @@ func capture(player_id: int, trail: PackedInt32Array) -> Dictionary:
 	_y1 = mini(grid.height - 1, _bound_y1 + 1)
 	_mark += 1
 
-	# 3. Izning har bir qo'shnisidan to'ldirish.
+	# 3. Izning har bir qo'shnisidan (shu jumladan diagonal) to'ldirish.
 	var w := grid.width
 	for i: int in trail:
 		var x: int = i % w
@@ -113,6 +113,10 @@ func capture(player_id: int, trail: PackedInt32Array) -> Dictionary:
 		_fill_from(x + 1, y)
 		_fill_from(x, y - 1)
 		_fill_from(x, y + 1)
+		_fill_from(x - 1, y - 1)
+		_fill_from(x + 1, y - 1)
+		_fill_from(x - 1, y + 1)
+		_fill_from(x + 1, y + 1)
 	return _result()
 
 ## Shu katakdan boshlanadigan sohani to'ldiradi. Soha to'rtburchak

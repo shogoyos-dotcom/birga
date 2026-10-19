@@ -133,6 +133,8 @@ vec3 skin_shade(int owner, vec3 base, vec2 at) {
 }
 
 // Hudud butun yuzasini egallagan o'yinchining milliy bayrog'i dizayni bilan qoplaydi.
+// Qattiq to'rtburchak qirqishsiz — bayroq butun hudud bo'yicha silliq joylashadi
+// va hududning o'zining konturi (marching squares) orqali tabiiy chegaralanadi.
 vec3 with_avatar(int owner, vec3 base, vec2 cell_pos) {
 	if (owner <= 0 || avatar_alpha <= 0.0) {
 		return base;
@@ -143,23 +145,15 @@ vec3 with_avatar(int owner, vec3 base, vec2 cell_pos) {
 	}
 	// Kengaytirilgan hudud bo'yicha nisbiy koordinatalar [0.0 .. 1.0]:
 	vec2 rel = (cell_pos - vec2(place.r, place.g)) / (2.0 * vec2(place.b, place.a)) + vec2(0.5);
-	if (rel.x < 0.0 || rel.x > 1.0 || rel.y < 0.0 || rel.y > 1.0) {
-		return base;
-	}
-
-	// Bayroq qirralarida silliq o'tish (edge fade) — noqulay cho'zilishlarni oldini oladi
-	float edge_fade = smoothstep(0.0, 0.04, rel.x) * smoothstep(1.0, 0.96, rel.x)
-		* smoothstep(0.0, 0.04, rel.y) * smoothstep(1.0, 0.96, rel.y);
-
-	vec2 local = clamp(rel, 0.005, 0.995);
+	vec2 local = clamp(rel, 0.001, 0.999);
 
 	// Har o'yinchiga ikkita katak: 0 — bosh belgisi, 1 — bayroq.
 	float tile = float((owner - 1) * 2 + 1);
 	vec2 at = vec2(mod(tile, avatar_grid.x), floor(tile / avatar_grid.x));
 	vec4 flag_color = textureLod(avatar_tex, (at + local) / avatar_grid, 0.0);
 
-	// Nepal kabi shaffof fonga ega bayroqlarni va chekka hududlarni silliq qorishtirish
-	return mix(base, flag_color.rgb, flag_color.a * avatar_alpha * edge_fade);
+	// Nepal kabi maxsus burchaklari shaffof bayroqlar uchun flag_color.a hisobga olinadi:
+	return mix(base, flag_color.rgb, flag_color.a * avatar_alpha);
 }
 
 void fragment() {
@@ -170,118 +164,140 @@ void fragment() {
 	vec2 base = floor(p);
 	vec2 f = p - base;
 
-	// Eng yaqin 4 katak — tez yo'l va egalik chegaralari uchun
+	// Eng yaqin 4 burchak texellari:
 	vec4 t00 = cell_texel(base);
 	vec4 t10 = cell_texel(base + vec2(1.0, 0.0));
 	vec4 t01 = cell_texel(base + vec2(0.0, 1.0));
 	vec4 t11 = cell_texel(base + vec2(1.0, 1.0));
 
-	int near_owner[4] = int[](
-		int(t00.r * 255.0 + 0.5), int(t10.r * 255.0 + 0.5),
-		int(t01.r * 255.0 + 0.5), int(t11.r * 255.0 + 0.5));
+	int o00 = int(t00.r * 255.0 + 0.5);
+	int o10 = int(t10.r * 255.0 + 0.5);
+	int o01 = int(t01.r * 255.0 + 0.5);
+	int o11 = int(t11.r * 255.0 + 0.5);
 
-	// Suv burchaklariga eng yaqin qo'shni quruqlik burchagining egasi biriktiriladi
-	// Bu qirg'oq bo'ylab uzluksiz, zinapoyasiz silliq o'tishni ta'minlaydi
-	if (near_owner[0] == WATER && near_owner[1] != WATER) near_owner[0] = near_owner[1];
-	if (near_owner[0] == WATER && near_owner[2] != WATER) near_owner[0] = near_owner[2];
-	if (near_owner[1] == WATER && near_owner[0] != WATER) near_owner[1] = near_owner[0];
-	if (near_owner[1] == WATER && near_owner[3] != WATER) near_owner[1] = near_owner[3];
-	if (near_owner[2] == WATER && near_owner[0] != WATER) near_owner[2] = near_owner[0];
-	if (near_owner[2] == WATER && near_owner[3] != WATER) near_owner[2] = near_owner[3];
-	if (near_owner[3] == WATER && near_owner[1] != WATER) near_owner[3] = near_owner[1];
-	if (near_owner[3] == WATER && near_owner[2] != WATER) near_owner[3] = near_owner[2];
-	if (near_owner[0] == WATER && near_owner[3] != WATER) near_owner[0] = near_owner[3];
-	if (near_owner[3] == WATER && near_owner[0] != WATER) near_owner[3] = near_owner[0];
-	if (near_owner[1] == WATER && near_owner[2] != WATER) near_owner[1] = near_owner[2];
-	if (near_owner[2] == WATER && near_owner[1] != WATER) near_owner[2] = near_owner[1];
+	// Suv burchaklarini eng yaqin quruqlik burchaklari egasi bilan to'ldiramiz.
+	// Natijada qirg'oq bo'yida hudud 3D jarlik chetigacha 100% to'liq, zinapoyasiz yetib boradi:
+	if (o00 == WATER) {
+		o00 = (o10 != WATER) ? o10 : ((o01 != WATER) ? o01 : ((o11 != WATER) ? o11 : 0));
+	}
+	if (o10 == WATER) {
+		o10 = (o00 != WATER) ? o00 : ((o11 != WATER) ? o11 : ((o01 != WATER) ? o01 : 0));
+	}
+	if (o01 == WATER) {
+		o01 = (o00 != WATER) ? o00 : ((o11 != WATER) ? o11 : ((o10 != WATER) ? o10 : 0));
+	}
+	if (o11 == WATER) {
+		o11 = (o10 != WATER) ? o10 : ((o01 != WATER) ? o01 : ((o00 != WATER) ? o00 : 0));
+	}
 
 	vec3 shade;
-	int win_owner = near_owner[0];
-	bool same = (near_owner[0] == near_owner[1])
-		&& (near_owner[0] == near_owner[2])
-		&& (near_owner[0] == near_owner[3]);
+	int win_owner = o00;
 
-	if (same) {
-		// Eng yaqin 4 katak bir xil bo'lsa — tezkor to'g'ri chizish
+	// Agar 4 ta burchak ham bir xil egaga tegishli bo'lsa — tezkor to'g'ri chizish:
+	if (o00 == o10 && o00 == o01 && o00 == o11) {
 		shade = with_avatar(win_owner,
 			skin_shade(win_owner, color_of(win_owner), cell_pos),
 			cell_pos);
 	} else {
-		// Hudud chegarasi: 4x4 doiraviy radial izotrop silliqlash (quartic kernel)
-		// Radial masofa tufayli zinapoya va to'rtburchak shakllar butunlay yo'qoladi,
-		// chegaralar tabiiy va egri chiziqli bo'ladi.
-		float score[4] = float[](0.0, 0.0, 0.0, 0.0);
-		float total_w = 0.0;
-		for (int dy = -1; dy <= 2; dy++) {
-			for (int dx = -1; dx <= 2; dx++) {
-				vec2 offset = vec2(float(dx), float(dy));
-				vec2 delta = offset - f;
-				float r2 = dot(delta, delta);
-				if (r2 >= 4.84) {
-					continue;
-				}
-				float t = 1.0 - r2 / 4.84;
-				float w = t * t;
-				total_w += w;
-				int owner = int(cell_texel(base + offset).r * 255.0 + 0.5);
-				if (owner == WATER) {
-					owner = near_owner[0];
-				}
-				for (int k = 0; k < 4; k++) {
-					if (near_owner[k] == owner) {
-						score[k] += w;
-					}
-				}
+		// Uzluksiz Hermite Marching Squares izokonturlash (C1 silliq):
+		// u = f * f * (3.0 - 2.0 * f) kubik silliqlash — kataklararo uzilishsiz
+		vec2 u = f * f * (3.0 - 2.0 * f);
+		float w00 = (1.0 - u.x) * (1.0 - u.y);
+		float w10 = u.x * (1.0 - u.y);
+		float w01 = (1.0 - u.x) * u.y;
+		float w11 = u.x * u.y;
+
+		// Har bir noyob ega (unique owner) bo'yicha vaznlarni to'playmiz:
+		int u_owners[4];
+		float u_weights[4];
+		int num_u = 0;
+
+		// Burchak 00:
+		u_owners[0] = o00;
+		u_weights[0] = w00;
+		num_u = 1;
+
+		// Burchak 10:
+		if (o10 == u_owners[0]) {
+			u_weights[0] += w10;
+		} else {
+			u_owners[num_u] = o10;
+			u_weights[num_u] = w10;
+			num_u++;
+		}
+
+		// Burchak 01:
+		int m01 = -1;
+		for (int k = 0; k < num_u; k++) {
+			if (o01 == u_owners[k]) { m01 = k; break; }
+		}
+		if (m01 >= 0) {
+			u_weights[m01] += w01;
+		} else {
+			u_owners[num_u] = o01;
+			u_weights[num_u] = w01;
+			num_u++;
+		}
+
+		// Burchak 11:
+		int m11 = -1;
+		for (int k = 0; k < num_u; k++) {
+			if (o11 == u_owners[k]) { m11 = k; break; }
+		}
+		if (m11 >= 0) {
+			u_weights[m11] += w11;
+		} else {
+			u_owners[num_u] = o11;
+			u_weights[num_u] = w11;
+			num_u++;
+		}
+
+		// Eng katta vaznga ega eganni va ikkinchi o'rindagi eganni topamiz:
+		int best_idx = 0;
+		for (int k = 1; k < num_u; k++) {
+			if (u_weights[k] > u_weights[best_idx]) {
+				best_idx = k;
+			}
+		}
+		win_owner = u_owners[best_idx];
+		float best_w = u_weights[best_idx];
+
+		int second_idx = -1;
+		for (int k = 0; k < num_u; k++) {
+			if (k != best_idx && (second_idx < 0 || u_weights[k] > u_weights[second_idx])) {
+				second_idx = k;
 			}
 		}
 
-		if (total_w > 0.0001) {
-			float inv_w = 1.0 / total_w;
-			score[0] *= inv_w;
-			score[1] *= inv_w;
-			score[2] *= inv_w;
-			score[3] *= inv_w;
-		}
-
-		int best = 0;
-		for (int k = 1; k < 4; k++) {
-			if (score[k] > score[best]) {
-				best = k;
-			}
-		}
-		win_owner = near_owner[best];
-
-		int second = -1;
-		for (int k = 0; k < 4; k++) {
-			if (near_owner[k] != near_owner[best]
-					&& (second < 0 || score[k] > score[second])) {
-				second = k;
-			}
-		}
-
-		shade = with_avatar(near_owner[best],
-			skin_shade(near_owner[best], color_of(near_owner[best]), cell_pos),
+		vec3 shade_best = with_avatar(win_owner,
+			skin_shade(win_owner, color_of(win_owner), cell_pos),
 			cell_pos);
 
-		// Hudud chetidagi hoshiya: chegaraga yaqin joy skin rangida bo'yaladi
-		float second_score = (second >= 0) ? score[second] : 0.0;
-		float gap = score[best] - second_score;
-		if (near_owner[best] > 0 && gap < RIM_WIDTH && second >= 0) {
-			vec3 rim = color_of(256 + near_owner[best]);
-			shade = mix(rim, shade, smoothstep(0.0, RIM_WIDTH, gap));
-		}
-		if (second >= 0) {
-			vec3 other = with_avatar(near_owner[second],
-				skin_shade(near_owner[second], color_of(near_owner[second]), cell_pos),
-				cell_pos);
-			float gap2 = second_score - score[best];
-			if (near_owner[second] > 0 && -gap2 < RIM_WIDTH) {
-				vec3 rim2 = color_of(256 + near_owner[second]);
-				other = mix(rim2, other, smoothstep(0.0, RIM_WIDTH, -gap2));
+		if (second_idx >= 0) {
+			int sec_owner = u_owners[second_idx];
+			float sec_w = u_weights[second_idx];
+			float gap = best_w - sec_w;
+
+			// Hudud chetidagi hoshiya (skin rim):
+			if (win_owner > 0 && gap < RIM_WIDTH) {
+				vec3 rim = color_of(256 + win_owner);
+				shade_best = mix(rim, shade_best, smoothstep(0.0, RIM_WIDTH, gap));
 			}
-			float pixel = max(max(fwidth(p.x), fwidth(p.y)), 0.0005);
-			float lead = (score[best] - second_score) / pixel;
-			shade = mix(other, shade, clamp(0.5 + 0.5 * lead, 0.5, 1.0));
+
+			vec3 shade_sec = with_avatar(sec_owner,
+				skin_shade(sec_owner, color_of(sec_owner), cell_pos),
+				cell_pos);
+			if (sec_owner > 0 && gap < RIM_WIDTH) {
+				vec3 rim2 = color_of(256 + sec_owner);
+				shade_sec = mix(rim2, shade_sec, smoothstep(0.0, RIM_WIDTH, gap));
+			}
+
+			// Ekran pikseliga mos antialiased o'tish:
+			float fw = max(fwidth(gap), 0.001);
+			float edge_t = clamp(0.5 + 0.5 * gap / fw, 0.0, 1.0);
+			shade = mix(shade_sec, shade_best, edge_t);
+		} else {
+			shade = shade_best;
 		}
 	}
 

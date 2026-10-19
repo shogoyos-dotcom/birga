@@ -88,6 +88,7 @@ func _process(_delta: float) -> bool:
 	_test_phase8_1_real_android_fixes(t)
 	_test_phase8_1_smooth_coastlines(t)
 	_test_phase8_2_coastline_movement_collision(t)
+	_test_phase8_3_territory_flag_coastline_repair(t)
 
 	var ok := t.report()
 
@@ -4282,6 +4283,235 @@ func _test_phase8_2_coastline_movement_collision(t: TestRunner) -> void:
 		var paint := PaintLayer.new(grid, colors)
 		t.equal(paint._coast_dist.size(), grid.coast_dist.size(), "Masofa o'lchamlari teng")
 		t.equal(paint._coast_dist[7], grid.coast_dist[7], "Masofa qiymatlari mos")
+	)
+
+# ——— PHASE 8.3: Hudud egallash, bayroq niqoblari, qirg'oqlar va spawn ulanishi tekshiruvlari ———
+
+func _test_phase8_3_territory_flag_coastline_repair(t: TestRunner) -> void:
+	t.group("PHASE 8.3: Hudud, bayroq va qirg'oq tuzatishlari")
+
+	# 1. Boshlang'ich hudud doirasi (spawn) silliq va uzluksiz konturga ega
+	t.test("1. Boshlang'ich doira hududi (spawn) silliq chegaralarga ega", func() -> void:
+		var grid := GameGrid.new(20, 20)
+		for y in 20:
+			for x in 20:
+				var dx := float(x) - 10.0
+				var dy := float(y) - 10.0
+				if dx * dx + dy * dy <= 16.0:
+					grid.set_owner(x, y, 1)
+		var b := grid.bounds_of(1)
+		t.check(not b.is_empty(), "Spawn chegaralari mavjud")
+		t.equal(b[0], 6, "Spawn min_x")
+		t.equal(b[2], 14, "Spawn max_x")
+		var place := AvatarPlacement.of(grid, 1, "UZ")
+		t.check(float(place["half_w"]) > 0.0, "Bayroq o'lchami hisoblandi")
+	)
+
+	# 2. Izning hududga qayta ulanishi (trail reconnection) 1-katakli teshik yoki zinapoyasiz yopiladi
+	t.test("2. Iz qayta ulanganda diagonal teshik va burchak bo'shliqlari qolmaydi", func() -> void:
+		var grid := GameGrid.new(20, 20)
+		for y in range(8, 12):
+			for x in range(8, 12):
+				grid.set_owner(x, y, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# Hududdan chiqib, diagonal burchak orqali qaytib keluvchi iz:
+		# (8, 12) -> (8, 13) -> (9, 13) -> (10, 13) -> (10, 12)
+		var trail := PackedInt32Array([
+			12 * 20 + 8, 13 * 20 + 8, 13 * 20 + 9, 13 * 20 + 10, 12 * 20 + 10
+		])
+		var res := capturer.capture(1, trail)
+		t.greater(int(res["captured"]), 0, "Iz va ichki soha egallandi")
+		# Iz va u o'rab olgan ichki katak (9, 12) to'liq o'yinchiniki bo'lishi kerak:
+		t.equal(grid.owner_at(9, 12), 1, "Ichki katak (9, 12) to'liq egallandi")
+		t.equal(grid.owner_at(9, 13), 1, "Iz katagi (9, 13) to'liq egallandi")
+	)
+
+	# 3. Ketma-ket egallashlar (multiple captures) yaxlit va uzluksiz bitta hududga birlashadi
+	t.test("3. Ketma-ket egallashlar bitta yaxlit hududga birlashadi", func() -> void:
+		var grid := GameGrid.new(30, 30)
+		for y in range(10, 15):
+			for x in range(10, 15):
+				grid.set_owner(x, y, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# 1-egallash: o'ng tomondan kengayish
+		var t1 := PackedInt32Array([
+			10 * 30 + 15, 11 * 30 + 15, 12 * 30 + 15, 13 * 30 + 15, 14 * 30 + 15
+		])
+		capturer.capture(1, t1)
+		# 2-egallash: pastki tomondan kengayish
+		var t2 := PackedInt32Array([
+			15 * 30 + 10, 15 * 30 + 11, 15 * 30 + 12, 15 * 30 + 13, 15 * 30 + 14, 15 * 30 + 15
+		])
+		capturer.capture(1, t2)
+		var b := grid.bounds_of(1)
+		t.equal(b[0], 10, "Yaxlit min_x")
+		t.equal(b[2], 15, "Yaxlit max_x")
+		t.equal(b[3], 15, "Yaxlit max_y")
+		# Oraliqdagi barcha kataklar o'yinchiniki:
+		for y in range(10, 16):
+			for x in range(10, 16):
+				t.equal(grid.owner_at(x, y), 1, "Katak (%d, %d) egallangan" % [x, y])
+	)
+
+	# 4. Egri sohil bo'ylab egallash (curved coast) 3D jarlik chetigacha to'liq yetib boradi
+	t.test("4. Egri sohil bo'ylab egallash suvga chiqmay quruqlik chetigacha to'liq yetadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~~~",
+			"~~~........~",
+			"~~.........~",
+			"~..........~",
+			"~..........~",
+			"~~~~~~~~~~~~",
+		]))
+		for y in range(3, 5):
+			for x in range(3, 8):
+				grid.set_owner(x, y, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# Qirg'oqning egri burchagiga chiqib egallash:
+		var trail := PackedInt32Array([
+			2 * 12 + 3, 2 * 12 + 2, 3 * 12 + 1, 4 * 12 + 1
+		])
+		var res := capturer.capture(1, trail)
+		t.greater(int(res["captured"]), 0, "Egri qirg'oq quruqligi egallandi")
+		# Quruqlik katagi o'yinchiniki:
+		t.equal(grid.owner_at(1, 3), 1, "Sohil bo'yidagi quruqlik katagi o'yinchiniki")
+		# Suv katagi hech qachon o'yinchiniki bo'lmaydi:
+		t.equal(grid.owner_at(0, 3), 0, "Suv katagi egasiz qoladi")
+		t.equal(grid.owner_at(1, 2), 0, "Egri suv burchagi egasiz qoladi")
+	)
+
+	# 5. Ingichka yarim orol (narrow peninsula) halqasi quruqlikni to'liq egallaydi
+	t.test("5. Ingichka yarim orol halqasi quruqlikni to'liq egallaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~",
+			"~~~~..~~~~",
+			"~~~~..~~~~",
+			"~~~~..~~~~",
+			"~........~",
+			"~~~~~~~~~~",
+		]))
+		for x in range(1, 9):
+			grid.set_owner(x, 4, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# Yarim orol bo'ylab tepaga chiqib qaytish:
+		var trail := PackedInt32Array([
+			3 * 10 + 4, 2 * 10 + 4, 1 * 10 + 4, 1 * 10 + 5, 2 * 10 + 5, 3 * 10 + 5
+		])
+		var res := capturer.capture(1, trail)
+		t.greater(int(res["captured"]), 0, "Yarim orol egallandi")
+		t.equal(grid.owner_at(4, 1), 1, "Yarim orol uchi (4,1)")
+		t.equal(grid.owner_at(5, 1), 1, "Yarim orol uchi (5,1)")
+		t.equal(grid.owner_at(3, 1), 0, "Yarim orol yonidagi suv katagi")
+	)
+
+	# 6. Qo'ltiq (bay) bo'ylab kesib o'tish faqat o'ralgan quruqlikni to'g'ri egallaydi
+	t.test("6. Qo'ltiq bo'ylab kesib o'tishda suv egallanmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~........~",
+			"~...~~...~",
+			"~...~~...~",
+			"~........~",
+			"~~~~~~~~~~",
+		]))
+		for x in range(1, 4):
+			grid.set_owner(x, 0, 1)
+		for x in range(6, 9):
+			grid.set_owner(x, 0, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# Qo'ltiq og'zini kesib o'tuvchi iz (quruqlik bo'ylab):
+		var trail := PackedInt32Array([
+			1 * 10 + 3, 2 * 10 + 3, 3 * 10 + 3, 3 * 10 + 4, 3 * 10 + 5, 3 * 10 + 6, 2 * 10 + 6, 1 * 10 + 6
+		])
+		capturer.capture(1, trail)
+		# Suv kataklari o'ralgan bo'lsa ham hech qachon o'yinchiga berilmaydi:
+		t.equal(grid.owner_at(4, 1), 0, "Qo'ltiq suvi egasiz")
+		t.equal(grid.owner_at(5, 1), 0, "Qo'ltiq suvi egasiz")
+		t.equal(grid.owner_at(4, 2), 0, "Qo'ltiq suvi egasiz")
+	)
+
+	# 7. 3D shahar (city conquest) hududida egallash uzluksiz davom etadi
+	t.test("7. Shahar atrofini egallash shahar katagini to'liq qamrab oladi", func() -> void:
+		var grid := GameGrid.new(20, 20)
+		for y in range(5, 15):
+			for x in range(5, 10):
+				grid.set_owner(x, y, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# Shahar (11, 10) atrofini halqa qilib egallash:
+		var trail := PackedInt32Array([
+			5 * 20 + 10, 5 * 20 + 11, 5 * 20 + 12,
+			6 * 20 + 12, 7 * 20 + 12, 8 * 20 + 12, 9 * 20 + 12, 10 * 20 + 12,
+			11 * 20 + 12, 12 * 20 + 12, 13 * 20 + 12, 14 * 20 + 12,
+			14 * 20 + 11, 14 * 20 + 10
+		])
+		var res := capturer.capture(1, trail)
+		t.greater(int(res["captured"]), 0, "Shahar atrofi egallandi")
+		t.equal(grid.owner_at(11, 10), 1, "Shahar joylashgan katak egallandi")
+	)
+
+	# 8. Milliy bayroq butun egallangan hududni to'liq qoplaydi va nisbatini saqlaydi
+	t.test("8. Milliy bayroq butun egallangan hududni to'liq qoplaydi va nisbatini saqlaydi", func() -> void:
+		var grid := GameGrid.new(60, 60)
+		for y in range(15, 45):
+			for x in range(10, 50):
+				grid.set_owner(x, y, 1)
+		var place_uz := AvatarPlacement.of(grid, 1, "UZ")
+		var w: float = place_uz["half_w"]
+		var h: float = place_uz["half_h"]
+		t.check(w >= 20.0, "Bayroq eni butun hududni qoplaydi: %.1f" % w)
+		t.check(h >= 10.0, "Bayroq bo'yi hududga mos: %.1f" % h)
+		var ratio := w / h
+		t.check(absf(ratio - 2.0) < 0.2, "O'zbekiston bayrog'i nisbati 2:1 saqlandi: %.2f" % ratio)
+	)
+
+	# 9. Katta hudud egallash (500+ katak) tez va aniq bajariladi
+	t.test("9. Katta hudud egallash (500+ katak) tez va aniq bajariladi", func() -> void:
+		var grid := GameGrid.new(100, 100)
+		# Boshlang'ich hudud: 50x5 katak
+		for y in range(10, 15):
+			for x in range(20, 70):
+				grid.set_owner(x, y, 1)
+		var capturer := TerritoryCapturer.new(grid)
+		# 25x20 o'lchamdagi katta halqa (500 katak):
+		var trail := PackedInt32Array()
+		for x in range(20, 46):
+			trail.append(15 * 100 + x)
+		for y in range(16, 36):
+			trail.append(y * 100 + 45)
+		for x in range(44, 19, -1):
+			trail.append(35 * 100 + x)
+		for y in range(34, 14, -1):
+			trail.append(y * 100 + 20)
+		var t0 := Time.get_ticks_usec()
+		var res := capturer.capture(1, trail)
+		var dt := Time.get_ticks_usec() - t0
+		t.greater(int(res["captured"]), 400, "400 dan ortiq katak egallandi")
+		t.less(dt, 50000, "500 katakli halqa 50 ms dan tez bajarildi (%d µs)" % dt)
+		t.equal(grid.owner_at(30, 25), 1, "Katta halqa markazi egallandi")
+	)
+
+	# 10. Raqib hududidan kesib olish (opponent territory capture) raqib hududini toza qirqadi
+	t.test("10. Raqib hududidan kesib olish raqib hududini toza qirqadi", func() -> void:
+		var grid := GameGrid.new(30, 30)
+		# 1-o'yinchi hududi: (5, 5) dan (25, 25) gacha
+		for y in range(5, 25):
+			for x in range(5, 25):
+				grid.set_owner(x, y, 1)
+		# 2-o'yinchi hududi: (2, 10) dan (4, 20) gacha
+		for y in range(10, 20):
+			for x in range(2, 5):
+				grid.set_owner(x, y, 2)
+		var capturer := TerritoryCapturer.new(grid)
+		# 2-o'yinchi 1-o'yinchining hududidan bir bo'lak kesib oladi:
+		var trail := PackedInt32Array([
+			10 * 30 + 5, 10 * 30 + 6, 10 * 30 + 7,
+			11 * 30 + 7, 12 * 30 + 7,
+			12 * 30 + 6, 12 * 30 + 5
+		])
+		var res := capturer.capture(2, trail)
+		t.greater(int(res["captured"]), 0, "Raqibdan kataklar tortib olindi")
+		t.check(int(res["taken_from"].get(1, 0)) > 0, "1-o'yinchidan kamida 1 katak olindi")
+		t.equal(grid.owner_at(6, 11), 2, "Kesib olingan ichki katak 2-o'yinchiniki bo'ldi")
+		t.equal(grid.owner_at(15, 15), 1, "1-o'yinchining qolgan hududi buzilmadi")
 	)
 
 

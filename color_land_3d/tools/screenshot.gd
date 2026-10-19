@@ -625,6 +625,113 @@ func _drive() -> void:
 		view.set_camera_demo_pose(cpos + Vector3(-8.0, 11.0, 9.0), cpos + Vector3(1.0, 0.0, 0.0))
 		return
 
+	if _mode.begins_with("p8_3_"):
+		var p: Object = view.world.human()
+		var grid: GameGrid = view.world.grid
+		p.country = _country
+		if view._arena_material != null:
+			view._arena_material.set_shader_parameter("avatar_alpha", 0.9)
+		if view._city_renderer != null:
+			view._city_renderer.visible = false
+		if view._coins != null:
+			view._coins.visible = false
+		if view._pickups != null:
+			view._pickups.visible = false
+		if view._flag_poles != null:
+			view._flag_poles.visible = false
+		p.alive = true
+
+		if _mode == "p8_3_spawn_smooth":
+			# Boshlang'ich hudud doirasi (spawn): tekis quruqlikda silliq C1 Hermite marching squares konturi
+			var cx := 265
+			var cy := 95
+			grid.clear_player(p.id)
+			p.place_at(float(cx), float(cy), 0.0)
+			grid.fill_disc(cx, cy, 5.5, p.id)
+			view.paint.sync()
+			view._avatars.refresh(true)
+			var cpos := Vector3(float(cx), ArenaBuilder.LAND_HEIGHT, float(cy))
+			view.set_camera_demo_pose(cpos + Vector3(-3.5, 7.5, 8.5), cpos + Vector3(0.0, 0.0, 0.0))
+
+		elif _mode == "p8_3_connected_capture":
+			# Yangi egallangan hudud va boshlang'ich hudud: hech qanday chok yoki uzilishsiz yaxlit birlashish
+			var cx := 265
+			var cy := 95
+			grid.clear_player(p.id)
+			p.place_at(float(cx) + 5.0, float(cy) + 2.0, 0.0)
+			grid.fill_disc(cx, cy, 5.0, p.id)
+			# Yangi ulanish (loop capture):
+			for dy in range(-2, 6):
+				for dx in range(2, 9):
+					grid.set_owner(cx + dx, cy + dy, p.id)
+			view.paint.sync()
+			view._avatars.refresh(true)
+			var cpos := Vector3(float(cx) + 3.0, ArenaBuilder.LAND_HEIGHT, float(cy) + 1.0)
+			view.set_camera_demo_pose(cpos + Vector3(-5.5, 9.5, 10.0), cpos + Vector3(0.0, 0.0, 0.0))
+
+		elif _mode == "p8_3_flag_territory":
+			# Milliy bayroq butun hudud bo'ylab silliq, to'rtburchak kesilishsiz yoyiladi
+			var cx := 265
+			var cy := 95
+			grid.clear_player(p.id)
+			p.place_at(float(cx), float(cy), 0.0)
+			for dy in range(-9, 10):
+				for dx in range(-14, 15):
+					if Vector2(float(dx) * 0.7, float(dy)).length() <= 8.0:
+						grid.set_owner(cx + dx, cy + dy, p.id)
+			view.paint.sync()
+			view._avatars.refresh(true)
+			var cpos := Vector3(float(cx), ArenaBuilder.LAND_HEIGHT, float(cy))
+			view.set_camera_demo_pose(cpos + Vector3(-6.5, 11.5, 12.5), cpos + Vector3(0.0, 0.0, 0.0))
+
+		elif _mode == "p8_3_curved_coast":
+			# Egri sohil bo'yida 100% to'liq 3D jarlik chetigacha yetib boruvchi hudud:
+			var cx := 440
+			var cy := 142
+			grid.clear_player(p.id)
+			p.place_at(438.0, 142.0, -0.2)
+			for dy in range(-6, 7):
+				for dx in range(-7, 8):
+					var gx := cx + dx
+					var gy := cy + dy
+					if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 6.0:
+						grid.set_owner(gx, gy, p.id)
+			view.paint.sync()
+			view._avatars.refresh(true)
+			var cpos := Vector3(437.5, ArenaBuilder.LAND_HEIGHT, 142.0)
+			view.set_camera_demo_pose(cpos + Vector3(-7.0, 9.5, 8.0), cpos + Vector3(0.5, 0.0, 0.0))
+
+		elif _mode == "p8_3_large_region":
+			# 500+ katakli yirik hudud bo'ylab silliq izokontur va bayroq:
+			var cx := 265
+			var cy := 95
+			grid.clear_player(p.id)
+			p.place_at(float(cx), float(cy), 0.0)
+			for dy in range(-14, 15):
+				for dx in range(-18, 19):
+					if Vector2(float(dx) * 0.75, float(dy)).length() <= 12.5:
+						grid.set_owner(cx + dx, cy + dy, p.id)
+			view.paint.sync()
+			view._avatars.refresh(true)
+			var cpos := Vector3(float(cx), ArenaBuilder.LAND_HEIGHT, float(cy))
+			view.set_camera_demo_pose(cpos + Vector3(-12.0, 18.0, 18.0), cpos + Vector3(0.0, 0.0, 0.0))
+
+		elif _mode == "p8_3_before_after":
+			# Taqqoslash rejimi: silliq kontur va to'liq bayroq qoplamasi
+			var cx := 265
+			var cy := 95
+			grid.clear_player(p.id)
+			p.place_at(float(cx), float(cy), 0.0)
+			for dy in range(-8, 9):
+				for dx in range(-11, 12):
+					if Vector2(float(dx) * 0.8, float(dy)).length() <= 6.5:
+						grid.set_owner(cx + dx, cy + dy, p.id)
+			view.paint.sync()
+			view._avatars.refresh(true)
+			var cpos := Vector3(float(cx), ArenaBuilder.LAND_HEIGHT, float(cy))
+			view.set_camera_demo_pose(cpos + Vector3(-6.0, 10.5, 11.5), cpos + Vector3(0.0, 0.0, 0.0))
+		return
+
 	if _mode.begins_with("p8_2_"):
 		var p: Object = view.world.human()
 		var grid: GameGrid = view.world.grid
