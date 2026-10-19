@@ -37,6 +37,8 @@ var _grid: GameGrid
 var _colors: PackedColorArray
 ## O'yinchi ID -> skin nomi.
 var _skins := PackedStringArray()
+## Sohil chizig'igacha bo'lgan masofa xaritasi (katak birligida).
+var _coast_dist := PackedFloat32Array()
 
 ## `skin_by_id` — har o'yinchining hudud naqshi (skin nomi).
 ## Bo'sh bo'lsa hudud tekis rangda qoladi.
@@ -46,7 +48,8 @@ func _init(grid: GameGrid, color_index_by_id: PackedByteArray,
 	_skins = skin_by_id
 	image = Image.create_empty(grid.width, grid.height, false, Image.FORMAT_RGBA8)
 	index_image = Image.create_empty(
-		grid.width, grid.height, false, Image.FORMAT_RG8)
+		grid.width, grid.height, false, Image.FORMAT_RGBA8)
+	_build_coast_distance()
 	_rebuild_colors(color_index_by_id)
 	_paint_all()
 	texture = ImageTexture.create_from_image(image)
@@ -105,8 +108,56 @@ func _paint(x: int, y: int, i: int) -> void:
 	# Shaderga ID lar 0..1 oralig'ida uzatiladi; suv alohida
 	# belgilanadi, chunki u ovoz berishda qatnashmasligi kerak.
 	var mark: int = WATER if not _grid.is_land_index(i) else own
+	var c_dist: float = clampf(_coast_dist[i] / 4.0, 0.0, 1.0) if not _coast_dist.is_empty() else 0.0
 	index_image.set_pixel(x, y,
-		Color(mark / 255.0, trail / 255.0, 0.0, 1.0))
+		Color(mark / 255.0, trail / 255.0, c_dist, 1.0))
+
+## Butun xarita bo'ylab suvdan masofani 2-o'tishli Chamfer algoritmi bilan
+## bir marta hisoblaydi. Bu shaderda 25 ta tekstura tekshirish loopini yo'qotadi
+## va sohilda silliq sand o'tishini ta'minlaydi.
+func _build_coast_distance() -> void:
+	var w := _grid.width
+	var h := _grid.height
+	var total := w * h
+	_coast_dist = PackedFloat32Array()
+	_coast_dist.resize(total)
+	_coast_dist.fill(99.0)
+
+	# 1-o'tish: yuqori-chapdan pastki-o'ngga
+	for y in h:
+		var row := y * w
+		for x in w:
+			var idx := row + x
+			if not _grid.is_land_index(idx):
+				_coast_dist[idx] = 0.0
+			else:
+				var m: float = _coast_dist[idx]
+				if x > 0:
+					m = minf(m, _coast_dist[idx - 1] + 1.0)
+				if y > 0:
+					m = minf(m, _coast_dist[idx - w] + 1.0)
+					if x > 0:
+						m = minf(m, _coast_dist[idx - w - 1] + 1.414)
+					if x < w - 1:
+						m = minf(m, _coast_dist[idx - w + 1] + 1.414)
+				_coast_dist[idx] = m
+
+	# 2-o'tish: pastki-o'ngdan yuqori-chapga
+	for y in range(h - 1, -1, -1):
+		var row := y * w
+		for x in range(w - 1, -1, -1):
+			var idx := row + x
+			if _grid.is_land_index(idx):
+				var m: float = _coast_dist[idx]
+				if x < w - 1:
+					m = minf(m, _coast_dist[idx + 1] + 1.0)
+				if y < h - 1:
+					m = minf(m, _coast_dist[idx + w] + 1.0)
+					if x < w - 1:
+						m = minf(m, _coast_dist[idx + w + 1] + 1.414)
+					if x > 0:
+						m = minf(m, _coast_dist[idx + w - 1] + 1.414)
+				_coast_dist[idx] = m
 
 ## Panjaradagi o'zgarishlarni teksturaga ko'chiradi.
 ## O'zgargan katak sonini qaytaradi.

@@ -54,7 +54,7 @@ func _initialize() -> void:
 			_out = s
 		elif s.is_valid_float() and i == 0:
 			_seconds = float(s)
-		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings", "environment"] or s.begins_with("p6_") or s.begins_with("city_"):
+		elif s in ["play", "menu", "flags", "heroes", "maps", "maps:continents", "maps:cities", "maps:special", "flag_base", "flag_territory", "multi_flags", "conquest", "burst", "trail", "shop", "settings", "environment", "coastline"] or s.begins_with("p6_") or s.begins_with("city_"):
 			_mode = s
 		elif s.length() == 2 and s == s.to_upper():
 			_country = s
@@ -112,7 +112,7 @@ func _drive() -> void:
 
 	var is_3d_action: bool = (_mode == "play" or _mode == "trail" or _mode == "burst" \
 		or _mode == "flag_base" or _mode == "flag_territory" or _mode == "multi_flags" or _mode == "conquest" \
-		or _mode.begins_with("city_") or _mode.begins_with("p6_") or _mode == "environment")
+		or _mode.begins_with("city_") or _mode.begins_with("p6_") or _mode == "environment" or _mode == "coastline")
 	if _mode == "p6_match_summary":
 		is_3d_action = false
 
@@ -597,6 +597,31 @@ func _drive() -> void:
 				ArenaBuilder.LAND_HEIGHT + view.HEAD_RADIUS, p.y))
 		view.steer_human(_elapsed * 0.55)
 		view.revive_human_for_demo()
+		return
+
+	if _mode == "coastline":
+		var p: Object = view.world.human()
+		var grid: GameGrid = view.world.grid
+		var cx := 440
+		var cy := 142
+		p.place_at(float(cx), float(cy), 0.0)
+		p.alive = true
+		if view._city_renderer != null:
+			view._city_renderer.visible = false
+		if view._coins != null:
+			view._coins.visible = false
+		if view._pickups != null:
+			view._pickups.visible = false
+		for dy in range(-7, 8):
+			for dx in range(-8, 9):
+				var gx := cx + dx
+				var gy := cy + dy
+				if grid.playable(gx, gy) and Vector2(float(dx), float(dy)).length() <= 7.0:
+					grid.set_owner(gx, gy, p.id)
+		view.paint.sync()
+		view._avatars.refresh()
+		var cpos := Vector3(438.0, ArenaBuilder.LAND_HEIGHT, 142.0)
+		view.set_camera_demo_pose(cpos + Vector3(-8.0, 11.0, 9.0), cpos + Vector3(1.0, 0.0, 0.0))
 		return
 
 	if _mode == "trail":

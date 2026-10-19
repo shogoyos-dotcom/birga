@@ -86,6 +86,7 @@ func _process(_delta: float) -> bool:
 	_test_phase8_long_session_endurance(t)
 	_test_fonts_and_glyphs(t)
 	_test_phase8_1_real_android_fixes(t)
+	_test_phase8_1_smooth_coastlines(t)
 
 	var ok := t.report()
 
@@ -3948,5 +3949,137 @@ func _test_phase8_1_real_android_fixes(t: TestRunner) -> void:
 		top_bar.queue_free()
 		screens.queue_free()
 	)
+
+
+func _test_phase8_1_smooth_coastlines(t: TestRunner) -> void:
+	t.group("phase 8.1 smooth coastlines & land mask")
+
+	# 1. Sohil masofasi xaritasi (distance field) to'g'ri hisoblanishi
+	t.test("1. Chamfer masofa xaritasi suvda 0 va quruqlikda masofaga mutanosib o'sadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~",
+			"~1111~",
+			"~1111~",
+			"~1111~",
+			"~~~~~~",
+		]))
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		# Qirg'oqdagi suv (x=0, y=0)
+		t.equal(paint._coast_dist[0], 0.0, "Suv katagida masofa 0")
+		# Qirg'oqqa tutash quruqlik (x=1, y=1)
+		t.greater(paint._coast_dist[1 * 6 + 1], 0.0, "Sohil quruqligida masofa > 0")
+		# Ichki quruqlik (x=2, y=2) qirg'oqdagidan kattaroq bo'lishi kerak
+		t.greater(paint._coast_dist[2 * 6 + 2], paint._coast_dist[1 * 6 + 1], "Ichki quruqlik masofasi katta")
+		# index_image RGBA8 formati va Channel B tekshiruvi
+		t.equal(paint.index_image.get_format(), Image.FORMAT_RGBA8, "index_image formati RGBA8")
+		var pix: Color = paint.index_image.get_pixel(1, 1)
+		t.greater(pix.b, 0.0, "Channel B da masofa saqlangan")
+	)
+
+	# 2. Okean bo'yidagi egallangan hudud (Captured territory beside ocean)
+	t.test("2. Okean bo'yidagi quruqlik egallanganda suv kataklariga daxl qilmaydi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~",
+			"~1111~",
+			"~1111~",
+			"~~~~~~",
+		]))
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		grid.set_owner(1, 1, 1)
+		grid.set_owner(2, 1, 1)
+		paint.sync()
+		t.equal(grid.owner_at(1, 1), 1, "Mantiqiy egasi 1")
+		t.equal(grid.owner_at(0, 1), 0, "Suv katagi mantiqiy 0")
+		t.equal(paint.index_at(1, 1), 1, "Vizual egasi 1")
+		var water_texel := paint.index_image.get_pixel(0, 1)
+		t.equal(int(round(water_texel.r * 255.0)), PaintLayer.WATER, "Suv belgisi WATER (255)")
+	)
+
+	# 3. Ingichka yarimorol (Narrow peninsula: 1 katak kengligida)
+	t.test("3. Ingichka yarimorolda (1 katak) masofa va egalik to'g'ri saqlanadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~",
+			"~11111~",
+			"~~~1~~~",
+			"~~~1~~~",
+			"~~~~~~~",
+		]))
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		var pen_idx := 3 * 7 + 3
+		t.greater(paint._coast_dist[pen_idx], 0.0, "Yarimorolda masofa musbat")
+		t.close_to(paint._coast_dist[pen_idx], 1.0, 0.1, "1-kataklik yarimorolda masofa ~1.0")
+		grid.set_owner(3, 3, 2)
+		paint.sync()
+		t.equal(grid.owner_at(3, 3), 2, "Yarimorol egasi 2")
+	)
+
+	# 4. Kichik orollar (Small island: 2x2 orol)
+	t.test("4. Kichik orol suv bilan to'liq o'ralgan bo'lib xavfsiz egallanadi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~",
+			"~~11~~",
+			"~~11~~",
+			"~~~~~~",
+		]))
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		grid.set_owner(2, 1, 1)
+		grid.set_owner(3, 1, 1)
+		paint.sync()
+		t.equal(grid.owner_at(2, 1), 1, "Orol katagi egallandi")
+		t.equal(grid.owner_at(1, 1), 0, "Orol atrofidagi suv egasiz")
+		t.equal(paint.index_at(2, 1), 1, "Vizual orol egasi 1")
+		t.equal(paint.index_at(1, 1), 0, "Vizual suv egasiz")
+	)
+
+	# 5. Sohil bo'yida bir nechta o'yinchi to'qnashuvi (Multiple owners along coastline)
+	t.test("5. Sohil bo'yida ikki o'yinchi chegarasida har kim o'z yeriga ega bo'ladi", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~",
+			"~111222~",
+			"~111222~",
+			"~~~~~~~~",
+		]))
+		for x in range(1, 4):
+			grid.set_owner(x, 1, 1)
+			grid.set_owner(x, 2, 1)
+		for x in range(4, 7):
+			grid.set_owner(x, 1, 2)
+			grid.set_owner(x, 2, 2)
+		var colors := PackedByteArray()
+		colors.resize(256)
+		var paint := PaintLayer.new(grid, colors)
+		t.equal(grid.owner_at(3, 1), 1, "Chegara chapida 1")
+		t.equal(grid.owner_at(4, 1), 2, "Chegara o'ngida 2")
+		t.equal(paint.index_at(3, 1), 1, "Vizual chapda 1")
+		t.equal(paint.index_at(4, 1), 2, "Vizual o'ngda 2")
+		t.equal(grid.owner_at(3, 0), 0)
+		t.equal(grid.owner_at(4, 0), 0)
+	)
+
+	# 6. Sohil bo'ylab katta tutash hudud egallash va foiz saqlanishi
+	t.test("6. Sohil bo'ylab egallash qo'shimcha soxta yer bermaydi (foiz buzilmaydi)", func() -> void:
+		var grid := MapHelpers.grid_from(PackedStringArray([
+			"~~~~~~~~~~",
+			"~........~",
+			"~........~",
+			"~........~",
+			"~~~~~~~~~~",
+		]))
+		var total_land := grid.land_cells
+		for x in range(1, 9):
+			grid.set_owner(x, 1, 1)
+		t.equal(grid.territory_of(1), 8, "Mantiqiy egallangan kataklar 8")
+		t.close_to(grid.percent_of(1), (8.0 / float(total_land)) * 100.0, 0.01, "Foiz to'g'ri")
+		t.equal(grid.owner_at(0, 1), 0, "Suv katagi qo'shilmagan")
+	)
+
 
 
