@@ -42,7 +42,8 @@ static func set_language(code: String) -> void:
 	if not _all.has(code):
 		code = DEFAULT_LANGUAGE
 	_code = code
-	_current = _all[code]
+	_current = _all.get(code, {})
+	CityNames.use(_code)
 
 static func language() -> String:
 	return _code
@@ -56,12 +57,20 @@ static func native_name(code: String) -> String:
 	var i := CODES.find(code)
 	return NATIVE_NAMES[i] if i >= 0 else code
 
-## Matnni kalit bo'yicha oladi. Topilmasa kalitning o'zini qaytaradi —
-## shunda yetishmayotgan satr ekranda darhol ko'rinadi.
+## Matnni kalit bo'yicha oladi. Topilmasa DEFAULT_LANGUAGE ("en") ga o'tadi
+## va ogohlantirish qayd qiladi.
 static func t(key: String) -> String:
 	if _current.is_empty():
 		set_language(_code)
-	return str(_current.get(key, key))
+	if _current.has(key):
+		return str(_current[key])
+	# 1. Zaxira til (DEFAULT_LANGUAGE) tekshiruvi:
+	if _all.has(DEFAULT_LANGUAGE) and _all[DEFAULT_LANGUAGE].has(key):
+		push_warning("Missing translation key '%s' for language '%s', falling back to '%s'" % [key, _code, DEFAULT_LANGUAGE])
+		return str(_all[DEFAULT_LANGUAGE][key])
+	# 2. Hech qaysi tilda topilmasa:
+	push_warning("Translation key '%s' not found in any language!" % key)
+	return key
 
 ## Maydon nomi: "north_america" -> "mapNorthAmerica".
 static func map_name(id: String) -> String:

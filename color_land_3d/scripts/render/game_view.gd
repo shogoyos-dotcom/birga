@@ -440,6 +440,8 @@ func _apply_view_settings() -> void:
 	_capitals.names_visible = (_city_renderer == null) and store.show_city_names and _playing
 	if _city_renderer != null:
 		_city_renderer.visible = true
+		if _city_renderer.has_method("refresh_labels"):
+			_city_renderer.refresh_labels()
 	if players_root != null:
 		players_root.visible = true
 	if _coins != null:
@@ -1201,20 +1203,18 @@ func _handle_events() -> void:
 								Audio.coin()
 							ui.flash(Color("facc15"), 0.25)
 							_spawn_conquest_reward_fx(c_cap, credited)
-							ui.toast("★ %s EGALLANDI! (+%d 🪙)" % [c_cap.display_name.to_upper(), credited])
+							ui.show_city_capture_notification(c_cap, credited, false)
 						else:
 							_city_reward_tracker.finalize_claim(c_cap, 0)
 							Audio.capture()
 							ui.flash(Color("38bdf8"), 0.16)
-							if Wallet.get_coins() >= MonetizationConfig.MAX_BALANCE:
-								ui.toast("★ %s EGALLANDI! (Hamyon to'la)" % c_cap.display_name.to_upper())
-							else:
-								ui.toast("★ %s EGALLANDI!" % c_cap.display_name.to_upper())
+							var is_full := Wallet.get_coins() >= MonetizationConfig.MAX_BALANCE
+							ui.show_city_capture_notification(c_cap, 0, is_full)
 					else:
 						_duplicates_prevented_count += 1
 						Audio.capture()
 						ui.flash(Color("38bdf8"), 0.16)
-						ui.toast("★ %s EGALLANDI!" % c_cap.display_name.to_upper())
+						ui.show_city_capture_notification(c_cap, 0, false)
 				elif is_human and is_starting:
 					# Boshlang'ich hudud doirasi - bepul
 					pass
@@ -1227,7 +1227,7 @@ func _handle_events() -> void:
 				if _city_renderer != null:
 					_city_renderer.on_city_lost(c_lost)
 				if int(event["player"]) == human_id:
-					ui.toast("⚠️ %s QO'LDAN BOY BERILDI!" % c_lost.display_name.to_upper())
+					ui.toast("⚠️ %s: %s" % [Strings.t("cityLost"), c_lost.display_name.to_upper()])
 				_refresh_hud()
 			"shield_used":
 				if int(event["player"]) == human_id:
@@ -1270,7 +1270,7 @@ func _spawn_floating_coin(at: Vector3, text: String) -> void:
 func _spawn_conquest_reward_fx(city: CitySystem.CityData, amount: int) -> void:
 	var at := Vector3(city.pos.x, ArenaBuilder.LAND_HEIGHT + 2.5, city.pos.y)
 	var label := Label3D.new()
-	label.text = "+%d 🪙\n%s" % [amount, city.display_name.to_upper()]
+	label.text = "+%d 🪙" % amount
 	label.font = UiKit.display_font()
 	label.font_size = 50
 	label.outline_size = 12

@@ -164,95 +164,65 @@ void fragment() {
 	vec2 base = floor(p);
 	vec2 f = p - base;
 
-	// Eng yaqin 4 burchak texellari:
-	vec4 t00 = cell_texel(base);
-	vec4 t10 = cell_texel(base + vec2(1.0, 0.0));
-	vec4 t01 = cell_texel(base + vec2(0.0, 1.0));
-	vec4 t11 = cell_texel(base + vec2(1.0, 1.0));
+	ivec2 b = ivec2(base);
+	ivec2 max_c = ivec2(grid_size) - ivec2(1);
 
-	int o00 = int(t00.r * 255.0 + 0.5);
-	int o10 = int(t10.r * 255.0 + 0.5);
-	int o01 = int(t01.r * 255.0 + 0.5);
-	int o11 = int(t11.r * 255.0 + 0.5);
+	// 4x4 Isotropic Radial Quartic Kernel (R = 2.2, R^2 = 4.84):
+	// w(r) = (1.0 - r^2 / 4.84)^2 if r^2 < 4.84 else 0.0
+	// Radiusi bo'yicha to'liq izotropik bo'lgani sababli zinapoyasiz
+	// silliq organik egri chiziq hosil qiladi.
+	const float R2 = 4.84;
+	const float INV_R2 = 1.0 / 4.84;
 
-	// Suv burchaklarini eng yaqin quruqlik burchaklari egasi bilan to'ldiramiz.
-	// Natijada qirg'oq bo'yida hudud 3D jarlik chetigacha 100% to'liq, zinapoyasiz yetib boradi:
-	if (o00 == WATER) {
-		o00 = (o10 != WATER) ? o10 : ((o01 != WATER) ? o01 : ((o11 != WATER) ? o11 : 0));
-	}
-	if (o10 == WATER) {
-		o10 = (o00 != WATER) ? o00 : ((o11 != WATER) ? o11 : ((o01 != WATER) ? o01 : 0));
-	}
-	if (o01 == WATER) {
-		o01 = (o00 != WATER) ? o00 : ((o11 != WATER) ? o11 : ((o10 != WATER) ? o10 : 0));
-	}
-	if (o11 == WATER) {
-		o11 = (o10 != WATER) ? o10 : ((o01 != WATER) ? o01 : ((o00 != WATER) ? o00 : 0));
+	int u_owners[8];
+	float u_weights[8];
+	int num_u = 0;
+	float total_land_w = 0.0;
+
+	for (int dy = -1; dy <= 2; dy++) {
+		for (int dx = -1; dx <= 2; dx++) {
+			vec2 delta = vec2(float(dx), float(dy)) - f;
+			float r2 = dot(delta, delta);
+			if (r2 < R2) {
+				float q = 1.0 - r2 * INV_R2;
+				float w = q * q;
+
+				ivec2 c_pos = clamp(b + ivec2(dx, dy), ivec2(0), max_c);
+				vec4 c_tex = texelFetch(index_tex, c_pos, 0);
+				int owner = int(c_tex.r * 255.0 + 0.5);
+
+				// WATER kataklari quruqlik egaligi ovozida QATNASHMAYDI:
+				// Suv hech qachon 0 (egasiz yer) deb ovoz bermaydi.
+				if (owner != WATER) {
+					total_land_w += w;
+					int found = -1;
+					for (int k = 0; k < num_u; k++) {
+						if (u_owners[k] == owner) {
+							found = k;
+							break;
+						}
+					}
+					if (found >= 0) {
+						u_weights[found] += w;
+					} else if (num_u < 8) {
+						u_owners[num_u] = owner;
+						u_weights[num_u] = w;
+						num_u++;
+					}
+				}
+			}
+		}
 	}
 
 	vec3 shade;
-	int win_owner = o00;
+	int win_owner = 0;
 
-	// Agar 4 ta burchak ham bir xil egaga tegishli bo'lsa — tezkor to'g'ri chizish:
-	if (o00 == o10 && o00 == o01 && o00 == o11) {
-		shade = with_avatar(win_owner,
-			skin_shade(win_owner, color_of(win_owner), cell_pos),
-			cell_pos);
-	} else {
-		// Uzluksiz Hermite Marching Squares izokonturlash (C1 silliq):
-		// u = f * f * (3.0 - 2.0 * f) kubik silliqlash — kataklararo uzilishsiz
-		vec2 u = f * f * (3.0 - 2.0 * f);
-		float w00 = (1.0 - u.x) * (1.0 - u.y);
-		float w10 = u.x * (1.0 - u.y);
-		float w01 = (1.0 - u.x) * u.y;
-		float w11 = u.x * u.y;
-
-		// Har bir noyob ega (unique owner) bo'yicha vaznlarni to'playmiz:
-		int u_owners[4];
-		float u_weights[4];
-		int num_u = 0;
-
-		// Burchak 00:
-		u_owners[0] = o00;
-		u_weights[0] = w00;
-		num_u = 1;
-
-		// Burchak 10:
-		if (o10 == u_owners[0]) {
-			u_weights[0] += w10;
-		} else {
-			u_owners[num_u] = o10;
-			u_weights[num_u] = w10;
-			num_u++;
-		}
-
-		// Burchak 01:
-		int m01 = -1;
+	if (num_u > 0) {
+		float inv_tot = 1.0 / total_land_w;
 		for (int k = 0; k < num_u; k++) {
-			if (o01 == u_owners[k]) { m01 = k; break; }
-		}
-		if (m01 >= 0) {
-			u_weights[m01] += w01;
-		} else {
-			u_owners[num_u] = o01;
-			u_weights[num_u] = w01;
-			num_u++;
+			u_weights[k] *= inv_tot;
 		}
 
-		// Burchak 11:
-		int m11 = -1;
-		for (int k = 0; k < num_u; k++) {
-			if (o11 == u_owners[k]) { m11 = k; break; }
-		}
-		if (m11 >= 0) {
-			u_weights[m11] += w11;
-		} else {
-			u_owners[num_u] = o11;
-			u_weights[num_u] = w11;
-			num_u++;
-		}
-
-		// Eng katta vaznga ega eganni va ikkinchi o'rindagi eganni topamiz:
 		int best_idx = 0;
 		for (int k = 1; k < num_u; k++) {
 			if (u_weights[k] > u_weights[best_idx]) {
@@ -273,7 +243,7 @@ void fragment() {
 			skin_shade(win_owner, color_of(win_owner), cell_pos),
 			cell_pos);
 
-		if (second_idx >= 0) {
+		if (second_idx >= 0 && u_weights[second_idx] > 0.001) {
 			int sec_owner = u_owners[second_idx];
 			float sec_w = u_weights[second_idx];
 			float gap = best_w - sec_w;
@@ -299,11 +269,17 @@ void fragment() {
 		} else {
 			shade = shade_best;
 		}
+	} else {
+		shade = color_of(0);
 	}
 
-	// Qirg'oq sohili (beach sand transition) — faqat egasiz quruqlikda (win_owner == 0).
+	// Qirg'oq sohili (beach sand transition) — FAQAT egasiz quruqlikda (win_owner == 0).
 	// Egallangan hudud ichida sariq tirqishlar yoki to'rtburchaklar hosil qilmaydi.
 	if (win_owner == 0) {
+		vec4 t00 = texelFetch(index_tex, clamp(b, ivec2(0), max_c), 0);
+		vec4 t10 = texelFetch(index_tex, clamp(b + ivec2(1, 0), ivec2(0), max_c), 0);
+		vec4 t01 = texelFetch(index_tex, clamp(b + ivec2(0, 1), ivec2(0), max_c), 0);
+		vec4 t11 = texelFetch(index_tex, clamp(b + ivec2(1, 1), ivec2(0), max_c), 0);
 		float water_dist = mix(mix(t00.b, t10.b, f.x), mix(t01.b, t11.b, f.x), f.y) * 4.0;
 		if (water_dist < beach_width) {
 			float t = smoothstep(0.15, beach_width, water_dist);

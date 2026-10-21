@@ -462,14 +462,20 @@ func on_city_captured(city: CitySystem.CityData) -> void:
 		node.update_owner_flag()
 		_play_capture_pulse(node)
 
-	# 3D floating tabrik yozuvi
-	_spawn_capture_banner(city)
-
 ## Shahar qo'ldan ketganda yoki egasi o'lganda neytral holatga qaytish
 func on_city_lost(city: CitySystem.CityData) -> void:
 	var node: CityNode = _active_nodes.get(city.id, null)
 	if node != null and is_instance_valid(node):
 		node.update_owner_flag()
+
+## Til o'zgarganda barcha 3D shahar yozuvlarini yangi tilga o'tkazish
+func refresh_labels() -> void:
+	for node: CityNode in _active_nodes.values():
+		if node != null and is_instance_valid(node) and node.label != null and node.city_data != null:
+			if node.city_data.is_captured():
+				node.label.text = "★ " + node.city_data.display_name + " ★"
+			else:
+				node.label.text = node.city_data.display_name
 
 ## To'lqinli kengayuvchi impuls (Capture Pulse Ring)
 func _play_capture_pulse(node: CityNode) -> void:
@@ -497,31 +503,6 @@ func _play_capture_pulse(node: CityNode) -> void:
 	tw.tween_property(ring, "scale", Vector3(4.5, 1.0, 4.5), 0.75).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(mat, "albedo_color:a", 0.0, 0.75)
 	tw.chain().tween_callback(ring.queue_free)
-
-## Shahar egallanganda 3D osmonda chiroyli suzuvchi xabar
-func _spawn_capture_banner(city: CitySystem.CityData) -> void:
-	var pos := Vector3(city.pos.x, ArenaBuilder.LAND_HEIGHT + 4.5, city.pos.y)
-	var lbl := Label3D.new()
-	lbl.text = "CITY CAPTURED!\n" + city.display_name.to_upper()
-	lbl.font = UiKit.display_font()
-	lbl.font_size = 52
-	lbl.outline_size = 12
-	lbl.modulate = Palette.player_color(city.owner_id)
-	lbl.outline_modulate = UiKit.INK
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.render_priority = 6
-	lbl.outline_render_priority = 5
-	lbl.pixel_size = 0.028
-	lbl.position = pos
-	add_child(lbl)
-
-	var tw := lbl.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(lbl, "position:y", pos.y + 3.8, 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(lbl, "scale", Vector3(1.25, 1.25, 1.25), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.chain().tween_property(lbl, "modulate:a", 0.0, 0.45)
-	tw.tween_callback(lbl.queue_free)
 
 ## O'yinchi shaharni bosganda yoki yaqinlashganda
 func get_city_at_screen_ray(camera: Camera3D, screen_pos: Vector2) -> CitySystem.CityData:

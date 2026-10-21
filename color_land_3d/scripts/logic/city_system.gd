@@ -23,7 +23,12 @@ class CityData:
 	var id: int = 0
 	var stable_id: String = ""
 	var name: String = ""
-	var display_name: String = ""
+	var _cached_display_name: String = ""
+	var display_name: String:
+		get:
+			return CityNames.of(name) if not name.is_empty() else _cached_display_name
+		set(v):
+			_cached_display_name = v
 	var country_code: String = ""
 	var country_name: String = ""
 	var x: int = 0
@@ -53,15 +58,15 @@ class CityData:
 
 	func category_name() -> String:
 		match category:
-			Category.LARGE: return "Katta shahar"
-			Category.MEDIUM: return "O'rta shahar"
-			_: return "Kichik shahar"
+			Category.LARGE: return Strings.t("cityCategoryLarge")
+			Category.MEDIUM: return Strings.t("cityCategoryMedium")
+			_: return Strings.t("cityCategorySmall")
 
 	func category_badge() -> String:
 		match category:
-			Category.LARGE: return "★ KATTA METROPOL"
-			Category.MEDIUM: return "◆ O'RTA SHAHAR"
-			_: return "● KICHIK QISHLOQ"
+			Category.LARGE: return Strings.t("cityBadgeLarge")
+			Category.MEDIUM: return Strings.t("cityBadgeMedium")
+			_: return Strings.t("cityBadgeSmall")
 
 var cities: Array[CityData] = []
 var _by_cell: Dictionary = {} # cell_index (int) -> CityData

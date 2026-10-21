@@ -24,9 +24,12 @@ const DesignDrawers := preload("res://scripts/ui/design_drawers.gd")
 const CitySystem := preload("res://scripts/logic/city_system.gd")
 
 enum Screen { MENU, SETTINGS, PROFILE, HUD, PAUSE, RESULT, SHOP, ROOM, BOARD,
-	MAPS, GEAR, HEROES, NOADS }
+	MAPS, GEAR, HEROES, NOADS, LANGUAGE_PICKER }
 
 var store: SettingsStore
+var _city_capture_queue: Array[Dictionary] = []
+var _city_capture_active: bool = false
+var _recent_captures: Dictionary = {}
 ## Belet va reklama xizmati (hozircha namuna).
 var services := ContinueServices.new()
 
@@ -118,6 +121,7 @@ func _rebuild() -> void:
 		Screen.GEAR: _root = _build_gear()
 		Screen.HEROES: _root = _build_heroes()
 		Screen.NOADS: _root = _build_no_ads()
+		Screen.LANGUAGE_PICKER: _root = _build_language_picker()
 	add_child(_root)
 
 func _accent() -> Color:
@@ -144,7 +148,7 @@ func _build_menu() -> Control:
 
 	box.add_child(UiKit.spacer(6))
 	# Katta 3D bo'rtib chiqqan Play tugmasi
-	var play := UiKit.play_button("PLAY", UiKit.YELLOW, 340, 84)
+	var play := UiKit.play_button(Strings.t("playCaps"), UiKit.YELLOW, 340, 84)
 	play.pressed.connect(func() -> void:
 		Audio.tap()
 		open_maps("play"))
@@ -239,11 +243,11 @@ func _journey_card() -> Control:
 	text_col.add_theme_constant_override("separation", 4)
 	text_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var main_title := UiKit.title("Capture countries, cities, and flags!", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var main_title := UiKit.title(Strings.t("journeyTitle"), 15, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	main_title.clip_text = true
 	text_col.add_child(main_title)
 
-	var sub_title := UiKit.label("Conquer the world in 3D and build your collection!", 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_LEFT)
+	var sub_title := UiKit.label(Strings.t("journeySubtitle"), 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_LEFT)
 	sub_title.clip_text = true
 	text_col.add_child(sub_title)
 	row.add_child(text_col)
@@ -316,7 +320,7 @@ func _daily_gift_widget() -> Control:
 		chip_sb.content_margin_top = 3
 		chip_sb.content_margin_bottom = 3
 		chip.add_theme_stylebox_override("panel", chip_sb)
-		var c_lbl := UiKit.title("OLISH", 12, UiKit.INK)
+		var c_lbl := UiKit.title(Strings.t("claim").to_upper(), 12, UiKit.INK)
 		chip.add_child(c_lbl)
 		row.add_child(chip)
 
@@ -414,7 +418,7 @@ func _build_heroes() -> Control:
 		show_screen(Screen.MENU))
 	head.add_child(back)
 
-	var title := UiKit.title("HEROES, FLAGS, CITIES & REWARDS", 16, UiKit.TEXT)
+	var title := UiKit.title(Strings.t("shopTitle"), 16, UiKit.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(title)
@@ -455,12 +459,12 @@ func _build_heroes_overview() -> Control:
 
 	# 1. HEROES (SKINS)
 	var h_head := HBoxContainer.new()
-	var h_title := UiKit.title("HEROES (SKINS)", 15, Color.WHITE)
+	var h_title := UiKit.title(Strings.t("tabHeroes").to_upper(), 15, Color.WHITE)
 	h_head.add_child(h_title)
 	var h_gap := Control.new()
 	h_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h_head.add_child(h_gap)
-	var h_all := UiKit.label("View All >", 13, Color("38bdf8"))
+	var h_all := UiKit.label(Strings.t("viewAll"), 13, Color("38bdf8"))
 	h_head.add_child(h_all)
 	col.add_child(h_head)
 
@@ -489,13 +493,13 @@ func _build_heroes_overview() -> Control:
 
 	# 2. FLAG THEMES
 	var f_head := HBoxContainer.new()
-	var f_title := UiKit.title("FLAG THEMES", 15, Color.WHITE)
+	var f_title := UiKit.title(Strings.t("tabFlags").to_upper(), 15, Color.WHITE)
 	f_head.add_child(f_title)
 	var f_gap := Control.new()
 	f_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	f_head.add_child(f_gap)
 	var f_all := Button.new()
-	f_all.text = "View All >"
+	f_all.text = Strings.t("viewAll")
 	f_all.flat = true
 	f_all.add_theme_color_override("font_color", Color("38bdf8"))
 	f_all.add_theme_font_size_override("font_size", 13)
@@ -538,18 +542,18 @@ func _build_heroes_overview() -> Control:
 		slot.pressed.connect(func() -> void:
 			Audio.tap()
 			_pick_country(f_code)
-			toast("%s bayrog'i tanlandi!" % Profile.country_name(f_code)))
+			toast(Strings.t("flagSelected") % Profile.country_name(f_code)))
 		f_row.add_child(slot)
 	col.add_child(f_row)
 
 	# 3. CITY REWARDS (?)
 	var c_head := HBoxContainer.new()
-	var c_title := UiKit.title("CITY REWARDS (?)", 15, Color.WHITE)
+	var c_title := UiKit.title(Strings.t("cityConquest").to_upper(), 15, Color.WHITE)
 	c_head.add_child(c_title)
 	var c_gap := Control.new()
 	c_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	c_head.add_child(c_gap)
-	var c_all := UiKit.label("View All >", 13, Color("38bdf8"))
+	var c_all := UiKit.label(Strings.t("viewAll"), 13, Color("38bdf8"))
 	c_head.add_child(c_all)
 	col.add_child(c_head)
 
@@ -584,15 +588,15 @@ func _build_heroes_overview() -> Control:
 	col.add_child(c_row)
 
 	# 4. COLLECT & EARN
-	var ce_title := UiKit.title("COLLECT & EARN", 14, Color.WHITE)
+	var ce_title := UiKit.title(Strings.t("collectAndEarn"), 14, Color.WHITE)
 	col.add_child(ce_title)
 	var ce_row := HBoxContainer.new()
 	ce_row.add_theme_constant_override("separation", 8)
 	var pillars := [
-		["flag", "Capture\nFlags"],
-		["city", "Conquer\nCities"],
-		["coin", "Earn\nRewards"],
-		["crown", "Unlock\nHeroes"]
+		["flag", Strings.t("pillarFlags")],
+		["city", Strings.t("pillarCities")],
+		["coin", Strings.t("pillarRewards")],
+		["crown", Strings.t("pillarHeroes")]
 	]
 	for pl: Array in pillars:
 		var p_slot := PanelContainer.new()
@@ -628,7 +632,7 @@ func _hero_pedestal() -> Control:
 	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var hname: String = str(hero_dict.get("name_key", "hero_cube")) if hero_dict != null else "hero_cube"
 	info.add_child(UiKit.title(Strings.t(hname), 20, UiKit.YELLOW))
-	info.add_child(UiKit.label("⚡ Speed +5%  •  ✨ Trail Glow", 13, UiKit.TEXT, HORIZONTAL_ALIGNMENT_LEFT))
+	info.add_child(UiKit.label(Strings.t("heroBonusDesc"), 13, UiKit.TEXT, HORIZONTAL_ALIGNMENT_LEFT))
 	info.add_child(UiKit.label(Strings.t("unlocked"), 12, UiKit.GREEN, HORIZONTAL_ALIGNMENT_LEFT))
 	row.add_child(info)
 	return card
@@ -682,7 +686,7 @@ func _flags_catalog() -> Control:
 	ap_style.content_margin_top = 2
 	ap_style.content_margin_bottom = 2
 	active_pill.add_theme_stylebox_override("panel", ap_style)
-	var active_lbl := UiKit.label("✓ FAOL BAYROQ (ACTIVE)", 11, Color.WHITE)
+	var active_lbl := UiKit.label(Strings.t("activeFlag"), 11, Color.WHITE)
 	active_pill.add_child(active_lbl)
 	b_status.add_child(active_pill)
 
@@ -694,7 +698,7 @@ func _flags_catalog() -> Control:
 	var name_lbl := UiKit.title(c_name, 18, Color.WHITE)
 	b_info.add_child(name_lbl)
 
-	var sub_lbl := UiKit.label("Ushbu bayroq bazangiz ustunida hilpiraydi va egallangan hududingizni qoplaydi", 11, Color("94a3b8"))
+	var sub_lbl := UiKit.label(Strings.t("activeFlagDesc"), 11, Color("94a3b8"))
 	b_info.add_child(sub_lbl)
 	b_row.add_child(b_info)
 	banner.add_child(b_row)
@@ -706,7 +710,7 @@ func _flags_catalog() -> Control:
 
 	var search := LineEdit.new()
 	search.text = _flag_query
-	search.placeholder_text = "Mamlakat nomi yoki ISO kodi bo'yicha qidirish (249 ta davlat)..."
+	search.placeholder_text = Strings.t("searchFlagsHint")
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	search.add_theme_font_size_override("font_size", 14)
 	search.add_theme_stylebox_override("normal", UiKit.style_solid(Color(0.08, 0.14, 0.28, 0.9), 10, 2, 8))
@@ -729,7 +733,12 @@ func _flags_catalog() -> Control:
 	box.add_child(search_row)
 
 	# 3. Mintaqa / Saralash filtrlari (Region Chips)
-	var cat_labels := PackedStringArray(["Barchasi (249)", "Ommabop", "Osiyo", "Yevropa", "Amerika", "Afrika", "Okeaniya"])
+	var cat_labels := PackedStringArray([
+		Strings.t("filterAll"), Strings.t("filterPopular"),
+		Strings.t("continentAsia"), Strings.t("continentEurope"),
+		Strings.t("continentAmerica"), Strings.t("continentAfrica"),
+		Strings.t("continentOceania")
+	])
 	var cat_chips := UiKit.chips(cat_labels, _flag_region_filter, func(idx: int) -> void:
 		Audio.tap()
 		_flag_region_filter = idx
@@ -821,7 +830,7 @@ func _flags_catalog() -> Control:
 		btn.pressed.connect(func() -> void:
 			Audio.tap()
 			_pick_country(code)
-			toast("%s (%s) bayrog'i tanlandi!" % [cname, code]))
+			toast(Strings.t("flagSelected") % ("%s (%s)" % [cname, code])))
 		grid.add_child(btn)
 
 	return box
@@ -835,9 +844,9 @@ func _cities_catalog() -> Control:
 	var md_val: int = MonetizationConfig.CITY_REWARDS["medium"]["coins"]
 	var lg_val: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
 	var tiers := [
-		["Poytaxtlar (Capitals)", "+%d COINS" % lg_val, UiKit.YELLOW, "crown", "900+ poytaxt xaritada"],
-		["Katta shaharlar (Metropolis)", "+%d COINS" % md_val, UiKit.BG_LOW, "trophy", "Aholisi 1M+ shaharlar"],
-		["Shahar va tumanlar (Towns)", "+%d COINS" % sm_val, UiKit.MINT, "coin", "Aholisi 100k gacha shaharchalar"]
+		[Strings.t("capitalsAndMegapolises"), "+%d COINS" % lg_val, UiKit.YELLOW, "crown", Strings.t("capitalsOnMap")],
+		[Strings.t("metropolises"), "+%d COINS" % md_val, UiKit.BG_LOW, "trophy", Strings.t("pop1mPlus")],
+		[Strings.t("townsAndDistricts"), "+%d COINS" % sm_val, UiKit.MINT, "coin", Strings.t("pop100kPlus")]
 	]
 	for t in tiers:
 		var card := UiKit.panel(UiKit.PANEL, 10)
@@ -862,9 +871,11 @@ func _rewards_catalog(streak: int) -> Control:
 	box.add_child(UiKit.section(Strings.t("tabRewards")))
 
 	var days := [
-		[1, 100, "1-kun"], [2, 150, "2-kun"], [3, 200, "3-kun (Golem)"],
-		[4, 250, "4-kun"], [5, 300, "5-kun"], [6, 400, "6-kun"],
-		[7, 1000, "7-kun (Katta sovg'a)"]
+		[1, 100, Strings.t("dayN") % 1], [2, 150, Strings.t("dayN") % 2],
+		[3, 200, "%s (%s)" % [Strings.t("dayN") % 3, Strings.t("golem")]],
+		[4, 250, Strings.t("dayN") % 4], [5, 300, Strings.t("dayN") % 5],
+		[6, 400, Strings.t("dayN") % 6],
+		[7, 1000, "%s (%s)" % [Strings.t("dayN") % 7, Strings.t("bigGift")]]
 	]
 	for d in days:
 		var d_num: int = int(d[0])
@@ -877,9 +888,10 @@ func _rewards_catalog(streak: int) -> Control:
 		var v := VBoxContainer.new()
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.add_child(UiKit.title(str(d[2]), 15, UiKit.TEXT))
-		v.add_child(UiKit.label("+%d Coins" % int(d[1]), 12, UiKit.YELLOW, HORIZONTAL_ALIGNMENT_LEFT))
+		v.add_child(UiKit.label("+%d %s" % [int(d[1]), Strings.t("coins")], 12, UiKit.YELLOW, HORIZONTAL_ALIGNMENT_LEFT))
 		r.add_child(v)
-		var status := UiKit.label("✓ Olingan" if done else "Kutilmoqda", 13, UiKit.GREEN if done else UiKit.TEXT_DIM)
+		var status_text := ("✓ " + Strings.t("claimed")) if done else Strings.t("pending")
+		var status := UiKit.label(status_text, 13, UiKit.GREEN if done else UiKit.TEXT_DIM)
 		r.add_child(status)
 		box.add_child(card)
 	return box
@@ -1305,7 +1317,7 @@ func _build_settings() -> Control:
 
 	# 4. Mini-xarita (Minimap)
 	var minimap_on: bool = store.minimap_side != "off"
-	grid.add_child(_setting_toggle_tile("map", Strings.t("minimap"),
+	grid.add_child(_setting_toggle_tile("map", Strings.t("minimapLabel"),
 		minimap_on, func() -> void:
 			if store.minimap_side == "off":
 				store.minimap_side = "right"
@@ -1319,10 +1331,10 @@ func _build_settings() -> Control:
 	# Grafika sifati (Graphics Quality Presets: LOW / MEDIUM / HIGH)
 	var q_box := VBoxContainer.new()
 	q_box.add_theme_constant_override("separation", 6)
-	q_box.add_child(UiKit.title("GRAFIKA SIFATI (QUALITY)", 14, UiKit.TEXT_FAINT))
+	q_box.add_child(UiKit.title(Strings.t("graphicsQuality"), 14, UiKit.TEXT_FAINT))
 	var q_idx := 0 if store.graphics_quality == "low" else (2 if store.graphics_quality == "high" else 1)
 	var q_chips := UiKit.chips(
-		PackedStringArray(["PAST (LOW)", "O'RTA (MED)", "YUQORI (HIGH)"]),
+		PackedStringArray([Strings.t("qualityLow"), Strings.t("qualityMedium"), Strings.t("qualityHigh")]),
 		q_idx,
 		func(idx: int) -> void:
 			Audio.tap()
@@ -1346,13 +1358,8 @@ func _build_settings() -> Control:
 	act_grid.add_child(_setting_action_button(
 		"%s: %s" % [Strings.t("language"), Strings.native_name(Strings.language())],
 		func() -> void:
-			var cur := Strings.CODES.find(Strings.language())
-			var next_c: String = Strings.CODES[(cur + 1) % Strings.CODES.size()]
-			store.language = next_c
-			Strings.set_language(next_c)
-			CityNames.use(next_c)
-			view_changed.emit()
-			_rebuild()))
+			Audio.tap()
+			show_screen(Screen.LANGUAGE_PICKER)))
 
 	# 2) Xaridlarni tiklash
 	act_grid.add_child(_setting_action_button(
@@ -1406,6 +1413,104 @@ func _build_settings() -> Control:
 		_reset_armed = false
 		show_screen(Screen.MENU))
 	inner.add_child(close_btn)
+
+	box.add_child(modal)
+	return root
+
+## To'liq til tanlash oynasi (Task 2 Language Picker Modal).
+func _build_language_picker() -> Control:
+	var root := UiKit.overlay(true)
+	var box := UiKit.centered_column(root, 440)
+
+	var modal := UiKit.panel(UiKit.PANEL, 20)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 14)
+	modal.add_child(inner)
+
+	var header_row := HBoxContainer.new()
+	header_row.add_theme_constant_override("separation", 8)
+	var back_btn := UiKit.icon_button("<", 54)
+	back_btn.pressed.connect(func() -> void:
+		Audio.tap()
+		show_screen(Screen.SETTINGS))
+	header_row.add_child(back_btn)
+
+	var title := UiKit.title(Strings.t("selectLanguage").to_upper(), 22, UiKit.TEXT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	header_row.add_child(title)
+	inner.add_child(header_row)
+
+	# Barcha 15 ta til ro'yxati (Scrollable portrait list)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 440)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+
+	var active_code := Strings.language()
+	for i in Strings.CODES.size():
+		var code: String = Strings.CODES[i]
+		var native_title: String = Strings.NATIVE_NAMES[i]
+		var is_selected := (code == active_code)
+
+		var item_btn := Button.new()
+		item_btn.custom_minimum_size = Vector2(0, 52)
+		item_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		item_btn.flat = false
+		item_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+
+		for st: String in ["normal", "hover", "pressed", "focus"]:
+			var bg := Color(0.12, 0.28, 0.58, 0.95) if is_selected else Color(UiKit.SURFACE, 0.90)
+			var sb := UiKit.style_solid(bg, 14, 2, 4)
+			if is_selected:
+				sb.border_color = Color("00d4ff")
+				sb.set_border_width_all(2)
+			item_btn.add_theme_stylebox_override(st, sb)
+
+		var row := HBoxContainer.new()
+		row.set_anchors_preset(Control.PRESET_FULL_RECT)
+		row.add_theme_constant_override("separation", 12)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		var pad := Control.new()
+		pad.custom_minimum_size = Vector2(8, 0)
+		row.add_child(pad)
+
+		var name_lbl := UiKit.title(native_title, 16, Color.WHITE if is_selected else UiKit.TEXT)
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_lbl)
+
+		if is_selected:
+			var check := UiKit.title("✓", 18, Color("00d4ff"))
+			row.add_child(check)
+			var pad_r := Control.new()
+			pad_r.custom_minimum_size = Vector2(8, 0)
+			row.add_child(pad_r)
+
+		item_btn.add_child(row)
+
+		item_btn.pressed.connect(func() -> void:
+			Audio.tap()
+			store.language = code
+			Strings.set_language(code)
+			CityNames.use(code)
+			view_changed.emit()
+			_rebuild())
+
+		list.add_child(item_btn)
+
+	scroll.add_child(list)
+	inner.add_child(scroll)
+
+	# Pastda "Ortga" / "Back" tugmasi
+	var close_picker := UiKit.button(Strings.t("back"), UiKit.YELLOW)
+	close_picker.pressed.connect(func() -> void:
+		Audio.tap()
+		show_screen(Screen.SETTINGS))
+	inner.add_child(close_picker)
 
 	box.add_child(modal)
 	return root
@@ -2040,6 +2145,101 @@ func toast(text: String) -> void:
 	tween.tween_property(panel, "modulate:a", 0.0, 0.4)
 	tween.tween_callback(panel.queue_free)
 
+## Yagona, ixcham va matnlari bir-birini to'smaydigan shahar istilosi bildirishnomasi (Task 5).
+func show_city_capture_notification(city: CitySystem.CityData, reward_coins: int = 0, is_wallet_full: bool = false) -> void:
+	if city == null or _root == null or not is_instance_valid(_root):
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	# 4 soniya ichida aynan shu shahar bo'yicha takroriy bildirishnoma ko'rsatilmaydi:
+	if _recent_captures.has(city.id) and (now - float(_recent_captures[city.id])) < 4.0:
+		return
+	_recent_captures[city.id] = now
+
+	_city_capture_queue.append({
+		"city": city,
+		"reward": reward_coins,
+		"wallet_full": is_wallet_full
+	})
+
+	if not _city_capture_active:
+		_process_next_city_capture()
+
+func _process_next_city_capture() -> void:
+	if _city_capture_queue.is_empty() or _root == null or not is_instance_valid(_root):
+		_city_capture_active = false
+		return
+	_city_capture_active = true
+	var item: Dictionary = _city_capture_queue.pop_front()
+	var city: CitySystem.CityData = item["city"]
+	var reward: int = int(item["reward"])
+	var full: bool = bool(item["wallet_full"])
+
+	var card := PanelContainer.new()
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.offset_left = -170
+	card.offset_right = 170
+	card.offset_top = 74
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.12, 0.28, 0.95)
+	sb.border_color = Color("00d4ff")
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	card.add_theme_stylebox_override("panel", sb)
+
+	var vcol := VBoxContainer.new()
+	vcol.add_theme_constant_override("separation", 3)
+	vcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(vcol)
+
+	# 1-qator: Sarlavha (Oltin harflar bilan shahar egallangani)
+	var title_lbl := UiKit.title(Strings.t("cityCaptured").to_upper(), 13, UiKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	title_lbl.add_theme_constant_override("outline_size", 4)
+	vcol.add_child(title_lbl)
+
+	# 2-qator: Bayroq + Shahar nomi
+	var city_row := HBoxContainer.new()
+	city_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	city_row.add_theme_constant_override("separation", 6)
+	city_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var flag_tex := FlagRenderer.get_flag_texture(city.country_code)
+	if flag_tex != null:
+		var f_rect := TextureRect.new()
+		f_rect.texture = flag_tex
+		f_rect.custom_minimum_size = Vector2(24, 16)
+		f_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		f_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		city_row.add_child(f_rect)
+	var name_lbl := UiKit.title(city.display_name.to_upper(), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	city_row.add_child(name_lbl)
+	vcol.add_child(city_row)
+
+	# 3-qator: Mukofot
+	if reward > 0:
+		var rew_lbl := UiKit.title("+%d 🪙" % reward, 14, UiKit.YELLOW, HORIZONTAL_ALIGNMENT_CENTER)
+		vcol.add_child(rew_lbl)
+	elif full:
+		var full_lbl := UiKit.label(Strings.t("walletFull"), 12, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER)
+		vcol.add_child(full_lbl)
+
+	card.modulate.a = 0.0
+	_root.add_child(card)
+
+	var tw := card.create_tween()
+	tw.tween_property(card, "modulate:a", 1.0, 0.22)
+	tw.tween_interval(1.8)
+	tw.tween_property(card, "modulate:a", 0.0, 0.35)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(card):
+			card.queue_free()
+		_process_next_city_capture())
+
 ## HUD ni yangilaydi. `rows` — [{place, name, avatar, color,
 ## percent, is_human, country}].
 func update_hud(percent: float, kills: int, elapsed: float, rank: int,
@@ -2186,14 +2386,14 @@ func show_city_hud_card(city: CitySystem.CityData, _coin_available: bool = true,
 	bot_row.add_theme_constant_override("separation", 8)
 	bot_row.mouse_filter = Control.MOUSE_FILTER_PASS
 
-	var owner_text := "Neytral" if not city.is_captured() else city.owner_name
-	var owner_lbl := UiKit.label("Ega: %s" % owner_text, 12, Color("cbd5e1"))
+	var owner_text := Strings.t("neutral") if not city.is_captured() else city.owner_name
+	var owner_lbl := UiKit.label("%s: %s" % [Strings.t("owner"), owner_text], 12, Color("cbd5e1"))
 	owner_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	owner_lbl.clip_text = true
 	bot_row.add_child(owner_lbl)
 
 	var conquest_reward: int = MonetizationConfig.get_city_capture_reward(city.category)
-	var rew_str := "+%d 🪙" % conquest_reward if not already_claimed else ("Olingan ✓" if is_owned else "0 🪙")
+	var rew_str := "+%d 🪙" % conquest_reward if not already_claimed else ("%s ✓" % Strings.t("claimed") if is_owned else "0 🪙")
 	var rew_color := Color("facc15") if not already_claimed else Color("94a3b8")
 	var rew_lbl := UiKit.label(rew_str, 13, rew_color)
 	bot_row.add_child(rew_lbl)
@@ -2275,29 +2475,29 @@ func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true
 	# 4. Aholi soni
 	var pop_str: String = ""
 	if city.pop >= 1000000:
-		pop_str = "%.1f mln aholi" % (float(city.pop) / 1000000.0)
+		pop_str = "%.1fM" % (float(city.pop) / 1000000.0)
 	elif city.pop >= 1000:
-		pop_str = "%d ming aholi" % (city.pop / 1000)
+		pop_str = "%dk" % (city.pop / 1000)
 	else:
-		pop_str = "%d aholi" % city.pop
-	var pop_lbl := UiKit.label("Aholi soni: " + pop_str, 15, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER)
+		pop_str = "%d" % city.pop
+	var pop_lbl := UiKit.label("%s: %s" % [Strings.t("population"), pop_str], 15, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(pop_lbl)
 
 	# 5. Egallash holati (Conquest status)
 	var status_text := ""
 	var status_col := Color("94a3b8")
 	if city.is_captured():
-		status_text = "Hozirgi ega: %s (%s)" % [city.owner_name, city.owner_country]
+		status_text = "%s: %s (%s)" % [Strings.t("currentOwner"), city.owner_name, city.owner_country]
 		status_col = Color("4ade80")
 	else:
-		status_text = "Hozirgi ega: Neytral shahar"
+		status_text = Strings.t("currentOwnerNeutral")
 		status_col = Color("f1f5f9")
 	var status_lbl := UiKit.label(status_text, 15, status_col, HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(status_lbl)
 
 	# 6. Istilo mukofoti (Conquest Reward - Phase 6)
 	var conquest_reward: int = MonetizationConfig.get_city_capture_reward(city.category)
-	var rew_text := "Istilo mukofoti: %d Tanga (Coins)" % conquest_reward
+	var rew_text := "%s: +%d 🪙" % [Strings.t("conquestReward"), conquest_reward]
 	var rew_lbl := UiKit.label(rew_text, 17, Color("facc15"), HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(rew_lbl)
 
@@ -2305,19 +2505,19 @@ func show_city_info_modal(city: CitySystem.CityData, coin_available: bool = true
 	var elig_text := ""
 	var elig_col := Color("4ade80")
 	if is_owned:
-		elig_text = "Holat: Sizga tegishli ✓"
+		elig_text = Strings.t("statusOwned")
 		elig_col = Color("38bdf8")
 	elif already_claimed:
-		elig_text = "Holat: Bu o'yinda allaqachon olingan (0 🪙)"
+		elig_text = Strings.t("statusAlreadyClaimed")
 		elig_col = Color("f97316")
 	else:
-		elig_text = "Holat: Mukofot mavjud (+%d 🪙)" % conquest_reward
+		elig_text = Strings.t("statusRewardAvailable") % conquest_reward
 		elig_col = Color("4ade80")
 	var elig_lbl := UiKit.label(elig_text, 15, elig_col, HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(elig_lbl)
 
 	# 8. Yopish tugmasi
-	var close_btn := UiKit.button("TUSHUNARLI", UiKit.GREEN)
+	var close_btn := UiKit.button(Strings.t("understood"), UiKit.GREEN)
 	close_btn.pressed.connect(func() -> void:
 		Audio.tap()
 		modal.queue_free())
@@ -2507,7 +2707,7 @@ func _build_result() -> Control:
 	tiles.add_child(_result_tile("coin",
 		str(int(_reward_total())), Strings.t("coinsFound"), UiKit.YELLOW))
 	tiles.add_child(_result_tile("flag",
-		"%d/%d" % [int(conquest.get("cities_owned", 0)), int(conquest.get("total_cities", 0))], "Shaharlar", UiKit.MINT))
+		"%d/%d" % [int(conquest.get("cities_owned", 0)), int(conquest.get("total_cities", 0))], Strings.t("cities"), UiKit.MINT))
 	tiles.add_child(_result_tile("clock",
 		_clock(float(_result_data.get("elapsed", 0.0))),
 		Strings.t("time"), UiKit.BG_LOW))
@@ -2591,12 +2791,12 @@ func _coin_card(reward: Dictionary) -> Control:
 	var l_coins := int(conquest.get("large_coins", l_cnt * l_reward))
 
 	if conquest_total > 0 or s_cnt > 0 or m_cnt > 0 or l_cnt > 0:
-		var c_hdr := UiKit.label("Shahar istilolari (Conquest)", 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
+		var c_hdr := UiKit.label(Strings.t("cityConquest"), 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
 		box.add_child(c_hdr)
 
 		if s_cnt > 0:
 			var s_row := HBoxContainer.new()
-			var s_title := UiKit.label("  ● Kichik: %d × %d" % [s_cnt, s_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			var s_title := UiKit.label("  ● %s: %d × %d" % [Strings.t("cityCategorySmall"), s_cnt, s_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
 			s_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			s_row.add_child(s_title)
 			s_row.add_child(UiKit.label("+%d" % s_coins, 12, UiKit.INK))
@@ -2604,7 +2804,7 @@ func _coin_card(reward: Dictionary) -> Control:
 
 		if m_cnt > 0:
 			var m_row := HBoxContainer.new()
-			var m_title := UiKit.label("  ◆ O'rta: %d × %d" % [m_cnt, m_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			var m_title := UiKit.label("  ◆ %s: %d × %d" % [Strings.t("cityCategoryMedium"), m_cnt, m_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
 			m_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			m_row.add_child(m_title)
 			m_row.add_child(UiKit.label("+%d" % m_coins, 12, UiKit.INK))
@@ -2612,14 +2812,14 @@ func _coin_card(reward: Dictionary) -> Control:
 
 		if l_cnt > 0:
 			var l_row := HBoxContainer.new()
-			var l_title := UiKit.label("  ★ Katta: %d × %d" % [l_cnt, l_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
+			var l_title := UiKit.label("  ★ %s: %d × %d" % [Strings.t("cityCategoryLarge"), l_cnt, l_reward], 12, Color(UiKit.INK, 0.75), HORIZONTAL_ALIGNMENT_LEFT)
 			l_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			l_row.add_child(l_title)
 			l_row.add_child(UiKit.label("+%d" % l_coins, 12, UiKit.INK))
 			box.add_child(l_row)
 
 		var c_tot_row := HBoxContainer.new()
-		var c_tot_title := UiKit.label("  Jami istilo mukofoti:", 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
+		var c_tot_title := UiKit.label("  %s:" % Strings.t("totalConquestReward"), 12, Color("0284c7"), HORIZONTAL_ALIGNMENT_LEFT)
 		c_tot_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		c_tot_row.add_child(c_tot_title)
 		c_tot_row.add_child(UiKit.label("+%d 🪙" % conquest_total, 12, Color("0284c7")))
@@ -3124,7 +3324,7 @@ func _build_maps() -> Control:
 		show_screen(Screen.MENU))
 	head.add_child(back)
 
-	var title := UiKit.title("MAP SELECT", 24, Color.WHITE)
+	var title := UiKit.title(Strings.t("mapSelect"), 24, Color.WHITE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(title)
@@ -3178,14 +3378,14 @@ func _build_maps_continents() -> Control:
 
 	for entry: Array in maps_data:
 		var mid: String = str(entry[0])
-		var mname: String = str(entry[1])
+		var mname: String = Strings.map_name(mid)
 		var places_count: int = int(entry[2])
 		var rec: float = store.get_map_record(mid)
-		var stat_str: String = "%d cities" % places_count
+		var stat_str: String = "%d %s" % [places_count, Strings.t("cities").to_lower()]
 		if mid == "ancient":
-			stat_str = "Event Map"
+			stat_str = Strings.t("eventMap")
 		elif rec > 0.0:
-			stat_str = "%d cities • %.1f%%" % [places_count, rec]
+			stat_str = "%d %s • %.1f%%" % [places_count, Strings.t("cities").to_lower(), rec]
 		grid.add_child(_map_rich_card(mid, mname, stat_str, entry[3] as Array))
 
 	return grid
@@ -3210,11 +3410,11 @@ func _build_maps_countries() -> Control:
 	var bv := VBoxContainer.new()
 	bv.add_theme_constant_override("separation", 6)
 	var b_top := HBoxContainer.new()
-	b_top.add_child(UiKit.title("Mamlakatlar sarguzashti", 15, Color.WHITE))
+	b_top.add_child(UiKit.title(Strings.t("countryJourney"), 15, Color.WHITE))
 	var bgap := Control.new()
 	bgap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b_top.add_child(bgap)
-	var b_stat := UiKit.title("%d / %d egallangan" % [done, total], 14, UiKit.YELLOW)
+	var b_stat := UiKit.title(Strings.t("countriesConqueredCount") % [done, total], 14, UiKit.YELLOW)
 	b_top.add_child(b_stat)
 	bv.add_child(b_top)
 	var pb := UiKit.progress_bar(float(done) * 100.0 / float(maxi(total, 1)), UiKit.MINT)
@@ -3232,11 +3432,11 @@ func _build_maps_countries() -> Control:
 	ch.add_child(flag_avatar)
 	var cv := VBoxContainer.new()
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cv.add_child(UiKit.title("Hozirgi nishon: " + cur_name, 15, Color.WHITE))
-	cv.add_child(UiKit.label("Egallash: %d / %d ochko (%.0f%%)" % [pts, g, pct], 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_LEFT))
+	cv.add_child(UiKit.title("%s: %s" % [Strings.t("currentTarget"), cur_name], 15, Color.WHITE))
+	cv.add_child(UiKit.label(Strings.t("captureProgress") % [pts, g, pct], 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_LEFT))
 	cv.add_child(UiKit.progress_bar(pct, UiKit.YELLOW))
 	ch.add_child(cv)
-	var play_cur := UiKit.button("Jang!", UiKit.GREEN)
+	var play_cur := UiKit.button(Strings.t("battle"), UiKit.GREEN)
 	play_cur.custom_minimum_size = Vector2(80, 42)
 	play_cur.pressed.connect(func() -> void:
 		Audio.tap()
@@ -3275,7 +3475,7 @@ func _build_maps_countries() -> Control:
 			rn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			rh.add_child(rn)
 			if is_done:
-				rh.add_child(UiKit.label("Egallandi ✓", 12, UiKit.MINT))
+				rh.add_child(UiKit.label(Strings.t("conqueredCheck"), 12, UiKit.MINT))
 			elif is_cur:
 				rh.add_child(UiKit.label("%.0f%%" % pct, 12, UiKit.YELLOW))
 			else:
@@ -3296,8 +3496,8 @@ func _build_maps_cities() -> Control:
 	var bv := VBoxContainer.new()
 	bv.alignment = BoxContainer.ALIGNMENT_CENTER
 	bv.add_theme_constant_override("separation", 4)
-	bv.add_child(UiKit.title("Cities Mode — Shaharlar Jangi", 16, Color.WHITE))
-	bv.add_child(UiKit.label("Katta poytaxt va megapolislarni egallab tanga yutib oling!", 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_CENTER))
+	bv.add_child(UiKit.title(Strings.t("citiesMode"), 16, Color.WHITE))
+	bv.add_child(UiKit.label(Strings.t("citiesModeDesc"), 12, Color("7dd3fc"), HORIZONTAL_ALIGNMENT_CENTER))
 	banner.add_child(bv)
 	col.add_child(banner)
 
@@ -3312,10 +3512,10 @@ func _build_maps_cities() -> Control:
 	var lg_coins: int = MonetizationConfig.CITY_REWARDS["large"]["coins"]
 
 	var city_maps := [
-		["world", "Capitals World Tour", "+%d COINS" % lg_coins, ["JP", "GB", "FR", "US"]],
-		["asia", "Asian Megapolises", "+%d COINS" % md_coins, ["CN", "JP", "KR", "IN"]],
-		["europe", "European Capitals", "+%d COINS" % lg_coins, ["DE", "FR", "IT", "ES"]],
-		["oceania", "Pacific Ocean Ports", "+%d COINS" % sm_coins, ["AU", "NZ", "FJ"]]
+		["world", Strings.t("capitalsWorldTour"), "+%d %s" % [lg_coins, Strings.t("coins").to_upper()], ["JP", "GB", "FR", "US"]],
+		["asia", Strings.t("asianMegapolises"), "+%d %s" % [md_coins, Strings.t("coins").to_upper()], ["CN", "JP", "KR", "IN"]],
+		["europe", Strings.t("europeanCapitals"), "+%d %s" % [lg_coins, Strings.t("coins").to_upper()], ["DE", "FR", "IT", "ES"]],
+		["oceania", Strings.t("pacificPorts"), "+%d %s" % [sm_coins, Strings.t("coins").to_upper()], ["AU", "NZ", "FJ"]]
 	]
 
 	for entry: Array in city_maps:
@@ -3337,8 +3537,8 @@ func _build_maps_special() -> Control:
 
 	# Circle arena
 	var rec: float = store.get_map_record("circle")
-	var circle_stat := "Arena Battle" if rec <= 0.0 else "Arena • %.1f%%" % rec
-	grid.add_child(_map_rich_card("circle", "Circle Arena", circle_stat, ["UZ", "US", "DE"]))
+	var circle_stat := Strings.t("arenaBattle") if rec <= 0.0 else "%s • %.1f%%" % [Strings.t("arena"), rec]
+	grid.add_child(_map_rich_card("circle", Strings.t("mapCircle") + " " + Strings.t("arena"), circle_stat, ["UZ", "US", "DE"]))
 
 	# Ancient World (Locked)
 	var aw_card := PanelContainer.new()
@@ -3349,8 +3549,8 @@ func _build_maps_special() -> Control:
 	aw_v.alignment = BoxContainer.ALIGNMENT_CENTER
 	aw_v.add_theme_constant_override("separation", 6)
 	aw_v.add_child(GameIcon.new("skull", 32.0, UiKit.TEXT_FAINT))
-	aw_v.add_child(UiKit.title("Ancient World", 16, UiKit.TEXT_FAINT))
-	aw_v.add_child(UiKit.label("Coming Soon", 12, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER))
+	aw_v.add_child(UiKit.title(Strings.t("mapAncient"), 16, UiKit.TEXT_FAINT))
+	aw_v.add_child(UiKit.label(Strings.t("comingSoon"), 12, Color("94a3b8"), HORIZONTAL_ALIGNMENT_CENTER))
 	aw_card.add_child(aw_v)
 	grid.add_child(aw_card)
 
