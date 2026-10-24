@@ -1,0 +1,12 @@
+COLOR LAND 3D — RELIZ QAYDLARI (v1.00.001)
+==================================================
+- Versiya: 1.00.001
+- Android versionCode: 1000001
+- Tuzatishlar:
+  * Magenta/Pink ekranning tub sababi to'liq bartaraf etildi.
+  * URP va Built-in quvurlar uchun universal ikki qavatli (dual-pass) shaderlar joriy etildi.
+  * 400x400 jonli tropik okean suv qatlami va multfilm to'lqinlari qo'shildi.
+  * 3D multfilm daraxtlari, qoyalari va to'liq cartoon landshaft tiklandi.
+  * O'yinchi va 20 ta bot uchun multfilm ko'zlar, vizor va milliy bayroqlar o'rnatildi.
+  * Shaharlar ustida 3D ko'rinarli nomlar va bayroqlar banneri joylashtirildi.
+  * Barcha 66 ta avtomatlashtirilgan test va 15 ta til to'liq ishlashda davom etmoqda.

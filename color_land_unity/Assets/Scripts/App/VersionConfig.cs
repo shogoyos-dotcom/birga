@@ -9,8 +9,8 @@ namespace ColorLand.App
     /// </summary>
     public static class VersionConfig
     {
-        public const string CURRENT_VERSION = "1.00.000";
-        public const int CURRENT_VERSION_CODE = 1000000;
+        public const string CURRENT_VERSION = "1.00.001";
+        public const int CURRENT_VERSION_CODE = 1000001;
         public const string PACKAGE_NAME = "com.shogoyos.colorland3d";
         public const string ENGINE_VERSION = "Unity 6 (6000.6.7f1)";
         public const string TARGET_PLATFORM = "Android ARM64 (IL2CPP)";

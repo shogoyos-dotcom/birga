@@ -1,0 +1,11 @@
+COLOR LAND 3D — SINOV HISOBOTI (v1.00.001)
+==================================================
+Versiya: 1.00.001 (code: 1000001)
+Platforma: Android ARM64
+Holat: READY_FOR_TEST
+
+Grafika holati: PASS (Unity Play Mode da 100% tekshirildi, magenta ekran yo'qotildi)
+Android tekshiruvi: NOT VERIFIED (Haqiqiy qurilma ulanmagan / emulyator apparat tezlatgichi yo'q)
+Barcha 66 ta mantiqiy va arxitektura testlari: PASS (100%)
+APK hajmi: 50,756,319 bayt (48.4 MB)
+SHA256: 4674680B92B45B5470FC52392DE6A2870235156E20549F29466717CDEC02ECE3

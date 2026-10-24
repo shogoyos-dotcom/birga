@@ -1,0 +1,17 @@
+{
+    "Version": "1.00.001",
+    "VersionCode": 1000001,
+    "PackageName": "com.shogoyos.colorland3d",
+    "TargetPlatform": "Android ARM64",
+    "ScriptingBackend": "IL2CPP",
+    "EngineVersion": "Unity 6 (6000.6.7f1)",
+    "GitCommit": "50784d86e154e9830dbe0b4fee01217008837a55",
+    "GitTag": "v1.00.001",
+    "ApkFilename": "ColorLand3D_v1.00.001_arm64.apk",
+    "ApkSizeBytes": 50756319,
+    "Sha256": "4674680b92b45b5470fc52392de6a2870235156e20549f29466717cdec02ece3",
+    "Status": "READY_FOR_TEST",
+    "ReleaseDate": "2026-10-24T13:06:44Z",
+    "RollbackCompatible": true,
+    "SaveSchemaVersion": 1
+}

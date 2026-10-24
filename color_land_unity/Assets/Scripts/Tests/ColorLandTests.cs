@@ -384,7 +384,7 @@ namespace ColorLand.Tests
         private static void Test_VersionConfig_AboutDisplay()
         {
             string about = VersionConfig.GetAboutDisplay();
-            Assert(about.Contains(VersionConfig.CURRENT_VERSION), "VersionConfig: About matnida joriy versiya mavjud ('1.00.000')");
+            Assert(about.Contains(VersionConfig.CURRENT_VERSION), $"VersionConfig: About matnida joriy versiya mavjud ('{VersionConfig.CURRENT_VERSION}')");
             Assert(about.Contains(VersionConfig.PACKAGE_NAME), "VersionConfig: About matnida paket nomi mavjud ('com.shogoyos.colorland3d')");
         }
 

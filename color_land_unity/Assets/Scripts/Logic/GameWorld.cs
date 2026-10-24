@@ -8,6 +8,8 @@ namespace ColorLand.Logic
 {
     /// <summary>
     /// O'yin dunyosi boshqaruvchisi (GameWorld).
+    /// Grid, Player, 20 ta Bot, PaintLayer, shaharlar va kamerani sinxron boshqaradi.
+    /// Multfilm 3D vizual qahramonlar, bayroqlar va palitrani GPU bilan bog'laydi.
     /// </summary>
     public class GameWorld : MonoBehaviour
     {
@@ -31,6 +33,12 @@ namespace ColorLand.Logic
         public CitySystem CitySystem { get; private set; }
         public PlayerEntity Player { get; private set; }
         public List<PlayerEntity> Bots { get; private set; } = new List<PlayerEntity>();
+
+        private static readonly string[] BotCountryCodes = new string[]
+        {
+            "RU", "KZ", "TR", "DE", "FR", "JP", "US", "BR", "CN", "GB",
+            "IT", "ES", "IN", "KR", "EG", "SA", "AE", "CA", "AU", "ZA"
+        };
 
         private void Awake()
         {
@@ -79,6 +87,11 @@ namespace ColorLand.Logic
                 PlayerColor = new Color(0.15f, 0.65f, 1.0f)
             };
 
+            if (PaintLayer != null)
+            {
+                PaintLayer.SetPaletteColor(Player.OwnerId, Player.PlayerColor);
+            }
+
             Player.OnTerritoryCaptured += (count) =>
             {
                 if (PaintLayer != null) PaintLayer.UpdateFull();
@@ -94,7 +107,7 @@ namespace ColorLand.Logic
                 }
             };
 
-            GameObject playerObj = PlayerPrefab != null ? Instantiate(PlayerPrefab) : CreateDefaultCharacterObject("Player", Player.PlayerColor);
+            GameObject playerObj = PlayerPrefab != null ? Instantiate(PlayerPrefab) : CreateDefaultCharacterObject("Player", Player.PlayerColor, "UZ");
             var playerState = playerObj.GetComponent<PlayerState>() ?? playerObj.AddComponent<PlayerState>();
             playerState.Bind(Player);
 
@@ -114,17 +127,49 @@ namespace ColorLand.Logic
             Bots.Clear();
             System.Random rnd = new System.Random(12345);
 
+            Color[] presetColors = new Color[]
+            {
+                new Color(0.96f, 0.26f, 0.21f), // Qizil
+                new Color(1.00f, 0.60f, 0.00f), // Sabzirang
+                new Color(1.00f, 0.85f, 0.00f), // Sariq
+                new Color(0.61f, 0.15f, 0.69f), // Binafsha
+                new Color(0.91f, 0.12f, 0.39f), // Pushti
+                new Color(0.00f, 0.75f, 0.65f), // Teal
+                new Color(0.20f, 0.80f, 0.20f), // Yashil
+                new Color(0.40f, 0.20f, 0.60f), // To'q binafsha
+                new Color(1.00f, 0.40f, 0.60f), // Och pushti
+                new Color(0.10f, 0.85f, 0.90f), // Moviy
+                new Color(0.85f, 0.65f, 0.13f), // Oltin
+                new Color(0.70f, 0.30f, 0.10f), // Jigarrang
+                new Color(0.10f, 0.50f, 0.80f), // Kobalt
+                new Color(0.80f, 0.10f, 0.50f), // Fuksia
+                new Color(0.30f, 0.70f, 0.90f), // Havorang
+                new Color(0.60f, 0.80f, 0.20f), // Laym
+                new Color(0.95f, 0.50f, 0.30f), // Shaftoli
+                new Color(0.50f, 0.50f, 0.90f), // Nilrang
+                new Color(0.90f, 0.20f, 0.40f), // Malina
+                new Color(0.15f, 0.75f, 0.45f), // Zumrad
+            };
+
             for (int i = 0; i < BotCount; i++)
             {
                 byte botId = (byte)(i + 2);
                 Vector2Int botSpawn = FindSafeSpawn(rnd);
 
-                Color botColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 0.9f, 0.7f, 1.0f);
+                Color botColor = (i < presetColors.Length) ? presetColors[i] : UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 0.9f, 0.7f, 1.0f);
+                string bCountry = (i < BotCountryCodes.Length) ? BotCountryCodes[i] : "UN";
+
                 var botEntity = new PlayerEntity(Grid, CaptureSystem, botSpawn, botId)
                 {
                     PlayerName = $"Bot_{i + 1}",
+                    CountryCode = bCountry,
                     PlayerColor = botColor
                 };
+
+                if (PaintLayer != null)
+                {
+                    PaintLayer.SetPaletteColor(botId, botColor);
+                }
 
                 botEntity.OnTerritoryCaptured += (count) =>
                 {
@@ -145,7 +190,7 @@ namespace ColorLand.Logic
                     }
                 };
 
-                GameObject botObj = BotPrefab != null ? Instantiate(BotPrefab) : CreateDefaultCharacterObject($"Bot_{botId}", botColor);
+                GameObject botObj = BotPrefab != null ? Instantiate(BotPrefab) : CreateDefaultCharacterObject($"Bot_{botId}", botColor, bCountry);
                 var botState = botObj.GetComponent<PlayerState>() ?? botObj.AddComponent<PlayerState>();
                 botState.Bind(botEntity);
 
@@ -166,27 +211,111 @@ namespace ColorLand.Logic
             }
         }
 
-        private GameObject CreateDefaultCharacterObject(string name, Color color)
+        private GameObject CreateDefaultCharacterObject(string name, Color color, string countryCode)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = name;
-            go.transform.localScale = new Vector3(0.8f, 0.5f, 0.8f);
+            var root = new GameObject(name);
 
-            var rend = go.GetComponent<Renderer>();
-            if (rend != null)
+            Shader litShader = Shader.Find("ColorLand/CartoonLit")
+                            ?? Shader.Find("Universal Render Pipeline/Lit")
+                            ?? Shader.Find("Standard")
+                            ?? Shader.Find("Mobile/Diffuse");
+
+            // 1. Tana (Yumaloq kapsula)
+            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            body.name = "Body";
+            body.transform.SetParent(root.transform, false);
+            body.transform.localPosition = new Vector3(0, 0.45f, 0);
+            body.transform.localScale = new Vector3(0.85f, 0.45f, 0.85f);
+
+            var bodyMat = new Material(litShader)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
-                {
-                    color = color
-                };
-                rend.material = mat;
+                color = color,
+                name = $"M_Body_{name}"
+            };
+            body.GetComponent<Renderer>().sharedMaterial = bodyMat;
+            var bodyCol = body.GetComponent<Collider>();
+            if (bodyCol != null) Destroy(bodyCol);
+
+            // 2. Ko'zlar (Ikkita oq shar + qora qorachiqlar)
+            var eyeMat = new Material(litShader) { color = Color.white, name = "M_EyeWhite" };
+            var pupilMat = new Material(litShader) { color = new Color(0.1f, 0.1f, 0.15f), name = "M_PupilDark" };
+
+            for (int eyeIdx = -1; eyeIdx <= 1; eyeIdx += 2)
+            {
+                var eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                eye.name = $"Eye_{eyeIdx}";
+                eye.transform.SetParent(root.transform, false);
+                eye.transform.localPosition = new Vector3(eyeIdx * 0.22f, 0.55f, 0.35f);
+                eye.transform.localScale = new Vector3(0.18f, 0.22f, 0.16f);
+                eye.GetComponent<Renderer>().sharedMaterial = eyeMat;
+                var eCol = eye.GetComponent<Collider>();
+                if (eCol != null) Destroy(eCol);
+
+                var pupil = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                pupil.name = "Pupil";
+                pupil.transform.SetParent(eye.transform, false);
+                pupil.transform.localPosition = new Vector3(0, 0, 0.45f);
+                pupil.transform.localScale = new Vector3(0.55f, 0.55f, 0.45f);
+                pupil.GetComponent<Renderer>().sharedMaterial = pupilMat;
+                var pCol = pupil.GetComponent<Collider>();
+                if (pCol != null) Destroy(pCol);
             }
 
-            // Colliderni trigger qilamiz (fizika xalaqit bermasligi uchun)
-            var col = go.GetComponent<Collider>();
-            if (col != null) col.isTrigger = true;
+            // 3. Yo'nalish ko'rsatkichi / Burun (Vizor)
+            var visor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            visor.name = "Visor";
+            visor.transform.SetParent(root.transform, false);
+            visor.transform.localPosition = new Vector3(0, 0.42f, 0.42f);
+            visor.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+            visor.transform.localScale = new Vector3(0.14f, 0.08f, 0.14f);
+            var visorMat = new Material(litShader) { color = new Color(1.0f, 0.88f, 0.25f), name = "M_Visor" };
+            visor.GetComponent<Renderer>().sharedMaterial = visorMat;
+            var vCol = visor.GetComponent<Collider>();
+            if (vCol != null) Destroy(vCol);
 
-            return go;
+            // 4. Bayroq ustuni (Orqada silindr)
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "Pole";
+            pole.transform.SetParent(root.transform, false);
+            pole.transform.localPosition = new Vector3(0, 0.90f, -0.32f);
+            pole.transform.localScale = new Vector3(0.04f, 0.45f, 0.04f);
+            var poleMat = new Material(litShader) { color = new Color(0.85f, 0.85f, 0.90f), name = "M_Pole" };
+            pole.GetComponent<Renderer>().sharedMaterial = poleMat;
+            var polCol = pole.GetComponent<Collider>();
+            if (polCol != null) Destroy(polCol);
+
+            // 5. Bayroq matosi (Quad)
+            var flag = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            flag.name = "Flag";
+            flag.transform.SetParent(root.transform, false);
+            flag.transform.localPosition = new Vector3(0.25f, 1.15f, -0.32f);
+            flag.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            flag.transform.localScale = new Vector3(0.50f, 0.32f, 1.0f);
+
+            // Bayroq rasmini yuklash
+            Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{countryCode.ToUpperInvariant()}");
+            var flagMat = new Material(litShader) { name = $"M_Flag_{countryCode}" };
+            if (flagSprite != null)
+            {
+                flagMat.mainTexture = flagSprite.texture;
+                flagMat.color = Color.white;
+            }
+            else
+            {
+                flagMat.color = color;
+            }
+            flag.GetComponent<Renderer>().sharedMaterial = flagMat;
+            var fCol = flag.GetComponent<Collider>();
+            if (fCol != null) Destroy(fCol);
+
+            // 6. Trigger kollayder
+            var rootCol = root.AddComponent<CapsuleCollider>();
+            rootCol.center = new Vector3(0, 0.45f, 0);
+            rootCol.radius = 0.45f;
+            rootCol.height = 0.9f;
+            rootCol.isTrigger = true;
+
+            return root;
         }
 
         private Vector2Int FindSafeSpawn(System.Random rnd)
@@ -253,6 +382,13 @@ namespace ColorLand.Logic
                     {
                         Player.TriggerTrailDanger(bot.OwnerId, botHead);
                     }
+
+                    // Boshlar to'qnashuvi
+                    if (playerHead == botHead)
+                    {
+                        Player.Die();
+                        bot.Die();
+                    }
                 }
             }
 
@@ -279,6 +415,7 @@ namespace ColorLand.Logic
 
         public void ClearOwnerCells(byte ownerId)
         {
+            int total = Grid.Width * Grid.Height;
             for (int y = 0; y < Grid.Height; y++)
             {
                 for (int x = 0; x < Grid.Width; x++)
@@ -286,13 +423,14 @@ namespace ColorLand.Logic
                     if (Grid.GetOwner(x, y) == ownerId)
                     {
                         Grid.SetOwner(x, y, GameGrid.OWNER_NONE);
+                        if (PaintLayer != null)
+                        {
+                            PaintLayer.SetCell(x, y, GameGrid.OWNER_NONE);
+                        }
                     }
                 }
             }
-            if (PaintLayer != null)
-            {
-                PaintLayer.UpdateFull();
-            }
+            if (PaintLayer != null) PaintLayer.UpdateFull();
         }
 
         public float GetPlayerTerritoryPercentage()

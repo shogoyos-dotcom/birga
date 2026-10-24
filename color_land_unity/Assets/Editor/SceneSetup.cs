@@ -15,50 +15,77 @@ namespace ColorLand.Editor
         [MenuItem("ColorLand/Build Main Scene")]
         public static void BuildMainScene()
         {
+            EnsureAlwaysIncludedShaders();
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // 1. Quyosh (Directional Light)
+            // 1. Quyosh (Directional Light) va Muhit yorug'ligi
             var lightObj = new GameObject("Directional Light");
             var light = lightObj.AddComponent<Light>();
             light.type = LightType.Directional;
             light.color = new Color(1.0f, 0.98f, 0.92f);
+            light.intensity = 1.15f;
             lightObj.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.55f, 0.65f, 0.75f);
 
             // 2. Kamera (Main Camera)
             var camObj = new GameObject("Main Camera");
             var cam = camObj.AddComponent<Camera>();
             camObj.tag = "MainCamera";
-            camObj.transform.position = new Vector3(0, 35, -25);
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.08f, 0.55f, 0.85f);
+            camObj.transform.position = new Vector3(0, 36, -24);
             camObj.transform.rotation = Quaternion.Euler(55, 0, 0);
 
-            // 3. Maydon (Arena 120x120)
+            // Papkalarni ta'minlash
+            if (!System.IO.Directory.Exists("Assets/Materials")) System.IO.Directory.CreateDirectory("Assets/Materials");
+            if (!System.IO.Directory.Exists("Assets/Resources/Materials")) System.IO.Directory.CreateDirectory("Assets/Resources/Materials");
+
+            // 3. Okean suvi (400x400 ulkan tropik suv qatlami)
+            var oceanObj = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            oceanObj.name = "Ocean";
+            oceanObj.transform.position = new Vector3(0, -0.08f, 0);
+            oceanObj.transform.localScale = new Vector3(40, 1, 40);
+            var oceanCol = oceanObj.GetComponent<Collider>();
+            if (oceanCol != null) Object.DestroyImmediate(oceanCol);
+
+            var waterShader = Shader.Find("ColorLand/WaterShader") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Mobile/Diffuse");
+            var waterMat = new Material(waterShader) { name = "M_Water" };
+            AssetDatabase.CreateAsset(waterMat, "Assets/Materials/M_Water.mat");
+            oceanObj.GetComponent<Renderer>().sharedMaterial = waterMat;
+
+            // 4. Maydon (Arena 120x120)
             var arenaObj = GameObject.CreatePrimitive(PrimitiveType.Plane);
             arenaObj.name = "Arena";
             arenaObj.transform.position = Vector3.zero;
             arenaObj.transform.localScale = new Vector3(12, 1, 12);
 
-            // Arena Material
-            var shader = Shader.Find("ColorLand/ArenaShader") ?? Shader.Find("Universal Render Pipeline/Unlit");
-            var mat = new Material(shader) { name = "M_Arena" };
-            AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Arena.mat");
-            arenaObj.GetComponent<Renderer>().sharedMaterial = mat;
+            var arenaShader = Shader.Find("ColorLand/ArenaShader") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Mobile/Diffuse");
+            var arenaMat = new Material(arenaShader) { name = "M_Arena" };
+            AssetDatabase.CreateAsset(arenaMat, "Assets/Materials/M_Arena.mat");
+            arenaObj.GetComponent<Renderer>().sharedMaterial = arenaMat;
 
-            // 4. GameWorld
+            // 5. Atrof-muhit bezaklari (Multfilm daraxtlari va qoyalari)
+            CreateDecorativeEnvironment();
+
+            // 6. GameWorld
             var gwObj = new GameObject("GameWorld");
             var gw = gwObj.AddComponent<GameWorld>();
             var paintLayer = arenaObj.AddComponent<PaintLayer>();
             paintLayer.ArenaRenderer = arenaObj.GetComponent<Renderer>();
-            paintLayer.ArenaMaterial = mat;
+            paintLayer.ArenaMaterial = arenaMat;
             gw.PaintLayer = paintLayer;
-            gw.ArenaMaterial = mat;
+            gw.ArenaMaterial = arenaMat;
 
-            // 5. CityRenderer
+            // 7. CityRenderer
             var cityRendererObj = new GameObject("CityRenderer");
             cityRendererObj.transform.SetParent(gwObj.transform);
             var cityRenderer = cityRendererObj.AddComponent<CityRenderer>();
             gw.CityRenderer = cityRenderer;
 
-            // 6. UI Canvas & EventSystem
+            // 8. UI Canvas & EventSystem
             BuildUserInterface(gw);
 
             // Sahnani saqlash
@@ -69,7 +96,145 @@ namespace ColorLand.Editor
                 new EditorBuildSettingsScene("Assets/Scenes/MainScene.unity", true)
             };
 
-            Debug.Log("ColorLand: MainScene.unity to'liq UI va tizimlar bilan muvaffaqiyatli yaratildi!");
+            Debug.Log("ColorLand: MainScene.unity to'liq 3D multfilm muhiti, suv, arena va UI bilan muvaffaqiyatli yaratildi!");
+        }
+
+        private static void CreateDecorativeEnvironment()
+        {
+            var envRoot = new GameObject("Environment");
+
+            Shader litShader = Shader.Find("ColorLand/CartoonLit") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Mobile/Diffuse");
+            var trunkMat = new Material(litShader) { color = new Color(0.48f, 0.30f, 0.16f), name = "M_Trunk" };
+            var foliageMat1 = new Material(litShader) { color = new Color(0.18f, 0.75f, 0.32f), name = "M_Foliage1" };
+            var foliageMat2 = new Material(litShader) { color = new Color(0.12f, 0.65f, 0.28f), name = "M_Foliage2" };
+            var rockMat = new Material(litShader) { color = new Color(0.58f, 0.62f, 0.68f), name = "M_Rock" };
+
+            // Chegaralar va burchaklar bo'ylab multfilm daraxtlari
+            Vector3[] treePositions = new Vector3[]
+            {
+                new Vector3(-55, 0, -55), new Vector3(-52, 0, -57), new Vector3(55, 0, -55), new Vector3(52, 0, -58),
+                new Vector3(-55, 0, 55), new Vector3(-58, 0, 52), new Vector3(55, 0, 55), new Vector3(58, 0, 53),
+                new Vector3(0, 0, -58), new Vector3(-15, 0, -57), new Vector3(20, 0, -58),
+                new Vector3(0, 0, 58), new Vector3(-25, 0, 57), new Vector3(18, 0, 58),
+                new Vector3(-58, 0, 0), new Vector3(-57, 0, -20), new Vector3(-58, 0, 22),
+                new Vector3(58, 0, 0), new Vector3(57, 0, -18), new Vector3(58, 0, 25),
+            };
+
+            for (int i = 0; i < treePositions.Length; i++)
+            {
+                var treeObj = new GameObject($"Tree_{i}");
+                treeObj.transform.SetParent(envRoot.transform, false);
+                treeObj.transform.position = treePositions[i];
+
+                // Tana
+                var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                trunk.name = "Trunk";
+                trunk.transform.SetParent(treeObj.transform, false);
+                trunk.transform.localPosition = new Vector3(0, 0.6f, 0);
+                trunk.transform.localScale = new Vector3(0.35f, 0.6f, 0.35f);
+                trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
+                var tCol = trunk.GetComponent<Collider>();
+                if (tCol != null) Object.DestroyImmediate(tCol);
+
+                // Barglar (2 qatlamli shar)
+                var leaf1 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                leaf1.name = "Foliage_Bottom";
+                leaf1.transform.SetParent(treeObj.transform, false);
+                leaf1.transform.localPosition = new Vector3(0, 1.4f, 0);
+                leaf1.transform.localScale = new Vector3(1.6f, 1.1f, 1.6f);
+                leaf1.GetComponent<Renderer>().sharedMaterial = foliageMat1;
+                var l1Col = leaf1.GetComponent<Collider>();
+                if (l1Col != null) Object.DestroyImmediate(l1Col);
+
+                var leaf2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                leaf2.name = "Foliage_Top";
+                leaf2.transform.SetParent(treeObj.transform, false);
+                leaf2.transform.localPosition = new Vector3(0, 2.1f, 0);
+                leaf2.transform.localScale = new Vector3(1.1f, 0.9f, 1.1f);
+                leaf2.GetComponent<Renderer>().sharedMaterial = foliageMat2;
+                var l2Col = leaf2.GetComponent<Collider>();
+                if (l2Col != null) Object.DestroyImmediate(l2Col);
+            }
+
+            // Chegaralar bo'ylab multfilm toshlari
+            Vector3[] rockPositions = new Vector3[]
+            {
+                new Vector3(-50, 0, -53), new Vector3(48, 0, -52), new Vector3(-52, 0, 50), new Vector3(51, 0, 48),
+                new Vector3(-35, 0, -57), new Vector3(35, 0, -57), new Vector3(-35, 0, 57), new Vector3(35, 0, 57),
+                new Vector3(-57, 0, -35), new Vector3(57, 0, -35), new Vector3(-57, 0, 35), new Vector3(57, 0, 35)
+            };
+
+            for (int i = 0; i < rockPositions.Length; i++)
+            {
+                var rockObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                rockObj.name = $"Rock_{i}";
+                rockObj.transform.SetParent(envRoot.transform, false);
+                rockObj.transform.position = rockPositions[i];
+                rockObj.transform.localScale = new Vector3(1.4f, 0.7f, 1.1f);
+                rockObj.transform.rotation = Quaternion.Euler(UnityEngine.Random.Range(0, 30), UnityEngine.Random.Range(0, 360), 0);
+                rockObj.GetComponent<Renderer>().sharedMaterial = rockMat;
+                var rCol = rockObj.GetComponent<Collider>();
+                if (rCol != null) Object.DestroyImmediate(rCol);
+            }
+        }
+
+        private static void EnsureAlwaysIncludedShaders()
+        {
+            string[] shaderNames = new string[]
+            {
+                "ColorLand/ArenaShader",
+                "ColorLand/WaterShader",
+                "ColorLand/CartoonLit",
+                "ColorLand/TrailShader",
+                "Universal Render Pipeline/Lit",
+                "Universal Render Pipeline/Unlit",
+                "Standard",
+                "Sprites/Default",
+                "Mobile/Diffuse",
+                "Mobile/Unlit"
+            };
+
+            var graphicsSettingsAsset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+            if (graphicsSettingsAsset != null && graphicsSettingsAsset.Length > 0)
+            {
+                SerializedObject graphicsSettings = new SerializedObject(graphicsSettingsAsset[0]);
+                SerializedProperty prop = graphicsSettings.FindProperty("m_AlwaysIncludedShaders");
+                if (prop != null)
+                {
+                    bool modified = false;
+                    foreach (var sName in shaderNames)
+                    {
+                        var s = Shader.Find(sName);
+                        if (s == null) continue;
+
+                        bool found = false;
+                        for (int i = 0; i < prop.arraySize; i++)
+                        {
+                            var elem = prop.GetArrayElementAtIndex(i);
+                            if (elem.objectReferenceValue == s)
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found)
+                        {
+                            int newIdx = prop.arraySize;
+                            prop.InsertArrayElementAtIndex(newIdx);
+                            prop.GetArrayElementAtIndex(newIdx).objectReferenceValue = s;
+                            modified = true;
+                        }
+                    }
+
+                    if (modified)
+                    {
+                        graphicsSettings.ApplyModifiedProperties();
+                        AssetDatabase.SaveAssets();
+                        Debug.Log("ColorLand: m_AlwaysIncludedShaders muvaffaqiyatli yangilandi!");
+                    }
+                }
+            }
         }
 
         private static void BuildUserInterface(GameWorld gw)

@@ -79,7 +79,7 @@ namespace ColorLand.Editor
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.shogoyos.colorland3d");
             PlayerSettings.bundleVersion = "8.4.0";
             PlayerSettings.Android.bundleVersionCode = 840;
-            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
+            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel34;
 
             // Scripting Backend: IL2CPP, ARM64

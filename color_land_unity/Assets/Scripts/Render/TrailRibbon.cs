@@ -7,16 +7,20 @@ namespace ColorLand.Render
     /// <summary>
     /// O'yinchi va botlar orqasidan chiziluvchi 3D iz lentasi (Trail Ribbon).
     /// LineRenderer yordamida o'yinchining haqiqiy yo'lini silliq chizadi.
+    /// Xavf to'lqini paytida qizil yonib-o'chish (flash) effektini beradi.
     /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class TrailRibbon : MonoBehaviour
     {
         public PlayerState State;
         public float RibbonHeight = 0.15f;
-        public float RibbonWidth = 0.6f;
+        public float RibbonWidth = 0.65f;
 
         private LineRenderer _line;
         private GameGrid _grid;
+        private Material _trailMat;
+        private static readonly int DangerFlashId = Shader.PropertyToID("_DangerFlash");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         private void Awake()
         {
@@ -32,6 +36,8 @@ namespace ColorLand.Render
                 _line.endWidth = RibbonWidth;
                 _line.useWorldSpace = true;
                 _line.alignment = LineAlignment.TransformZ;
+                _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _line.receiveShadows = false;
             }
         }
 
@@ -42,22 +48,28 @@ namespace ColorLand.Render
             _line.startColor = trailColor;
             _line.endColor = trailColor;
 
-            // Agar material bo'lmasa, standart Unlit material yaratamiz
-            if (_line.material == null || _line.material.name.StartsWith("Default"))
+            Shader shader = Shader.Find("ColorLand/TrailShader")
+                         ?? Shader.Find("Universal Render Pipeline/Unlit")
+                         ?? Shader.Find("Sprites/Default")
+                         ?? Shader.Find("Mobile/Particles/Alpha Blended");
+
+            if (shader != null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
-                if (shader != null)
+                _trailMat = new Material(shader)
                 {
-                    _line.material = new Material(shader) { color = trailColor };
-                }
+                    color = trailColor,
+                    name = "M_TrailInstance"
+                };
+                if (_trailMat.HasProperty(ColorId)) _trailMat.SetColor(ColorId, trailColor);
+                _line.material = _trailMat;
             }
         }
 
         private void LateUpdate()
         {
-            if (State == null || State.Entity == null || _grid == null)
+            if (State == null || State.Entity == null || _grid == null || _line == null)
             {
-                _line.positionCount = 0;
+                if (_line != null) _line.positionCount = 0;
                 return;
             }
 
@@ -66,6 +78,13 @@ namespace ColorLand.Render
             {
                 _line.positionCount = 0;
                 return;
+            }
+
+            // Xavf effekti: agar izga dushman tekkan bo'lsa, xavf to'lqini davomida qizil pulsatsiya
+            if (_trailMat != null && _trailMat.HasProperty(DangerFlashId))
+            {
+                float flash = State.Entity.Danger != null ? Mathf.PingPong(Time.time * 8.0f, 1.0f) : 0.0f;
+                _trailMat.SetFloat(DangerFlashId, flash);
             }
 
             // Iz kataklari soni + joriy o'yinchi boshi pozitsiyasi
@@ -82,6 +101,11 @@ namespace ColorLand.Render
             Vector3 headPos = State.Entity.Position;
             headPos.y = RibbonHeight;
             _line.SetPosition(pointCount - 1, headPos);
+        }
+
+        private void OnDestroy()
+        {
+            if (_trailMat != null) Destroy(_trailMat);
         }
     }
 }

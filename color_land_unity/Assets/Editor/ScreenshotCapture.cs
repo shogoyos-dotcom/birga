@@ -48,14 +48,20 @@ namespace ColorLand.Editor
             Strings.SetLanguage("ru");
             if (GameHUD.Instance != null) GameHUD.Instance.OnLanguageChanged();
             var menuModals = Object.FindFirstObjectByType<MenuModals>();
-            if (menuModals != null) menuModals.RefreshAllTexts();
+            if (menuModals != null)
+            {
+                menuModals.RefreshAllTexts();
+                menuModals.HideAll();
+            }
+
+            var langModal = LanguagePickerModal.Instance ?? Object.FindFirstObjectByType<LanguagePickerModal>();
+            if (langModal != null) langModal.Hide();
 
             // A. Shot 1: Asosiy o'yin ekrani rus tilida (Top Bar, Leaderboard, Joystick)
             CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_gameplay_ru.png"));
             Debug.Log("[SHOT 1 SAVED] shot_unity_gameplay_ru.png");
 
             // B. Shot 2: 15 tildagi modal Language Picker
-            var langModal = LanguagePickerModal.Instance ?? Object.FindFirstObjectByType<LanguagePickerModal>();
             if (langModal != null)
             {
                 langModal.Show();
