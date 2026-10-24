@@ -177,12 +177,15 @@ namespace ColorLand.UI
 
         public void RefreshAllTexts()
         {
-            if (MenuTitleText != null) MenuTitleText.text = Strings.T("menu").ToUpperInvariant();
-            if (PlayButtonText != null) PlayButtonText.text = Strings.T("play").ToUpperInvariant();
-            if (OpenShopButtonText != null) OpenShopButtonText.text = Strings.T("shopTitle").ToUpperInvariant();
-            if (OpenMapsButtonText != null) OpenMapsButtonText.text = Strings.T("mapSelect").ToUpperInvariant();
-            if (OpenDailyButtonText != null) OpenDailyButtonText.text = Strings.T("dailyReward").ToUpperInvariant();
-            if (OpenSettingsButtonText != null) OpenSettingsButtonText.text = Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant();
+            if (MenuTitleText != null)
+            {
+                MenuTitleText.text = "<b><color=#facc15>COLOR</color> <color=#38bdf8>LAND 3D</color></b>";
+            }
+            if (PlayButtonText != null) PlayButtonText.text = $"▶  {Strings.T("play").ToUpperInvariant()}";
+            if (OpenMapsButtonText != null) OpenMapsButtonText.text = $"🗺️  {Strings.T("mapSelect").ToUpperInvariant()}";
+            if (OpenShopButtonText != null) OpenShopButtonText.text = $"🏪  {Strings.T("shopTitle").ToUpperInvariant()}";
+            if (OpenDailyButtonText != null) OpenDailyButtonText.text = $"🏆  {Strings.T("dailyReward").ToUpperInvariant()}";
+            if (OpenSettingsButtonText != null) OpenSettingsButtonText.text = $"⚙️  {Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant()}";
 
             if (ShopTitleText != null) ShopTitleText.text = Strings.T("shopTitle").ToUpperInvariant();
             if (DailyTitleText != null) DailyTitleText.text = Strings.T("dailyReward").ToUpperInvariant();

@@ -76,7 +76,7 @@ namespace ColorLand.Editor
             }
 
             // -------------------------------------------------------------
-            // 2. ACTIVE GAMEPLAY SCREENSHOT (Heroic Character, Trails, HUD)
+            // 2. ACTIVE GAMEPLAY SCREENSHOT (Heroic Character, Bead Trails, HUD)
             // -------------------------------------------------------------
             cam.transform.position = new Vector3(0, 22.0f, -15.5f);
             cam.transform.rotation = Quaternion.Euler(52, 0, 0);
@@ -86,6 +86,30 @@ namespace ColorLand.Editor
                 // Give player some smooth captured territory
                 gw.CaptureSystem.SpawnInitialTerritory(1, new Vector2Int(gw.GridWidth / 2, gw.GridHeight / 2), 6);
                 if (gw.PaintLayer != null) gw.PaintLayer.UpdateFull();
+
+                // Add active glossy bead trail trailing behind the ball matching reference image!
+                var playerEntity = gw.Player;
+                var playerObj = GameObject.Find("Player");
+                if (playerObj != null)
+                {
+                    Vector2Int center = new Vector2Int(gw.GridWidth / 2, gw.GridHeight / 2);
+                    playerEntity.Trail.Clear();
+                    for (int i = 0; i <= 8; i++)
+                    {
+                        int tx = center.x - 4 + i;
+                        int ty = center.y + 6 + Mathf.RoundToInt(Mathf.Sin(i * 0.45f) * 2.2f);
+                        playerEntity.Trail.Add(new Vector2Int(tx, ty));
+                    }
+                    Vector3 headPos = gw.Grid.GridToWorld(center.x + 5, center.y + 6 + Mathf.RoundToInt(Mathf.Sin(9 * 0.45f) * 2.2f), 0.85f);
+                    playerObj.transform.position = headPos;
+                    var ribbon = playerObj.GetComponent<TrailRibbon>();
+                    if (ribbon != null) ribbon.UpdateTrailExplicit();
+                }
+            }
+
+            if (GameHUD.Instance != null)
+            {
+                GameHUD.Instance.UpdateHUDExplicit();
             }
 
             CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_gameplay.png"));
@@ -134,11 +158,40 @@ namespace ColorLand.Editor
                 var playerObj = GameObject.Find("Player");
                 if (playerObj != null)
                 {
-                    cam.transform.position = playerObj.transform.position + new Vector3(0, 4.0f, -6.5f);
-                    cam.transform.LookAt(playerObj.transform.position + new Vector3(0, 0.9f, 0));
+                    cam.transform.position = playerObj.transform.position + new Vector3(0, 3.2f, -5.2f);
+                    cam.transform.LookAt(playerObj.transform.position + new Vector3(0, 0.95f, 0));
                     CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_characters.png"));
                     Debug.Log("[SHOT 5 SAVED] shot_phase9_characters.png");
                 }
+            }
+
+            // -------------------------------------------------------------
+            // 6. SUB-MENUS SCREENSHOTS (Shop, Daily Rewards, Maps, Language)
+            // -------------------------------------------------------------
+            if (menuModals != null)
+            {
+                cam.transform.position = new Vector3(0, 26, -20);
+                cam.transform.rotation = Quaternion.Euler(50, 0, 0);
+
+                // Shop Modal
+                menuModals.ShowShop();
+                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_shop_ru.png"));
+
+                // Daily Rewards Modal
+                menuModals.ShowDailyRewards();
+                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_daily_rewards_ru.png"));
+
+                // Map Select Modal
+                menuModals.ShowMaps();
+                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_maps_ru.png"));
+                menuModals.HideAll();
+            }
+
+            if (langModal != null)
+            {
+                langModal.Show();
+                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_language_picker.png"));
+                langModal.Hide();
             }
 
             // Restore camera

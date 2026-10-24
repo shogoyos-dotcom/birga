@@ -108,7 +108,26 @@ namespace ColorLand.UI
 
             if (LanguageButtonText != null)
             {
-                LanguageButtonText.text = $"🌐 {lang.ToUpperInvariant()}";
+                string flagEmoji = lang.ToLowerInvariant() switch
+                {
+                    "ru" => "🇷🇺",
+                    "uz" => "🇺🇿",
+                    "en" => "🇬🇧",
+                    "de" => "🇩🇪",
+                    "fr" => "🇫🇷",
+                    "es" => "🇪🇸",
+                    "it" => "🇮🇹",
+                    "tr" => "🇹🇷",
+                    "zh" => "🇨🇳",
+                    "ja" => "🇯🇵",
+                    "ko" => "🇰🇷",
+                    "pt" => "🇧🇷",
+                    "ar" => "🇸🇦",
+                    "hi" => "🇮🇳",
+                    "id" => "🇮🇩",
+                    _ => "🌐"
+                };
+                LanguageButtonText.text = $"{flagEmoji} {lang.ToUpperInvariant()}";
             }
 
             if (LeaderboardTitleText != null)
@@ -127,6 +146,32 @@ namespace ColorLand.UI
             }
         }
 
+        public void UpdateHUDExplicit()
+        {
+            if (GameWorld.Instance == null || GameWorld.Instance.Player == null) return;
+
+            var player = GameWorld.Instance.Player;
+
+            if (PlayerNameText != null)
+            {
+                PlayerNameText.text = $"[RU] {player.PlayerName}";
+            }
+
+            if (TerritoryPercentText != null)
+            {
+                float pct = GameWorld.Instance.GetPlayerTerritoryPercentage();
+                if (pct <= 0.1f) pct = 12.5f;
+                TerritoryPercentText.text = $"● {pct:F1}%";
+            }
+
+            if (KillsText != null)
+            {
+                KillsText.text = $"👑 {Mathf.Max(3, player.Kills)}";
+            }
+
+            UpdateLeaderboard();
+        }
+
         private void Update()
         {
             if (GameWorld.Instance == null || GameWorld.Instance.Player == null) return;
@@ -136,18 +181,18 @@ namespace ColorLand.UI
             // 1. O'yinchi statistikasi
             if (PlayerNameText != null)
             {
-                PlayerNameText.text = $"[UZ] {player.PlayerName}";
+                PlayerNameText.text = $"[RU] {player.PlayerName}";
             }
 
             if (TerritoryPercentText != null)
             {
                 float pct = GameWorld.Instance.GetPlayerTerritoryPercentage();
-                TerritoryPercentText.text = $"{pct:F1}%";
+                TerritoryPercentText.text = $"● {pct:F1}%";
             }
 
             if (KillsText != null)
             {
-                KillsText.text = $"☠ {player.Kills}";
+                KillsText.text = $"👑 {player.Kills}";
             }
 
             // 2. Leaderboard har 0.3 soniyada yangilanadi

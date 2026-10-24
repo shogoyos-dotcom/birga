@@ -244,6 +244,9 @@ namespace ColorLand.Editor
                 var hCol = hillObj.GetComponent<Collider>();
                 if (hCol != null) Object.DestroyImmediate(hCol);
             }
+
+            // 4. Boyitilgan tabiat manzarasi (Qorli cho'qqili tog'lar, yog'och ko'priklar, qoyali orolchalar, zich qarag'ayzorlar)
+            ColorLand.Render.EnvironmentBuilder.BuildRichEnvironment(envRoot);
         }
 
         private static void EnsureAlwaysIncludedShaders()
@@ -334,84 +337,105 @@ namespace ColorLand.Editor
             hudRt.offsetMax = Vector2.zero;
             var gameHUD = hudObj.GetComponent<GameHUD>();
 
-            // --- A. TOP BAR ---
-            var topBarObj = new GameObject("TopBar", typeof(RectTransform), typeof(Image));
+            // --- A. TOP FLOATING PILLS (Header) ---
+            var topBarObj = new GameObject("TopBar", typeof(RectTransform));
             topBarObj.transform.SetParent(hudObj.transform, false);
             var topBarRt = topBarObj.GetComponent<RectTransform>();
             topBarRt.anchorMin = new Vector2(0, 1);
             topBarRt.anchorMax = new Vector2(1, 1);
             topBarRt.pivot = new Vector2(0.5f, 1);
             topBarRt.anchoredPosition = Vector2.zero;
-            topBarRt.sizeDelta = new Vector2(0, 100);
-            var topBarImg = topBarObj.GetComponent<Image>();
-            topBarImg.color = new Color(0.08f, 0.11f, 0.16f, 0.90f);
+            topBarRt.sizeDelta = new Vector2(0, 110);
 
-            // Player Name Text
-            var nameObj = CreateText("PlayerName", topBarObj.transform, defaultFont, 24, TextAnchor.MiddleLeft, Color.white);
-            var nameRt = nameObj.GetComponent<RectTransform>();
-            nameRt.anchorMin = new Vector2(0, 0.5f);
-            nameRt.anchorMax = new Vector2(0, 0.5f);
-            nameRt.pivot = new Vector2(0, 0.5f);
-            nameRt.anchoredPosition = new Vector2(25, 0);
-            nameRt.sizeDelta = new Vector2(200, 60);
-            gameHUD.PlayerNameText = nameObj.GetComponent<Text>();
-
-            // Menu Button (Top bar)
+            // 1. Menu Button Pill [ ☰ МЕНЮ ]
             var menuBtnObj = new GameObject("MenuButton", typeof(RectTransform), typeof(Image), typeof(Button));
             menuBtnObj.transform.SetParent(topBarObj.transform, false);
             var menuBtnRt = menuBtnObj.GetComponent<RectTransform>();
-            menuBtnRt.anchorMin = new Vector2(0, 0.5f);
-            menuBtnRt.anchorMax = new Vector2(0, 0.5f);
-            menuBtnRt.pivot = new Vector2(0, 0.5f);
-            menuBtnRt.anchoredPosition = new Vector2(230, 0);
-            menuBtnRt.sizeDelta = new Vector2(130, 56);
+            menuBtnRt.anchorMin = new Vector2(0, 1);
+            menuBtnRt.anchorMax = new Vector2(0, 1);
+            menuBtnRt.pivot = new Vector2(0, 1);
+            menuBtnRt.anchoredPosition = new Vector2(25, -25);
+            menuBtnRt.sizeDelta = new Vector2(165, 58);
             var menuBtnImg = menuBtnObj.GetComponent<Image>();
             menuBtnImg.sprite = uiSprite;
             menuBtnImg.type = Image.Type.Sliced;
-            menuBtnImg.color = new Color(0.24f, 0.32f, 0.45f);
+            menuBtnImg.color = new Color(0.06f, 0.09f, 0.16f, 0.92f);
             gameHUD.MenuButton = menuBtnObj.GetComponent<Button>();
 
-            var menuBtnTextObj = CreateText("Label", menuBtnObj.transform, defaultFont, 18, TextAnchor.MiddleCenter, Color.white);
+            var menuBtnTextObj = CreateText("Label", menuBtnObj.transform, defaultFont, 20, TextAnchor.MiddleCenter, Color.white);
             var menuBtnTextRt = menuBtnTextObj.GetComponent<RectTransform>();
             menuBtnTextRt.anchorMin = Vector2.zero;
             menuBtnTextRt.anchorMax = Vector2.one;
             menuBtnTextRt.offsetMin = Vector2.zero;
             menuBtnTextRt.offsetMax = Vector2.zero;
-            gameHUD.MenuButtonText = menuBtnTextObj.GetComponent<Text>();
+            var mbTxt = menuBtnTextObj.GetComponent<Text>();
+            mbTxt.fontStyle = FontStyle.Bold;
+            mbTxt.text = "☰ МЕНЮ";
+            gameHUD.MenuButtonText = mbTxt;
 
-            // Territory Percent Text
-            var pctObj = CreateText("PercentText", topBarObj.transform, defaultFont, 32, TextAnchor.MiddleCenter, new Color(0.2f, 0.85f, 1.0f));
+            // 2. Territory Percent Pill (Glowing Cyan Capsule) (● 12,5%)
+            var pctPillObj = new GameObject("PercentPill", typeof(RectTransform), typeof(Image));
+            pctPillObj.transform.SetParent(topBarObj.transform, false);
+            var pctPillRt = pctPillObj.GetComponent<RectTransform>();
+            pctPillRt.anchorMin = new Vector2(0, 1);
+            pctPillRt.anchorMax = new Vector2(0, 1);
+            pctPillRt.pivot = new Vector2(0, 1);
+            pctPillRt.anchoredPosition = new Vector2(200, -25);
+            pctPillRt.sizeDelta = new Vector2(165, 58);
+            var pctPillImg = pctPillObj.GetComponent<Image>();
+            pctPillImg.sprite = uiSprite;
+            pctPillImg.type = Image.Type.Sliced;
+            pctPillImg.color = new Color(0.02f, 0.71f, 0.83f, 0.95f);
+
+            var pctObj = CreateText("PercentText", pctPillObj.transform, defaultFont, 24, TextAnchor.MiddleCenter, Color.white);
             var pctRt = pctObj.GetComponent<RectTransform>();
-            pctRt.anchorMin = new Vector2(0.50f, 0.5f);
-            pctRt.anchorMax = new Vector2(0.50f, 0.5f);
-            pctRt.pivot = new Vector2(0.5f, 0.5f);
-            pctRt.anchoredPosition = Vector2.zero;
-            pctRt.sizeDelta = new Vector2(160, 60);
-            gameHUD.TerritoryPercentText = pctObj.GetComponent<Text>();
+            pctRt.anchorMin = Vector2.zero;
+            pctRt.anchorMax = Vector2.one;
+            pctRt.offsetMin = Vector2.zero;
+            pctRt.offsetMax = Vector2.zero;
+            var pctTxt = pctObj.GetComponent<Text>();
+            pctTxt.fontStyle = FontStyle.Bold;
+            pctTxt.text = "● 12.5%";
+            gameHUD.TerritoryPercentText = pctTxt;
 
-            // Kills Text
-            var killsObj = CreateText("KillsText", topBarObj.transform, defaultFont, 26, TextAnchor.MiddleCenter, new Color(1.0f, 0.4f, 0.4f));
+            // 3. Crown Pill [ 👑 3 ]
+            var crownPillObj = new GameObject("CrownPill", typeof(RectTransform), typeof(Image));
+            crownPillObj.transform.SetParent(topBarObj.transform, false);
+            var crownPillRt = crownPillObj.GetComponent<RectTransform>();
+            crownPillRt.anchorMin = new Vector2(1, 1);
+            crownPillRt.anchorMax = new Vector2(1, 1);
+            crownPillRt.pivot = new Vector2(1, 1);
+            crownPillRt.anchoredPosition = new Vector2(-195, -25);
+            crownPillRt.sizeDelta = new Vector2(135, 58);
+            var crownPillImg = crownPillObj.GetComponent<Image>();
+            crownPillImg.sprite = uiSprite;
+            crownPillImg.type = Image.Type.Sliced;
+            crownPillImg.color = new Color(0.06f, 0.09f, 0.16f, 0.92f);
+
+            var killsObj = CreateText("KillsText", crownPillObj.transform, defaultFont, 24, TextAnchor.MiddleCenter, Color.white);
             var killsRt = killsObj.GetComponent<RectTransform>();
-            killsRt.anchorMin = new Vector2(0.72f, 0.5f);
-            killsRt.anchorMax = new Vector2(0.72f, 0.5f);
-            killsRt.pivot = new Vector2(0.5f, 0.5f);
-            killsRt.anchoredPosition = Vector2.zero;
-            killsRt.sizeDelta = new Vector2(120, 60);
-            gameHUD.KillsText = killsObj.GetComponent<Text>();
+            killsRt.anchorMin = Vector2.zero;
+            killsRt.anchorMax = Vector2.one;
+            killsRt.offsetMin = Vector2.zero;
+            killsRt.offsetMax = Vector2.zero;
+            var killsTxt = killsObj.GetComponent<Text>();
+            killsTxt.fontStyle = FontStyle.Bold;
+            killsTxt.text = "👑 3";
+            gameHUD.KillsText = killsTxt;
 
-            // Language Button
+            // 4. Language Button Pill [ 🇷🇺 RU ]
             var langBtnObj = new GameObject("LangButton", typeof(RectTransform), typeof(Image), typeof(Button));
             langBtnObj.transform.SetParent(topBarObj.transform, false);
             var langBtnRt = langBtnObj.GetComponent<RectTransform>();
-            langBtnRt.anchorMin = new Vector2(1, 0.5f);
-            langBtnRt.anchorMax = new Vector2(1, 0.5f);
-            langBtnRt.pivot = new Vector2(1, 0.5f);
-            langBtnRt.anchoredPosition = new Vector2(-25, 0);
-            langBtnRt.sizeDelta = new Vector2(120, 56);
+            langBtnRt.anchorMin = new Vector2(1, 1);
+            langBtnRt.anchorMax = new Vector2(1, 1);
+            langBtnRt.pivot = new Vector2(1, 1);
+            langBtnRt.anchoredPosition = new Vector2(-25, -25);
+            langBtnRt.sizeDelta = new Vector2(155, 58);
             var langBtnImg = langBtnObj.GetComponent<Image>();
             langBtnImg.sprite = uiSprite;
             langBtnImg.type = Image.Type.Sliced;
-            langBtnImg.color = new Color(0.18f, 0.50f, 0.92f);
+            langBtnImg.color = new Color(0.06f, 0.09f, 0.16f, 0.92f);
             gameHUD.LanguageButton = langBtnObj.GetComponent<Button>();
 
             var langBtnTextObj = CreateText("Label", langBtnObj.transform, defaultFont, 20, TextAnchor.MiddleCenter, Color.white);
@@ -420,30 +444,36 @@ namespace ColorLand.Editor
             langBtnTextRt.anchorMax = Vector2.one;
             langBtnTextRt.offsetMin = Vector2.zero;
             langBtnTextRt.offsetMax = Vector2.zero;
-            gameHUD.LanguageButtonText = langBtnTextObj.GetComponent<Text>();
+            var lbTxt = langBtnTextObj.GetComponent<Text>();
+            lbTxt.fontStyle = FontStyle.Bold;
+            lbTxt.text = "🇷🇺 RU";
+            gameHUD.LanguageButtonText = lbTxt;
 
-            // --- B. LEADERBOARD ---
+            // --- B. LEADERBOARD (РЕЙТИНГ) ---
             var boardObj = new GameObject("Leaderboard", typeof(RectTransform), typeof(Image));
             boardObj.transform.SetParent(hudObj.transform, false);
             var boardRt = boardObj.GetComponent<RectTransform>();
             boardRt.anchorMin = new Vector2(1, 1);
             boardRt.anchorMax = new Vector2(1, 1);
             boardRt.pivot = new Vector2(1, 1);
-            boardRt.anchoredPosition = new Vector2(-20, -120);
-            boardRt.sizeDelta = new Vector2(280, 200);
+            boardRt.anchoredPosition = new Vector2(-25, -100);
+            boardRt.sizeDelta = new Vector2(285, 230);
             var boardImg = boardObj.GetComponent<Image>();
             boardImg.sprite = uiSprite;
             boardImg.type = Image.Type.Sliced;
-            boardImg.color = new Color(0.08f, 0.11f, 0.16f, 0.85f);
+            boardImg.color = new Color(0.06f, 0.09f, 0.16f, 0.88f);
 
-            var boardTitleObj = CreateText("Title", boardObj.transform, defaultFont, 16, TextAnchor.UpperCenter, new Color(1.0f, 0.82f, 0.2f));
+            var boardTitleObj = CreateText("Title", boardObj.transform, defaultFont, 18, TextAnchor.UpperCenter, new Color(0.98f, 0.80f, 0.08f));
             var boardTitleRt = boardTitleObj.GetComponent<RectTransform>();
             boardTitleRt.anchorMin = new Vector2(0, 1);
             boardTitleRt.anchorMax = new Vector2(1, 1);
             boardTitleRt.pivot = new Vector2(0.5f, 1);
             boardTitleRt.anchoredPosition = new Vector2(0, -10);
             boardTitleRt.sizeDelta = new Vector2(0, 30);
-            gameHUD.LeaderboardTitleText = boardTitleObj.GetComponent<Text>();
+            var btComp = boardTitleObj.GetComponent<Text>();
+            btComp.fontStyle = FontStyle.Bold;
+            btComp.text = "РЕЙТИНГ";
+            gameHUD.LeaderboardTitleText = btComp;
 
             var boardContentObj = CreateText("Content", boardObj.transform, defaultFont, 16, TextAnchor.UpperLeft, Color.white);
             var boardContentRt = boardContentObj.GetComponent<RectTransform>();
@@ -698,32 +728,62 @@ namespace ColorLand.Editor
             // 1. Main Menu Dialog
             var menuModalObj = CreateModalRoot("MainMenuModal", hudObj.transform);
             menuModals.MainMenuPanel = menuModalObj;
-            var menuDialog = CreateDialogWindow("Dialog", menuModalObj.transform, uiSprite, new Vector2(520, 680));
+            var menuDialog = CreateDialogWindow("Dialog", menuModalObj.transform, uiSprite, new Vector2(520, 820));
 
-            var menuTitle = CreateText("Title", menuDialog.transform, font, 32, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
-            SetRect(menuTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -25), new Vector2(0, 50));
-            menuModals.MenuTitleText = menuTitle.GetComponent<Text>();
+            var menuTitle = CreateText("Title", menuDialog.transform, font, 42, TextAnchor.MiddleCenter, Color.white);
+            SetRect(menuTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -35), new Vector2(0, 75));
+            var mtTxt = menuTitle.GetComponent<Text>();
+            mtTxt.fontStyle = FontStyle.Bold;
+            mtTxt.text = "<b><color=#facc15>COLOR</color> <color=#38bdf8>LAND 3D</color></b>";
+            menuModals.MenuTitleText = mtTxt;
 
             menuModals.CloseMenuButton = CreateCloseButton(menuDialog.transform, uiSprite, font);
 
-            // Menu Buttons: Play, Maps, Shop, Daily Rewards, Settings
-            var btnPlay = CreateModalButton("PlayBtn", menuDialog.transform, uiSprite, font, "ИГРАТЬ", new Vector2(0, 115), new Color(0.18f, 0.72f, 0.35f));
+            // 5 Chunky Buttons Matching Reference Image:
+            // 1) Play (Green #22c55e)
+            var btnPlay = CreateModalButton("PlayBtn", menuDialog.transform, uiSprite, font, "▶  ИГРАТЬ", new Vector2(0, 160), new Color(0.13f, 0.77f, 0.37f), new Vector2(420, 82), 28);
             menuModals.PlayButton = btnPlay.Btn;
             menuModals.PlayButtonText = btnPlay.Txt;
 
-            var btnMaps = CreateModalButton("MapsBtn", menuDialog.transform, uiSprite, font, "ВЫБОР КАРТЫ", new Vector2(0, 40), new Color(0.18f, 0.55f, 0.95f));
+            // 2) Maps (Blue #0284c7)
+            var btnMaps = CreateModalButton("MapsBtn", menuDialog.transform, uiSprite, font, "🗺️  ВЫБОР КАРТЫ", new Vector2(0, 70), new Color(0.01f, 0.52f, 0.78f), new Vector2(420, 82), 26);
             menuModals.OpenMapsButton = btnMaps.Btn;
             menuModals.OpenMapsButtonText = btnMaps.Txt;
 
-            var btnShop = CreateModalButton("ShopBtn", menuDialog.transform, uiSprite, font, "МАГАЗИН", new Vector2(0, -35), new Color(0.85f, 0.55f, 0.15f));
+            // 3) Shop (Orange #f97316 with ! badge)
+            var btnShop = CreateModalButton("ShopBtn", menuDialog.transform, uiSprite, font, "🏪  МАГАЗИН", new Vector2(0, -20), new Color(0.98f, 0.45f, 0.09f), new Vector2(420, 82), 26);
             menuModals.OpenShopButton = btnShop.Btn;
             menuModals.OpenShopButtonText = btnShop.Txt;
 
-            var btnDaily = CreateModalButton("DailyBtn", menuDialog.transform, uiSprite, font, "ЕЖЕДНЕВНАЯ НАГРАДА", new Vector2(0, -110), new Color(0.65f, 0.25f, 0.85f));
+            // Red ! badge on Shop button
+            var badgeObj = new GameObject("NotifBadge", typeof(RectTransform), typeof(Image));
+            badgeObj.transform.SetParent(btnShop.Btn.transform, false);
+            var badgeRt = badgeObj.GetComponent<RectTransform>();
+            badgeRt.anchorMin = new Vector2(1, 1);
+            badgeRt.anchorMax = new Vector2(1, 1);
+            badgeRt.pivot = new Vector2(1, 1);
+            badgeRt.anchoredPosition = new Vector2(8, 8);
+            badgeRt.sizeDelta = new Vector2(32, 32);
+            var badgeImg = badgeObj.GetComponent<Image>();
+            badgeImg.sprite = Resources.Load<Sprite>("UI/knob") ?? uiSprite;
+            badgeImg.color = new Color(0.94f, 0.27f, 0.27f);
+            var badgeTxt = CreateText("Exclamation", badgeObj.transform, font, 20, TextAnchor.MiddleCenter, Color.white);
+            var btRt = badgeTxt.GetComponent<RectTransform>();
+            btRt.anchorMin = Vector2.zero;
+            btRt.anchorMax = Vector2.one;
+            btRt.offsetMin = Vector2.zero;
+            btRt.offsetMax = Vector2.zero;
+            var bTxtComp = badgeTxt.GetComponent<Text>();
+            bTxtComp.text = "!";
+            bTxtComp.fontStyle = FontStyle.Bold;
+
+            // 4) Daily (Purple #a855f7)
+            var btnDaily = CreateModalButton("DailyBtn", menuDialog.transform, uiSprite, font, "🏆  ЕЖЕДНЕВНЫЕ НАГРАДЫ", new Vector2(0, -110), new Color(0.66f, 0.33f, 0.97f), new Vector2(420, 82), 24);
             menuModals.OpenDailyButton = btnDaily.Btn;
             menuModals.OpenDailyButtonText = btnDaily.Txt;
 
-            var btnSettings = CreateModalButton("SettingsBtn", menuDialog.transform, uiSprite, font, "НАСТРОЙКИ", new Vector2(0, -185), new Color(0.30f, 0.40f, 0.55f));
+            // 5) Settings (Slate #475569)
+            var btnSettings = CreateModalButton("SettingsBtn", menuDialog.transform, uiSprite, font, "⚙️  НАСТРОЙКИ", new Vector2(0, -200), new Color(0.28f, 0.33f, 0.41f), new Vector2(420, 82), 26);
             menuModals.OpenSettingsButton = btnSettings.Btn;
             menuModals.OpenSettingsButtonText = btnSettings.Txt;
 
@@ -863,7 +923,7 @@ namespace ColorLand.Editor
             return btnObj.GetComponent<Button>();
         }
 
-        private static (Button Btn, Text Txt) CreateModalButton(string name, Transform parent, Sprite uiSprite, Font font, string label, Vector2 pos, Color col)
+        private static (Button Btn, Text Txt) CreateModalButton(string name, Transform parent, Sprite uiSprite, Font font, string label, Vector2 pos, Color col, Vector2? customSize = null, int fontSize = 22)
         {
             var btnObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             btnObj.transform.SetParent(parent, false);
@@ -871,13 +931,13 @@ namespace ColorLand.Editor
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(340, 65);
+            rt.sizeDelta = customSize ?? new Vector2(340, 65);
             var img = btnObj.GetComponent<Image>();
             img.sprite = uiSprite;
             img.type = Image.Type.Sliced;
             img.color = col;
 
-            var txtObj = CreateText("Label", btnObj.transform, font, 22, TextAnchor.MiddleCenter, Color.white);
+            var txtObj = CreateText("Label", btnObj.transform, font, fontSize, TextAnchor.MiddleCenter, Color.white);
             var trt = txtObj.GetComponent<RectTransform>();
             trt.anchorMin = Vector2.zero;
             trt.anchorMax = Vector2.one;
@@ -885,6 +945,7 @@ namespace ColorLand.Editor
             trt.offsetMax = Vector2.zero;
             var txt = txtObj.GetComponent<Text>();
             txt.text = label;
+            txt.fontStyle = FontStyle.Bold;
 
             return (btnObj.GetComponent<Button>(), txt);
         }

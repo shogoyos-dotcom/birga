@@ -199,13 +199,14 @@ namespace ColorLand.Render
             var canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
             var rt = canvasObj.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(280, 56);
+            rt.sizeDelta = new Vector2(300, 56);
             rt.localScale = Vector3.one * 0.028f;
 
             // Har doim kameraga qarab turishi uchun
             canvasObj.AddComponent<BillboardLookAtCamera>();
 
-            // Chiroyli multfilm hoshiyali fon
+            // Chiroyli multfilm hoshiyali fon (Rounded pill)
+            Sprite uiSprite = Resources.Load<Sprite>("UI/rounded_rect");
             var bgObj = new GameObject("Bg", typeof(RectTransform), typeof(Image));
             bgObj.transform.SetParent(canvasObj.transform, false);
             var bgRt = bgObj.GetComponent<RectTransform>();
@@ -213,21 +214,43 @@ namespace ColorLand.Render
             bgRt.anchorMax = Vector2.one;
             bgRt.sizeDelta = Vector2.zero;
             var bgImg = bgObj.GetComponent<Image>();
-            bgImg.color = city.IsCapital ? new Color(0.12f, 0.16f, 0.28f, 0.92f) : new Color(0.08f, 0.12f, 0.18f, 0.88f);
+            if (uiSprite != null)
+            {
+                bgImg.sprite = uiSprite;
+                bgImg.type = Image.Type.Sliced;
+            }
+            bgImg.color = new Color(0.06f, 0.10f, 0.16f, 0.88f);
 
-            // Matn
+            // Chap tomondagi bayroq nishoni (Flag Icon)
+            Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{city.CountryCode.ToUpperInvariant()}");
+            if (flagSprite != null)
+            {
+                var flagImgObj = new GameObject("FlagIcon", typeof(RectTransform), typeof(Image));
+                flagImgObj.transform.SetParent(canvasObj.transform, false);
+                var fRt = flagImgObj.GetComponent<RectTransform>();
+                fRt.anchorMin = new Vector2(0, 0.5f);
+                fRt.anchorMax = new Vector2(0, 0.5f);
+                fRt.pivot = new Vector2(0, 0.5f);
+                fRt.anchoredPosition = new Vector2(12, 0);
+                fRt.sizeDelta = new Vector2(42, 28);
+                var fImg = flagImgObj.GetComponent<Image>();
+                fImg.sprite = flagSprite;
+            }
+
+            // Matn: Shahar nomi va oltin yulduz
             var txtObj = new GameObject("Text", typeof(RectTransform), typeof(Text));
             txtObj.transform.SetParent(canvasObj.transform, false);
             var txtRt = txtObj.GetComponent<RectTransform>();
             txtRt.anchorMin = Vector2.zero;
             txtRt.anchorMax = Vector2.one;
-            txtRt.sizeDelta = Vector2.zero;
+            txtRt.offsetMin = new Vector2(60, 0);
+            txtRt.offsetMax = new Vector2(-10, 0);
             var txt = txtObj.GetComponent<Text>();
             txt.font = font;
             txt.fontSize = 22;
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.color = city.IsCapital ? new Color(1.0f, 0.88f, 0.35f) : Color.white;
-            txt.fontStyle = city.IsCapital ? FontStyle.Bold : FontStyle.Normal;
+            txt.alignment = TextAnchor.MiddleLeft;
+            txt.color = Color.white;
+            txt.fontStyle = FontStyle.Bold;
 
             string capStar = city.IsCapital ? " ★" : "";
             txt.text = $"{city.LocalizedName} [{city.CountryCode}]{capStar}";

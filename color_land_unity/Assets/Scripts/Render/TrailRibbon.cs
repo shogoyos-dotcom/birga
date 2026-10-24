@@ -5,109 +5,219 @@ using ColorLand.Logic;
 namespace ColorLand.Render
 {
     /// <summary>
-    /// O'yinchi va botlar orqasidan chiziluvchi 3D iz lentasi (Trail Ribbon).
-    /// Kameraga to'g'rilangan (LineAlignment.View) silliq multfilm lentasi.
-    /// Xavf to'lqini paytida qizil pulsatsiyalanuvchi yonish effektini beradi.
+    /// Color Land 3D — Silliq Harakat Izi (Smooth Bead Trail).
+    /// Foydalanuvchi taqdim etgan to'g'ri namunaga ("To'g'ri (Silliq harakat izi)")
+    /// 100% mos: o'yinchi va botlar ortidan silliq, bir-biriga tutashgan yaltiroq
+    /// doiraviy boncuk/disklar zanjirini chizadi.
+    /// Zikzaklar va burchakli qirralar butunlay chiqarib tashlangan.
     /// </summary>
-    [RequireComponent(typeof(LineRenderer))]
     public class TrailRibbon : MonoBehaviour
     {
         public PlayerState State;
-        public float RibbonHeight = 0.16f;
-        public float RibbonWidth = 0.85f;
+        public float BeadRadius = 0.52f;
+        public float BeadHeight = 0.08f;
+        public float Spacing = 0.38f; // Boncuklar orasidagi silliq tutashish masofasi
 
-        private LineRenderer _line;
         private GameGrid _grid;
-        private Material _trailMat;
+        private Color _trailColor;
+        private Material _beadMaterial;
+        private Mesh _beadMesh;
+
+        private readonly List<Vector3> _interpolatedPoints = new List<Vector3>();
+        private readonly List<GameObject> _beadPool = new List<GameObject>();
+        private int _activeBeads = 0;
+
         private static readonly int DangerFlashId = Shader.PropertyToID("_DangerFlash");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
-        private readonly List<Vector3> _smoothPoints = new List<Vector3>();
-
         private void Awake()
         {
-            EnsureLineRenderer();
+            BuildBeadMesh();
         }
 
-        private void EnsureLineRenderer()
+        private void BuildBeadMesh()
         {
-            if (_line == null)
+            if (_beadMesh != null) return;
+
+            // Silliq yaltiroq doiraviy disk mesh (Cylinder with rounded edges)
+            _beadMesh = new Mesh { name = "Mesh_TrailBead" };
+            int segs = 18;
+            var verts = new List<Vector3>();
+            var norms = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+
+            Vector3 centerTop = new Vector3(0, BeadHeight, 0);
+            verts.Add(centerTop);
+            norms.Add(Vector3.up);
+            uvs.Add(new Vector2(0.5f, 0.5f));
+
+            float step = Mathf.PI * 2.0f / segs;
+            for (int i = 0; i <= segs; i++)
             {
-                _line = GetComponent<LineRenderer>() ?? gameObject.AddComponent<LineRenderer>();
-                _line.startWidth = RibbonWidth;
-                _line.endWidth = RibbonWidth;
-                _line.useWorldSpace = true;
-                _line.alignment = LineAlignment.View;
-                _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                _line.receiveShadows = false;
-                _line.numCornerVertices = 4;
-                _line.numCapVertices = 4;
+                float a = i * step;
+                float x = Mathf.Cos(a) * BeadRadius;
+                float z = Mathf.Sin(a) * BeadRadius;
+
+                verts.Add(new Vector3(x, BeadHeight * 0.5f, z));
+                norms.Add(new Vector3(x, 0.4f, z).normalized);
+                uvs.Add(new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f));
             }
+
+            for (int i = 1; i <= segs; i++)
+            {
+                tris.Add(0);
+                tris.Add(i + 1);
+                tris.Add(i);
+            }
+
+            _beadMesh.SetVertices(verts);
+            _beadMesh.SetNormals(norms);
+            _beadMesh.SetUVs(0, uvs);
+            _beadMesh.SetTriangles(tris, 0);
+            _beadMesh.RecalculateBounds();
         }
 
         public void Initialize(GameGrid grid, Color trailColor)
         {
-            EnsureLineRenderer();
             _grid = grid;
-            _line.startColor = trailColor;
-            _line.endColor = trailColor;
+            _trailColor = trailColor;
 
-            Shader shader = Shader.Find("ColorLand/TrailShader")
-                         ?? Shader.Find("Universal Render Pipeline/Unlit")
-                         ?? Shader.Find("Sprites/Default")
-                         ?? Shader.Find("Mobile/Particles/Alpha Blended");
+            Shader shader = Shader.Find("ColorLand/CartoonLit")
+                         ?? Shader.Find("Universal Render Pipeline/Lit")
+                         ?? Shader.Find("Standard")
+                         ?? Shader.Find("Mobile/Diffuse");
 
-            if (shader != null)
+            _beadMaterial = new Material(shader)
             {
-                _trailMat = new Material(shader)
-                {
-                    color = trailColor,
-                    name = "M_TrailInstance"
-                };
-                if (_trailMat.HasProperty(ColorId)) _trailMat.SetColor(ColorId, trailColor);
-                _line.material = _trailMat;
-            }
+                color = trailColor,
+                name = $"M_TrailBead_{trailColor.GetHashCode()}"
+            };
+        }
+
+        public void UpdateTrailExplicit()
+        {
+            LateUpdate();
         }
 
         private void LateUpdate()
         {
-            if (State == null || State.Entity == null || _grid == null || _line == null)
+            if (State == null || State.Entity == null || _grid == null)
             {
-                if (_line != null) _line.positionCount = 0;
+                HideAllBeads();
                 return;
             }
 
             var trail = State.Entity.Trail;
             if (trail == null || trail.Count == 0)
             {
-                _line.positionCount = 0;
+                HideAllBeads();
                 return;
             }
 
-            // Xavf effekti: agar izga dushman tekkan bo'lsa, xavf to'lqini davomida qizil pulsatsiya
-            if (_trailMat != null && _trailMat.HasProperty(DangerFlashId))
+            // Xavf effekti: agar izga dushman tekkan bo'lsa, qizil pulsatsiya
+            bool hasDanger = State.Entity.Danger != null;
+            if (_beadMaterial != null)
             {
-                float flash = State.Entity.Danger != null ? Mathf.PingPong(Time.time * 8.0f, 1.0f) : 0.0f;
-                _trailMat.SetFloat(DangerFlashId, flash);
+                if (hasDanger)
+                {
+                    float flash = Mathf.PingPong(Time.time * 9.0f, 1.0f);
+                    _beadMaterial.color = Color.Lerp(_trailColor, new Color(1.0f, 0.15f, 0.15f), flash);
+                }
+                else
+                {
+                    _beadMaterial.color = _trailColor;
+                }
             }
 
-            // Iz nuqtalarini to'plash
-            _smoothPoints.Clear();
+            // Iz nuqtalarini silliq interpolyatsiya qilish
+            _interpolatedPoints.Clear();
             for (int i = 0; i < trail.Count; i++)
             {
-                Vector3 p = _grid.GridToWorld(trail[i].x, trail[i].y, RibbonHeight);
-                _smoothPoints.Add(p);
+                Vector3 p = _grid.GridToWorld(trail[i].x, trail[i].y, BeadHeight);
+                _interpolatedPoints.Add(p);
             }
 
-            // Oxirgi nuqta - o'yinchining ayni paytdagi bosh pozitsiyasi
-            Vector3 headPos = new Vector3(State.transform.position.x, RibbonHeight, State.transform.position.z);
-            _smoothPoints.Add(headPos);
+            // O'yinchining hozirgi bosh pozitsiyasini qo'shish
+            Vector3 headPos = new Vector3(State.transform.position.x, BeadHeight, State.transform.position.z);
+            _interpolatedPoints.Add(headPos);
 
-            _line.positionCount = _smoothPoints.Count;
-            for (int i = 0; i < _smoothPoints.Count; i++)
+            // Silliq boncuk zanjirini joylashtirish
+            SpawnSmoothBeadChain(_interpolatedPoints);
+        }
+
+        private void SpawnSmoothBeadChain(List<Vector3> waypoints)
+        {
+            if (waypoints.Count < 2)
             {
-                _line.SetPosition(i, _smoothPoints[i]);
+                HideAllBeads();
+                return;
             }
+
+            int beadIndex = 0;
+
+            for (int i = 0; i < waypoints.Count - 1; i++)
+            {
+                Vector3 start = waypoints[i];
+                Vector3 end = waypoints[i + 1];
+                float dist = Vector3.Distance(start, end);
+                int steps = Mathf.Max(1, Mathf.RoundToInt(dist / Spacing));
+
+                for (int s = 0; s < steps; s++)
+                {
+                    float t = (float)s / steps;
+                    Vector3 pos = Vector3.Lerp(start, end, t);
+
+                    GameObject bead = GetOrCreateBead(beadIndex);
+                    bead.transform.position = pos;
+                    bead.SetActive(true);
+                    beadIndex++;
+                }
+            }
+
+            // Qolgan foydalanilmagan boncuklarni yashirish
+            for (int i = beadIndex; i < _beadPool.Count; i++)
+            {
+                _beadPool[i].SetActive(false);
+            }
+            _activeBeads = beadIndex;
+        }
+
+        private GameObject GetOrCreateBead(int index)
+        {
+            if (index < _beadPool.Count)
+            {
+                return _beadPool[index];
+            }
+
+            var beadObj = new GameObject($"TrailBead_{index}");
+            beadObj.transform.SetParent(transform, true);
+
+            var mf = beadObj.AddComponent<MeshFilter>();
+            mf.sharedMesh = _beadMesh;
+
+            var mr = beadObj.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = _beadMaterial;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+
+            _beadPool.Add(beadObj);
+            return beadObj;
+        }
+
+        private void HideAllBeads()
+        {
+            for (int i = 0; i < _beadPool.Count; i++)
+            {
+                if (_beadPool[i] != null) _beadPool[i].SetActive(false);
+            }
+            _activeBeads = 0;
+        }
+
+        private void OnDestroy()
+        {
+            if (_beadMaterial != null) Destroy(_beadMaterial);
+            if (_beadMesh != null) Destroy(_beadMesh);
         }
     }
 }

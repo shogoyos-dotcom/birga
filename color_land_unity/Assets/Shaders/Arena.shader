@@ -137,28 +137,28 @@ Shader "ColorLand/ArenaShader"
 
                 // Normalize weights so boundaries have consistent curvature everywhere
                 float inv_tot = 1.0 / total_land_w;
-                for (int k = 0; k < num_u; k++)
+                for (int k_tot = 0; k_tot < num_u; k_tot++)
                 {
-                    u_weights[k] *= inv_tot;
+                    u_weights[k_tot] *= inv_tot;
                 }
 
                 int best_idx = 0;
-                for (int k = 1; k < num_u; k++)
+                for (int k_b = 1; k_b < num_u; k_b++)
                 {
-                    if (u_weights[k] > u_weights[best_idx])
+                    if (u_weights[k_b] > u_weights[best_idx])
                     {
-                        best_idx = k;
+                        best_idx = k_b;
                     }
                 }
                 int win_owner = u_owners[best_idx];
                 float best_w = u_weights[best_idx];
 
                 int second_idx = -1;
-                for (int k = 0; k < num_u; k++)
+                for (int k_s = 0; k_s < num_u; k_s++)
                 {
-                    if (k != best_idx && (second_idx < 0 || u_weights[k] > u_weights[second_idx]))
+                    if (k_s != best_idx && (second_idx < 0 || u_weights[k_s] > u_weights[second_idx]))
                     {
-                        second_idx = k;
+                        second_idx = k_s;
                     }
                 }
 
@@ -181,10 +181,11 @@ Shader "ColorLand/ArenaShader"
 
                 float3 final_col = shade_best;
 
-                if (second_idx >= 0 && u_weights[second_idx] > 0.001)
+                int sec_safe = clamp(second_idx, 0, 7);
+                if (second_idx >= 0 && u_weights[sec_safe] > 0.001)
                 {
-                    int sec_owner = u_owners[second_idx];
-                    float sec_w = u_weights[second_idx];
+                    int sec_owner = u_owners[sec_safe];
+                    float sec_w = u_weights[sec_safe];
                     float gap = best_w - sec_w;
 
                     // Rim contour for primary owner
@@ -354,28 +355,28 @@ Shader "ColorLand/ArenaShader"
                 }
 
                 float inv_tot = 1.0 / total_land_w;
-                for (int k = 0; k < num_u; k++)
+                for (int k2_tot = 0; k2_tot < num_u; k2_tot++)
                 {
-                    u_weights[k] *= inv_tot;
+                    u_weights[k2_tot] *= inv_tot;
                 }
 
                 int best_idx = 0;
-                for (int k = 1; k < num_u; k++)
+                for (int k2_b = 1; k2_b < num_u; k2_b++)
                 {
-                    if (u_weights[k] > u_weights[best_idx])
+                    if (u_weights[k2_b] > u_weights[best_idx])
                     {
-                        best_idx = k;
+                        best_idx = k2_b;
                     }
                 }
                 int win_owner = u_owners[best_idx];
                 float best_w = u_weights[best_idx];
 
                 int second_idx = -1;
-                for (int k = 0; k < num_u; k++)
+                for (int k2_s = 0; k2_s < num_u; k2_s++)
                 {
-                    if (k != best_idx && (second_idx < 0 || u_weights[k] > u_weights[second_idx]))
+                    if (k2_s != best_idx && (second_idx < 0 || u_weights[k2_s] > u_weights[second_idx]))
                     {
-                        second_idx = k;
+                        second_idx = k2_s;
                     }
                 }
 
@@ -397,10 +398,11 @@ Shader "ColorLand/ArenaShader"
 
                 float3 final_col = shade_best;
 
-                if (second_idx >= 0 && u_weights[second_idx] > 0.001)
+                int sec_safe = clamp(second_idx, 0, 7);
+                if (second_idx >= 0 && u_weights[sec_safe] > 0.001)
                 {
-                    int sec_owner = u_owners[second_idx];
-                    float sec_w = u_weights[second_idx];
+                    int sec_owner = u_owners[sec_safe];
+                    float sec_w = u_weights[sec_safe];
                     float gap = best_w - sec_w;
 
                     const float RIM = 0.35;
