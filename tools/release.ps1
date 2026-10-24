@@ -66,17 +66,28 @@ if (-not (Test-Path $releasedApk)) {
 $apkSize = (Get-Item $releasedApk).Length
 Write-Host "[3/4] Reliz APK tekshirildi: $releasedApk ($apkSize bayt, SHA256: $($reg.sha256))" -ForegroundColor Green
 
-# 4. Git Tag
+# 4. Git Tag & Push
 Set-Location $repoRoot
 $tag = "v$releasedVer"
-Write-Host "[4/4] Git commit va tag '$tag' yaratilmoqda..." -ForegroundColor Green
+Write-Host "[4/5] Git commit va tag '$tag' yaratilmoqda..." -ForegroundColor Green
 git add -A
 git commit -m "feat(release): deliver Color Land 3D $tag Android ARM64 release package"
 git tag -a $tag -m "Color Land 3D Release $tag" -f
+git push origin $tag -f
+
+# 5. Upload to GitHub Releases for direct mobile download
+Write-Host "[5/5] GitHub Releases ga APK yuklanmoqda..." -ForegroundColor Green
+$notesFile = Join-Path $repoRoot "Releases\$releasedVer\release_notes.md"
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    gh release create $tag $releasedApk --title "Color Land 3D — $tag" --notes-file $notesFile -R shogoyos-dotcom/birga
+    $downloadUrl = "https://github.com/shogoyos-dotcom/birga/releases/download/$tag/ColorLand3D_${tag}_arm64.apk"
+    Write-Host "To'g'ridan-to'g'ri yuklab olish havolasi: $downloadUrl" -ForegroundColor Cyan
+}
 
 Write-Host "=================================================" -ForegroundColor Green
 Write-Host "RELIZ MUVAFFAQIYATLI YAKUNLANDI: $tag" -ForegroundColor Green
 Write-Host "APK manzili: $releasedApk" -ForegroundColor Green
+Write-Host "Download   : https://github.com/shogoyos-dotcom/birga/releases/download/$tag/ColorLand3D_${tag}_arm64.apk" -ForegroundColor Green
 Write-Host "SHA-256    : $($reg.sha256)" -ForegroundColor Green
 Write-Host "Status     : READY_FOR_TEST" -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Green
