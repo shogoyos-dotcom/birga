@@ -35,7 +35,7 @@ Material:
     m_Floats: []
     m_Colors:
     - _BeachColor: {r: 0.99, g: 0.88, b: 0.28, a: 1}
-    - _GridSize: {r: 120, g: 120, b: 0, a: 0}
+    - _GridSize: {r: 100, g: 100, b: 0, a: 0}
     - _UnclaimedColor: {r: 0.92, g: 0.98, b: 0.95, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

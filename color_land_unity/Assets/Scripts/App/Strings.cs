@@ -47,7 +47,21 @@ namespace ColorLand.App
         {
             try
             {
-                string saved = PlayerPrefs.GetString("selected_language", "ru");
+                string saved = null;
+                try
+                {
+                    if (SaveManager.Current != null && !string.IsNullOrEmpty(SaveManager.Current.SelectedLanguage))
+                    {
+                        saved = SaveManager.Current.SelectedLanguage;
+                    }
+                }
+                catch { }
+
+                if (string.IsNullOrEmpty(saved))
+                {
+                    saved = PlayerPrefs.GetString("selected_language", "ru");
+                }
+
                 if (!string.IsNullOrEmpty(saved)) CurrentLanguage = saved;
             }
             catch { }
@@ -150,8 +164,22 @@ namespace ColorLand.App
 
         private static void SavePref(string key, string val)
         {
-            PlayerPrefs.SetString(key, val);
-            PlayerPrefs.Save();
+            try
+            {
+                PlayerPrefs.SetString(key, val);
+                PlayerPrefs.Save();
+            }
+            catch { }
+
+            try
+            {
+                if (key == "selected_language" && SaveManager.Current != null)
+                {
+                    SaveManager.Current.SelectedLanguage = val;
+                    SaveManager.Save();
+                }
+            }
+            catch { }
         }
 
         public static void SetLanguage(string lang)

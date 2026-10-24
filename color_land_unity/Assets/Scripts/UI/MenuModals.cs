@@ -20,6 +20,7 @@ namespace ColorLand.UI
         public GameObject ShopPanel;
         public GameObject DailyRewardPanel;
         public GameObject MapSelectPanel;
+        public GameObject SettingsPanel;
 
         [Header("Main Menu Elements")]
         public Text MenuTitleText;
@@ -31,7 +32,21 @@ namespace ColorLand.UI
         public Text OpenMapsButtonText;
         public Button OpenDailyButton;
         public Text OpenDailyButtonText;
+        public Button OpenSettingsButton;
+        public Text OpenSettingsButtonText;
         public Button CloseMenuButton;
+
+        [Header("Settings Elements")]
+        public Text SettingsTitleText;
+        public Button CloseSettingsButton;
+        public Button SettingsLangButton;
+        public Text SettingsLangButtonText;
+        public Button SettingsSoundButton;
+        public Text SettingsSoundButtonText;
+        public Button SettingsMusicButton;
+        public Text SettingsMusicButtonText;
+        public Text AboutTitleText;
+        public Text AboutVersionText;
 
         [Header("Shop Elements")]
         public Text ShopTitleText;
@@ -67,6 +82,7 @@ namespace ColorLand.UI
             if (ShopPanel != null) ShopPanel.SetActive(false);
             if (DailyRewardPanel != null) DailyRewardPanel.SetActive(false);
             if (MapSelectPanel != null) MapSelectPanel.SetActive(false);
+            if (SettingsPanel != null) SettingsPanel.SetActive(false);
         }
 
         private void OnDestroy()
@@ -80,11 +96,39 @@ namespace ColorLand.UI
             if (CloseShopButton != null) CloseShopButton.onClick.AddListener(() => ShopPanel.SetActive(false));
             if (CloseDailyButton != null) CloseDailyButton.onClick.AddListener(() => DailyRewardPanel.SetActive(false));
             if (CloseMapsButton != null) CloseMapsButton.onClick.AddListener(() => MapSelectPanel.SetActive(false));
+            if (CloseSettingsButton != null) CloseSettingsButton.onClick.AddListener(() => SettingsPanel.SetActive(false));
 
             if (OpenShopButton != null) OpenShopButton.onClick.AddListener(ShowShop);
             if (OpenMapsButton != null) OpenMapsButton.onClick.AddListener(ShowMaps);
             if (OpenDailyButton != null) OpenDailyButton.onClick.AddListener(ShowDailyRewards);
+            if (OpenSettingsButton != null) OpenSettingsButton.onClick.AddListener(ShowSettings);
             if (PlayButton != null) PlayButton.onClick.AddListener(() => MainMenuPanel.SetActive(false));
+
+            if (SettingsLangButton != null) SettingsLangButton.onClick.AddListener(OpenLanguagePicker);
+            if (SettingsSoundButton != null) SettingsSoundButton.onClick.AddListener(ToggleSound);
+            if (SettingsMusicButton != null) SettingsMusicButton.onClick.AddListener(ToggleMusic);
+        }
+
+        private void OpenLanguagePicker()
+        {
+            if (LanguagePickerModal.Instance != null)
+            {
+                LanguagePickerModal.Instance.Show();
+            }
+        }
+
+        private void ToggleSound()
+        {
+            SaveManager.Current.SoundEnabled = !SaveManager.Current.SoundEnabled;
+            SaveManager.Save();
+            UpdateSettingsUI();
+        }
+
+        private void ToggleMusic()
+        {
+            SaveManager.Current.MusicEnabled = !SaveManager.Current.MusicEnabled;
+            SaveManager.Save();
+            UpdateSettingsUI();
         }
 
         public void ShowMainMenu()
@@ -115,12 +159,20 @@ namespace ColorLand.UI
             PopulateMaps();
         }
 
+        public void ShowSettings()
+        {
+            HideAll();
+            if (SettingsPanel != null) SettingsPanel.SetActive(true);
+            UpdateSettingsUI();
+        }
+
         public void HideAll()
         {
             if (MainMenuPanel != null) MainMenuPanel.SetActive(false);
             if (ShopPanel != null) ShopPanel.SetActive(false);
             if (DailyRewardPanel != null) DailyRewardPanel.SetActive(false);
             if (MapSelectPanel != null) MapSelectPanel.SetActive(false);
+            if (SettingsPanel != null) SettingsPanel.SetActive(false);
         }
 
         public void RefreshAllTexts()
@@ -130,10 +182,56 @@ namespace ColorLand.UI
             if (OpenShopButtonText != null) OpenShopButtonText.text = Strings.T("shopTitle").ToUpperInvariant();
             if (OpenMapsButtonText != null) OpenMapsButtonText.text = Strings.T("mapSelect").ToUpperInvariant();
             if (OpenDailyButtonText != null) OpenDailyButtonText.text = Strings.T("dailyReward").ToUpperInvariant();
+            if (OpenSettingsButtonText != null) OpenSettingsButtonText.text = Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant();
 
             if (ShopTitleText != null) ShopTitleText.text = Strings.T("shopTitle").ToUpperInvariant();
             if (DailyTitleText != null) DailyTitleText.text = Strings.T("dailyReward").ToUpperInvariant();
             if (MapsTitleText != null) MapsTitleText.text = Strings.T("mapSelect").ToUpperInvariant();
+            if (SettingsTitleText != null) SettingsTitleText.text = Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant();
+
+            UpdateSettingsUI();
+        }
+
+        private void UpdateSettingsUI()
+        {
+            if (AboutTitleText != null)
+            {
+                AboutTitleText.text = Strings.T("about", "ОБ ИГРЕ").ToUpperInvariant();
+            }
+            if (AboutVersionText != null)
+            {
+                AboutVersionText.text = VersionConfig.GetAboutDisplay();
+            }
+
+            string currentNativeLang = Strings.CurrentLanguage.ToUpperInvariant();
+            foreach (var l in Strings.SupportedLanguages)
+            {
+                if (l.Code.Equals(Strings.CurrentLanguage, StringComparison.OrdinalIgnoreCase))
+                {
+                    currentNativeLang = l.NativeName;
+                    break;
+                }
+            }
+
+            if (SettingsLangButtonText != null)
+            {
+                SettingsLangButtonText.text = $"{Strings.T("language", "ЯЗЫК")}: {currentNativeLang}";
+            }
+
+            bool snd = SaveManager.Current.SoundEnabled;
+            string onStr = Strings.T("stateOn", "ВКЛ");
+            string offStr = Strings.T("stateOff", "ВЫКЛ");
+
+            if (SettingsSoundButtonText != null)
+            {
+                SettingsSoundButtonText.text = $"{Strings.T("sound", "ЗВУК")}: {(snd ? onStr : offStr)}";
+            }
+
+            bool mus = SaveManager.Current.MusicEnabled;
+            if (SettingsMusicButtonText != null)
+            {
+                SettingsMusicButtonText.text = $"{Strings.T("music", "МУЗЫКА")}: {(mus ? onStr : offStr)}";
+            }
         }
 
         public void PopulateShop()

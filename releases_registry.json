@@ -1,0 +1,10 @@
+{
+  "latest_version": "1.00.000",
+  "latest_version_code": 1000000,
+  "latest_status": "READY_FOR_TEST",
+  "latest_apk": "Releases/1.00.000/ColorLand3D_v1.00.000_arm64.apk",
+  "sha256": "4100757c7fe2eb6ccc2afa8de4fc8317f5e2934122d805aeb00c26d9eed1cace",
+  "git_tag": "v1.00.000",
+  "git_commit": "d6b2f713f5e7ac2b6fb9c9d201d587a8daa25d67",
+  "timestamp": "2026-10-24T08:11:25Z"
+}

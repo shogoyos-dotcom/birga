@@ -465,7 +465,7 @@ namespace ColorLand.Editor
             // 1. Main Menu Dialog
             var menuModalObj = CreateModalRoot("MainMenuModal", hudObj.transform);
             menuModals.MainMenuPanel = menuModalObj;
-            var menuDialog = CreateDialogWindow("Dialog", menuModalObj.transform, uiSprite, new Vector2(500, 600));
+            var menuDialog = CreateDialogWindow("Dialog", menuModalObj.transform, uiSprite, new Vector2(520, 680));
 
             var menuTitle = CreateText("Title", menuDialog.transform, font, 32, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
             SetRect(menuTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -25), new Vector2(0, 50));
@@ -473,22 +473,26 @@ namespace ColorLand.Editor
 
             menuModals.CloseMenuButton = CreateCloseButton(menuDialog.transform, uiSprite, font);
 
-            // Menu Buttons: Play, Maps, Shop, Daily Rewards
-            var btnPlay = CreateModalButton("PlayBtn", menuDialog.transform, uiSprite, font, "ИГРАТЬ", new Vector2(0, 70), new Color(0.18f, 0.72f, 0.35f));
+            // Menu Buttons: Play, Maps, Shop, Daily Rewards, Settings
+            var btnPlay = CreateModalButton("PlayBtn", menuDialog.transform, uiSprite, font, "ИГРАТЬ", new Vector2(0, 115), new Color(0.18f, 0.72f, 0.35f));
             menuModals.PlayButton = btnPlay.Btn;
             menuModals.PlayButtonText = btnPlay.Txt;
 
-            var btnMaps = CreateModalButton("MapsBtn", menuDialog.transform, uiSprite, font, "ВЫБОР КАРТЫ", new Vector2(0, -10), new Color(0.18f, 0.55f, 0.95f));
+            var btnMaps = CreateModalButton("MapsBtn", menuDialog.transform, uiSprite, font, "ВЫБОР КАРТЫ", new Vector2(0, 40), new Color(0.18f, 0.55f, 0.95f));
             menuModals.OpenMapsButton = btnMaps.Btn;
             menuModals.OpenMapsButtonText = btnMaps.Txt;
 
-            var btnShop = CreateModalButton("ShopBtn", menuDialog.transform, uiSprite, font, "МАГАЗИН", new Vector2(0, -90), new Color(0.85f, 0.55f, 0.15f));
+            var btnShop = CreateModalButton("ShopBtn", menuDialog.transform, uiSprite, font, "МАГАЗИН", new Vector2(0, -35), new Color(0.85f, 0.55f, 0.15f));
             menuModals.OpenShopButton = btnShop.Btn;
             menuModals.OpenShopButtonText = btnShop.Txt;
 
-            var btnDaily = CreateModalButton("DailyBtn", menuDialog.transform, uiSprite, font, "ЕЖЕДНЕВНАЯ НАГРАДА", new Vector2(0, -170), new Color(0.65f, 0.25f, 0.85f));
+            var btnDaily = CreateModalButton("DailyBtn", menuDialog.transform, uiSprite, font, "ЕЖЕДНЕВНАЯ НАГРАДА", new Vector2(0, -110), new Color(0.65f, 0.25f, 0.85f));
             menuModals.OpenDailyButton = btnDaily.Btn;
             menuModals.OpenDailyButtonText = btnDaily.Txt;
+
+            var btnSettings = CreateModalButton("SettingsBtn", menuDialog.transform, uiSprite, font, "НАСТРОЙКИ", new Vector2(0, -185), new Color(0.30f, 0.40f, 0.55f));
+            menuModals.OpenSettingsButton = btnSettings.Btn;
+            menuModals.OpenSettingsButtonText = btnSettings.Txt;
 
             // 2. Shop Modal
             var shopModalObj = CreateModalRoot("ShopModal", hudObj.transform);
@@ -519,6 +523,58 @@ namespace ColorLand.Editor
             menuModals.MapsTitleText = mapsTitle.GetComponent<Text>();
             menuModals.CloseMapsButton = CreateCloseButton(mapsDialog.transform, uiSprite, font);
             menuModals.MapsContent = CreateScrollContainer(mapsDialog.transform, font);
+
+            // 5. Settings Modal (Settings -> About)
+            var settingsModalObj = CreateModalRoot("SettingsModal", hudObj.transform);
+            menuModals.SettingsPanel = settingsModalObj;
+            var settingsDialog = CreateDialogWindow("Dialog", settingsModalObj.transform, uiSprite, new Vector2(560, 720));
+            var settingsTitle = CreateText("Title", settingsDialog.transform, font, 28, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
+            SetRect(settingsTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(0, 45));
+            menuModals.SettingsTitleText = settingsTitle.GetComponent<Text>();
+            menuModals.CloseSettingsButton = CreateCloseButton(settingsDialog.transform, uiSprite, font);
+
+            // Settings Controls
+            var btnLang = CreateModalButton("LangSettingBtn", settingsDialog.transform, uiSprite, font, "ЯЗЫК: РУССКИЙ", new Vector2(0, 140), new Color(0.18f, 0.45f, 0.85f));
+            menuModals.SettingsLangButton = btnLang.Btn;
+            menuModals.SettingsLangButtonText = btnLang.Txt;
+
+            var btnSound = CreateModalButton("SoundSettingBtn", settingsDialog.transform, uiSprite, font, "ЗВУК: ВКЛ", new Vector2(0, 65), new Color(0.22f, 0.32f, 0.45f));
+            menuModals.SettingsSoundButton = btnSound.Btn;
+            menuModals.SettingsSoundButtonText = btnSound.Txt;
+
+            var btnMusic = CreateModalButton("MusicSettingBtn", settingsDialog.transform, uiSprite, font, "МУЗЫКА: ВКЛ", new Vector2(0, -10), new Color(0.22f, 0.32f, 0.45f));
+            menuModals.SettingsMusicButton = btnMusic.Btn;
+            menuModals.SettingsMusicButtonText = btnMusic.Txt;
+
+            // About Box Container
+            var aboutBox = new GameObject("AboutBox", typeof(RectTransform), typeof(Image));
+            aboutBox.transform.SetParent(settingsDialog.transform, false);
+            var aboutRt = aboutBox.GetComponent<RectTransform>();
+            aboutRt.anchorMin = new Vector2(0.5f, 0.5f);
+            aboutRt.anchorMax = new Vector2(0.5f, 0.5f);
+            aboutRt.anchoredPosition = new Vector2(0, -155);
+            aboutRt.sizeDelta = new Vector2(460, 180);
+            var aboutImg = aboutBox.GetComponent<Image>();
+            aboutImg.sprite = uiSprite;
+            aboutImg.type = Image.Type.Sliced;
+            aboutImg.color = new Color(0.06f, 0.09f, 0.14f, 0.95f);
+
+            var aboutTitle = CreateText("AboutTitle", aboutBox.transform, font, 20, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
+            var atRt = aboutTitle.GetComponent<RectTransform>();
+            atRt.anchorMin = new Vector2(0, 1);
+            atRt.anchorMax = new Vector2(1, 1);
+            atRt.pivot = new Vector2(0.5f, 1);
+            atRt.anchoredPosition = new Vector2(0, -12);
+            atRt.sizeDelta = new Vector2(0, 30);
+            menuModals.AboutTitleText = aboutTitle.GetComponent<Text>();
+
+            var aboutVer = CreateText("AboutVersion", aboutBox.transform, font, 17, TextAnchor.MiddleCenter, Color.white);
+            var avRt = aboutVer.GetComponent<RectTransform>();
+            avRt.anchorMin = Vector2.zero;
+            avRt.anchorMax = Vector2.one;
+            avRt.offsetMin = new Vector2(15, 10);
+            avRt.offsetMax = new Vector2(-15, -45);
+            menuModals.AboutVersionText = aboutVer.GetComponent<Text>();
         }
 
         private static GameObject CreateModalRoot(string name, Transform parent)

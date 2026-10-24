@@ -31,6 +31,11 @@ namespace ColorLand.Tests
             Test_CitySystem_CaptureAndReward();
             Test_TrailDanger_ChasingAndSurvival();
             Test_TrailDanger_CatchAndDeath();
+            Test_VersionConfig_FormatAndValidation();
+            Test_VersionConfig_BumpRules();
+            Test_VersionConfig_AboutDisplay();
+            Test_SaveManager_DefaultsAndLifecycle();
+            Test_SaveManager_ExportImport();
 
             Console.WriteLine("========================================");
             Console.WriteLine($"NATIJA: {_passed} TA TEST O'TDI, {_failed} TA XATO");
@@ -345,6 +350,69 @@ namespace ColorLand.Tests
 
             Assert(!player.IsAlive, "TrailDanger: Xavf to'lqini yetib kelganda o'yinchi halok bo'ldi");
             Assert(player.Danger == null, "TrailDanger: O'limdan so'ng xavf holati tozalandi");
+        }
+
+        private static void Test_VersionConfig_FormatAndValidation()
+        {
+            Assert(VersionConfig.IsValidVersion("1.00.000"), "VersionConfig: '1.00.000' formati to'g'ri");
+            Assert(VersionConfig.IsValidVersion("1.00.001"), "VersionConfig: '1.00.001' formati to'g'ri");
+            Assert(VersionConfig.IsValidVersion("2.15.042"), "VersionConfig: '2.15.042' formati to'g'ri");
+            Assert(!VersionConfig.IsValidVersion("1.0.0"), "VersionConfig: '1.0.0' rad etildi (2 va 3 xonali talab)");
+            Assert(!VersionConfig.IsValidVersion("v1.00.000"), "VersionConfig: 'v' prefiksi rad etildi");
+            Assert(!VersionConfig.IsValidVersion(""), "VersionConfig: Bo'sh matn rad etildi");
+            Assert(!VersionConfig.IsValidVersion("1.00.000-alpha"), "VersionConfig: Qo'shimcha belgilar rad etildi");
+
+            var (maj, min, patch) = VersionConfig.ParseVersion("1.00.000");
+            Assert(maj == 1 && min == 0 && patch == 0, "VersionConfig: Parse '1.00.000' -> (1, 0, 0)");
+        }
+
+        private static void Test_VersionConfig_BumpRules()
+        {
+            string p1 = VersionConfig.BumpPatch("1.00.000");
+            Assert(p1 == "1.00.001", "VersionConfig: BumpPatch('1.00.000') -> '1.00.001'");
+
+            string p2 = VersionConfig.BumpPatch("1.00.009");
+            Assert(p2 == "1.00.010", "VersionConfig: BumpPatch('1.00.009') -> '1.00.010'");
+
+            string m1 = VersionConfig.BumpMinor("1.00.005");
+            Assert(m1 == "1.01.000", "VersionConfig: BumpMinor('1.00.005') -> '1.01.000' (patch=000 ga tiklandi)");
+
+            string maj1 = VersionConfig.BumpMajor("1.02.045");
+            Assert(maj1 == "2.00.000", "VersionConfig: BumpMajor('1.02.045') -> '2.00.000' (minor va patch nollashtirildi)");
+        }
+
+        private static void Test_VersionConfig_AboutDisplay()
+        {
+            string about = VersionConfig.GetAboutDisplay();
+            Assert(about.Contains(VersionConfig.CURRENT_VERSION), "VersionConfig: About matnida joriy versiya mavjud ('1.00.000')");
+            Assert(about.Contains(VersionConfig.PACKAGE_NAME), "VersionConfig: About matnida paket nomi mavjud ('com.shogoyos.colorland3d')");
+        }
+
+        private static void Test_SaveManager_DefaultsAndLifecycle()
+        {
+            var def = SaveManager.CreateDefault();
+            Assert(def.SchemaVersion == 1, "SaveManager: Boshlang'ich sxema versiyasi 1");
+            Assert(def.Coins == 1000, "SaveManager: Boshlang'ich tangalar soni 1000");
+            Assert(def.Gems == 50, "SaveManager: Boshlang'ich qimmatbaho toshlar soni 50");
+            Assert(def.UnlockedSkins.Contains("default"), "SaveManager: Boshlang'ich liboslar ichida 'default' mavjud");
+            Assert(def.SelectedLanguage == "ru", "SaveManager: Boshlang'ich tanlangan til 'ru'");
+        }
+
+        private static void Test_SaveManager_ExportImport()
+        {
+            SaveManager.ResetToDefaults();
+            SaveManager.Current.Coins = 2500;
+            SaveManager.Current.Gems = 99;
+            string backup = SaveManager.ExportBackup();
+            Assert(!string.IsNullOrEmpty(backup), "SaveManager: Zaxira nusxa JSON eksport qilindi");
+
+            SaveManager.ResetToDefaults();
+            Assert(SaveManager.Current.Coins == 1000, "SaveManager: Reset qilindi, tangalar 1000 ga tushdi");
+
+            bool ok = SaveManager.ImportBackup(backup);
+            Assert(ok, "SaveManager: Zaxira nusxa muvaffaqiyatli import qilindi");
+            Assert(SaveManager.Current.Coins == 2500, "SaveManager: Tiklangan tangalar soni 2500 ga qaytdi");
+            Assert(SaveManager.Current.Gems == 99, "SaveManager: Tiklangan toshlar soni 99 ga qaytdi");
         }
     }
 }
