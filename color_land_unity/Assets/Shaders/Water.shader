@@ -2,11 +2,11 @@ Shader "ColorLand/WaterShader"
 {
     Properties
     {
-        _DeepColor ("Deep Color", Color) = (0.02, 0.42, 0.76, 1.0)
-        _ShallowColor ("Shallow Color", Color) = (0.08, 0.78, 0.90, 1.0)
-        _FoamColor ("Foam Color", Color) = (0.96, 0.99, 1.0, 0.95)
-        _WaveSpeed ("Wave Speed", Float) = 0.65
-        _WaveScale ("Wave Scale", Float) = 0.15
+        _DeepColor ("Deep Color", Color) = (0.01, 0.35, 0.72, 1.0)
+        _ShallowColor ("Shallow Color", Color) = (0.04, 0.75, 0.88, 1.0)
+        _FoamColor ("Foam Color", Color) = (0.95, 0.99, 1.0, 0.95)
+        _WaveSpeed ("Wave Speed", Float) = 0.75
+        _WaveScale ("Wave Scale", Float) = 0.18
     }
 
     // ------------------------------------------------------------------
@@ -51,8 +51,15 @@ Shader "ColorLand/WaterShader"
             Varyings vert(Attributes input)
             {
                 Varyings output;
-                output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
-                output.positionCS = TransformWorldToHClip(output.positionWS);
+                float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
+                
+                // Subtle cartoon physical vertical wave bobbing
+                float t = _Time.y * _WaveSpeed;
+                float w = sin(posWS.x * 0.15 + t) * cos(posWS.z * 0.15 + t * 0.8) * 0.04;
+                posWS.y += w;
+
+                output.positionWS = posWS;
+                output.positionCS = TransformWorldToHClip(posWS);
                 return output;
             }
 
@@ -61,16 +68,22 @@ Shader "ColorLand/WaterShader"
                 float t = _Time.y * _WaveSpeed;
                 float2 uv = input.positionWS.xz * _WaveScale;
 
-                // 2-layer animated cartoon wave pattern
+                // 3-layer rich tropical wave motion
                 float w1 = sin(uv.x * 2.2 + t * 1.4) * cos(uv.y * 1.8 + t * 1.1);
                 float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9);
-                float wave = (w1 * 0.6 + w2 * 0.4);
+                float w3 = cos(uv.x * 2.8 + uv.y * 2.2 - t * 1.5);
+                float wave = (w1 * 0.50 + w2 * 0.32 + w3 * 0.18);
 
-                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, 0.35 + 0.45 * wave);
+                // Caribbean deep blue to turquoise gradient
+                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, 0.38 + 0.44 * wave);
 
-                // Foam on wave crests
-                float crest = smoothstep(0.42, 0.78, wave);
-                water = lerp(water, _FoamColor.rgb, crest * 0.50);
+                // White foam crests
+                float crest = smoothstep(0.40, 0.74, wave);
+                water = lerp(water, _FoamColor.rgb, crest * 0.55);
+
+                // Subtle cartoon specular glint
+                float glint = pow(max(0.0, wave), 4.0) * 0.18;
+                water += float3(glint, glint, glint);
 
                 return half4(water, 1.0);
             }
@@ -112,29 +125,39 @@ Shader "ColorLand/WaterShader"
             struct v2f
             {
                 float4 pos : SV_POSITION;
-                float3 worldPos : TEXCOORD0;
+                float3 positionWS : TEXCOORD1;
             };
 
             v2f vert(appdata v)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(v.vertex);
-                o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
+                float3 posWS = mul(unity_ObjectToWorld, v.vertex).xyz;
+                float t = _Time.y * _WaveSpeed;
+                float w = sin(posWS.x * 0.15 + t) * cos(posWS.z * 0.15 + t * 0.8) * 0.04;
+                posWS.y += w;
+
+                o.pos = mul(UNITY_MATRIX_VP, float4(posWS, 1.0));
+                o.positionWS = posWS;
                 return o;
             }
 
             half4 frag(v2f i) : SV_Target
             {
                 float t = _Time.y * _WaveSpeed;
-                float2 uv = i.worldPos.xz * _WaveScale;
+                float2 uv = i.positionWS.xz * _WaveScale;
 
                 float w1 = sin(uv.x * 2.2 + t * 1.4) * cos(uv.y * 1.8 + t * 1.1);
                 float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9);
-                float wave = (w1 * 0.6 + w2 * 0.4);
+                float w3 = cos(uv.x * 2.8 + uv.y * 2.2 - t * 1.5);
+                float wave = (w1 * 0.50 + w2 * 0.32 + w3 * 0.18);
 
-                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, 0.35 + 0.45 * wave);
-                float crest = smoothstep(0.42, 0.78, wave);
-                water = lerp(water, _FoamColor.rgb, crest * 0.50);
+                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, 0.38 + 0.44 * wave);
+
+                float crest = smoothstep(0.40, 0.74, wave);
+                water = lerp(water, _FoamColor.rgb, crest * 0.55);
+
+                float glint = pow(max(0.0, wave), 4.0) * 0.18;
+                water += float3(glint, glint, glint);
 
                 return half4(water, 1.0);
             }

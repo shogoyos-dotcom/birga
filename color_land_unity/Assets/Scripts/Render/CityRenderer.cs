@@ -8,22 +8,26 @@ namespace ColorLand.Render
 {
     /// <summary>
     /// Shaharlarning 3D vizual tasviri (CityRenderer).
-    /// Arena ustida har bir shahar uchun 3D me'moriy belgilar, poytaxt shpili va
-    /// bosh ustidagi ko'rinarli nom/bayroq bannerini render qiladi.
-    /// Shahar egallanganda uning rangini dinamik yangilaydi.
+    /// Kichik, O'rta va Katta shaharlar uchun haqiqiy past poligonli 3D multfilm
+    /// modellarini (CityMeshBuilder) chizadi, poytaxt shtilini va ko'rinarli
+    /// 3D nom/bayroq ko'rsatkichini joylashtiradi.
     /// </summary>
     public class CityRenderer : MonoBehaviour
     {
         private readonly List<GameObject> _cityObjects = new List<GameObject>();
         private CitySystem _citySystem;
-        private Material _neutralMat;
-        private Material _playerMat;
+        private Material _cityBaseMaterial;
         private Shader _litShader;
+
+        private Mesh _smallMesh;
+        private Mesh _mediumMesh;
+        private Mesh _largeMesh;
 
         public void Initialize(CitySystem citySystem)
         {
             _citySystem = citySystem;
             CreateMaterials();
+            BuildCachedMeshes();
             SpawnCityMeshes();
 
             _citySystem.OnCityCaptured += OnCityCaptured;
@@ -35,8 +39,10 @@ namespace ColorLand.Render
             {
                 _citySystem.OnCityCaptured -= OnCityCaptured;
             }
-            if (_neutralMat != null) Destroy(_neutralMat);
-            if (_playerMat != null) Destroy(_playerMat);
+            if (_cityBaseMaterial != null) Destroy(_cityBaseMaterial);
+            if (_smallMesh != null) Destroy(_smallMesh);
+            if (_mediumMesh != null) Destroy(_mediumMesh);
+            if (_largeMesh != null) Destroy(_largeMesh);
         }
 
         private void CreateMaterials()
@@ -46,17 +52,18 @@ namespace ColorLand.Render
                       ?? Shader.Find("Standard")
                       ?? Shader.Find("Mobile/Diffuse");
 
-            _neutralMat = new Material(_litShader)
+            _cityBaseMaterial = new Material(_litShader)
             {
-                color = new Color(0.88f, 0.90f, 0.94f),
-                name = "M_CityNeutral"
+                color = Color.white,
+                name = "M_CityBase"
             };
+        }
 
-            _playerMat = new Material(_litShader)
-            {
-                color = new Color(0.15f, 0.65f, 1.0f),
-                name = "M_CityPlayer"
-            };
+        private void BuildCachedMeshes()
+        {
+            _smallMesh = CityMeshBuilder.BuildSmallCityMesh();
+            _mediumMesh = CityMeshBuilder.BuildMediumCityMesh();
+            _largeMesh = CityMeshBuilder.BuildLargeCityMesh();
         }
 
         private void SpawnCityMeshes()
@@ -77,71 +84,110 @@ namespace ColorLand.Render
                 cityRoot.transform.SetParent(transform);
                 cityRoot.transform.position = city.WorldPos;
 
-                float scale = city.Category == CityCategory.Large ? 1.4f : (city.Category == CityCategory.Medium ? 1.1f : 0.85f);
+                Mesh targetMesh;
+                float labelHeight;
+                float cityScale;
 
-                // 1. Asos (Poydevor silindri)
-                var baseObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                baseObj.name = "Base";
-                baseObj.transform.SetParent(cityRoot.transform);
-                baseObj.transform.localPosition = new Vector3(0, 0.12f * scale, 0);
-                baseObj.transform.localScale = new Vector3(1.1f * scale, 0.12f * scale, 1.1f * scale);
-                baseObj.GetComponent<Renderer>().sharedMaterial = _neutralMat;
-
-                var col = baseObj.GetComponent<Collider>();
-                if (col != null) col.isTrigger = true;
-
-                // 2. Markaziy bino
-                var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                building.name = "Building";
-                building.transform.SetParent(cityRoot.transform);
-                float bHeight = city.Category == CityCategory.Large ? 2.0f : (city.Category == CityCategory.Medium ? 1.4f : 0.9f);
-                building.transform.localPosition = new Vector3(0, bHeight * 0.5f + 0.25f, 0);
-                building.transform.localScale = new Vector3(0.7f * scale, bHeight, 0.7f * scale);
-                building.GetComponent<Renderer>().sharedMaterial = _neutralMat;
-
-                var bCol = building.GetComponent<Collider>();
-                if (bCol != null) bCol.isTrigger = true;
-
-                // 3. Yon minoralar (Katta shaharlar uchun)
-                if (city.Category == CityCategory.Large)
+                switch (city.Category)
                 {
-                    for (int ti = -1; ti <= 1; ti += 2)
-                    {
-                        var tower = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                        tower.name = "Tower";
-                        tower.transform.SetParent(cityRoot.transform);
-                        tower.transform.localPosition = new Vector3(ti * 0.65f * scale, bHeight * 0.35f, 0);
-                        tower.transform.localScale = new Vector3(0.35f * scale, bHeight * 0.35f, 0.35f * scale);
-                        tower.GetComponent<Renderer>().sharedMaterial = _neutralMat;
-                        var tCol = tower.GetComponent<Collider>();
-                        if (tCol != null) tCol.isTrigger = true;
-                    }
+                    case CityCategory.Small:
+                        targetMesh = _smallMesh;
+                        cityScale = 0.85f;
+                        labelHeight = 2.8f;
+                        break;
+                    case CityCategory.Medium:
+                        targetMesh = _mediumMesh;
+                        cityScale = 0.95f;
+                        labelHeight = 4.6f;
+                        break;
+                    case CityCategory.Large:
+                    default:
+                        targetMesh = _largeMesh;
+                        cityScale = 1.05f;
+                        labelHeight = 7.2f;
+                        break;
                 }
 
-                // 4. Poytaxt uchun oltin shpil
-                if (city.IsCapital)
-                {
-                    var spire = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    spire.name = "Spire";
-                    spire.transform.SetParent(cityRoot.transform);
-                    spire.transform.localPosition = new Vector3(0, bHeight + 0.5f, 0);
-                    spire.transform.localScale = Vector3.one * (0.5f * scale);
+                // 1. 3D Model binosi
+                var modelObj = new GameObject("CityModel");
+                modelObj.transform.SetParent(cityRoot.transform, false);
+                modelObj.transform.localScale = Vector3.one * cityScale;
 
-                    var spireMat = new Material(_litShader)
-                    {
-                        color = new Color(1.0f, 0.82f, 0.15f), // Gold
-                        name = "M_GoldSpire"
-                    };
-                    spire.GetComponent<Renderer>().sharedMaterial = spireMat;
-                    var sCol = spire.GetComponent<Collider>();
-                    if (sCol != null) sCol.isTrigger = true;
-                }
+                var mf = modelObj.AddComponent<MeshFilter>();
+                mf.sharedMesh = targetMesh;
 
-                // 5. Shahar nomini ko'rsatuvchi 3D Billboard Canvas
-                CreateCityLabel(cityRoot.transform, city, bHeight + 1.2f, font);
+                var mr = modelObj.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = _cityBaseMaterial;
+
+                // 2. Shahar poydevorida bayroq ustuni va milliy bayroq
+                SpawnCityFlag(cityRoot.transform, city, cityScale);
+
+                // 3. Trigger kollayder (o'yinchi va botlar shahar maydoniga kirganda aniqlash)
+                var boxCol = cityRoot.AddComponent<BoxCollider>();
+                boxCol.center = new Vector3(0, labelHeight * 0.4f, 0);
+                boxCol.size = new Vector3(4.0f * cityScale, labelHeight * 0.8f, 4.0f * cityScale);
+                boxCol.isTrigger = true;
+
+                // 4. Shahar nomini ko'rsatuvchi 3D Billboard Canvas
+                CreateCityLabel(cityRoot.transform, city, labelHeight, font);
 
                 _cityObjects.Add(cityRoot);
             }
+        }
+
+        private void SpawnCityFlag(Transform parent, CityData city, float scale)
+        {
+            var flagRoot = new GameObject("CityFlag");
+            flagRoot.transform.SetParent(parent, false);
+            flagRoot.transform.localPosition = new Vector3(0.1f * scale, 0.35f * scale, 0);
+
+            // Ustun
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "Pole";
+            pole.transform.SetParent(flagRoot.transform, false);
+            float poleH = city.Category == CityCategory.Large ? 3.2f : (city.Category == CityCategory.Medium ? 2.5f : 1.9f);
+            pole.transform.localPosition = new Vector3(0, poleH * 0.5f, 0);
+            pole.transform.localScale = new Vector3(0.06f, poleH * 0.5f, 0.06f);
+            var poleMat = new Material(_litShader) { color = new Color(0.85f, 0.88f, 0.92f), name = "M_Pole" };
+            pole.GetComponent<Renderer>().sharedMaterial = poleMat;
+            var pCol = pole.GetComponent<Collider>();
+            if (pCol != null) Destroy(pCol);
+
+            // Cho'qqi oltin shar
+            var finial = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            finial.name = "Finial";
+            finial.transform.SetParent(flagRoot.transform, false);
+            finial.transform.localPosition = new Vector3(0, poleH + 0.1f, 0);
+            finial.transform.localScale = Vector3.one * 0.22f;
+            var finMat = new Material(_litShader) { color = new Color(0.96f, 0.75f, 0.12f), name = "M_Finial" };
+            finial.GetComponent<Renderer>().sharedMaterial = finMat;
+            var fCol = finial.GetComponent<Collider>();
+            if (fCol != null) Destroy(fCol);
+
+            // Bayroq matosi
+            var flagQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            flagQuad.name = "Cloth";
+            flagQuad.transform.SetParent(flagRoot.transform, false);
+            float flagW = 1.0f * scale;
+            float flagH = 0.65f * scale;
+            flagQuad.transform.localPosition = new Vector3(flagW * 0.5f + 0.04f, poleH - flagH * 0.5f, 0);
+            flagQuad.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            flagQuad.transform.localScale = new Vector3(flagW, flagH, 1.0f);
+
+            Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{city.CountryCode.ToUpperInvariant()}");
+            var clothMat = new Material(_litShader) { name = $"M_CityFlag_{city.CountryCode}" };
+            if (flagSprite != null)
+            {
+                clothMat.mainTexture = flagSprite.texture;
+                clothMat.color = Color.white;
+            }
+            else
+            {
+                clothMat.color = new Color(0.9f, 0.2f, 0.2f);
+            }
+            flagQuad.GetComponent<Renderer>().sharedMaterial = clothMat;
+            var qCol = flagQuad.GetComponent<Collider>();
+            if (qCol != null) Destroy(qCol);
         }
 
         private void CreateCityLabel(Transform parent, CityData city, float height, Font font)
@@ -153,13 +199,13 @@ namespace ColorLand.Render
             var canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
             var rt = canvasObj.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(240, 50);
-            rt.localScale = Vector3.one * 0.035f;
+            rt.sizeDelta = new Vector2(280, 56);
+            rt.localScale = Vector3.one * 0.028f;
 
-            // Kamera tomonga qaratish
+            // Har doim kameraga qarab turishi uchun
             canvasObj.AddComponent<BillboardLookAtCamera>();
 
-            // Orqa fon paneli
+            // Chiroyli multfilm hoshiyali fon
             var bgObj = new GameObject("Bg", typeof(RectTransform), typeof(Image));
             bgObj.transform.SetParent(canvasObj.transform, false);
             var bgRt = bgObj.GetComponent<RectTransform>();
@@ -167,7 +213,7 @@ namespace ColorLand.Render
             bgRt.anchorMax = Vector2.one;
             bgRt.sizeDelta = Vector2.zero;
             var bgImg = bgObj.GetComponent<Image>();
-            bgImg.color = new Color(0.08f, 0.12f, 0.18f, 0.85f);
+            bgImg.color = city.IsCapital ? new Color(0.12f, 0.16f, 0.28f, 0.92f) : new Color(0.08f, 0.12f, 0.18f, 0.88f);
 
             // Matn
             var txtObj = new GameObject("Text", typeof(RectTransform), typeof(Text));
@@ -178,7 +224,7 @@ namespace ColorLand.Render
             txtRt.sizeDelta = Vector2.zero;
             var txt = txtObj.GetComponent<Text>();
             txt.font = font;
-            txt.fontSize = 20;
+            txt.fontSize = 22;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = city.IsCapital ? new Color(1.0f, 0.88f, 0.35f) : Color.white;
             txt.fontStyle = city.IsCapital ? FontStyle.Bold : FontStyle.Normal;
@@ -196,25 +242,44 @@ namespace ColorLand.Render
                 if (root == null) return;
 
                 Color c = capturerId == 1 ? new Color(0.15f, 0.65f, 1.0f) : UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 0.9f, 0.7f, 1.0f);
-                var capMat = new Material(_litShader)
-                {
-                    color = c,
-                    name = $"M_CityCaptured_{capturerId}"
-                };
 
-                foreach (var r in root.GetComponentsInChildren<Renderer>())
+                // Egallangan shahar nishoni (Aura halqasi)
+                var auraObj = root.transform.Find("CapturedAura");
+                if (auraObj == null)
                 {
-                    if (r.gameObject.name != "Spire")
+                    var aura = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    aura.name = "CapturedAura";
+                    aura.transform.SetParent(root.transform, false);
+                    aura.transform.localPosition = new Vector3(0, 0.05f, 0);
+                    aura.transform.localScale = new Vector3(4.2f, 0.06f, 4.2f);
+                    var aCol = aura.GetComponent<Collider>();
+                    if (aCol != null) Destroy(aCol);
+
+                    var auraMat = new Material(_litShader)
                     {
-                        r.sharedMaterial = capMat;
-                    }
+                        color = c,
+                        name = $"M_CityAura_{capturerId}"
+                    };
+                    aura.GetComponent<Renderer>().sharedMaterial = auraMat;
+                }
+                else
+                {
+                    var r = auraObj.GetComponent<Renderer>();
+                    if (r != null) r.material.color = c;
+                }
+
+                // Billboard yorlig'i rangini yangilash
+                var txt = root.GetComponentInChildren<Text>();
+                if (txt != null)
+                {
+                    txt.color = c;
                 }
             }
         }
     }
 
     /// <summary>
-    /// Matn yoki ikonkani har doim kameraga to'g'rilab turuvchi oddiy komponent.
+    /// Matn yoki ikonkani har doim kameraga to'g'rilab turuvchi komponent.
     /// </summary>
     public class BillboardLookAtCamera : MonoBehaviour
     {

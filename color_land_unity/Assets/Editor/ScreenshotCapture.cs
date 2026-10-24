@@ -20,7 +20,7 @@ namespace ColorLand.Editor
         {
             if (!Directory.Exists(ArtifactDir)) Directory.CreateDirectory(ArtifactDir);
 
-            // 1. Sahna yuklash
+            // Sahna yuklash
             EditorSceneManager.OpenScene("Assets/Scenes/MainScene.unity");
 
             var camObj = GameObject.FindWithTag("MainCamera");
@@ -57,70 +57,95 @@ namespace ColorLand.Editor
             var langModal = LanguagePickerModal.Instance ?? Object.FindFirstObjectByType<LanguagePickerModal>();
             if (langModal != null) langModal.Hide();
 
-            // A. Shot 1: Asosiy o'yin ekrani rus tilida (Top Bar, Leaderboard, Joystick)
-            CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_gameplay_ru.png"));
-            Debug.Log("[SHOT 1 SAVED] shot_unity_gameplay_ru.png");
+            Vector3 origCamPos = cam.transform.position;
+            Quaternion origCamRot = cam.transform.rotation;
 
-            // B. Shot 2: 15 tildagi modal Language Picker
-            if (langModal != null)
-            {
-                langModal.Show();
-                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_language_picker.png"));
-                langModal.Hide();
-                Debug.Log("[SHOT 2 SAVED] shot_unity_language_picker.png");
-            }
-
-            // C. Shot 3: Shahar egallash kartasi ("ГОРОД ЗАХВАЧЕН!", "ПОРТ-СУДАН", "+200 🪙")
-            var cityNotice = CityNotificationManager.Instance ?? Object.FindFirstObjectByType<CityNotificationManager>();
-            if (cityNotice != null && gw != null && gw.CitySystem != null && gw.CitySystem.Cities.Count > 0)
-            {
-                var city = gw.CitySystem.Cities[0];
-                if (cityNotice.CanvasGroup != null) cityNotice.CanvasGroup.alpha = 1.0f;
-                if (cityNotice.TitleText != null) cityNotice.TitleText.text = Strings.T("cityCaptured").ToUpperInvariant();
-                if (cityNotice.CityNameText != null) cityNotice.CityNameText.text = city.LocalizedName.ToUpperInvariant();
-                if (cityNotice.RewardText != null) cityNotice.RewardText.text = $"+{city.RewardCoins} 🪙";
-                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_city_capture.png"));
-                if (cityNotice.CanvasGroup != null) cityNotice.CanvasGroup.alpha = 0f;
-                Debug.Log("[SHOT 3 SAVED] shot_unity_city_capture.png");
-            }
-
-            // D. Shot 4: Asosiy Menyu ekrani rus tilida
+            // -------------------------------------------------------------
+            // 1. MAIN MENU SCREENSHOT (Scenic Diorama Vista + Polished UI)
+            // -------------------------------------------------------------
             if (menuModals != null)
             {
+                cam.transform.position = new Vector3(0, 26, -20);
+                cam.transform.rotation = Quaternion.Euler(50, 0, 0);
+
                 menuModals.ShowMainMenu();
+                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_main_menu.png"));
                 CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_main_menu_ru.png"));
                 menuModals.HideAll();
-                Debug.Log("[SHOT 4 SAVED] shot_unity_main_menu_ru.png");
-
-                // E. Shot 5: Do'kon (Shop) rus tilida narxlar va tavsiflar bilan
-                menuModals.ShowShop();
-                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_shop_ru.png"));
-                menuModals.HideAll();
-                Debug.Log("[SHOT 5 SAVED] shot_unity_shop_ru.png");
-
-                // F. Shot 6: Kunlik mukofotlar (Daily Rewards) rus tilida
-                menuModals.ShowDailyRewards();
-                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_daily_rewards_ru.png"));
-                menuModals.HideAll();
-                Debug.Log("[SHOT 6 SAVED] shot_unity_daily_rewards_ru.png");
-
-                // G. Shot 7: Xaritalar tanlash (Map Select) rus tilida
-                menuModals.ShowMaps();
-                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_maps_ru.png"));
-                menuModals.HideAll();
-                Debug.Log("[SHOT 7 SAVED] shot_unity_maps_ru.png");
+                Debug.Log("[SHOT 1 SAVED] shot_phase9_main_menu.png");
             }
 
-            // H. Shot 8: Hudud silliqligi va qirg'oq bo'yida sariq bo'shliqlar yo'qligi
+            // -------------------------------------------------------------
+            // 2. ACTIVE GAMEPLAY SCREENSHOT (Heroic Character, Trails, HUD)
+            // -------------------------------------------------------------
+            cam.transform.position = new Vector3(0, 22.0f, -15.5f);
+            cam.transform.rotation = Quaternion.Euler(52, 0, 0);
+
             if (gw != null && gw.Player != null)
             {
+                // Give player some smooth captured territory
                 gw.CaptureSystem.SpawnInitialTerritory(1, new Vector2Int(gw.GridWidth / 2, gw.GridHeight / 2), 6);
                 if (gw.PaintLayer != null) gw.PaintLayer.UpdateFull();
-                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_territory_coastline.png"));
-                Debug.Log("[SHOT 8 SAVED] shot_unity_territory_coastline.png");
             }
 
-            Debug.Log("ColorLand: Barcha tekshiruv skrinshotlari muvaffaqiyatli saqlandi!");
+            CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_gameplay.png"));
+            CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_gameplay_ru.png"));
+            Debug.Log("[SHOT 2 SAVED] shot_phase9_gameplay.png");
+
+            // -------------------------------------------------------------
+            // 3. CITIES & TERRITORY CAPTURE SCREENSHOT (Small, Medium, Large)
+            // -------------------------------------------------------------
+            if (gw != null && gw.CitySystem != null && gw.CitySystem.Cities.Count > 0)
+            {
+                var city0 = gw.CitySystem.Cities[0];
+                cam.transform.position = city0.WorldPos + new Vector3(0, 16.0f, -12.0f);
+                cam.transform.LookAt(city0.WorldPos + new Vector3(0, 2.0f, 0));
+
+                CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_cities_capture.png"));
+                Debug.Log("[SHOT 3 SAVED] shot_phase9_cities_capture.png");
+
+                // City notification card
+                var cityNotice = CityNotificationManager.Instance ?? Object.FindFirstObjectByType<CityNotificationManager>();
+                if (cityNotice != null)
+                {
+                    if (cityNotice.CanvasGroup != null) cityNotice.CanvasGroup.alpha = 1.0f;
+                    if (cityNotice.TitleText != null) cityNotice.TitleText.text = Strings.T("cityCaptured").ToUpperInvariant();
+                    if (cityNotice.CityNameText != null) cityNotice.CityNameText.text = city0.LocalizedName.ToUpperInvariant();
+                    if (cityNotice.RewardText != null) cityNotice.RewardText.text = $"+{city0.RewardCoins} 🪙";
+                    CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_city_capture.png"));
+                    if (cityNotice.CanvasGroup != null) cityNotice.CanvasGroup.alpha = 0f;
+                }
+            }
+
+            // -------------------------------------------------------------
+            // 4. COASTLINE & TROPICAL WATER SCREENSHOT
+            // -------------------------------------------------------------
+            cam.transform.position = new Vector3(-35, 14.0f, -38);
+            cam.transform.rotation = Quaternion.Euler(38, 45, 0);
+            CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_coastline_water.png"));
+            CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_unity_territory_coastline.png"));
+            Debug.Log("[SHOT 4 SAVED] shot_phase9_coastline_water.png");
+
+            // -------------------------------------------------------------
+            // 5. CHARACTER MODELS CLOSE-UP SCREENSHOT
+            // -------------------------------------------------------------
+            if (gw != null && gw.Player != null)
+            {
+                var playerObj = GameObject.Find("Player");
+                if (playerObj != null)
+                {
+                    cam.transform.position = playerObj.transform.position + new Vector3(0, 4.0f, -6.5f);
+                    cam.transform.LookAt(playerObj.transform.position + new Vector3(0, 0.9f, 0));
+                    CaptureCamera(cam, Path.Combine(ArtifactDir, "shot_phase9_characters.png"));
+                    Debug.Log("[SHOT 5 SAVED] shot_phase9_characters.png");
+                }
+            }
+
+            // Restore camera
+            cam.transform.position = origCamPos;
+            cam.transform.rotation = origCamRot;
+
+            Debug.Log("ColorLand: Barcha Phase 9 dizayn tekshiruvi skrinshotlari muvaffaqiyatli olindi!");
         }
 
         private static void CaptureCamera(Camera cam, string outputPath)

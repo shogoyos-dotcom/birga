@@ -32,6 +32,7 @@ Shader "ColorLand/CartoonLit"
             {
                 float4 positionOS   : POSITION;
                 float3 normalOS     : NORMAL;
+                float4 color        : COLOR;
                 float2 uv           : TEXCOORD0;
             };
 
@@ -40,6 +41,7 @@ Shader "ColorLand/CartoonLit"
                 float4 positionCS   : SV_POSITION;
                 float3 normalWS     : TEXCOORD0;
                 float3 viewDirWS    : TEXCOORD1;
+                float4 color        : COLOR;
                 float2 uv           : TEXCOORD2;
             };
 
@@ -59,6 +61,7 @@ Shader "ColorLand/CartoonLit"
                 output.positionCS = TransformWorldToHClip(posWS);
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.viewDirWS = GetWorldSpaceNormalizeViewDir(posWS);
+                output.color = input.color;
                 output.uv = input.uv;
                 return output;
             }
@@ -76,11 +79,11 @@ Shader "ColorLand/CartoonLit"
                 rim = pow(rim, _RimPower);
 
                 float4 texCol = _MainTex.Sample(sampler_MainTex, input.uv);
-                float3 baseCol = _Color.rgb * texCol.rgb;
+                float3 baseCol = _Color.rgb * texCol.rgb * input.color.rgb;
                 float3 litCol = baseCol * (mainLight.color * toon + unity_AmbientSky.rgb * 0.5);
                 litCol += _RimColor.rgb * rim * _RimColor.a;
 
-                return half4(litCol, _Color.a * texCol.a);
+                return half4(litCol, _Color.a * texCol.a * input.color.a);
             }
             ENDHLSL
         }
@@ -115,15 +118,17 @@ Shader "ColorLand/CartoonLit"
             {
                 float4 vertex : POSITION;
                 float3 normal : NORMAL;
-                float2 uv : TEXCOORD0;
+                float4 color  : COLOR;
+                float2 uv     : TEXCOORD0;
             };
 
             struct v2f
             {
-                float4 pos : SV_POSITION;
-                float3 normalWS : TEXCOORD0;
-                float3 viewDirWS : TEXCOORD1;
-                float2 uv : TEXCOORD2;
+                float4 pos        : SV_POSITION;
+                float3 normalWS   : TEXCOORD0;
+                float3 viewDirWS  : TEXCOORD1;
+                float4 color      : COLOR;
+                float2 uv         : TEXCOORD2;
             };
 
             v2f vert(appdata v)
@@ -133,6 +138,7 @@ Shader "ColorLand/CartoonLit"
                 float3 posWS = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.normalWS = UnityObjectToWorldNormal(v.normal);
                 o.viewDirWS = normalize(_WorldSpaceCameraPos - posWS);
+                o.color = v.color;
                 o.uv = v.uv;
                 return o;
             }
@@ -150,11 +156,11 @@ Shader "ColorLand/CartoonLit"
                 rim = pow(rim, _RimPower);
 
                 float4 texCol = tex2D(_MainTex, i.uv);
-                float3 baseCol = _Color.rgb * texCol.rgb;
+                float3 baseCol = _Color.rgb * texCol.rgb * i.color.rgb;
                 float3 litCol = baseCol * (_LightColor0.rgb * toon + unity_AmbientSky.rgb * 0.5);
                 litCol += _RimColor.rgb * rim * _RimColor.a;
 
-                return half4(litCol, _Color.a * texCol.a);
+                return half4(litCol, _Color.a * texCol.a * i.color.a);
             }
             ENDCG
         }

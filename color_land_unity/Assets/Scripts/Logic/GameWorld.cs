@@ -220,12 +220,27 @@ namespace ColorLand.Logic
                             ?? Shader.Find("Standard")
                             ?? Shader.Find("Mobile/Diffuse");
 
-            // 1. Tana (Yumaloq kapsula)
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            // 0. Ground Contact Shadow Disc (Visually grounds character to the terrain)
+            var shadow = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            shadow.name = "ContactShadow";
+            shadow.transform.SetParent(root.transform, false);
+            shadow.transform.localPosition = new Vector3(0, 0.02f, 0);
+            shadow.transform.localScale = new Vector3(1.6f, 0.004f, 1.6f);
+            var shadowMat = new Material(litShader)
+            {
+                color = new Color(0.04f, 0.08f, 0.12f, 0.40f),
+                name = "M_ContactShadow"
+            };
+            shadow.GetComponent<Renderer>().sharedMaterial = shadowMat;
+            var sCol = shadow.GetComponent<Collider>();
+            if (sCol != null) Destroy(sCol);
+
+            // 1. Heroic Chubby Cartoon Body (Sphere)
+            var body = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             body.name = "Body";
             body.transform.SetParent(root.transform, false);
-            body.transform.localPosition = new Vector3(0, 0.45f, 0);
-            body.transform.localScale = new Vector3(0.85f, 0.45f, 0.85f);
+            body.transform.localPosition = new Vector3(0, 0.85f, 0);
+            body.transform.localScale = new Vector3(1.45f, 1.35f, 1.45f);
 
             var bodyMat = new Material(litShader)
             {
@@ -236,17 +251,18 @@ namespace ColorLand.Logic
             var bodyCol = body.GetComponent<Collider>();
             if (bodyCol != null) Destroy(bodyCol);
 
-            // 2. Ko'zlar (Ikkita oq shar + qora qorachiqlar)
+            // 2. Expressive Cartoon Eyes
             var eyeMat = new Material(litShader) { color = Color.white, name = "M_EyeWhite" };
-            var pupilMat = new Material(litShader) { color = new Color(0.1f, 0.1f, 0.15f), name = "M_PupilDark" };
+            var pupilMat = new Material(litShader) { color = new Color(0.08f, 0.08f, 0.12f), name = "M_PupilDark" };
+            var glintMat = new Material(litShader) { color = Color.white, name = "M_PupilGlint" };
 
             for (int eyeIdx = -1; eyeIdx <= 1; eyeIdx += 2)
             {
                 var eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 eye.name = $"Eye_{eyeIdx}";
                 eye.transform.SetParent(root.transform, false);
-                eye.transform.localPosition = new Vector3(eyeIdx * 0.22f, 0.55f, 0.35f);
-                eye.transform.localScale = new Vector3(0.18f, 0.22f, 0.16f);
+                eye.transform.localPosition = new Vector3(eyeIdx * 0.32f, 1.05f, 0.52f);
+                eye.transform.localScale = new Vector3(0.34f, 0.40f, 0.28f);
                 eye.GetComponent<Renderer>().sharedMaterial = eyeMat;
                 var eCol = eye.GetComponent<Collider>();
                 if (eCol != null) Destroy(eCol);
@@ -254,45 +270,65 @@ namespace ColorLand.Logic
                 var pupil = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 pupil.name = "Pupil";
                 pupil.transform.SetParent(eye.transform, false);
-                pupil.transform.localPosition = new Vector3(0, 0, 0.45f);
+                pupil.transform.localPosition = new Vector3(0, 0, 0.46f);
                 pupil.transform.localScale = new Vector3(0.55f, 0.55f, 0.45f);
                 pupil.GetComponent<Renderer>().sharedMaterial = pupilMat;
                 var pCol = pupil.GetComponent<Collider>();
                 if (pCol != null) Destroy(pCol);
+
+                // Catchlight glint (sparkle in the eye)
+                var glint = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                glint.name = "Glint";
+                glint.transform.SetParent(pupil.transform, false);
+                glint.transform.localPosition = new Vector3(0.22f, 0.22f, 0.40f);
+                glint.transform.localScale = Vector3.one * 0.35f;
+                glint.GetComponent<Renderer>().sharedMaterial = glintMat;
+                var gCol = glint.GetComponent<Collider>();
+                if (gCol != null) Destroy(gCol);
             }
 
-            // 3. Yo'nalish ko'rsatkichi / Burun (Vizor)
+            // 3. Directional Beak / Visor
             var visor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             visor.name = "Visor";
             visor.transform.SetParent(root.transform, false);
-            visor.transform.localPosition = new Vector3(0, 0.42f, 0.42f);
+            visor.transform.localPosition = new Vector3(0, 0.78f, 0.65f);
             visor.transform.localRotation = Quaternion.Euler(90f, 0, 0);
-            visor.transform.localScale = new Vector3(0.14f, 0.08f, 0.14f);
-            var visorMat = new Material(litShader) { color = new Color(1.0f, 0.88f, 0.25f), name = "M_Visor" };
+            visor.transform.localScale = new Vector3(0.24f, 0.12f, 0.24f);
+            var visorMat = new Material(litShader) { color = new Color(1.0f, 0.82f, 0.18f), name = "M_Visor" };
             visor.GetComponent<Renderer>().sharedMaterial = visorMat;
             var vCol = visor.GetComponent<Collider>();
             if (vCol != null) Destroy(vCol);
 
-            // 4. Bayroq ustuni (Orqada silindr)
+            // 4. Heroic Flagpole (Mounted on back)
             var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pole.name = "Pole";
             pole.transform.SetParent(root.transform, false);
-            pole.transform.localPosition = new Vector3(0, 0.90f, -0.32f);
-            pole.transform.localScale = new Vector3(0.04f, 0.45f, 0.04f);
-            var poleMat = new Material(litShader) { color = new Color(0.85f, 0.85f, 0.90f), name = "M_Pole" };
+            pole.transform.localPosition = new Vector3(0, 1.45f, -0.52f);
+            pole.transform.localScale = new Vector3(0.06f, 0.90f, 0.06f);
+            var poleMat = new Material(litShader) { color = new Color(0.85f, 0.88f, 0.92f), name = "M_Pole" };
             pole.GetComponent<Renderer>().sharedMaterial = poleMat;
             var polCol = pole.GetComponent<Collider>();
             if (polCol != null) Destroy(polCol);
 
-            // 5. Bayroq matosi (Quad)
+            // Golden finial ball on top of pole
+            var finial = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            finial.name = "Finial";
+            finial.transform.SetParent(root.transform, false);
+            finial.transform.localPosition = new Vector3(0, 2.38f, -0.52f);
+            finial.transform.localScale = Vector3.one * 0.22f;
+            var finMat = new Material(litShader) { color = new Color(0.96f, 0.75f, 0.12f), name = "M_Finial" };
+            finial.GetComponent<Renderer>().sharedMaterial = finMat;
+            var fnCol = finial.GetComponent<Collider>();
+            if (fnCol != null) Destroy(fnCol);
+
+            // 5. Heroic Waving Flag Quad
             var flag = GameObject.CreatePrimitive(PrimitiveType.Quad);
             flag.name = "Flag";
             flag.transform.SetParent(root.transform, false);
-            flag.transform.localPosition = new Vector3(0.25f, 1.15f, -0.32f);
+            flag.transform.localPosition = new Vector3(0.48f, 1.95f, -0.52f);
             flag.transform.localRotation = Quaternion.Euler(0, 90f, 0);
-            flag.transform.localScale = new Vector3(0.50f, 0.32f, 1.0f);
+            flag.transform.localScale = new Vector3(0.95f, 0.62f, 1.0f);
 
-            // Bayroq rasmini yuklash
             Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{countryCode.ToUpperInvariant()}");
             var flagMat = new Material(litShader) { name = $"M_Flag_{countryCode}" };
             if (flagSprite != null)
@@ -308,11 +344,16 @@ namespace ColorLand.Logic
             var fCol = flag.GetComponent<Collider>();
             if (fCol != null) Destroy(fCol);
 
-            // 6. Trigger kollayder
+            // 6. Character Procedural Animator Component
+            var anim = root.AddComponent<ColorLand.Render.CharacterAnimator>();
+            anim.Body = body.transform;
+            anim.Flag = flag.transform;
+
+            // 7. Trigger Collider
             var rootCol = root.AddComponent<CapsuleCollider>();
-            rootCol.center = new Vector3(0, 0.45f, 0);
-            rootCol.radius = 0.45f;
-            rootCol.height = 0.9f;
+            rootCol.center = new Vector3(0, 0.85f, 0);
+            rootCol.radius = 0.85f;
+            rootCol.height = 1.7f;
             rootCol.isTrigger = true;
 
             return root;

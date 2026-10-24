@@ -5,8 +5,8 @@ Shader "ColorLand/ArenaShader"
         _IndexTex ("Index Texture (Ownership)", 2D) = "black" {}
         _PaletteTex ("Palette Texture", 2D) = "white" {}
         _GridSize ("Grid Size", Vector) = (120, 120, 0, 0)
-        _BeachColor ("Beach Color", Color) = (0.99, 0.88, 0.32, 1)
-        _UnclaimedColor ("Unclaimed Land Color", Color) = (0.57, 0.88, 0.48, 1)
+        _BeachColor ("Beach Color", Color) = (0.99, 0.88, 0.42, 1)
+        _UnclaimedColor ("Unclaimed Land Color", Color) = (0.50, 0.82, 0.32, 1)
         _WaterColor ("Water Color", Color) = (0.04, 0.48, 0.82, 1)
     }
 
@@ -67,10 +67,10 @@ Shader "ColorLand/ArenaShader"
             {
                 float2 cell_pos = input.uv * _GridSize.xy;
                 float2 p = cell_pos - 0.5;
-                float2 base = floor(p);
-                float2 f = p - base;
+                float2 base_cell = floor(p);
+                float2 f = p - base_cell;
 
-                int2 b = int2(base);
+                int2 b = int2(base_cell);
                 int2 max_c = int2(_GridSize.xy) - int2(1, 1);
 
                 const float R2 = 4.84;
@@ -130,66 +130,113 @@ Shader "ColorLand/ArenaShader"
                     }
                 }
 
-                if (num_u == 0)
+                if (num_u == 0 || total_land_w < 0.0001)
                 {
                     return half4(_WaterColor.rgb, 1.0);
                 }
 
-                int win_owner = 0;
-                float best_w = -1.0;
-                float second_w = -1.0;
-                int second_owner = 0;
-
-                for (int i = 0; i < num_u; i++)
+                // Normalize weights so boundaries have consistent curvature everywhere
+                float inv_tot = 1.0 / total_land_w;
+                for (int k = 0; k < num_u; k++)
                 {
-                    if (u_weights[i] > best_w)
+                    u_weights[k] *= inv_tot;
+                }
+
+                int best_idx = 0;
+                for (int k = 1; k < num_u; k++)
+                {
+                    if (u_weights[k] > u_weights[best_idx])
                     {
-                        second_w = best_w;
-                        second_owner = win_owner;
-                        best_w = u_weights[i];
-                        win_owner = u_owners[i];
+                        best_idx = k;
                     }
-                    else if (u_weights[i] > second_w)
+                }
+                int win_owner = u_owners[best_idx];
+                float best_w = u_weights[best_idx];
+
+                int second_idx = -1;
+                for (int k = 0; k < num_u; k++)
+                {
+                    if (k != best_idx && (second_idx < 0 || u_weights[k] > u_weights[second_idx]))
                     {
-                        second_w = u_weights[i];
-                        second_owner = u_owners[i];
+                        second_idx = k;
                     }
                 }
 
-                float3 color;
+                // Lush cartoon grass gradient with subtle elevation shading
+                float2 land_uv = cell_pos * 0.08;
+                float grad_t = 0.5 + 0.5 * sin(land_uv.x * 1.5 + land_uv.y * 1.1);
+                float3 land_col = lerp(float3(0.46, 0.80, 0.28), float3(0.56, 0.88, 0.36), grad_t);
+
+                float3 shade_best;
                 if (win_owner == 0)
                 {
-                    color = _UnclaimedColor.rgb;
-                    if (water_count > 0)
-                    {
-                        float beach_t = clamp((float)water_count / 5.0, 0.0, 1.0);
-                        color = lerp(_UnclaimedColor.rgb, _BeachColor.rgb, beach_t);
-                    }
+                    shade_best = land_col;
                 }
                 else
                 {
                     float u = (float(win_owner) + 0.5) / 256.0;
                     float3 owner_col = _PaletteTex.SampleLevel(sampler_PaletteTex, float2(u, 0.5), 0).rgb;
-
-                    // Rim contour
-                    float gap = (best_w - second_w) / max(best_w, 0.001);
-                    float rim_t = smoothstep(0.0, 0.22, gap);
-                    float3 rim_col = owner_col * 0.82;
-                    color = lerp(rim_col, owner_col, rim_t);
+                    shade_best = owner_col;
                 }
 
-                // Subtle cartoon terrain variation
-                float var = sin(cell_pos.x * 0.12) * cos(cell_pos.y * 0.12) * 0.035;
-                color *= (0.98 + var);
+                float3 final_col = shade_best;
 
-                return half4(color, 1.0);
+                if (second_idx >= 0 && u_weights[second_idx] > 0.001)
+                {
+                    int sec_owner = u_owners[second_idx];
+                    float sec_w = u_weights[second_idx];
+                    float gap = best_w - sec_w;
+
+                    // Rim contour for primary owner
+                    const float RIM = 0.35;
+                    if (win_owner > 0 && gap < RIM)
+                    {
+                        float3 rim_col = shade_best * 0.78;
+                        shade_best = lerp(rim_col, shade_best, smoothstep(0.0, RIM, gap));
+                    }
+
+                    float3 shade_sec;
+                    if (sec_owner == 0)
+                    {
+                        shade_sec = land_col;
+                    }
+                    else
+                    {
+                        float u2 = (float(sec_owner) + 0.5) / 256.0;
+                        float3 sec_col = _PaletteTex.SampleLevel(sampler_PaletteTex, float2(u2, 0.5), 0).rgb;
+                        shade_sec = sec_col;
+                        if (gap < RIM)
+                        {
+                            float3 rim2 = sec_col * 0.78;
+                            shade_sec = lerp(rim2, shade_sec, smoothstep(0.0, RIM, gap));
+                        }
+                    }
+
+                    // Pixel-perfect antialiased smooth contour (zero staircase)
+                    float fw = max(fwidth(gap), 0.001);
+                    float edge_t = saturate(0.5 + 0.5 * gap / fw);
+                    final_col = lerp(shade_sec, shade_best, edge_t);
+                }
+
+                // Coastline beach sand transition (ONLY on unclaimed land)
+                if (win_owner == 0 && water_count > 0)
+                {
+                    float beach_t = saturate((float)water_count / 6.0);
+                    final_col = lerp(final_col, _BeachColor.rgb, beach_t);
+                }
+
+                // Soft rolling hills micro-relief
+                float relief = sin(cell_pos.x * 0.14) * cos(cell_pos.y * 0.14) * 0.032;
+                final_col *= (0.98 + relief);
+
+                return half4(final_col, 1.0);
             }
             ENDHLSL
         }
     }
 
     // ------------------------------------------------------------------
-    // SubShader 2: Built-in Render Pipeline (Fallback & Mobile Forward)
+    // SubShader 2: Built-in Render Pipeline
     // ------------------------------------------------------------------
     SubShader
     {
@@ -238,10 +285,10 @@ Shader "ColorLand/ArenaShader"
             {
                 float2 cell_pos = i.uv * _GridSize.xy;
                 float2 p = cell_pos - 0.5;
-                float2 base = floor(p);
-                float2 f = p - base;
+                float2 base_cell = floor(p);
+                float2 f = p - base_cell;
 
-                int2 b = int2(base);
+                int2 b = int2(base_cell);
                 int2 max_c = int2(_GridSize.xy) - int2(1, 1);
 
                 const float R2 = 4.84;
@@ -301,54 +348,100 @@ Shader "ColorLand/ArenaShader"
                     }
                 }
 
-                if (num_u == 0)
+                if (num_u == 0 || total_land_w < 0.0001)
                 {
                     return half4(_WaterColor.rgb, 1.0);
                 }
 
-                int win_owner = 0;
-                float best_w = -1.0;
-                float second_w = -1.0;
-
-                for (int idx = 0; idx < num_u; idx++)
+                float inv_tot = 1.0 / total_land_w;
+                for (int k = 0; k < num_u; k++)
                 {
-                    if (u_weights[idx] > best_w)
+                    u_weights[k] *= inv_tot;
+                }
+
+                int best_idx = 0;
+                for (int k = 1; k < num_u; k++)
+                {
+                    if (u_weights[k] > u_weights[best_idx])
                     {
-                        second_w = best_w;
-                        best_w = u_weights[idx];
-                        win_owner = u_owners[idx];
+                        best_idx = k;
                     }
-                    else if (u_weights[idx] > second_w)
+                }
+                int win_owner = u_owners[best_idx];
+                float best_w = u_weights[best_idx];
+
+                int second_idx = -1;
+                for (int k = 0; k < num_u; k++)
+                {
+                    if (k != best_idx && (second_idx < 0 || u_weights[k] > u_weights[second_idx]))
                     {
-                        second_w = u_weights[idx];
+                        second_idx = k;
                     }
                 }
 
-                float3 color;
+                float2 land_uv = cell_pos * 0.08;
+                float grad_t = 0.5 + 0.5 * sin(land_uv.x * 1.5 + land_uv.y * 1.1);
+                float3 land_col = lerp(float3(0.46, 0.80, 0.28), float3(0.56, 0.88, 0.36), grad_t);
+
+                float3 shade_best;
                 if (win_owner == 0)
                 {
-                    color = _UnclaimedColor.rgb;
-                    if (water_count > 0)
-                    {
-                        float beach_t = clamp((float)water_count / 5.0, 0.0, 1.0);
-                        color = lerp(_UnclaimedColor.rgb, _BeachColor.rgb, beach_t);
-                    }
+                    shade_best = land_col;
                 }
                 else
                 {
                     float u = (float(win_owner) + 0.5) / 256.0;
                     float3 owner_col = tex2Dlod(_PaletteTex, float4(u, 0.5, 0, 0)).rgb;
-
-                    float gap = (best_w - second_w) / max(best_w, 0.001);
-                    float rim_t = smoothstep(0.0, 0.22, gap);
-                    float3 rim_col = owner_col * 0.82;
-                    color = lerp(rim_col, owner_col, rim_t);
+                    shade_best = owner_col;
                 }
 
-                float var = sin(cell_pos.x * 0.12) * cos(cell_pos.y * 0.12) * 0.035;
-                color *= (0.98 + var);
+                float3 final_col = shade_best;
 
-                return half4(color, 1.0);
+                if (second_idx >= 0 && u_weights[second_idx] > 0.001)
+                {
+                    int sec_owner = u_owners[second_idx];
+                    float sec_w = u_weights[second_idx];
+                    float gap = best_w - sec_w;
+
+                    const float RIM = 0.35;
+                    if (win_owner > 0 && gap < RIM)
+                    {
+                        float3 rim_col = shade_best * 0.78;
+                        shade_best = lerp(rim_col, shade_best, smoothstep(0.0, RIM, gap));
+                    }
+
+                    float3 shade_sec;
+                    if (sec_owner == 0)
+                    {
+                        shade_sec = land_col;
+                    }
+                    else
+                    {
+                        float u2 = (float(sec_owner) + 0.5) / 256.0;
+                        float3 sec_col = tex2Dlod(_PaletteTex, float4(u2, 0.5, 0, 0)).rgb;
+                        shade_sec = sec_col;
+                        if (gap < RIM)
+                        {
+                            float3 rim2 = sec_col * 0.78;
+                            shade_sec = lerp(rim2, shade_sec, smoothstep(0.0, RIM, gap));
+                        }
+                    }
+
+                    float fw = max(fwidth(gap), 0.001);
+                    float edge_t = saturate(0.5 + 0.5 * gap / fw);
+                    final_col = lerp(shade_sec, shade_best, edge_t);
+                }
+
+                if (win_owner == 0 && water_count > 0)
+                {
+                    float beach_t = saturate((float)water_count / 6.0);
+                    final_col = lerp(final_col, _BeachColor.rgb, beach_t);
+                }
+
+                float relief = sin(cell_pos.x * 0.14) * cos(cell_pos.y * 0.14) * 0.032;
+                final_col *= (0.98 + relief);
+
+                return half4(final_col, 1.0);
             }
             ENDCG
         }

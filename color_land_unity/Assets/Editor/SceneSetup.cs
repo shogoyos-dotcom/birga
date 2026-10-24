@@ -24,20 +24,24 @@ namespace ColorLand.Editor
             var light = lightObj.AddComponent<Light>();
             light.type = LightType.Directional;
             light.color = new Color(1.0f, 0.98f, 0.92f);
-            light.intensity = 1.15f;
+            light.intensity = 1.20f;
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.35f;
             lightObj.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.55f, 0.65f, 0.75f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.55f, 0.72f, 0.90f);
+            RenderSettings.ambientEquatorColor = new Color(0.45f, 0.65f, 0.35f);
+            RenderSettings.ambientGroundColor = new Color(0.20f, 0.35f, 0.15f);
 
             // 2. Kamera (Main Camera)
             var camObj = new GameObject("Main Camera");
             var cam = camObj.AddComponent<Camera>();
             camObj.tag = "MainCamera";
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.08f, 0.55f, 0.85f);
-            camObj.transform.position = new Vector3(0, 36, -24);
-            camObj.transform.rotation = Quaternion.Euler(55, 0, 0);
+            cam.backgroundColor = new Color(0.04f, 0.50f, 0.82f);
+            camObj.transform.position = new Vector3(0, 24, -18);
+            camObj.transform.rotation = Quaternion.Euler(52, 0, 0);
 
             // Papkalarni ta'minlash
             if (!System.IO.Directory.Exists("Assets/Materials")) System.IO.Directory.CreateDirectory("Assets/Materials");
@@ -105,19 +109,28 @@ namespace ColorLand.Editor
 
             Shader litShader = Shader.Find("ColorLand/CartoonLit") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Mobile/Diffuse");
             var trunkMat = new Material(litShader) { color = new Color(0.48f, 0.30f, 0.16f), name = "M_Trunk" };
-            var foliageMat1 = new Material(litShader) { color = new Color(0.18f, 0.75f, 0.32f), name = "M_Foliage1" };
-            var foliageMat2 = new Material(litShader) { color = new Color(0.12f, 0.65f, 0.28f), name = "M_Foliage2" };
-            var rockMat = new Material(litShader) { color = new Color(0.58f, 0.62f, 0.68f), name = "M_Rock" };
+            var foliageMat1 = new Material(litShader) { color = new Color(0.18f, 0.78f, 0.32f), name = "M_Foliage1" };
+            var foliageMat2 = new Material(litShader) { color = new Color(0.12f, 0.65f, 0.25f), name = "M_Foliage2" };
+            var pineMat1 = new Material(litShader) { color = new Color(0.10f, 0.52f, 0.24f), name = "M_Pine1" };
+            var pineMat2 = new Material(litShader) { color = new Color(0.15f, 0.62f, 0.30f), name = "M_Pine2" };
+            var rockMat = new Material(litShader) { color = new Color(0.55f, 0.60f, 0.68f), name = "M_Rock" };
+            var hillMat = new Material(litShader) { color = new Color(0.42f, 0.74f, 0.24f), name = "M_Hill" };
 
-            // Chegaralar va burchaklar bo'ylab multfilm daraxtlari
+            // 1. Chegaralar va sohillar bo'ylab ko'p sonli multfilm daraxtlari (Pine va Round)
             Vector3[] treePositions = new Vector3[]
             {
-                new Vector3(-55, 0, -55), new Vector3(-52, 0, -57), new Vector3(55, 0, -55), new Vector3(52, 0, -58),
-                new Vector3(-55, 0, 55), new Vector3(-58, 0, 52), new Vector3(55, 0, 55), new Vector3(58, 0, 53),
+                new Vector3(-55, 0, -55), new Vector3(-52, 0, -57), new Vector3(-45, 0, -56),
+                new Vector3(55, 0, -55), new Vector3(52, 0, -58), new Vector3(46, 0, -54),
+                new Vector3(-55, 0, 55), new Vector3(-58, 0, 52), new Vector3(-48, 0, 56),
+                new Vector3(55, 0, 55), new Vector3(58, 0, 53), new Vector3(47, 0, 55),
                 new Vector3(0, 0, -58), new Vector3(-15, 0, -57), new Vector3(20, 0, -58),
+                new Vector3(-30, 0, -56), new Vector3(32, 0, -57),
                 new Vector3(0, 0, 58), new Vector3(-25, 0, 57), new Vector3(18, 0, 58),
+                new Vector3(-35, 0, 56), new Vector3(36, 0, 57),
                 new Vector3(-58, 0, 0), new Vector3(-57, 0, -20), new Vector3(-58, 0, 22),
+                new Vector3(-56, 0, -36), new Vector3(-57, 0, 38),
                 new Vector3(58, 0, 0), new Vector3(57, 0, -18), new Vector3(58, 0, 25),
+                new Vector3(56, 0, -35), new Vector3(57, 0, 36)
             };
 
             for (int i = 0; i < treePositions.Length; i++)
@@ -126,42 +139,74 @@ namespace ColorLand.Editor
                 treeObj.transform.SetParent(envRoot.transform, false);
                 treeObj.transform.position = treePositions[i];
 
-                // Tana
-                var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                trunk.name = "Trunk";
-                trunk.transform.SetParent(treeObj.transform, false);
-                trunk.transform.localPosition = new Vector3(0, 0.6f, 0);
-                trunk.transform.localScale = new Vector3(0.35f, 0.6f, 0.35f);
-                trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
-                var tCol = trunk.GetComponent<Collider>();
-                if (tCol != null) Object.DestroyImmediate(tCol);
+                bool isPine = (i % 2 == 0);
 
-                // Barglar (2 qatlamli shar)
-                var leaf1 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                leaf1.name = "Foliage_Bottom";
-                leaf1.transform.SetParent(treeObj.transform, false);
-                leaf1.transform.localPosition = new Vector3(0, 1.4f, 0);
-                leaf1.transform.localScale = new Vector3(1.6f, 1.1f, 1.6f);
-                leaf1.GetComponent<Renderer>().sharedMaterial = foliageMat1;
-                var l1Col = leaf1.GetComponent<Collider>();
-                if (l1Col != null) Object.DestroyImmediate(l1Col);
+                if (isPine)
+                {
+                    // 3 pog'onali ignabarg konus daraxti (Pine)
+                    var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    trunk.name = "Trunk";
+                    trunk.transform.SetParent(treeObj.transform, false);
+                    trunk.transform.localPosition = new Vector3(0, 0.5f, 0);
+                    trunk.transform.localScale = new Vector3(0.28f, 0.5f, 0.28f);
+                    trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
+                    var tCol = trunk.GetComponent<Collider>();
+                    if (tCol != null) Object.DestroyImmediate(tCol);
 
-                var leaf2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                leaf2.name = "Foliage_Top";
-                leaf2.transform.SetParent(treeObj.transform, false);
-                leaf2.transform.localPosition = new Vector3(0, 2.1f, 0);
-                leaf2.transform.localScale = new Vector3(1.1f, 0.9f, 1.1f);
-                leaf2.GetComponent<Renderer>().sharedMaterial = foliageMat2;
-                var l2Col = leaf2.GetComponent<Collider>();
-                if (l2Col != null) Object.DestroyImmediate(l2Col);
+                    // 3 ta konus o'rniga turli radiusli sharlar
+                    for (int tier = 0; tier < 3; tier++)
+                    {
+                        var cone = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        cone.name = $"PineTier_{tier}";
+                        cone.transform.SetParent(treeObj.transform, false);
+                        float ty = 1.0f + tier * 0.65f;
+                        float tr = 1.4f - tier * 0.35f;
+                        cone.transform.localPosition = new Vector3(0, ty, 0);
+                        cone.transform.localScale = new Vector3(tr, 0.8f, tr);
+                        cone.GetComponent<Renderer>().sharedMaterial = (tier % 2 == 0) ? pineMat1 : pineMat2;
+                        var cCol = cone.GetComponent<Collider>();
+                        if (cCol != null) Object.DestroyImmediate(cCol);
+                    }
+                }
+                else
+                {
+                    // Dumaloq multfilm daraxti (Round Deciduous)
+                    var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    trunk.name = "Trunk";
+                    trunk.transform.SetParent(treeObj.transform, false);
+                    trunk.transform.localPosition = new Vector3(0, 0.7f, 0);
+                    trunk.transform.localScale = new Vector3(0.38f, 0.7f, 0.38f);
+                    trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
+                    var tCol = trunk.GetComponent<Collider>();
+                    if (tCol != null) Object.DestroyImmediate(tCol);
+
+                    var leaf1 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    leaf1.name = "Foliage_Bottom";
+                    leaf1.transform.SetParent(treeObj.transform, false);
+                    leaf1.transform.localPosition = new Vector3(0, 1.55f, 0);
+                    leaf1.transform.localScale = new Vector3(1.8f, 1.25f, 1.8f);
+                    leaf1.GetComponent<Renderer>().sharedMaterial = foliageMat1;
+                    var l1Col = leaf1.GetComponent<Collider>();
+                    if (l1Col != null) Object.DestroyImmediate(l1Col);
+
+                    var leaf2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    leaf2.name = "Foliage_Top";
+                    leaf2.transform.SetParent(treeObj.transform, false);
+                    leaf2.transform.localPosition = new Vector3(0, 2.3f, 0);
+                    leaf2.transform.localScale = new Vector3(1.25f, 1.0f, 1.25f);
+                    leaf2.GetComponent<Renderer>().sharedMaterial = foliageMat2;
+                    var l2Col = leaf2.GetComponent<Collider>();
+                    if (l2Col != null) Object.DestroyImmediate(l2Col);
+                }
             }
 
-            // Chegaralar bo'ylab multfilm toshlari
+            // 2. Qirg'oqlar bo'ylab tabiiy slanets toshlari
             Vector3[] rockPositions = new Vector3[]
             {
                 new Vector3(-50, 0, -53), new Vector3(48, 0, -52), new Vector3(-52, 0, 50), new Vector3(51, 0, 48),
                 new Vector3(-35, 0, -57), new Vector3(35, 0, -57), new Vector3(-35, 0, 57), new Vector3(35, 0, 57),
-                new Vector3(-57, 0, -35), new Vector3(57, 0, -35), new Vector3(-57, 0, 35), new Vector3(57, 0, 35)
+                new Vector3(-57, 0, -35), new Vector3(57, 0, -35), new Vector3(-57, 0, 35), new Vector3(57, 0, 35),
+                new Vector3(-20, 0, -56), new Vector3(22, 0, -56), new Vector3(-22, 0, 56), new Vector3(20, 0, 56)
             };
 
             for (int i = 0; i < rockPositions.Length; i++)
@@ -170,11 +215,34 @@ namespace ColorLand.Editor
                 rockObj.name = $"Rock_{i}";
                 rockObj.transform.SetParent(envRoot.transform, false);
                 rockObj.transform.position = rockPositions[i];
-                rockObj.transform.localScale = new Vector3(1.4f, 0.7f, 1.1f);
-                rockObj.transform.rotation = Quaternion.Euler(UnityEngine.Random.Range(0, 30), UnityEngine.Random.Range(0, 360), 0);
+                float s = UnityEngine.Random.Range(1.2f, 1.8f);
+                rockObj.transform.localScale = new Vector3(s, s * 0.55f, s * 0.85f);
+                rockObj.transform.rotation = Quaternion.Euler(UnityEngine.Random.Range(10, 35), UnityEngine.Random.Range(0, 360), UnityEngine.Random.Range(0, 20));
                 rockObj.GetComponent<Renderer>().sharedMaterial = rockMat;
                 var rCol = rockObj.GetComponent<Collider>();
                 if (rCol != null) Object.DestroyImmediate(rCol);
+            }
+
+            // 3. Kichik tepaliklar va tabiiy relyef do'ngliklari (Small Hills / Elevation Mounds)
+            Vector3[] hillPositions = new Vector3[]
+            {
+                new Vector3(-42, 0, -42), new Vector3(44, 0, -43),
+                new Vector3(-43, 0, 41),  new Vector3(43, 0, 42),
+                new Vector3(0, 0, -46),   new Vector3(0, 0, 46),
+                new Vector3(-46, 0, 0),   new Vector3(46, 0, 0)
+            };
+
+            for (int i = 0; i < hillPositions.Length; i++)
+            {
+                var hillObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                hillObj.name = $"Hill_{i}";
+                hillObj.transform.SetParent(envRoot.transform, false);
+                hillObj.transform.position = hillPositions[i] + new Vector3(0, 0.15f, 0);
+                float hr = UnityEngine.Random.Range(5.5f, 7.5f);
+                hillObj.transform.localScale = new Vector3(hr, 0.30f, hr);
+                hillObj.GetComponent<Renderer>().sharedMaterial = hillMat;
+                var hCol = hillObj.GetComponent<Collider>();
+                if (hCol != null) Object.DestroyImmediate(hCol);
             }
         }
 
