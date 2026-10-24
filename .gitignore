@@ -12,6 +12,8 @@ build/
 *.zip
 *.tar.gz
 *.bundle
+!Releases/**
+!Releases/**/*.apk
 
 # Android shabloni va gradle keshi
 android/

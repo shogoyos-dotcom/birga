@@ -7,6 +7,9 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
+.utmp/
+bin/
+obj/
 
 # Visual Studio / Rider / VS Code cache
 .vs/
