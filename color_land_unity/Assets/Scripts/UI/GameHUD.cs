@@ -20,6 +20,8 @@ namespace ColorLand.UI
         public Text KillsText;
         public Button LanguageButton;
         public Text LanguageButtonText;
+        public Button MenuButton;
+        public Text MenuButtonText;
 
         [Header("Leaderboard")]
         public Text LeaderboardTitleText;
@@ -41,6 +43,11 @@ namespace ColorLand.UI
             if (LanguageButton != null)
             {
                 LanguageButton.onClick.AddListener(OnLanguageButtonClicked);
+            }
+
+            if (MenuButton != null)
+            {
+                MenuButton.onClick.AddListener(OnMenuButtonClicked);
             }
 
             if (PlayAgainButton != null)
@@ -82,9 +89,22 @@ namespace ColorLand.UI
             }
         }
 
+        private void OnMenuButtonClicked()
+        {
+            if (MenuModals.Instance != null)
+            {
+                MenuModals.Instance.ShowMainMenu();
+            }
+        }
+
         public void OnLanguageChanged()
         {
             string lang = Strings.CurrentLanguage ?? "ru";
+
+            if (MenuButtonText != null)
+            {
+                MenuButtonText.text = $"☰ {Strings.T("menu").ToUpperInvariant()}";
+            }
 
             if (LanguageButtonText != null)
             {

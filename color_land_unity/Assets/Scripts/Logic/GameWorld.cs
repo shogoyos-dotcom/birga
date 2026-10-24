@@ -84,6 +84,16 @@ namespace ColorLand.Logic
                 if (PaintLayer != null) PaintLayer.UpdateFull();
             };
 
+            Player.OnDied += (p) =>
+            {
+                ClearOwnerCells(p.OwnerId);
+                if (p.LastAttackerId > 1)
+                {
+                    var attacker = Bots.Find(b => b.OwnerId == p.LastAttackerId);
+                    if (attacker != null) attacker.Kills++;
+                }
+            };
+
             GameObject playerObj = PlayerPrefab != null ? Instantiate(PlayerPrefab) : CreateDefaultCharacterObject("Player", Player.PlayerColor);
             var playerState = playerObj.GetComponent<PlayerState>() ?? playerObj.AddComponent<PlayerState>();
             playerState.Bind(Player);
@@ -119,6 +129,20 @@ namespace ColorLand.Logic
                 botEntity.OnTerritoryCaptured += (count) =>
                 {
                     if (PaintLayer != null) PaintLayer.UpdateFull();
+                };
+
+                botEntity.OnDied += (b) =>
+                {
+                    ClearOwnerCells(b.OwnerId);
+                    if (b.LastAttackerId == Player.OwnerId)
+                    {
+                        Player.Kills++;
+                    }
+                    else if (b.LastAttackerId > 1)
+                    {
+                        var attacker = Bots.Find(a => a.OwnerId == b.LastAttackerId);
+                        if (attacker != null) attacker.Kills++;
+                    }
                 };
 
                 GameObject botObj = BotPrefab != null ? Instantiate(BotPrefab) : CreateDefaultCharacterObject($"Bot_{botId}", botColor);
@@ -192,6 +216,16 @@ namespace ColorLand.Logic
                 {
                     Player.Move(inputDir, Time.deltaTime);
                 }
+
+                Player.UpdateDanger(Time.deltaTime);
+            }
+
+            foreach (var bot in Bots)
+            {
+                if (bot != null && bot.IsAlive)
+                {
+                    bot.UpdateDanger(Time.deltaTime);
+                }
             }
 
             CheckCollisions();
@@ -199,28 +233,46 @@ namespace ColorLand.Logic
 
         private void CheckCollisions()
         {
-            if (Player == null || !Player.IsAlive) return;
-
-            Vector2Int playerHead = Grid.WorldToGrid(Player.Position);
-
-            foreach (var bot in Bots)
+            if (Player != null && Player.IsAlive)
             {
-                if (!bot.IsAlive) continue;
+                Vector2Int playerHead = Grid.WorldToGrid(Player.Position);
 
-                if (bot.CheckTrailCollision(playerHead))
+                foreach (var bot in Bots)
                 {
-                    bot.Die();
-                    Player.Kills++;
-                    ClearOwnerCells(bot.OwnerId);
+                    if (!bot.IsAlive) continue;
+
+                    // O'yinchi botning iziga tegsa -> xavf to'lqini boshlanadi
+                    if (bot.CheckTrailCollision(playerHead))
+                    {
+                        bot.TriggerTrailDanger(Player.OwnerId, playerHead);
+                    }
+
+                    // Bot o'yinchining iziga tegsa -> xavf to'lqini boshlanadi
+                    Vector2Int botHead = Grid.WorldToGrid(bot.Position);
+                    if (Player.CheckTrailCollision(botHead))
+                    {
+                        Player.TriggerTrailDanger(bot.OwnerId, botHead);
+                    }
                 }
+            }
 
-                Vector2Int botHead = Grid.WorldToGrid(bot.Position);
-                if (Player.CheckTrailCollision(botHead))
+            // Botlar o'zaro bir-birining izini kesishi
+            for (int i = 0; i < Bots.Count; i++)
+            {
+                var botA = Bots[i];
+                if (!botA.IsAlive) continue;
+                Vector2Int headA = Grid.WorldToGrid(botA.Position);
+
+                for (int j = 0; j < Bots.Count; j++)
                 {
-                    Player.Die();
-                    bot.Kills++;
-                    ClearOwnerCells(Player.OwnerId);
-                    break;
+                    if (i == j) continue;
+                    var botB = Bots[j];
+                    if (!botB.IsAlive) continue;
+
+                    if (botB.CheckTrailCollision(headA))
+                    {
+                        botB.TriggerTrailDanger(botA.OwnerId, headA);
+                    }
                 }
             }
         }

@@ -29,6 +29,8 @@ namespace ColorLand.Tests
             Test_LanguageInfo_All15Languages();
             Test_CityNames_RussianTranslation();
             Test_CitySystem_CaptureAndReward();
+            Test_TrailDanger_ChasingAndSurvival();
+            Test_TrailDanger_CatchAndDeath();
 
             Console.WriteLine("========================================");
             Console.WriteLine($"NATIJA: {_passed} TA TEST O'TDI, {_failed} TA XATO");
@@ -285,6 +287,64 @@ namespace ColorLand.Tests
             // Qayta tekshirganda takroriy hodisa chaqirilmasligi kerak (Deduplication)
             citySystem.CheckCityCapture(1, 15, 15);
             Assert(notifiedCount == 1, "CitySystem: Takroriy egallashda hodisa qayta chaqirilmadi (Deduplication)");
+        }
+
+        private static void Test_TrailDanger_ChasingAndSurvival()
+        {
+            var grid = new GameGrid(50, 50, 1.0f);
+            var capture = new TerritoryCapture(grid);
+            var player = new PlayerEntity(grid, capture, new Vector2Int(20, 20), 1);
+
+            // O'yinchi spawn hududidan chiqadi (spawn radiusi 2, ya'ni y=23 ga chiqadi)
+            for (int i = 0; i < 5; i++)
+            {
+                player.Move(new Vector2(0, 1), 0.2f);
+            }
+            Assert(player.Trail.Count > 0, "TrailDanger: O'yinchi iz qoldirdi");
+
+            Vector2Int hitCell = player.Trail[0];
+            bool dangerStarted = false;
+            player.OnDangerStarted += (p, attacker) => { dangerStarted = true; };
+
+            player.TriggerTrailDanger(2, hitCell);
+            Assert(dangerStarted, "TrailDanger: Izga tegilganda xavf to'lqini boshlandi");
+            Assert(player.Danger != null, "TrailDanger: Faol xavf mavjud");
+
+            // O'yinchi zudlik bilan o'z hududiga qaytadi (yon tomondan o'z mulkiga kiradi)
+            bool escaped = false;
+            player.OnDangerEscaped += (p) => { escaped = true; };
+
+            // Yon tomonga va pastga qarab o'z hududiga (x=19, y=21) yuradi
+            player.Move(new Vector2(-1, 0), 0.2f);
+            for (int i = 0; i < 5; i++)
+            {
+                player.Move(new Vector2(0, -1), 0.2f);
+            }
+
+            Assert(player.Danger == null, "TrailDanger: O'z hududiga kirganda xavf bekor qilindi (Danger == null)");
+            Assert(escaped, "TrailDanger: OnDangerEscaped hodisasi chaqirildi");
+            Assert(player.IsAlive, "TrailDanger: Xavfdan o'z hududiga qochib qutulgan o'yinchi tirik qoldi");
+        }
+
+        private static void Test_TrailDanger_CatchAndDeath()
+        {
+            var grid = new GameGrid(50, 50, 1.0f);
+            var capture = new TerritoryCapture(grid);
+            var player = new PlayerEntity(grid, capture, new Vector2Int(20, 20), 1);
+
+            for (int i = 0; i < 10; i++)
+            {
+                player.Move(new Vector2(0, 1), 0.2f);
+            }
+
+            Vector2Int hitCell = player.Trail[0];
+            player.TriggerTrailDanger(2, hitCell);
+
+            // Vaqt o'tadi va xavf to'lqini o'yinchiga yetib boradi
+            player.UpdateDanger(2.0f); // 2 sekund (30 katak/sek = 60 katak)
+
+            Assert(!player.IsAlive, "TrailDanger: Xavf to'lqini yetib kelganda o'yinchi halok bo'ldi");
+            Assert(player.Danger == null, "TrailDanger: O'limdan so'ng xavf holati tozalandi");
         }
     }
 }

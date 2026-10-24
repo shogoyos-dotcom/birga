@@ -120,14 +120,37 @@ namespace ColorLand.Editor
             nameRt.anchorMax = new Vector2(0, 0.5f);
             nameRt.pivot = new Vector2(0, 0.5f);
             nameRt.anchoredPosition = new Vector2(25, 0);
-            nameRt.sizeDelta = new Vector2(250, 60);
+            nameRt.sizeDelta = new Vector2(200, 60);
             gameHUD.PlayerNameText = nameObj.GetComponent<Text>();
+
+            // Menu Button (Top bar)
+            var menuBtnObj = new GameObject("MenuButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            menuBtnObj.transform.SetParent(topBarObj.transform, false);
+            var menuBtnRt = menuBtnObj.GetComponent<RectTransform>();
+            menuBtnRt.anchorMin = new Vector2(0, 0.5f);
+            menuBtnRt.anchorMax = new Vector2(0, 0.5f);
+            menuBtnRt.pivot = new Vector2(0, 0.5f);
+            menuBtnRt.anchoredPosition = new Vector2(230, 0);
+            menuBtnRt.sizeDelta = new Vector2(130, 56);
+            var menuBtnImg = menuBtnObj.GetComponent<Image>();
+            menuBtnImg.sprite = uiSprite;
+            menuBtnImg.type = Image.Type.Sliced;
+            menuBtnImg.color = new Color(0.24f, 0.32f, 0.45f);
+            gameHUD.MenuButton = menuBtnObj.GetComponent<Button>();
+
+            var menuBtnTextObj = CreateText("Label", menuBtnObj.transform, defaultFont, 18, TextAnchor.MiddleCenter, Color.white);
+            var menuBtnTextRt = menuBtnTextObj.GetComponent<RectTransform>();
+            menuBtnTextRt.anchorMin = Vector2.zero;
+            menuBtnTextRt.anchorMax = Vector2.one;
+            menuBtnTextRt.offsetMin = Vector2.zero;
+            menuBtnTextRt.offsetMax = Vector2.zero;
+            gameHUD.MenuButtonText = menuBtnTextObj.GetComponent<Text>();
 
             // Territory Percent Text
             var pctObj = CreateText("PercentText", topBarObj.transform, defaultFont, 32, TextAnchor.MiddleCenter, new Color(0.2f, 0.85f, 1.0f));
             var pctRt = pctObj.GetComponent<RectTransform>();
-            pctRt.anchorMin = new Vector2(0.45f, 0.5f);
-            pctRt.anchorMax = new Vector2(0.45f, 0.5f);
+            pctRt.anchorMin = new Vector2(0.50f, 0.5f);
+            pctRt.anchorMax = new Vector2(0.50f, 0.5f);
             pctRt.pivot = new Vector2(0.5f, 0.5f);
             pctRt.anchoredPosition = Vector2.zero;
             pctRt.sizeDelta = new Vector2(160, 60);
@@ -136,8 +159,8 @@ namespace ColorLand.Editor
             // Kills Text
             var killsObj = CreateText("KillsText", topBarObj.transform, defaultFont, 26, TextAnchor.MiddleCenter, new Color(1.0f, 0.4f, 0.4f));
             var killsRt = killsObj.GetComponent<RectTransform>();
-            killsRt.anchorMin = new Vector2(0.68f, 0.5f);
-            killsRt.anchorMax = new Vector2(0.68f, 0.5f);
+            killsRt.anchorMin = new Vector2(0.72f, 0.5f);
+            killsRt.anchorMax = new Vector2(0.72f, 0.5f);
             killsRt.pivot = new Vector2(0.5f, 0.5f);
             killsRt.anchoredPosition = Vector2.zero;
             killsRt.sizeDelta = new Vector2(120, 60);
@@ -295,7 +318,6 @@ namespace ColorLand.Editor
             var modal = modalRootObj.GetComponent<LanguagePickerModal>();
             modal.ModalRoot = modalRootObj;
 
-            // Dialog Window
             var dialogObj = new GameObject("DialogWindow", typeof(RectTransform), typeof(Image));
             dialogObj.transform.SetParent(modalRootObj.transform, false);
             var dialogRt = dialogObj.GetComponent<RectTransform>();
@@ -307,7 +329,6 @@ namespace ColorLand.Editor
             dialogImg.type = Image.Type.Sliced;
             dialogImg.color = new Color(0.11f, 0.15f, 0.22f, 0.98f);
 
-            // Dialog Header Title
             var dlgHeaderObj = CreateText("Title", dialogObj.transform, defaultFont, 26, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
             var dlgHeaderRt = dlgHeaderObj.GetComponent<RectTransform>();
             dlgHeaderRt.anchorMin = new Vector2(0, 1);
@@ -317,7 +338,6 @@ namespace ColorLand.Editor
             dlgHeaderRt.sizeDelta = new Vector2(0, 45);
             modal.HeaderTitle = dlgHeaderObj.GetComponent<Text>();
 
-            // Close Button
             var closeBtnObj = new GameObject("CloseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
             closeBtnObj.transform.SetParent(dialogObj.transform, false);
             var closeBtnRt = closeBtnObj.GetComponent<RectTransform>();
@@ -339,7 +359,6 @@ namespace ColorLand.Editor
             closeLblRt.offsetMin = Vector2.zero;
             closeLblRt.offsetMax = Vector2.zero;
 
-            // ScrollView for Languages
             var scrollObj = new GameObject("ScrollView", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
             scrollObj.transform.SetParent(dialogObj.transform, false);
             var scrollRt = scrollObj.GetComponent<RectTransform>();
@@ -387,7 +406,10 @@ namespace ColorLand.Editor
             scroll.content = contentRt;
             modal.ContentContainer = contentRt;
 
-            // --- F. GAME OVER PANEL ---
+            // --- F. MENU MODALS (Shop, Daily Rewards, Maps, Main Menu) ---
+            BuildNavigationModals(hudObj, defaultFont, uiSprite);
+
+            // --- G. GAME OVER PANEL ---
             var overObj = new GameObject("GameOverPanel", typeof(RectTransform), typeof(Image));
             overObj.transform.SetParent(hudObj.transform, false);
             var overRt = overObj.GetComponent<RectTransform>();
@@ -434,6 +456,205 @@ namespace ColorLand.Editor
             gameHUD.PlayAgainButtonText = playAgainLblObj.GetComponent<Text>();
 
             overObj.SetActive(false);
+        }
+
+        private static void BuildNavigationModals(GameObject hudObj, Font font, Sprite uiSprite)
+        {
+            var menuModals = hudObj.AddComponent<MenuModals>();
+
+            // 1. Main Menu Dialog
+            var menuModalObj = CreateModalRoot("MainMenuModal", hudObj.transform);
+            menuModals.MainMenuPanel = menuModalObj;
+            var menuDialog = CreateDialogWindow("Dialog", menuModalObj.transform, uiSprite, new Vector2(500, 600));
+
+            var menuTitle = CreateText("Title", menuDialog.transform, font, 32, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
+            SetRect(menuTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -25), new Vector2(0, 50));
+            menuModals.MenuTitleText = menuTitle.GetComponent<Text>();
+
+            menuModals.CloseMenuButton = CreateCloseButton(menuDialog.transform, uiSprite, font);
+
+            // Menu Buttons: Play, Maps, Shop, Daily Rewards
+            var btnPlay = CreateModalButton("PlayBtn", menuDialog.transform, uiSprite, font, "ИГРАТЬ", new Vector2(0, 70), new Color(0.18f, 0.72f, 0.35f));
+            menuModals.PlayButton = btnPlay.Btn;
+            menuModals.PlayButtonText = btnPlay.Txt;
+
+            var btnMaps = CreateModalButton("MapsBtn", menuDialog.transform, uiSprite, font, "ВЫБОР КАРТЫ", new Vector2(0, -10), new Color(0.18f, 0.55f, 0.95f));
+            menuModals.OpenMapsButton = btnMaps.Btn;
+            menuModals.OpenMapsButtonText = btnMaps.Txt;
+
+            var btnShop = CreateModalButton("ShopBtn", menuDialog.transform, uiSprite, font, "МАГАЗИН", new Vector2(0, -90), new Color(0.85f, 0.55f, 0.15f));
+            menuModals.OpenShopButton = btnShop.Btn;
+            menuModals.OpenShopButtonText = btnShop.Txt;
+
+            var btnDaily = CreateModalButton("DailyBtn", menuDialog.transform, uiSprite, font, "ЕЖЕДНЕВНАЯ НАГРАДА", new Vector2(0, -170), new Color(0.65f, 0.25f, 0.85f));
+            menuModals.OpenDailyButton = btnDaily.Btn;
+            menuModals.OpenDailyButtonText = btnDaily.Txt;
+
+            // 2. Shop Modal
+            var shopModalObj = CreateModalRoot("ShopModal", hudObj.transform);
+            menuModals.ShopPanel = shopModalObj;
+            var shopDialog = CreateDialogWindow("Dialog", shopModalObj.transform, uiSprite, new Vector2(600, 850));
+            var shopTitle = CreateText("Title", shopDialog.transform, font, 28, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
+            SetRect(shopTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(0, 45));
+            menuModals.ShopTitleText = shopTitle.GetComponent<Text>();
+            menuModals.CloseShopButton = CreateCloseButton(shopDialog.transform, uiSprite, font);
+            menuModals.ShopContent = CreateScrollContainer(shopDialog.transform, font);
+
+            // 3. Daily Rewards Modal
+            var dailyModalObj = CreateModalRoot("DailyRewardModal", hudObj.transform);
+            menuModals.DailyRewardPanel = dailyModalObj;
+            var dailyDialog = CreateDialogWindow("Dialog", dailyModalObj.transform, uiSprite, new Vector2(560, 750));
+            var dailyTitle = CreateText("Title", dailyDialog.transform, font, 28, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
+            SetRect(dailyTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(0, 45));
+            menuModals.DailyTitleText = dailyTitle.GetComponent<Text>();
+            menuModals.CloseDailyButton = CreateCloseButton(dailyDialog.transform, uiSprite, font);
+            menuModals.DailyContent = CreateScrollContainer(dailyDialog.transform, font);
+
+            // 4. Map Select Modal
+            var mapsModalObj = CreateModalRoot("MapSelectModal", hudObj.transform);
+            menuModals.MapSelectPanel = mapsModalObj;
+            var mapsDialog = CreateDialogWindow("Dialog", mapsModalObj.transform, uiSprite, new Vector2(580, 800));
+            var mapsTitle = CreateText("Title", mapsDialog.transform, font, 28, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.2f));
+            SetRect(mapsTitle.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(0, 45));
+            menuModals.MapsTitleText = mapsTitle.GetComponent<Text>();
+            menuModals.CloseMapsButton = CreateCloseButton(mapsDialog.transform, uiSprite, font);
+            menuModals.MapsContent = CreateScrollContainer(mapsDialog.transform, font);
+        }
+
+        private static GameObject CreateModalRoot(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            go.GetComponent<Image>().color = new Color(0, 0, 0, 0.70f);
+            return go;
+        }
+
+        private static GameObject CreateDialogWindow(string name, Transform parent, Sprite uiSprite, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = size;
+            var img = go.GetComponent<Image>();
+            img.sprite = uiSprite;
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.10f, 0.14f, 0.22f, 0.98f);
+            return go;
+        }
+
+        private static Button CreateCloseButton(Transform parent, Sprite uiSprite, Font font)
+        {
+            var btnObj = new GameObject("CloseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+            btnObj.transform.SetParent(parent, false);
+            var rt = btnObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1, 1);
+            rt.anchorMax = new Vector2(1, 1);
+            rt.pivot = new Vector2(1, 1);
+            rt.anchoredPosition = new Vector2(-15, -15);
+            rt.sizeDelta = new Vector2(50, 50);
+            var img = btnObj.GetComponent<Image>();
+            img.sprite = uiSprite;
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.75f, 0.2f, 0.2f);
+
+            var lbl = CreateText("X", btnObj.transform, font, 24, TextAnchor.MiddleCenter, Color.white);
+            var lrt = lbl.GetComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = Vector2.zero;
+
+            return btnObj.GetComponent<Button>();
+        }
+
+        private static (Button Btn, Text Txt) CreateModalButton(string name, Transform parent, Sprite uiSprite, Font font, string label, Vector2 pos, Color col)
+        {
+            var btnObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            btnObj.transform.SetParent(parent, false);
+            var rt = btnObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(340, 65);
+            var img = btnObj.GetComponent<Image>();
+            img.sprite = uiSprite;
+            img.type = Image.Type.Sliced;
+            img.color = col;
+
+            var txtObj = CreateText("Label", btnObj.transform, font, 22, TextAnchor.MiddleCenter, Color.white);
+            var trt = txtObj.GetComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+            var txt = txtObj.GetComponent<Text>();
+            txt.text = label;
+
+            return (btnObj.GetComponent<Button>(), txt);
+        }
+
+        private static Transform CreateScrollContainer(Transform parent, Font font)
+        {
+            var scrollObj = new GameObject("ScrollView", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
+            scrollObj.transform.SetParent(parent, false);
+            var scrollRt = scrollObj.GetComponent<RectTransform>();
+            scrollRt.anchorMin = Vector2.zero;
+            scrollRt.anchorMax = Vector2.one;
+            scrollRt.offsetMin = new Vector2(20, 20);
+            scrollRt.offsetMax = new Vector2(-20, -75);
+            scrollObj.GetComponent<Image>().color = new Color(0.06f, 0.08f, 0.12f, 0.6f);
+
+            var scroll = scrollObj.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+
+            var vpObj = new GameObject("Viewport", typeof(RectTransform), typeof(Mask), typeof(Image));
+            vpObj.transform.SetParent(scrollObj.transform, false);
+            var vpRt = vpObj.GetComponent<RectTransform>();
+            vpRt.anchorMin = Vector2.zero;
+            vpRt.anchorMax = Vector2.one;
+            vpRt.offsetMin = Vector2.zero;
+            vpRt.offsetMax = Vector2.zero;
+            vpObj.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentObj = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentObj.transform.SetParent(vpObj.transform, false);
+            var contentRt = contentObj.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0, 1);
+            contentRt.anchorMax = new Vector2(1, 1);
+            contentRt.pivot = new Vector2(0.5f, 1);
+
+            var vlg = contentObj.GetComponent<VerticalLayoutGroup>();
+            vlg.spacing = 10;
+            vlg.padding = new RectOffset(10, 10, 10, 10);
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+
+            var csf = contentObj.GetComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = vpRt;
+            scroll.content = contentRt;
+
+            return contentRt;
+        }
+
+        private static void SetRect(RectTransform rt, Vector2 aMin, Vector2 aMax, Vector2 pivot, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = aMin;
+            rt.anchorMax = aMax;
+            rt.pivot = pivot;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
         }
 
         private static GameObject CreateText(string name, Transform parent, Font font, int size, TextAnchor align, Color color)
