@@ -32,6 +32,7 @@ namespace ColorLand.Logic
         public TerritoryCapture CaptureSystem { get; private set; }
         public CitySystem CitySystem { get; private set; }
         public PlayerEntity Player { get; private set; }
+        public GameObject PlayerObject { get; private set; }
         public List<PlayerEntity> Bots { get; private set; } = new List<PlayerEntity>();
 
         private static readonly string[] BotCountryCodes = new string[]
@@ -52,10 +53,23 @@ namespace ColorLand.Logic
 
         public void InitializeGame()
         {
-            Grid = new GameGrid(GridWidth, GridHeight, CellSize);
+            byte[] landMask = MapGenerator.GenerateDefaultArchipelago(GridWidth, GridHeight);
+            Grid = new GameGrid(GridWidth, GridHeight, CellSize, landMask);
             CitySystem = new CitySystem(Grid);
             CitySystem.LoadDefaultCities(GridWidth, GridHeight);
             CaptureSystem = new TerritoryCapture(Grid, CitySystem);
+
+            // 0. Boyitilgan 3D tabiat va atrof-muhit modellari (Tog'lar, ko'priklar, qoyalar, archa va dumaloq daraxtlar)
+            var envObj = GameObject.Find("Environment");
+            if (envObj == null)
+            {
+                envObj = new GameObject("Environment");
+                ColorLand.Render.EnvironmentBuilder.BuildRichEnvironment(envObj);
+            }
+            else if (envObj.transform.childCount == 0)
+            {
+                ColorLand.Render.EnvironmentBuilder.BuildRichEnvironment(envObj);
+            }
 
             if (CityRenderer != null)
             {
@@ -108,6 +122,8 @@ namespace ColorLand.Logic
             };
 
             GameObject playerObj = PlayerPrefab != null ? Instantiate(PlayerPrefab) : CreateDefaultCharacterObject("Player", Player.PlayerColor, "UZ");
+            playerObj.name = "Player";
+            PlayerObject = playerObj;
             var playerState = playerObj.GetComponent<PlayerState>() ?? playerObj.AddComponent<PlayerState>();
             playerState.Bind(Player);
 

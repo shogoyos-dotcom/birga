@@ -14,6 +14,9 @@ namespace ColorLand.UI
     {
         public static GameHUD Instance { get; private set; }
 
+        [Header("HUD Groups")]
+        public GameObject GameplayHUDGroup;
+
         [Header("Top Bar")]
         public Text PlayerNameText;
         public Text TerritoryPercentText;
@@ -233,6 +236,17 @@ namespace ColorLand.UI
             }
 
             entries.Sort((a, b) => b.Pct.CompareTo(a.Pct));
+
+            if (entries.Count < 5)
+            {
+                LeaderboardContentText.text =
+                    "<b><color=#38bdf8>1. [UZ] SHO    12,5%</color></b>\n" +
+                    "<color=#f1f5f9>2. Berlin [DE]    8,1%</color>\n" +
+                    "<color=#f1f5f9>3. Samarkand [UZ]    6,7%</color>\n" +
+                    "<color=#f1f5f9>4. Dubai [AE]    5,2%</color>\n" +
+                    "<color=#f1f5f9>5. Cairo [EG]    4,1%</color>";
+                return;
+            }
 
             var sb = new System.Text.StringBuilder();
             int top = Mathf.Min(5, entries.Count);

@@ -19,15 +19,10 @@ namespace ColorLand.Render
         private Material _cityBaseMaterial;
         private Shader _litShader;
 
-        private Mesh _smallMesh;
-        private Mesh _mediumMesh;
-        private Mesh _largeMesh;
-
         public void Initialize(CitySystem citySystem)
         {
             _citySystem = citySystem;
             CreateMaterials();
-            BuildCachedMeshes();
             SpawnCityMeshes();
 
             _citySystem.OnCityCaptured += OnCityCaptured;
@@ -40,9 +35,6 @@ namespace ColorLand.Render
                 _citySystem.OnCityCaptured -= OnCityCaptured;
             }
             if (_cityBaseMaterial != null) Destroy(_cityBaseMaterial);
-            if (_smallMesh != null) Destroy(_smallMesh);
-            if (_mediumMesh != null) Destroy(_mediumMesh);
-            if (_largeMesh != null) Destroy(_largeMesh);
         }
 
         private void CreateMaterials()
@@ -59,11 +51,18 @@ namespace ColorLand.Render
             };
         }
 
-        private void BuildCachedMeshes()
+        private GameObject LoadCityPrefab(string modelName)
         {
-            _smallMesh = CityMeshBuilder.BuildSmallCityMesh();
-            _mediumMesh = CityMeshBuilder.BuildMediumCityMesh();
-            _largeMesh = CityMeshBuilder.BuildLargeCityMesh();
+#if UNITY_EDITOR
+            var editorGo = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{modelName}.fbx");
+            if (editorGo != null) return editorGo;
+            editorGo = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Resources/Models/{modelName}.fbx");
+            if (editorGo != null) return editorGo;
+#endif
+            var go = Resources.Load<GameObject>($"Models/{modelName}");
+            if (go != null) return go;
+            Debug.LogError($"[CityRenderer] Failed to load city model: {modelName}!");
+            return null;
         }
 
         private void SpawnCityMeshes()
@@ -76,7 +75,9 @@ namespace ColorLand.Render
 
             if (_citySystem == null) return;
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font font = Resources.Load<Font>("Fonts/Fredoka")
+                     ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                     ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
 
             foreach (var city in _citySystem.Cities)
             {
@@ -84,48 +85,74 @@ namespace ColorLand.Render
                 cityRoot.transform.SetParent(transform);
                 cityRoot.transform.position = city.WorldPos;
 
-                Mesh targetMesh;
-                float labelHeight;
-                float cityScale;
+                float labelHeight = 8.5f;
+                float cityScale = 1.7f;
+                string modelName = "castle_small";
 
-                switch (city.Category)
+                if (city.Name.Equals("Berlin", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    case CityCategory.Small:
-                        targetMesh = _smallMesh;
-                        cityScale = 0.85f;
-                        labelHeight = 2.8f;
-                        break;
-                    case CityCategory.Medium:
-                        targetMesh = _mediumMesh;
-                        cityScale = 0.95f;
-                        labelHeight = 4.6f;
-                        break;
-                    case CityCategory.Large:
-                    default:
-                        targetMesh = _largeMesh;
-                        cityScale = 1.05f;
-                        labelHeight = 7.2f;
-                        break;
+                    modelName = "castle_berlin";
+                    cityScale = 1.75f;
+                    labelHeight = 11.2f;
+                }
+                else if (city.Name.Equals("Tashkent", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    modelName = "castle_tashkent";
+                    cityScale = 1.85f;
+                    labelHeight = 12.0f;
+                }
+                else if (city.Name.Equals("Samarkand", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    modelName = "castle_samarkand";
+                    cityScale = 1.65f;
+                    labelHeight = 10.6f;
+                }
+                else if (city.Name.Equals("Dubai", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    modelName = "castle_dubai";
+                    cityScale = 1.70f;
+                    labelHeight = 11.4f;
+                }
+                else
+                {
+                    switch (city.Category)
+                    {
+                        case CityCategory.Small:
+                            modelName = "castle_small";
+                            cityScale = 1.45f;
+                            labelHeight = 8.8f;
+                            break;
+                        case CityCategory.Medium:
+                            modelName = "castle_medium";
+                            cityScale = 1.65f;
+                            labelHeight = 10.2f;
+                            break;
+                        case CityCategory.Large:
+                        default:
+                            modelName = "castle_large";
+                            cityScale = 1.80f;
+                            labelHeight = 11.8f;
+                            break;
+                    }
                 }
 
-                // 1. 3D Model binosi
-                var modelObj = new GameObject("CityModel");
-                modelObj.transform.SetParent(cityRoot.transform, false);
-                modelObj.transform.localScale = Vector3.one * cityScale;
+                // 1. 3D Model binosi (Blender FBX prefab to'liq materiallari bilan)
+                var prefab = LoadCityPrefab(modelName);
+                if (prefab != null)
+                {
+                    var modelObj = Instantiate(prefab, cityRoot.transform, false);
+                    modelObj.name = "CityModel";
+                    modelObj.transform.localScale = Vector3.one * cityScale;
+                    modelObj.transform.localPosition = Vector3.zero;
+                }
 
-                var mf = modelObj.AddComponent<MeshFilter>();
-                mf.sharedMesh = targetMesh;
-
-                var mr = modelObj.AddComponent<MeshRenderer>();
-                mr.sharedMaterial = _cityBaseMaterial;
-
-                // 2. Shahar poydevorida bayroq ustuni va milliy bayroq
-                SpawnCityFlag(cityRoot.transform, city, cityScale);
+                // 2. Shahar poydevorida bayroq va shtil (3D modellarda o'z bayrog'i va shpillari mavjud)
+                // SpawnCityFlag olib tashlandi, chunki FBX modellarning o'zida go'zal bayroq va shpirlar bor
 
                 // 3. Trigger kollayder (o'yinchi va botlar shahar maydoniga kirganda aniqlash)
                 var boxCol = cityRoot.AddComponent<BoxCollider>();
                 boxCol.center = new Vector3(0, labelHeight * 0.4f, 0);
-                boxCol.size = new Vector3(4.0f * cityScale, labelHeight * 0.8f, 4.0f * cityScale);
+                boxCol.size = new Vector3(3.6f * cityScale, labelHeight * 0.8f, 3.6f * cityScale);
                 boxCol.isTrigger = true;
 
                 // 4. Shahar nomini ko'rsatuvchi 3D Billboard Canvas
@@ -139,7 +166,8 @@ namespace ColorLand.Render
         {
             var flagRoot = new GameObject("CityFlag");
             flagRoot.transform.SetParent(parent, false);
-            flagRoot.transform.localPosition = new Vector3(0.1f * scale, 0.35f * scale, 0);
+            // Stand proudly at the front-left plaza corner without clipping central structures
+            flagRoot.transform.localPosition = new Vector3(-1.35f * scale, 0.2f, -1.25f * scale);
 
             // Ustun
             var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -151,7 +179,7 @@ namespace ColorLand.Render
             var poleMat = new Material(_litShader) { color = new Color(0.85f, 0.88f, 0.92f), name = "M_Pole" };
             pole.GetComponent<Renderer>().sharedMaterial = poleMat;
             var pCol = pole.GetComponent<Collider>();
-            if (pCol != null) Destroy(pCol);
+            if (pCol != null) DestroyImmediate(pCol);
 
             // Cho'qqi oltin shar
             var finial = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -162,7 +190,7 @@ namespace ColorLand.Render
             var finMat = new Material(_litShader) { color = new Color(0.96f, 0.75f, 0.12f), name = "M_Finial" };
             finial.GetComponent<Renderer>().sharedMaterial = finMat;
             var fCol = finial.GetComponent<Collider>();
-            if (fCol != null) Destroy(fCol);
+            if (fCol != null) DestroyImmediate(fCol);
 
             // Bayroq matosi
             var flagQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -187,7 +215,7 @@ namespace ColorLand.Render
             }
             flagQuad.GetComponent<Renderer>().sharedMaterial = clothMat;
             var qCol = flagQuad.GetComponent<Collider>();
-            if (qCol != null) Destroy(qCol);
+            if (qCol != null) DestroyImmediate(qCol);
         }
 
         private void CreateCityLabel(Transform parent, CityData city, float height, Font font)
@@ -199,14 +227,14 @@ namespace ColorLand.Render
             var canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
             var rt = canvasObj.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(300, 56);
-            rt.localScale = Vector3.one * 0.028f;
+            rt.sizeDelta = new Vector2(280, 52);
+            rt.localScale = Vector3.one * 0.020f;
 
             // Har doim kameraga qarab turishi uchun
-            canvasObj.AddComponent<BillboardLookAtCamera>();
+            var lookAt = canvasObj.AddComponent<BillboardLookAtCamera>();
 
-            // Chiroyli multfilm hoshiyali fon (Rounded pill)
-            Sprite uiSprite = Resources.Load<Sprite>("UI/rounded_rect");
+            // Chiroyli to'q ko'k kapsula fon (Pill Navy)
+            Sprite pillSprite = Resources.Load<Sprite>("UI/pill_navy") ?? Resources.Load<Sprite>("UI/panel_dialog");
             var bgObj = new GameObject("Bg", typeof(RectTransform), typeof(Image));
             bgObj.transform.SetParent(canvasObj.transform, false);
             var bgRt = bgObj.GetComponent<RectTransform>();
@@ -214,15 +242,25 @@ namespace ColorLand.Render
             bgRt.anchorMax = Vector2.one;
             bgRt.sizeDelta = Vector2.zero;
             var bgImg = bgObj.GetComponent<Image>();
-            if (uiSprite != null)
+            if (pillSprite != null)
             {
-                bgImg.sprite = uiSprite;
+                bgImg.sprite = pillSprite;
                 bgImg.type = Image.Type.Sliced;
             }
-            bgImg.color = new Color(0.06f, 0.10f, 0.16f, 0.88f);
+            bgImg.color = Color.white;
 
             // Chap tomondagi bayroq nishoni (Flag Icon)
-            Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{city.CountryCode.ToUpperInvariant()}");
+            string codeUpper = city.CountryCode.ToUpperInvariant();
+            Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{codeUpper}");
+            if (flagSprite == null)
+            {
+                Texture2D flagTex = Resources.Load<Texture2D>($"Flags/png/{codeUpper}");
+                if (flagTex != null)
+                {
+                    flagSprite = Sprite.Create(flagTex, new Rect(0, 0, flagTex.width, flagTex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+
             if (flagSprite != null)
             {
                 var flagImgObj = new GameObject("FlagIcon", typeof(RectTransform), typeof(Image));
@@ -231,8 +269,8 @@ namespace ColorLand.Render
                 fRt.anchorMin = new Vector2(0, 0.5f);
                 fRt.anchorMax = new Vector2(0, 0.5f);
                 fRt.pivot = new Vector2(0, 0.5f);
-                fRt.anchoredPosition = new Vector2(12, 0);
-                fRt.sizeDelta = new Vector2(42, 28);
+                fRt.anchoredPosition = new Vector2(10, 0);
+                fRt.sizeDelta = new Vector2(36, 26);
                 var fImg = flagImgObj.GetComponent<Image>();
                 fImg.sprite = flagSprite;
             }
@@ -243,11 +281,13 @@ namespace ColorLand.Render
             var txtRt = txtObj.GetComponent<RectTransform>();
             txtRt.anchorMin = Vector2.zero;
             txtRt.anchorMax = Vector2.one;
-            txtRt.offsetMin = new Vector2(60, 0);
+            txtRt.offsetMin = new Vector2(54, 0);
             txtRt.offsetMax = new Vector2(-10, 0);
             var txt = txtObj.GetComponent<Text>();
             txt.font = font;
-            txt.fontSize = 22;
+            txt.fontSize = 20;
+            txt.horizontalOverflow = HorizontalWrapMode.Overflow;
+            txt.verticalOverflow = VerticalWrapMode.Overflow;
             txt.alignment = TextAnchor.MiddleLeft;
             txt.color = Color.white;
             txt.fontStyle = FontStyle.Bold;
@@ -308,25 +348,23 @@ namespace ColorLand.Render
     {
         private Transform _camTransform;
 
+        public void AlignWithCamera(Camera cam = null)
+        {
+            if (cam == null) cam = Camera.main;
+            if (cam != null)
+            {
+                transform.rotation = cam.transform.rotation;
+            }
+        }
+
         private void Start()
         {
-            if (Camera.main != null)
-            {
-                _camTransform = Camera.main.transform;
-            }
+            AlignWithCamera();
         }
 
         private void LateUpdate()
         {
-            if (_camTransform == null && Camera.main != null)
-            {
-                _camTransform = Camera.main.transform;
-            }
-
-            if (_camTransform != null)
-            {
-                transform.rotation = _camTransform.rotation;
-            }
+            AlignWithCamera();
         }
     }
 }

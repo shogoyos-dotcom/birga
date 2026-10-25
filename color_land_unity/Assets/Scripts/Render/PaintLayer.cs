@@ -136,7 +136,9 @@ namespace ColorLand.Render
         {
             if (_paletteBuffer == null || _paletteTex == null) return;
             _paletteBuffer[ownerId] = color;
-            _paletteDirty = true;
+            _paletteTex.SetPixels32(_paletteBuffer);
+            _paletteTex.Apply(false, false);
+            _paletteDirty = false;
         }
 
         public void SetCell(int x, int y, byte owner)

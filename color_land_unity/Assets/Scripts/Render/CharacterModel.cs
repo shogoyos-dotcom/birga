@@ -18,21 +18,6 @@ namespace ColorLand.Render
                             ?? Shader.Find("Standard")
                             ?? Shader.Find("Mobile/Diffuse");
 
-            // 0. Contact Shadow Disc (Yerdagi yumshoq aloqa soyasi)
-            var shadow = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            shadow.name = "ContactShadow";
-            shadow.transform.SetParent(root.transform, false);
-            shadow.transform.localPosition = new Vector3(0, 0.02f, 0);
-            shadow.transform.localScale = new Vector3(1.7f, 0.003f, 1.7f);
-            var shadowMat = new Material(litShader)
-            {
-                color = new Color(0.04f, 0.08f, 0.14f, 0.45f),
-                name = "M_ContactShadow"
-            };
-            shadow.GetComponent<Renderer>().sharedMaterial = shadowMat;
-            var sCol = shadow.GetComponent<Collider>();
-            if (sCol != null) UnityEngine.Object.DestroyImmediate(sCol);
-
             // 1. Asosiy Yaltiroq Tana Shari (Glossy Sphere)
             var body = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             body.name = "Body";
@@ -98,55 +83,11 @@ namespace ColorLand.Render
             var mCol = mouthObj.GetComponent<Collider>();
             if (mCol != null) UnityEngine.Object.DestroyImmediate(mCol);
 
-            // 4. Orqadagi Hilpiraydigan Bayroq (Flagpole on back)
-            var poleObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            poleObj.name = "Pole";
-            poleObj.transform.SetParent(root.transform, false);
-            poleObj.transform.localPosition = new Vector3(0, 1.45f, -0.55f);
-            poleObj.transform.localScale = new Vector3(0.06f, 0.85f, 0.06f);
-            var poleMat = new Material(litShader) { color = new Color(0.88f, 0.90f, 0.95f), name = "M_SilverPole" };
-            poleObj.GetComponent<Renderer>().sharedMaterial = poleMat;
-            var pCol = poleObj.GetComponent<Collider>();
-            if (pCol != null) UnityEngine.Object.DestroyImmediate(pCol);
-
-            var finialObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            finialObj.name = "Finial";
-            finialObj.transform.SetParent(root.transform, false);
-            finialObj.transform.localPosition = new Vector3(0, 2.32f, -0.55f);
-            finialObj.transform.localScale = Vector3.one * 0.22f;
-            var finMat = new Material(litShader) { color = new Color(0.98f, 0.78f, 0.15f), name = "M_GoldFinial" };
-            finialObj.GetComponent<Renderer>().sharedMaterial = finMat;
-            var fnCol = finialObj.GetComponent<Collider>();
-            if (fnCol != null) UnityEngine.Object.DestroyImmediate(fnCol);
-
-            var flagObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            flagObj.name = "Flag";
-            flagObj.transform.SetParent(root.transform, false);
-            flagObj.transform.localPosition = new Vector3(0.50f, 1.95f, -0.55f);
-            flagObj.transform.localRotation = Quaternion.Euler(0, 90f, 0);
-            flagObj.transform.localScale = new Vector3(0.98f, 0.65f, 1.0f);
-
-            Sprite flagSprite = Resources.Load<Sprite>($"Flags/png/{countryCode.ToUpperInvariant()}");
-            var flagMat = new Material(litShader) { name = $"M_Flag_{countryCode}" };
-            if (flagSprite != null)
-            {
-                flagMat.mainTexture = flagSprite.texture;
-                flagMat.color = Color.white;
-            }
-            else
-            {
-                flagMat.color = bodyColor;
-            }
-            flagObj.GetComponent<Renderer>().sharedMaterial = flagMat;
-            var fCol = flagObj.GetComponent<Collider>();
-            if (fCol != null) UnityEngine.Object.DestroyImmediate(fCol);
-
-            // 5. Harakat va Yurish Animatori
+            // 4. Harakat va Yurish Animatori
             var anim = root.AddComponent<CharacterAnimator>();
             anim.Body = body.transform;
-            anim.Flag = flagObj.transform;
 
-            // 6. Trigger Collider
+            // 5. Trigger Collider
             var rootCol = root.AddComponent<CapsuleCollider>();
             rootCol.center = new Vector3(0, 0.85f, 0);
             rootCol.radius = 0.85f;

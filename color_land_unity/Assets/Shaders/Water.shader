@@ -2,9 +2,9 @@ Shader "ColorLand/WaterShader"
 {
     Properties
     {
-        _DeepColor ("Deep Color", Color) = (0.01, 0.35, 0.72, 1.0)
-        _ShallowColor ("Shallow Color", Color) = (0.04, 0.75, 0.88, 1.0)
-        _FoamColor ("Foam Color", Color) = (0.95, 0.99, 1.0, 0.95)
+        _DeepColor ("Deep Color", Color) = (0.02, 0.40, 0.78, 1.0)
+        _ShallowColor ("Shallow Color", Color) = (0.05, 0.82, 0.90, 1.0)
+        _FoamColor ("Foam Color", Color) = (0.96, 1.0, 1.0, 0.95)
         _WaveSpeed ("Wave Speed", Float) = 0.75
         _WaveScale ("Wave Scale", Float) = 0.18
     }
@@ -52,10 +52,8 @@ Shader "ColorLand/WaterShader"
             {
                 Varyings output;
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
-                
-                // Subtle cartoon physical vertical wave bobbing
                 float t = _Time.y * _WaveSpeed;
-                float w = sin(posWS.x * 0.15 + t) * cos(posWS.z * 0.15 + t * 0.8) * 0.04;
+                float w = sin(posWS.x * 0.15 + t + 0.7) * cos(posWS.z * 0.15 + t * 0.8 + 0.3) * 0.05;
                 posWS.y += w;
 
                 output.positionWS = posWS;
@@ -68,22 +66,18 @@ Shader "ColorLand/WaterShader"
                 float t = _Time.y * _WaveSpeed;
                 float2 uv = input.positionWS.xz * _WaveScale;
 
-                // 3-layer rich tropical wave motion
-                float w1 = sin(uv.x * 2.2 + t * 1.4) * cos(uv.y * 1.8 + t * 1.1);
-                float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9);
+                // Smooth organic water caustics and radiant turquoise gradients
+                float w1 = sin(uv.x * 2.2 + t * 1.4 + 1.2) * cos(uv.y * 1.8 + t * 1.1 + 0.8);
+                float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9 + 2.1);
                 float w3 = cos(uv.x * 2.8 + uv.y * 2.2 - t * 1.5);
-                float wave = (w1 * 0.50 + w2 * 0.32 + w3 * 0.18);
+                float wave = (w1 * 0.50 + w2 * 0.32 + w3 * 0.18) * 0.5 + 0.5;
 
-                // Caribbean deep blue to turquoise gradient
-                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, 0.38 + 0.44 * wave);
+                // Crystal clear tropical azure to radiant turquoise depth transition
+                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, pow(wave, 1.3));
 
-                // White foam crests
-                float crest = smoothstep(0.40, 0.74, wave);
-                water = lerp(water, _FoamColor.rgb, crest * 0.55);
-
-                // Subtle cartoon specular glint
-                float glint = pow(max(0.0, wave), 4.0) * 0.18;
-                water += float3(glint, glint, glint);
+                // Soft sun glints and surface caustics (zero harsh polka dots)
+                float glint = pow(wave, 5.0) * 0.45;
+                water += _FoamColor.rgb * glint;
 
                 return half4(water, 1.0);
             }
@@ -133,7 +127,7 @@ Shader "ColorLand/WaterShader"
                 v2f o;
                 float3 posWS = mul(unity_ObjectToWorld, v.vertex).xyz;
                 float t = _Time.y * _WaveSpeed;
-                float w = sin(posWS.x * 0.15 + t) * cos(posWS.z * 0.15 + t * 0.8) * 0.04;
+                float w = sin(posWS.x * 0.15 + t + 0.7) * cos(posWS.z * 0.15 + t * 0.8 + 0.3) * 0.05;
                 posWS.y += w;
 
                 o.pos = mul(UNITY_MATRIX_VP, float4(posWS, 1.0));
@@ -146,18 +140,18 @@ Shader "ColorLand/WaterShader"
                 float t = _Time.y * _WaveSpeed;
                 float2 uv = i.positionWS.xz * _WaveScale;
 
-                float w1 = sin(uv.x * 2.2 + t * 1.4) * cos(uv.y * 1.8 + t * 1.1);
-                float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9);
+                // Smooth organic water caustics and radiant turquoise gradients
+                float w1 = sin(uv.x * 2.2 + t * 1.4 + 1.2) * cos(uv.y * 1.8 + t * 1.1 + 0.8);
+                float w2 = sin((uv.x * 1.3 - uv.y * 1.9) + t * 0.9 + 2.1);
                 float w3 = cos(uv.x * 2.8 + uv.y * 2.2 - t * 1.5);
-                float wave = (w1 * 0.50 + w2 * 0.32 + w3 * 0.18);
+                float wave = (w1 * 0.50 + w2 * 0.32 + w3 * 0.18) * 0.5 + 0.5;
 
-                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, 0.38 + 0.44 * wave);
+                // Crystal clear tropical azure to radiant turquoise depth transition
+                float3 water = lerp(_DeepColor.rgb, _ShallowColor.rgb, pow(wave, 1.3));
 
-                float crest = smoothstep(0.40, 0.74, wave);
-                water = lerp(water, _FoamColor.rgb, crest * 0.55);
-
-                float glint = pow(max(0.0, wave), 4.0) * 0.18;
-                water += float3(glint, glint, glint);
+                // Soft sun glints and surface caustics (zero harsh polka dots)
+                float glint = pow(wave, 5.0) * 0.45;
+                water += _FoamColor.rgb * glint;
 
                 return half4(water, 1.0);
             }

@@ -136,6 +136,155 @@ namespace ColorLand.UI
             HideAll();
             if (MainMenuPanel != null) MainMenuPanel.SetActive(true);
             RefreshAllTexts();
+            ApplyMainMenuStyling();
+        }
+
+        public void ApplyMainMenuStyling()
+        {
+            try
+            {
+                var parent = MainMenuPanel != null ? MainMenuPanel.transform : (MenuTitleText != null ? MenuTitleText.transform.parent : null);
+                if (parent != null)
+                {
+                    if (MenuTitleText != null) MenuTitleText.gameObject.SetActive(false);
+                    var titleContainer = parent.Find("TitleContainer");
+                    if (titleContainer != null) titleContainer.gameObject.SetActive(false);
+
+                    var logoObj = parent.Find("Logo3DImage");
+                    if (logoObj == null)
+                    {
+                        var go = new GameObject("Logo3DImage", typeof(RectTransform), typeof(Image));
+                        go.transform.SetParent(parent, false);
+                        logoObj = go.transform;
+                    }
+                    var rt = logoObj.GetComponent<RectTransform>();
+                    rt.anchorMin = new Vector2(0.0f, 1.0f);
+                    rt.anchorMax = new Vector2(0.0f, 1.0f);
+                    rt.pivot = new Vector2(0.0f, 1.0f);
+                    rt.anchoredPosition = new Vector2(48, -200);
+                    rt.sizeDelta = new Vector2(480, 280);
+
+                    var img = logoObj.GetComponent<Image>();
+                    var spLogo = Resources.Load<Sprite>("UI/title_logo_3d");
+                    if (spLogo != null)
+                    {
+                        img.sprite = spLogo;
+                        img.preserveAspect = true;
+                        img.color = Color.white;
+                    }
+                    logoObj.gameObject.SetActive(true);
+                }
+
+                // 5 Chunky Glossy Pill Buttons left-aligned matching reference media_1792869223526_a5380204.jpg (40% to 80% screen height)
+                float leftX = 48f;
+                Vector2 btnSize = new Vector2(460, 115);
+                ApplyButtonSkin(PlayButton, PlayButtonText, "btn_green", "icon_play", Strings.T("play").ToUpperInvariant(), leftX, -780f, btnSize, 30);
+                ApplyButtonSkin(OpenMapsButton, OpenMapsButtonText, "btn_blue", "icon_map", Strings.T("mapSelect").ToUpperInvariant(), leftX, -950f, btnSize, 28);
+                ApplyButtonSkin(OpenShopButton, OpenShopButtonText, "btn_orange", "icon_shop", Strings.T("shop", "МАГАЗИН").ToUpperInvariant(), leftX, -1120f, btnSize, 30);
+                ApplyButtonSkin(OpenDailyButton, OpenDailyButtonText, "btn_purple", "icon_trophy", Strings.T("dailyReward", "ЕЖЕДНЕВНЫЕ НАГРАДЫ").ToUpperInvariant(), leftX, -1290f, btnSize, 24);
+                ApplyButtonSkin(OpenSettingsButton, OpenSettingsButtonText, "btn_slate", "icon_settings", Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant(), leftX, -1460f, btnSize, 28);
+
+                if (OpenShopButton != null)
+                {
+                    var badge = OpenShopButton.transform.Find("BadgeExclamation");
+                    if (badge == null)
+                    {
+                        var bObj = new GameObject("BadgeExclamation", typeof(RectTransform), typeof(Image));
+                        bObj.transform.SetParent(OpenShopButton.transform, false);
+                        var bRt = bObj.GetComponent<RectTransform>();
+                        bRt.anchorMin = new Vector2(1, 1);
+                        bRt.anchorMax = new Vector2(1, 1);
+                        bRt.pivot = new Vector2(0.5f, 0.5f);
+                        bRt.anchoredPosition = new Vector2(-14, -10);
+                        bRt.sizeDelta = new Vector2(44, 44);
+                        var bImg = bObj.GetComponent<Image>();
+                        bImg.sprite = Resources.Load<Sprite>("UI/badge_exclamation");
+                    }
+                    else
+                    {
+                        var bRt = badge.GetComponent<RectTransform>();
+                        bRt.anchoredPosition = new Vector2(-14, -10);
+                        bRt.sizeDelta = new Vector2(44, 44);
+                        badge.gameObject.SetActive(true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MenuModals] Styling warning: {ex.Message}");
+            }
+        }
+
+        private void ApplyButtonSkin(Button btn, Text txt, string spriteName, string iconSpriteName, string label, float posX, float posY, Vector2 size, int fontSize)
+        {
+            if (btn == null) return;
+            var img = btn.GetComponent<Image>();
+            if (img != null)
+            {
+                var sp = Resources.Load<Sprite>($"UI/{spriteName}");
+                if (sp != null)
+                {
+                    img.sprite = sp;
+                    img.type = Image.Type.Sliced;
+                    img.color = Color.white;
+                }
+            }
+            var rt = btn.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.0f, 1.0f);
+            rt.anchorMax = new Vector2(0.0f, 1.0f);
+            rt.pivot = new Vector2(0.0f, 1.0f);
+            rt.anchoredPosition = new Vector2(posX, posY);
+            rt.sizeDelta = size;
+
+            // Dedicated 3D icon on the left
+            if (!string.IsNullOrEmpty(iconSpriteName))
+            {
+                var iconObj = btn.transform.Find("BtnIcon");
+                if (iconObj == null)
+                {
+                    var go = new GameObject("BtnIcon", typeof(RectTransform), typeof(Image));
+                    go.transform.SetParent(btn.transform, false);
+                    iconObj = go.transform;
+                }
+                var iconRt = iconObj.GetComponent<RectTransform>();
+                iconRt.anchorMin = new Vector2(0, 0.5f);
+                iconRt.anchorMax = new Vector2(0, 0.5f);
+                iconRt.pivot = new Vector2(0, 0.5f);
+                iconRt.anchoredPosition = new Vector2(24, 0);
+                iconRt.sizeDelta = new Vector2(72, 72);
+
+                var iconImg = iconObj.GetComponent<Image>();
+                var spIcon = Resources.Load<Sprite>($"UI/{iconSpriteName}");
+                if (spIcon != null)
+                {
+                    iconImg.sprite = spIcon;
+                    iconImg.preserveAspect = true;
+                    iconImg.color = Color.white;
+                }
+            }
+
+            if (txt != null)
+            {
+                txt.text = label;
+                txt.color = Color.white;
+                txt.fontSize = fontSize;
+                txt.fontStyle = FontStyle.Bold;
+                txt.alignment = TextAnchor.MiddleCenter;
+
+                var txtRt = txt.GetComponent<RectTransform>();
+                txtRt.anchorMin = Vector2.zero;
+                txtRt.anchorMax = Vector2.one;
+                txtRt.offsetMin = new Vector2(105, 0);
+                txtRt.offsetMax = new Vector2(-20, 0);
+
+                var shadow = txt.GetComponent<Shadow>();
+                if (shadow == null)
+                {
+                    shadow = txt.gameObject.AddComponent<Shadow>();
+                    shadow.effectColor = new Color(0, 0, 0, 0.65f);
+                    shadow.effectDistance = new Vector2(2, -2);
+                }
+            }
         }
 
         public void ShowShop()
@@ -179,13 +328,13 @@ namespace ColorLand.UI
         {
             if (MenuTitleText != null)
             {
-                MenuTitleText.text = "<b><color=#facc15>COLOR</color> <color=#38bdf8>LAND 3D</color></b>";
+                MenuTitleText.gameObject.SetActive(false);
             }
-            if (PlayButtonText != null) PlayButtonText.text = $"▶  {Strings.T("play").ToUpperInvariant()}";
-            if (OpenMapsButtonText != null) OpenMapsButtonText.text = $"🗺️  {Strings.T("mapSelect").ToUpperInvariant()}";
-            if (OpenShopButtonText != null) OpenShopButtonText.text = $"🏪  {Strings.T("shopTitle").ToUpperInvariant()}";
-            if (OpenDailyButtonText != null) OpenDailyButtonText.text = $"🏆  {Strings.T("dailyReward").ToUpperInvariant()}";
-            if (OpenSettingsButtonText != null) OpenSettingsButtonText.text = $"⚙️  {Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant()}";
+            if (PlayButtonText != null) PlayButtonText.text = Strings.T("play").ToUpperInvariant();
+            if (OpenMapsButtonText != null) OpenMapsButtonText.text = Strings.T("mapSelect").ToUpperInvariant();
+            if (OpenShopButtonText != null) OpenShopButtonText.text = Strings.T("shop", "МАГАЗИН").ToUpperInvariant();
+            if (OpenDailyButtonText != null) OpenDailyButtonText.text = Strings.T("dailyReward", "ЕЖЕДНЕВНЫЕ НАГРАДЫ").ToUpperInvariant();
+            if (OpenSettingsButtonText != null) OpenSettingsButtonText.text = Strings.T("settings", "НАСТРОЙКИ").ToUpperInvariant();
 
             if (ShopTitleText != null) ShopTitleText.text = Strings.T("shopTitle").ToUpperInvariant();
             if (DailyTitleText != null) DailyTitleText.text = Strings.T("dailyReward").ToUpperInvariant();

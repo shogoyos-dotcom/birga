@@ -4,38 +4,67 @@ namespace ColorLand.Render
 {
     /// <summary>
     /// Color Land 3D — Boyitilgan Tabiat va Atrof-Muhit Qurg'ichi (EnvironmentBuilder).
-    /// Foydalanuvchi yuborgan etalon manzaraga 100% mos:
-    /// - Uzoqdagi qorli cho'qqili tog' tizmalari (Snow-capped mountains)
-    /// - Daryo ustidagi yog'och kamon ko'prik (Arched wooden bridge)
-    /// - Moviy suvdan chiqib turgan qoyali orolchalar (Rocky islets)
-    /// - Sohildagi zich qarag'ayzorlar (Dense pine forests)
+    /// Blender 4.2 da yasalgan yuqori sifatli Stylized FBX modellarni
+    /// (qorli tog'lar, mayoq / lighthouse, yog'och ko'priklar, qoyalar, archa va dumaloq daraxtlar)
+    /// to'liq o'z materiallari va ranglari bilan dunyoga joylashtiradi.
     /// </summary>
     public static class EnvironmentBuilder
     {
+        public static GameObject LoadModelPrefab(string modelName)
+        {
+#if UNITY_EDITOR
+            var editorGo = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{modelName}.fbx");
+            if (editorGo != null) return editorGo;
+            editorGo = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Resources/Models/{modelName}.fbx");
+            if (editorGo != null) return editorGo;
+#endif
+            var go = Resources.Load<GameObject>($"Models/{modelName}");
+            if (go != null) return go;
+            Debug.LogError($"[EnvironmentBuilder] Failed to load model: {modelName}!");
+            return null;
+        }
+
         public static void BuildRichEnvironment(GameObject envRoot)
         {
-            Shader litShader = Shader.Find("ColorLand/CartoonLit") 
-                            ?? Shader.Find("Universal Render Pipeline/Lit") 
-                            ?? Shader.Find("Mobile/Diffuse");
-
-            var mountainRockMat = new Material(litShader) { color = new Color(0.45f, 0.48f, 0.54f), name = "M_MountainRock" };
-            var mountainSnowMat = new Material(litShader) { color = new Color(0.96f, 0.98f, 1.0f), name = "M_MountainSnow" };
-            var bridgeWoodMat = new Material(litShader) { color = new Color(0.60f, 0.40f, 0.22f), name = "M_BridgeWood" };
-            var bridgeRailMat = new Material(litShader) { color = new Color(0.45f, 0.28f, 0.15f), name = "M_BridgeRail" };
-            var trunkMat = new Material(litShader) { color = new Color(0.45f, 0.28f, 0.15f), name = "M_Trunk" };
-            var pineMat1 = new Material(litShader) { color = new Color(0.12f, 0.55f, 0.24f), name = "M_Pine1" };
-            var pineMat2 = new Material(litShader) { color = new Color(0.18f, 0.68f, 0.30f), name = "M_Pine2" };
-            var rockMat = new Material(litShader) { color = new Color(0.52f, 0.56f, 0.62f), name = "M_Rock" };
+            var mntPrefab = LoadModelPrefab("mountain_snowy");
+            var bridgePrefab = LoadModelPrefab("bridge_wooden");
+            var rockPrefab = LoadModelPrefab("rock_stylized");
+            var pinePrefab = LoadModelPrefab("tree_stylized_pine");
+            var roundPrefab = LoadModelPrefab("tree_stylized_round");
+            var lightPrefab = LoadModelPrefab("lighthouse");
 
             // ==============================================================================
-            // 1. UZOQDAGI QORLI CHO'QQILI TOG' TIZMALARI (Snow-capped Mountains on horizon)
+            // 1. SOXIL BO'YIDAGI 3D MAYOQ (Scenic Coastal Lighthouse on Cliff for Main Menu)
+            // ==============================================================================
+            if (lightPrefab != null)
+            {
+                var lightObj = new GameObject("CoastalLighthouse");
+                lightObj.transform.SetParent(envRoot.transform, false);
+                // Positioned on the picturesque promontory overlooking the azure bay
+                lightObj.transform.position = new Vector3(5.5f, 0.2f, -6.5f);
+                var inst = Object.Instantiate(lightPrefab, lightObj.transform, false);
+                inst.transform.localScale = Vector3.one * 1.75f;
+                inst.transform.rotation = Quaternion.Euler(0, 35.0f, 0);
+
+                // Rocky cliff base for lighthouse
+                if (rockPrefab != null)
+                {
+                    var cliffObj = Object.Instantiate(rockPrefab, lightObj.transform, false);
+                    cliffObj.transform.localPosition = new Vector3(0, -0.1f, 0);
+                    cliffObj.transform.localScale = new Vector3(3.5f, 1.2f, 3.5f);
+                }
+            }
+
+            // ==============================================================================
+            // 2. UZOQDAGI QORLI CHO'QQILI TOG' TIZMALARI (Snowy Alpine Mountain Ranges)
             // ==============================================================================
             Vector3[] mountainPositions = new Vector3[]
             {
                 new Vector3(-68, 0, 48),  new Vector3(-58, 0, 68),  new Vector3(-42, 0, 72),
                 new Vector3(-18, 0, 74),  new Vector3(18, 0, 74),   new Vector3(45, 0, 70),
                 new Vector3(65, 0, 52),   new Vector3(72, 0, 22),   new Vector3(70, 0, -22),
-                new Vector3(64, 0, -55),  new Vector3(-65, 0, -52), new Vector3(-72, 0, 0)
+                new Vector3(64, 0, -55),  new Vector3(-65, 0, -52), new Vector3(-72, 0, 0),
+                new Vector3(-35, 0, 65),  new Vector3(0, 0, 75),    new Vector3(32, 0, 72)
             };
 
             for (int i = 0; i < mountainPositions.Length; i++)
@@ -44,37 +73,24 @@ namespace ColorLand.Render
                 mntObj.transform.SetParent(envRoot.transform, false);
                 mntObj.transform.position = mountainPositions[i];
 
-                float mHeight = UnityEngine.Random.Range(18.0f, 26.0f);
-                float mRadius = UnityEngine.Random.Range(12.0f, 18.0f);
+                float scaleY = Random.Range(2.0f, 2.9f);
+                float scaleXZ = Random.Range(2.0f, 2.8f);
 
-                // Asosiy tosh piramida/konus
-                var rockCone = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                rockCone.name = "MountainBody";
-                rockCone.transform.SetParent(mntObj.transform, false);
-                rockCone.transform.localPosition = new Vector3(0, mHeight * 0.45f, 0);
-                rockCone.transform.localScale = new Vector3(mRadius, mHeight * 0.45f, mRadius);
-                rockCone.GetComponent<Renderer>().sharedMaterial = mountainRockMat;
-                var rcCol = rockCone.GetComponent<Collider>();
-                if (rcCol != null) UnityEngine.Object.DestroyImmediate(rcCol);
-
-                // Qorli cho'qqi (Snow Cap atop mountain)
-                var snowCone = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                snowCone.name = "SnowCap";
-                snowCone.transform.SetParent(mntObj.transform, false);
-                snowCone.transform.localPosition = new Vector3(0, mHeight * 0.85f, 0);
-                snowCone.transform.localScale = new Vector3(mRadius * 0.45f, mHeight * 0.25f, mRadius * 0.45f);
-                snowCone.GetComponent<Renderer>().sharedMaterial = mountainSnowMat;
-                var scCol = snowCone.GetComponent<Collider>();
-                if (scCol != null) UnityEngine.Object.DestroyImmediate(scCol);
+                if (mntPrefab != null)
+                {
+                    var inst = Object.Instantiate(mntPrefab, mntObj.transform, false);
+                    inst.transform.localScale = new Vector3(scaleXZ, scaleY, scaleXZ);
+                    inst.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+                }
             }
 
             // ==============================================================================
-            // 2. YOG'OCH KAMON KO'PRIKLAR (Arched Wooden Bridges over waterways)
+            // 3. YOG'OCH KAMON KO'PRIKLAR (Arched Wooden Bridges over Water)
             // ==============================================================================
             Vector3[] bridgePositions = new Vector3[]
             {
-                new Vector3(12, 0.4f, 28),
-                new Vector3(-25, 0.4f, 15)
+                new Vector3(1.2f, 0.25f, 12.2f),
+                new Vector3(8.5f, 0.25f, 15.0f)
             };
 
             for (int b = 0; b < bridgePositions.Length; b++)
@@ -82,124 +98,119 @@ namespace ColorLand.Render
                 var bridgeRoot = new GameObject($"WoodenBridge_{b}");
                 bridgeRoot.transform.SetParent(envRoot.transform, false);
                 bridgeRoot.transform.position = bridgePositions[b];
-                bridgeRoot.transform.rotation = Quaternion.Euler(0, 35.0f * b + 45.0f, 0);
+                bridgeRoot.transform.rotation = Quaternion.Euler(0, b == 0 ? 46.0f : -25.0f, 0);
 
-                // Kamon taxtalari (Arched bridge deck)
-                var deck = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                deck.name = "Deck";
-                deck.transform.SetParent(bridgeRoot.transform, false);
-                deck.transform.localPosition = new Vector3(0, 0.35f, 0);
-                deck.transform.localScale = new Vector3(2.2f, 0.16f, 6.5f);
-                deck.GetComponent<Renderer>().sharedMaterial = bridgeWoodMat;
-                var dCol = deck.GetComponent<Collider>();
-                if (dCol != null) UnityEngine.Object.DestroyImmediate(dCol);
-
-                // Ko'prik to'siqlari va ustunlari (Railings)
-                for (int side = -1; side <= 1; side += 2)
+                if (bridgePrefab != null)
                 {
-                    var rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    rail.name = $"Railing_{side}";
-                    rail.transform.SetParent(bridgeRoot.transform, false);
-                    rail.transform.localPosition = new Vector3(side * 1.05f, 0.75f, 0);
-                    rail.transform.localScale = new Vector3(0.12f, 0.55f, 6.4f);
-                    rail.GetComponent<Renderer>().sharedMaterial = bridgeRailMat;
-                    var rCol = rail.GetComponent<Collider>();
-                    if (rCol != null) UnityEngine.Object.DestroyImmediate(rCol);
+                    var inst = Object.Instantiate(bridgePrefab, bridgeRoot.transform, false);
+                    inst.transform.localScale = Vector3.one * 1.25f;
                 }
             }
 
             // ==============================================================================
-            // 3. MOVIY SUVDAGI QOYALI OROLCHALAR (Rocky Islets with trees)
+            // 4. QIRQOQ VA QOYALI OROLCHALAR (Faceted Stylized Boulders)
             // ==============================================================================
-            Vector3[] isletPositions = new Vector3[]
+            Vector3[] rockPositions = new Vector3[]
             {
-                new Vector3(-28, 0, -32),
-                new Vector3(-35, 0, -22),
-                new Vector3(32, 0, -28),
-                new Vector3(26, 0, 36)
+                // G'arbiy sohil va ko'rfaz orolchalari
+                new Vector3(-18, 0, -12), new Vector3(-19, 0, -2), new Vector3(-16, 0, -7),
+                new Vector3(-18, 0, 8),   new Vector3(-16, 0, 14),  new Vector3(-15, 0, 2),
+                new Vector3(-20, 0, 4),   new Vector3(-17, 0, -15), new Vector3(-14, 0, -18),
+                // Daryo va ko'prik atrofi
+                new Vector3(1.2f, 0, 14.5f), new Vector3(4.2f, 0, 17.0f), new Vector3(8.5f, 0, 14.5f),
+                new Vector3(0.5f, 0, 18.0f), new Vector3(6.5f, 0, 19.5f),
+                // Janubiy ko'rfaz va Dubay qoyalari
+                new Vector3(13, 0, -14),  new Vector3(15, 0, -8),   new Vector3(9, 0, -16),
+                new Vector3(2, 0, -14),   new Vector3(-4, 0, -15),  new Vector3(5, 0, -18),
+                // Suvdagi orolcha toshlari
+                new Vector3(-12, 0, -16), new Vector3(-8, 0, -18), new Vector3(-15, 0, -8)
             };
 
-            for (int i = 0; i < isletPositions.Length; i++)
+            for (int r = 0; r < rockPositions.Length; r++)
             {
-                var isletObj = new GameObject($"Islet_{i}");
-                isletObj.transform.SetParent(envRoot.transform, false);
-                isletObj.transform.position = isletPositions[i];
+                var rockObj = new GameObject($"Rock_{r}");
+                rockObj.transform.SetParent(envRoot.transform, false);
+                rockObj.transform.position = rockPositions[r];
 
-                // Qoya tosh asosi
-                var rock = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                rock.name = "IsletRock";
-                rock.transform.SetParent(isletObj.transform, false);
-                rock.transform.localPosition = new Vector3(0, 0.2f, 0);
-                rock.transform.localScale = new Vector3(3.8f, 1.2f, 3.2f);
-                rock.GetComponent<Renderer>().sharedMaterial = rockMat;
-                var rkCol = rock.GetComponent<Collider>();
-                if (rkCol != null) UnityEngine.Object.DestroyImmediate(rkCol);
-
-                // Orolchada bitta qarag'ay daraxti
-                var tree = CreateStylizedPine(isletObj.transform, new Vector3(0.2f, 0.8f, 0.1f), trunkMat, pineMat1, pineMat2);
-            }
-
-            // ==============================================================================
-            // 4. ZICH QARAG'AYZORLAR (Clustered stylized pine groves along coastlines)
-            // ==============================================================================
-            Vector3[] groveCenters = new Vector3[]
-            {
-                new Vector3(-20, 0, 25), new Vector3(20, 0, 22),
-                new Vector3(-30, 0, -10), new Vector3(30, 0, -12),
-                new Vector3(-12, 0, -35), new Vector3(15, 0, -32),
-                new Vector3(-45, 0, 35), new Vector3(45, 0, 35)
-            };
-
-            int treeCount = 0;
-            for (int g = 0; g < groveCenters.Length; g++)
-            {
-                Vector3 center = groveCenters[g];
-                for (int t = 0; t < 4; t++)
+                float s = Random.Range(1.1f, 1.8f);
+                if (rockPrefab != null)
                 {
-                    float ox = (t % 2 == 0 ? -1.4f : 1.4f) + UnityEngine.Random.Range(-0.4f, 0.4f);
-                    float oz = (t < 2 ? -1.4f : 1.4f) + UnityEngine.Random.Range(-0.4f, 0.4f);
-                    Vector3 pos = center + new Vector3(ox, 0, oz);
-
-                    var trObj = new GameObject($"ForestTree_{treeCount++}");
-                    trObj.transform.SetParent(envRoot.transform, false);
-                    trObj.transform.position = pos;
-                    CreateStylizedPine(trObj.transform, Vector3.zero, trunkMat, pineMat1, pineMat2);
+                    var inst = Object.Instantiate(rockPrefab, rockObj.transform, false);
+                    inst.transform.localScale = new Vector3(s, s * 0.75f, s * 0.95f);
+                    inst.transform.rotation = Quaternion.Euler(Random.Range(5, 20), Random.Range(0, 360), Random.Range(0, 15));
                 }
             }
-        }
 
-        private static GameObject CreateStylizedPine(Transform parent, Vector3 localPos, Material trunkMat, Material pine1, Material pine2)
-        {
-            var root = new GameObject("PineTree");
-            root.transform.SetParent(parent, false);
-            root.transform.localPosition = localPos;
-
-            // Tana
-            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            trunk.name = "Trunk";
-            trunk.transform.SetParent(root.transform, false);
-            trunk.transform.localPosition = new Vector3(0, 0.6f, 0);
-            trunk.transform.localScale = new Vector3(0.3f, 0.6f, 0.3f);
-            trunk.GetComponent<Renderer>().sharedMaterial = trunkMat;
-            var tCol = trunk.GetComponent<Collider>();
-            if (tCol != null) UnityEngine.Object.DestroyImmediate(tCol);
-
-            // 3 qatlamli konus toj
-            for (int i = 0; i < 3; i++)
+            // ==============================================================================
+            // 5. QALIN MULTFILM DARAХTZORLAR (Blender Stylized Pine & Round Trees - 100+ Trees)
+            // ==============================================================================
+            Vector3[] treePositions = new Vector3[]
             {
-                var cone = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                cone.name = $"Cone_{i}";
-                cone.transform.SetParent(root.transform, false);
-                float y = 1.1f + i * 0.7f;
-                float r = 1.45f - i * 0.35f;
-                cone.transform.localPosition = new Vector3(0, y, 0);
-                cone.transform.localScale = new Vector3(r, 0.85f, r);
-                cone.GetComponent<Renderer>().sharedMaterial = (i % 2 == 0) ? pine1 : pine2;
-                var cCol = cone.GetComponent<Collider>();
-                if (cCol != null) UnityEngine.Object.DestroyImmediate(cCol);
-            }
+                // A. Berlin [DE] orqasidagi qalin o'rmon va archazorlar
+                new Vector3(-6.5f, 0, 19.5f), new Vector3(-2.0f, 0, 19.5f), new Vector3(-5.5f, 0, 21.0f),
+                new Vector3(-1.0f, 0, 22.5f), new Vector3(-10.5f, 0, 16.0f), new Vector3(-8.5f, 0, 19.0f),
+                new Vector3(-4.0f, 0, 23.0f), new Vector3(0.5f, 0, 21.0f),  new Vector3(-9.5f, 0, 13.5f),
+                new Vector3(-11.0f, 0, 18.5f), new Vector3(-7.0f, 0, 23.5f), new Vector3(-1.5f, 0, 24.5f),
 
-            return root;
+                // B. Daryo va yog'och ko'prik bo'yidagi daraxtlar
+                new Vector3(1.2f, 0, 16.8f),  new Vector3(5.5f, 0, 17.5f),  new Vector3(3.8f, 0, 13.8f),
+                new Vector3(7.2f, 0, 16.0f),  new Vector3(8.5f, 0, 18.5f),  new Vector3(2.5f, 0, 19.5f),
+                new Vector3(4.8f, 0, 20.5f),  new Vector3(10.0f, 0, 16.5f), new Vector3(0.0f, 0, 14.5f),
+
+                // C. Berlin va Samarqand oralig'idagi yam-yashil o'rmon (Markaziy to'qay)
+                new Vector3(-6.0f, 0, 11.5f), new Vector3(-4.5f, 0, 9.0f),   new Vector3(-7.5f, 0, 7.5f),
+                new Vector3(-3.0f, 0, 6.5f),  new Vector3(-5.0f, 0, 4.5f),   new Vector3(-7.0f, 0, 3.0f),
+                new Vector3(-2.5f, 0, 11.0f), new Vector3(-4.0f, 0, 13.5f), new Vector3(-8.5f, 0, 10.0f),
+                new Vector3(-5.5f, 0, 1.5f),  new Vector3(-3.5f, 0, 2.5f),   new Vector3(-6.5f, 0, 5.5f),
+
+                // D. Samarqand [UZ] atrofidagi yam-yashil daraxtlar
+                new Vector3(-12.5f, 0, 2.5f), new Vector3(-11.0f, 0, 5.5f), new Vector3(-9.0f, 0, -2.5f),
+                new Vector3(-13.0f, 0, -1.0f), new Vector3(-8.0f, 0, 3.5f),  new Vector3(-10.5f, 0, 7.5f),
+                new Vector3(-13.5f, 0, 4.0f), new Vector3(-7.5f, 0, -1.5f), new Vector3(-11.5f, 0, -3.5f),
+
+                // E. Toshkent [UZ] moviy suv saroyi atrofidagi daraxtlar
+                new Vector3(12.5f, 0, 7.5f),  new Vector3(11.0f, 0, 10.5f), new Vector3(8.5f, 0, 11.5f),
+                new Vector3(13.0f, 0, 4.0f),  new Vector3(7.5f, 0, 8.5f),   new Vector3(14.0f, 0, 9.0f),
+                new Vector3(9.5f, 0, 4.0f),   new Vector3(13.5f, 0, 12.0f), new Vector3(6.5f, 0, 11.0f),
+
+                // F. Toshkent va Dubay oralig'idagi archazor
+                new Vector3(5.5f, 0, 2.0f),   new Vector3(7.0f, 0, 0.0f),   new Vector3(4.5f, 0, -2.5f),
+                new Vector3(6.0f, 0, -5.0f),  new Vector3(8.5f, 0, -3.0f),  new Vector3(3.0f, 0, -1.0f),
+                new Vector3(5.0f, 0, -7.5f),  new Vector3(7.5f, 0, -7.0f),  new Vector3(4.0f, 0, -4.5f),
+
+                // G. Dubay [AE] oltin saroyi atrofidagi daraxtlar
+                new Vector3(10.5f, 0, -10.5f), new Vector3(14.5f, 0, -12.5f), new Vector3(13.5f, 0, -8.0f),
+                new Vector3(8.5f, 0, -14.0f),  new Vector3(15.5f, 0, -10.0f), new Vector3(11.5f, 0, -14.5f),
+                new Vector3(16.0f, 0, -14.0f), new Vector3(9.5f, 0, -8.5f),   new Vector3(14.0f, 0, -6.5f),
+
+                // H. G'arbiy sohil va ko'rfaz orolchalari bo'yidagi daraxtlar
+                new Vector3(-18.0f, 0, -12.0f), new Vector3(-19.0f, 0, -2.0f), new Vector3(-16.5f, 0, -7.0f),
+                new Vector3(-17.5f, 0, 8.0f),   new Vector3(-15.5f, 0, 13.0f), new Vector3(-19.5f, 0, 3.0f),
+                new Vector3(-16.0f, 0, 3.0f),   new Vector3(-18.5f, 0, -8.0f), new Vector3(-14.5f, 0, -12.0f),
+
+                // I. Janubiy sohil bo'yidagi qirg'oq daraxtlari va mayoq atrofi
+                new Vector3(1.5f, 0, -11.0f),  new Vector3(-2.0f, 0, -12.5f), new Vector3(4.0f, 0, -12.0f),
+                new Vector3(6.5f, 0, -13.5f),  new Vector3(-1.0f, 0, -9.5f),  new Vector3(2.5f, 0, -8.5f),
+                new Vector3(-6.5f, 0, -10.5f), new Vector3(-10.5f, 0, -11.5f), new Vector3(-7.5f, 0, -14.0f)
+            };
+
+            for (int t = 0; t < treePositions.Length; t++)
+            {
+                var treeObj = new GameObject($"Tree_{t}");
+                treeObj.transform.SetParent(envRoot.transform, false);
+                treeObj.transform.position = treePositions[t];
+
+                bool isPine = (t % 3 != 0); // 2/3 archa, 1/3 yumaloq bargli daraxt
+                var prefab = isPine ? pinePrefab : roundPrefab;
+
+                if (prefab != null)
+                {
+                    var inst = Object.Instantiate(prefab, treeObj.transform, false);
+                    float s = Random.Range(1.10f, 1.55f);
+                    inst.transform.localScale = Vector3.one * s;
+                    inst.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360), 0);
+                }
+            }
         }
     }
 }

@@ -14,9 +14,9 @@ namespace ColorLand.Render
     public class TrailRibbon : MonoBehaviour
     {
         public PlayerState State;
-        public float BeadRadius = 0.52f;
-        public float BeadHeight = 0.08f;
-        public float Spacing = 0.38f; // Boncuklar orasidagi silliq tutashish masofasi
+        public float BeadRadius = 0.50f;
+        public float BeadHeight = 0.42f;
+        public float Spacing = 0.62f; // Silliq marjon boncuklar orasidagi ideal masofa
 
         private GameGrid _grid;
         private Color _trailColor;
@@ -26,6 +26,7 @@ namespace ColorLand.Render
         private readonly List<Vector3> _interpolatedPoints = new List<Vector3>();
         private readonly List<GameObject> _beadPool = new List<GameObject>();
         private int _activeBeads = 0;
+        public int ActiveBeadsCount => _activeBeads;
 
         private static readonly int DangerFlashId = Shader.PropertyToID("_DangerFlash");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -39,47 +40,20 @@ namespace ColorLand.Render
         {
             if (_beadMesh != null) return;
 
-            // Silliq yaltiroq doiraviy disk mesh (Cylinder with rounded edges)
-            _beadMesh = new Mesh { name = "Mesh_TrailBead" };
-            int segs = 18;
-            var verts = new List<Vector3>();
-            var norms = new List<Vector3>();
-            var uvs = new List<Vector2>();
-            var tris = new List<int>();
-
-            Vector3 centerTop = new Vector3(0, BeadHeight, 0);
-            verts.Add(centerTop);
-            norms.Add(Vector3.up);
-            uvs.Add(new Vector2(0.5f, 0.5f));
-
-            float step = Mathf.PI * 2.0f / segs;
-            for (int i = 0; i <= segs; i++)
+            // Multfilm 3D yaltiroq yumaloq boncuk (Glossy Sphere Bead with neutral vertex colors)
+            var sphereObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            var sphereMf = sphereObj.GetComponent<MeshFilter>();
+            if (sphereMf != null && sphereMf.sharedMesh != null)
             {
-                float a = i * step;
-                float x = Mathf.Cos(a) * BeadRadius;
-                float z = Mathf.Sin(a) * BeadRadius;
-
-                verts.Add(new Vector3(x, BeadHeight * 0.5f, z));
-                norms.Add(new Vector3(x, 0.4f, z).normalized);
-                uvs.Add(new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f));
+                _beadMesh = Instantiate(sphereMf.sharedMesh);
+                _beadMesh.name = "Mesh_TrailSphereBead";
             }
-
-            for (int i = 1; i <= segs; i++)
-            {
-                tris.Add(0);
-                tris.Add(i + 1);
-                tris.Add(i);
-            }
-
-            _beadMesh.SetVertices(verts);
-            _beadMesh.SetNormals(norms);
-            _beadMesh.SetUVs(0, uvs);
-            _beadMesh.SetTriangles(tris, 0);
-            _beadMesh.RecalculateBounds();
+            DestroyImmediate(sphereObj);
         }
 
         public void Initialize(GameGrid grid, Color trailColor)
         {
+            BuildBeadMesh();
             _grid = grid;
             _trailColor = trailColor;
 
@@ -190,16 +164,22 @@ namespace ColorLand.Render
                 return _beadPool[index];
             }
 
+            BuildBeadMesh();
+
+            var trailRoot = GameObject.Find("TrailRoot");
+            if (trailRoot == null) trailRoot = new GameObject("TrailRoot");
+
             var beadObj = new GameObject($"TrailBead_{index}");
-            beadObj.transform.SetParent(transform, true);
+            beadObj.transform.SetParent(trailRoot.transform, false);
+            beadObj.transform.localScale = Vector3.one * (BeadRadius * 2.0f);
 
             var mf = beadObj.AddComponent<MeshFilter>();
             mf.sharedMesh = _beadMesh;
 
             var mr = beadObj.AddComponent<MeshRenderer>();
             mr.sharedMaterial = _beadMaterial;
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            mr.receiveShadows = true;
 
             _beadPool.Add(beadObj);
             return beadObj;
