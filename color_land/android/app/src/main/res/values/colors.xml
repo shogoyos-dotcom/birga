@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brend rangi: adaptiv ikonka foni va ishga tushish ekrani. -->
+    <color name="ic_launcher_background">#2E7BFF</color>
+    <color name="launch_background">#2E7BFF</color>
+</resources>

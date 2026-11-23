@@ -1,0 +1,69 @@
+class_name GameConfig
+extends RefCounted
+
+const WorldPacing = preload("res://scripts/logic/world_pacing.gd")
+
+## O'yinning barcha sozlamalari bir joyda. Mantiq qatlami faqat shuni biladi.
+
+## Xarita shkalasi: 1 — klassik, 2 — kengaytirilgan (PHASE 3)
+var world_scale: int = WorldPacing.DEFAULT_SCALE
+
+## Panjara o'lchami. Xarita yuklanganda uning o'lchamiga moslanadi.
+var grid_width: int = 920
+var grid_height: int = 466
+## Maydon xaritadan yaratiladimi. `false` — butun to'rtburchak
+## o'ynaladi (testlar uchun qulay).
+var world_map: bool = true
+## Qaysi maydon: "world", "africa", ..., "circle".
+var map_id: String = "world"
+
+## Boshlang'ich hudud joylashadigan kvadrat tomoni.
+var start_block: int = WorldPacing.START_BLOCK_EXPANDED
+var bot_count: int = WorldPacing.BOTS_EXPANDED
+var difficulty: Difficulty = Difficulty.new()
+
+## Katak/sekund.
+var player_speed: float = WorldPacing.SPEED_EXPANDED
+## Radian/sekund.
+var player_turn_rate: float = WorldPacing.TURN_RATE_EXPANDED
+var bot_turn_rate: float = 9.0
+var bot_respawn_delay: float = 3.0
+## Bir qadamda hisoblanadigan maksimal vaqt (lag paytida sakrashni oldini oladi).
+var max_step_dt: float = 1.0 / 30.0
+## Oxirgi necha katak iz "o'ziniki" hisoblanmaydi — barmoq tebranishi
+## uchun o'ldirish adolatsiz bo'lardi.
+var self_hit_grace: int = 4
+## Iz bo'ylab ortga qaytayotganda tartib raqami shuncha sakrashi
+## mumkin — burchakni kesib o'tganda bir-ikki katak o'tkazib yuboriladi.
+var retrace_jump: int = 3
+## O'limdan keyin davom etishda kamida shuncha katak qaytarilsa, o'yinchi
+## o'sha joyida tiklanadi.
+var min_revive_cells: int = 10
+
+func start_radius() -> float:
+	return start_block / 2.0
+
+func cell_count() -> int:
+	return grid_width * grid_height
+
+func bot_speed() -> float:
+	return player_speed * difficulty.bot_speed_factor
+
+## O'yin konfiguratsiyasini xarita shkalasiga moslash (Klassik vs Kengaytirilgan)
+func apply_pacing(scale: int = WorldPacing.DEFAULT_SCALE) -> void:
+	world_scale = scale
+	if scale == WorldPacing.SCALE_CLASSIC:
+		grid_width = 460
+		grid_height = 233
+		start_block = WorldPacing.START_BLOCK_CLASSIC
+		bot_count = WorldPacing.BOTS_CLASSIC
+		player_speed = WorldPacing.SPEED_CLASSIC
+		player_turn_rate = WorldPacing.TURN_RATE_CLASSIC
+	else:
+		grid_width = 920
+		grid_height = 466
+		start_block = WorldPacing.START_BLOCK_EXPANDED
+		bot_count = WorldPacing.BOTS_EXPANDED
+		player_speed = WorldPacing.SPEED_EXPANDED
+		player_turn_rate = WorldPacing.TURN_RATE_EXPANDED
+

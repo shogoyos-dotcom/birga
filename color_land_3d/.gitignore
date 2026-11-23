@@ -1,0 +1,21 @@
+# Godot import keshi va eksport natijalari
+.godot/
+build/
+
+# Android qurish shabloni — `godot --install-android-build-template`
+# bilan yoki qo'lda eksport shablonidan ochiladi; repozitoriyda saqlanmaydi.
+android/
+
+# Qisqartirilmagan emoji shrifti (`tool/subset_emoji_font.py` zaxirasi).
+# Asl fayl: github.com/googlefonts/noto-emoji — NotoColorEmoji.ttf
+*.ttf.full
+
+# Python keshi
+__pycache__/
+
+# Maxfiy mahalliy sozlamalar va imzolar
+*.local.ps1
+*.local.env
+*.local.cfg
+signing.env
+signing.local.*

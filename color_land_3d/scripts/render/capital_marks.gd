@@ -1,0 +1,285 @@
+extends MultiMeshInstance3D
+
+## Xaritadagi shaharlar: belgilar va nomlar.
+##
+## Har shaharda **nuqta** bor, poytaxtlarda esa oltin **ustun**.
+## Ikkalasining ham kattaligi shahar aholisiga qarab o'zgaradi —
+## yozuvlar ham shunday.
+##
+## Nomlar ikki bosqichda tanlanadi:
+##
+##  1. **Bir marta**, xarita yuklanganda: shaharlar muhimligi bo'yicha
+##     saralanadi (poytaxt va aholi) va yozuvlari bir-birining ustiga
+##     tushmaydiganlari tanlanadi. Bu ro'yxat o'yin davomida
+##     o'zgarmaydi.
+##  2. **Har kadrda**: shu ro'yxatdan kameraga eng yaqinlari
+##     [POOL] ta tayyor tugunga biriktiriladi.
+##
+## Ilgari tanlov har safar masofa bo'yicha qaytadan hisoblanardi va
+## o'yinchi qimirlashi bilan nomlar o'rin almashib, miltillab ketardi.
+## Endi ro'yxat qotib turadi, chetga chiqqani esa asta so'nadi.
+
+## Poytaxt ustunining asosi va balandligi (dunyo birligi).
+const BASE := 0.7
+const MIN_HEIGHT := 1.0
+const MAX_HEIGHT := 2.8
+
+## Shahar nuqtasining eng kichik va eng katta radiusi (katak).
+const DOT_MIN := 0.22
+const DOT_MAX := 0.62
+const DOT_HEIGHT := 0.22
+
+## Nom shrifti va ekrandagi o'lchami (`fixed_size` rejimida).
+const NAME_FONT := 48
+const SCREEN_SIZE := 0.00042
+
+## Nom shu masofadan uzoqda ko'rsatilmaydi (katak), oxirgi
+## [FADE] ulushida asta so'nadi.
+const NAME_RANGE := 36.0
+const FADE := 0.35
+
+## Bir vaqtda ekranda bo'ladigan nomlar soni (maksimal 10 ta).
+const POOL := 10
+
+## Yozuvlar bir-birining ustiga tushmasligi uchun har bir nom
+## atrofida "band" to'rtburchak bor:
+##
+##     |dx| < yarim_kenglik(a) + yarim_kenglik(b) + GAP_X
+##     |dy| < GAP_Y
+##
+## Yozuv **gorizontal** bo'lgani uchun kengligi nom uzunligiga
+## qarab o'sadi, balandligi esa deyarli o'zgarmaydi — shuning uchun
+## doira emas, to'rtburchak. Ilgari doira edi (13 katak radius) va u
+## eng uzun nomga moslab olingani uchun "Lima" ham "Ulaanbaatar" ham
+## bir xil joy egallardi: ekranda o'rtacha atigi 5.2 ta nom qolardi,
+## hozir 19.6 ta.
+##
+## Uchala son skrinshotlar bo'yicha sozlangan va `nametest.gd` bilan
+## o'lchangan — kamera qo'zg'almas, shuning uchun katak bilan ekran
+## piksellari orasidagi nisbat ham o'zgarmaydi.
+##
+## Bitta harfning kengligi (katak, yozuv kattaligi 1.0 bo'lganda).
+const CHAR_WIDTH := 0.55
+## Ikki yozuv orasidagi eng kichik bo'shliq (katak).
+const GAP_X := 4.5
+const GAP_Y := 6.5
+
+## Ro'yxat sekundiga shuncha marta qayta tanlanadi.
+const REFRESH := 0.3
+
+var enabled := true:
+	set(value):
+		enabled = value
+		visible = value
+		if _dots != null:
+			_dots.visible = value
+
+## Shahar nomlari ko'rinadimi.
+var names_visible := true:
+	set(value):
+		names_visible = value
+		_timer = 0.0
+		for label in _labels:
+			label.visible = false
+
+var _dots: MultiMeshInstance3D
+var _labels: Array[Label3D] = []
+## Nomi yoziladigan shaharlar (muhimligi bo'yicha, siyraklashtirilgan).
+var _named: Array = []
+## Hozir ko'rinib turgan nomlar: [{label, at, size}].
+var _active: Array = []
+var _timer := 0.0
+
+func _ready() -> void:
+	_dots = MultiMeshInstance3D.new()
+	_dots.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_dots)
+
+## Shaharlarni joylaydi. `places` — {name, code, x, y, pop, cap}.
+func build(places: Array, grid: GameGrid) -> int:
+	var rows: Array = []
+	var top_pop := 1.0
+	for c: Dictionary in places:
+		if grid.playable(int(c.get("x", -1)), int(c.get("y", -1))):
+			top_pop = maxf(top_pop, float(c.get("pop", 0)))
+	for c: Dictionary in places:
+		var x := int(c.get("x", -1))
+		var y := int(c.get("y", -1))
+		if not grid.playable(x, y):
+			continue
+		# Aholi juda keng tarqalgan (ming kishidan yigirma milliongacha),
+		# shuning uchun kvadrat ildiz: kichik shahar ham ko'rinadi.
+		var weight := sqrt(float(c.get("pop", 0)) / top_pop)
+		var capital: bool = int(c.get("cap", 0)) == 1
+		rows.append({
+			# Nom o'yin tilida: tarjimasi bo'lmasa inglizchasi.
+			"name": CityNames.of(str(c.get("name", ""))),
+			"at": Vector2(x + 0.5, y + 0.5),
+			"weight": clampf(weight, 0.0, 1.0),
+			"cap": capital,
+			# Poytaxt har doim oddiy shahardan muhimroq.
+			"rank": weight + (1.0 if capital else 0.0),
+		})
+
+	_build_pillars(rows)
+	_build_dots(rows)
+	_pick_named(rows)
+	_timer = 0.0
+	for label in _labels:
+		label.visible = false
+	_active.clear()
+	return rows.size()
+
+## Poytaxt ustunlari — nozik taglik doiralari (ortiqcha shovqinsiz).
+func _build_pillars(rows: Array) -> void:
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.55
+	disc.bottom_radius = 0.65
+	disc.height = 0.16
+	disc.radial_segments = 12
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color("e0d6bc")
+	mat.roughness = 0.6
+	disc.material = mat
+
+	var placed: Array[Transform3D] = []
+	for row: Dictionary in rows:
+		if not row["cap"] or float(row["rank"]) < 1.35:
+			continue
+		var height: float = 0.16
+		var basis := Basis.IDENTITY
+		placed.append(Transform3D(basis, Vector3(
+			row["at"].x, ArenaBuilder.LAND_HEIGHT + height * 0.5,
+			row["at"].y)))
+	multimesh = _mesh_from(disc, placed)
+
+## Har shaharning nuqtasi — faqat asosiy yirik shaharlar uchun.
+func _build_dots(rows: Array) -> void:
+	var dot := CylinderMesh.new()
+	dot.top_radius = 1.0
+	dot.bottom_radius = 1.0
+	dot.height = DOT_HEIGHT
+	dot.radial_segments = 10
+	dot.rings = 0
+	var mat := StandardMaterial3D.new()
+	# Nuqta rangi uslubga qarab: ochiq maydonda to'q, to'qda ochiq.
+	var tint := Palette.city_dot()
+	mat.albedo_color = tint
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.emission_energy_multiplier = 0.12 if not Palette.land_is_light() else 0.0
+	mat.roughness = 0.5
+	dot.material = mat
+
+	var placed: Array[Transform3D] = []
+	for row: Dictionary in rows:
+		if float(row["rank"]) < 1.25:
+			continue
+		var radius: float = lerpf(DOT_MIN, DOT_MAX, row["weight"])
+		var basis := Basis.IDENTITY.scaled(Vector3(radius, 1.0, radius))
+		placed.append(Transform3D(basis, Vector3(
+			row["at"].x, ArenaBuilder.LAND_HEIGHT + DOT_HEIGHT * 0.5,
+			row["at"].y)))
+	_dots.multimesh = _mesh_from(dot, placed)
+
+static func _mesh_from(mesh: Mesh, placed: Array[Transform3D]) -> MultiMesh:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = placed.size()
+	for i in placed.size():
+		mm.set_instance_transform(i, placed[i])
+	return mm
+
+## Nomi yoziladigan shaharlarni bir marta tanlaydi: faqat eng muhimlari.
+func _pick_named(rows: Array) -> void:
+	var sorted := rows.duplicate()
+	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a["rank"] > b["rank"])
+	_named = []
+	for row: Dictionary in sorted:
+		if float(row["rank"]) < 1.30:
+			continue
+		row["half"] = 0.5 * row["name"].length() * CHAR_WIDTH \
+			* _name_scale(row)
+		var crowded := false
+		for kept: Dictionary in _named:
+			var d: Vector2 = (row["at"] - kept["at"]).abs()
+			if d.x < row["half"] + kept["half"] + GAP_X and d.y < GAP_Y:
+				crowded = true
+				break
+		if not crowded:
+			_named.append(row)
+
+## Yozuv kattaligi — shahar kattaligiga qarab.
+static func _name_scale(row: Dictionary) -> float:
+	return 0.62 + 0.85 * row["weight"] + (0.15 if row["cap"] else 0.0)
+
+## Kamera (yoki o'yinchi) qayerda — shuning atrofidagi nomlar
+## ko'rsatiladi va chetdagilari so'nadi.
+func update_focus(center: Vector2, delta: float) -> void:
+	if not enabled or not names_visible or _named.is_empty():
+		return
+	_timer -= delta
+	if _timer <= 0.0:
+		_timer = REFRESH
+		_assign(center)
+	_fade(center)
+
+func _assign(center: Vector2) -> void:
+	var near: Array = []
+	var range2 := NAME_RANGE * NAME_RANGE
+	for row: Dictionary in _named:
+		var d: float = center.distance_squared_to(row["at"])
+		if d <= range2:
+			near.append({"row": row, "d": d})
+	near.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a["d"] < b["d"])
+
+	_active.clear()
+	var used: int = mini(near.size(), POOL)
+	for i in used:
+		var row: Dictionary = near[i]["row"]
+		var label := _label(i)
+		label.visible = true
+		label.text = row["name"]
+		label.pixel_size = SCREEN_SIZE * _name_scale(row)
+		label.position = Vector3(
+			row["at"].x,
+			ArenaBuilder.LAND_HEIGHT + (MAX_HEIGHT + 0.8 if row["cap"]
+				else 1.1),
+			row["at"].y)
+		_active.append({"label": label, "at": row["at"],
+			"cap": row["cap"]})
+	for i in range(used, _labels.size()):
+		_labels[i].visible = false
+
+## Chet nomlari birdan yo'qolmasin — masofaga qarab so'nadi.
+func _fade(center: Vector2) -> void:
+	var fade_from := NAME_RANGE * (1.0 - FADE)
+	for item: Dictionary in _active:
+		var d: float = center.distance_to(item["at"])
+		var alpha: float = clampf(
+			(NAME_RANGE - d) / (NAME_RANGE - fade_from), 0.0, 1.0)
+		var label: Label3D = item["label"]
+		var base: Color = Palette.on_land() if item["cap"] else Palette.on_land_dim()
+		label.modulate = Color(base.r, base.g, base.b, alpha)
+		var edge := Palette.on_land_outline()
+		label.outline_modulate = Color(edge.r, edge.g, edge.b, edge.a * alpha)
+
+func _label(index: int) -> Label3D:
+	while _labels.size() <= index:
+		var label := Label3D.new()
+		label.font_size = NAME_FONT
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		# Kamera uzoqligiga qarab kattalashmaydi — xaritadagi nomlar
+		# bir xil o'lchamda, o'qishga qulay.
+		label.fixed_size = true
+		# Ochiq maydonda kontur qalinroq: yozuv ba'zan okean ustiga
+		# tushadi, oq halqa ikkala fonda ham ushlab turadi.
+		label.outline_size = 14 if Palette.land_is_light() else 8
+		label.no_depth_test = true
+		label.render_priority = 2
+		add_child(label)
+		_labels.append(label)
+	return _labels[index]
