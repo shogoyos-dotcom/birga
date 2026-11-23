@@ -193,7 +193,7 @@
   .tabbar{
     position:fixed;bottom:0;left:0;right:0;margin:0 auto;max-width:460px;z-index:30;
     background:var(--surface);border-top:1px solid var(--line);
-    display:grid;grid-template-columns:repeat(4,1fr);
+    display:grid;grid-template-columns:repeat(5,1fr);
     padding-bottom:env(safe-area-inset-bottom)
   }
   .tab{
@@ -236,6 +236,8 @@
   }
   .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .chk{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink-2);margin:6px 0 10px;cursor:pointer}
+  .chk input{width:18px;height:18px;accent-color:var(--accent);flex:none}
 
   .seg{display:flex;background:var(--surface-2);border-radius:11px;padding:3px}
   .seg button{flex:1;border:0;background:0;padding:9px;border-radius:9px;color:var(--ink-2);font-weight:600;font-size:14px;cursor:pointer}
@@ -314,6 +316,10 @@
   <button class="tab" data-act="nav" data-screen="tx">
     <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.6 6h.01M3.6 12h.01M3.6 18h.01"/></svg>
     Amaliyotlar
+  </button>
+  <button class="tab" data-act="nav" data-screen="ombor">
+    <svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>
+    Ombor
   </button>
   <button class="tab" data-act="nav" data-screen="groups">
     <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.2 20c0-3.3 2.6-5 5.8-5s5.8 1.7 5.8 5"/><path d="M16.5 6.4a3 3 0 0 1 0 5.7M20.8 20c0-2.5-1.4-4-3.3-4.6"/></svg>
@@ -560,6 +566,8 @@ if(!state || !state.version){ state = seed(); state.groups=[]; save(); }
 state.groups = state.groups || [];
 (state.groups).forEach(function(g){ (g.expenses||[]).forEach(function(e){ if(!e.type) e.type='expense'; }); });
 state.transactions = (state.transactions||[]).filter(function(t){ return !t.groupId; });
+state.items = state.items || [];
+state.stock = state.stock || [];
 
 /* ---------- Supabase bulut (guruhlar) ---------- */
 var SB=null, SB_UID=null, sbChannels=[], cloudErr=null;
@@ -568,7 +576,10 @@ var sbReady = (function(){
   if(!c.supabaseUrl || /XXXX/.test(c.supabaseUrl) || !window.supabase || typeof window.supabase.createClient!=='function'){
     cloudErr='config'; return Promise.resolve(false);
   }
-  try{ SB = window.supabase.createClient(c.supabaseUrl, c.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true}}); }
+  /* config.js ga «Project URL» kerak. Agar REST havolasi (.../rest/v1) yoki
+     oxirida «/» bilan yozilgan bo‘lsa, shu yerda tozalaymiz. */
+  var sbUrl = String(c.supabaseUrl).trim().replace(/\/+$/,'').replace(/\/(rest|auth|realtime|storage)\/v1$/i,'');
+  try{ SB = window.supabase.createClient(sbUrl, c.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true}}); }
   catch(e){ cloudErr='config'; return Promise.resolve(false); }
   return SB.auth.getSession().then(function(r){
     if(r.data && r.data.session) return r.data.session;
@@ -754,7 +765,7 @@ function meNetForGroup(g){ return computeBalances(g)[meId(g)]||0; }
 /* ---------- render ---------- */
 function render(){
   try{
-    var map={home:'home',tx:'tx',groups:'groups',group:'groups',profil:'profil'};
+    var map={home:'home',tx:'tx',ombor:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
     Array.prototype.forEach.call(tabbar.children, function(btn){
       btn.setAttribute('aria-current', btn.dataset.screen===map[route.name] ? 'page':'false');
     });
@@ -764,6 +775,8 @@ function render(){
     else if(route.name==='tx') html=viewTx();
     else if(route.name==='groups') html=viewGroups();
     else if(route.name==='group') html=viewGroup();
+    else if(route.name==='ombor') html=viewOmbor();
+    else if(route.name==='item') html=viewItem();
     else if(route.name==='profil') html=viewProfil();
     screenEl.innerHTML=html;
     if(mountFns[route.name]) mountFns[route.name]();
@@ -1734,6 +1747,302 @@ function openDataIO(){
 function clearSample(){ if(state.isSample){ state.isSample=false; } }
 
 /* ---------- global event delegation ---------- */
+/* ---------- OMBOR: tovar prihod / rasxodi ---------- */
+var UNITS = ['dona','kg','gramm','litr','metr','quti','pachka','qop'];
+
+function itm(id){ return state.items.filter(function(x){ return x.id===id; })[0]; }
+function movesOf(id){ return state.stock.filter(function(m){ return m.itemId===id; }); }
+function itemQty(id){
+  return movesOf(id).reduce(function(a,m){ return a + (m.type==='in' ? m.qty : -m.qty); }, 0);
+}
+function lastInPrice(id){
+  var ins = movesOf(id).filter(function(m){ return m.type==='in' && m.price>0; })
+    .sort(function(a,b){ return a.date<b.date ? 1 : a.date>b.date ? -1 : 0; });
+  return ins.length ? ins[0].price : 0;
+}
+function itemValue(id){ return itemQty(id) * lastInPrice(id); }
+function stockTotal(){ return state.items.reduce(function(a,i){ return a + itemValue(i.id); }, 0); }
+function isLow(i){ return (i.min||0) > 0 && itemQty(i.id) <= i.min; }
+function parseQty(v){
+  var n = parseFloat(String(v).replace(',','.').replace(/[^\d.\-]/g,''));
+  return isFinite(n) ? n : 0;
+}
+function fmtQty(n, unit){
+  var s = (Math.round(n*1000)/1000).toLocaleString('en-US').replace(/,/g,' ');
+  return s + (unit ? (' '+unit) : '');
+}
+function itemOptions(sel){
+  return state.items.map(function(i){
+    return '<option value="'+i.id+'"'+(i.id===sel?' selected':'')+'>'+esc(i.name)+'</option>';
+  }).join('');
+}
+
+/* kassa bilan bog‘lash: prihod → chiqim, rasxod → kirim */
+function ensureCat(id, name, kind){
+  if(!state.categories.filter(function(c){ return c.id===id; }).length){
+    state.categories.push({id:id, name:name, kind:kind});
+  }
+  return id;
+}
+function moveTxData(m, accountId){
+  var amt = Math.round(m.qty * (m.price||0));
+  if(amt <= 0) return null;
+  var it = itm(m.itemId);
+  var inn = m.type==='in';
+  return {
+    accountId: accountId || firstAccountId(),
+    categoryId: inn ? ensureCat('c_tovar','Tovar / Mahsulot','expense')
+                    : ensureCat('c_sotuv','Savdo tushumi','income'),
+    amount: amt,
+    type: inn ? 'expense' : 'income',
+    note: (it?it.name:'Tovar') + ' — ' + (inn?'prihod':'rasxod') + ' ' + fmtQty(m.qty, it && it.unit),
+    date: m.date
+  };
+}
+function moveTx(m){
+  return m.txId ? state.transactions.filter(function(t){ return t.id===m.txId; })[0] : null;
+}
+function syncMoveTx(m, want, accountId){
+  var old = moveTx(m);
+  var d = want ? moveTxData(m, accountId || (old && old.accountId)) : null;
+  if(!d){
+    if(old) state.transactions = state.transactions.filter(function(t){ return t.id!==m.txId; });
+    m.txId = null;
+    return;
+  }
+  if(old){ for(var k in d){ if(d.hasOwnProperty(k)) old[k]=d[k]; } }
+  else {
+    var t = {id:uid(), accountId:d.accountId, categoryId:d.categoryId, amount:d.amount,
+             type:d.type, note:d.note, date:d.date};
+    state.transactions.push(t);
+    m.txId = t.id;
+  }
+}
+function dropMove(id){
+  var m = state.stock.filter(function(x){ return x.id===id; })[0];
+  if(!m) return;
+  if(m.txId) state.transactions = state.transactions.filter(function(t){ return t.id!==m.txId; });
+  state.stock = state.stock.filter(function(x){ return x.id!==id; });
+}
+
+/* ---------- OMBOR ekrani ---------- */
+function viewOmbor(){
+  var q = (route.q||'').toLowerCase(), f = route.sf||'all';
+  var h = '<div class="topbar"><h1>Ombor</h1>'
+        + (state.items.length ? '<button class="link" data-act="add-item">Tovar +</button>' : '')
+        + '</div>';
+
+  if(!state.items.length){
+    h += '<div class="empty">Ombor bo‘sh.<br>Avval tovar qo‘shing — keyin prihod va rasxod yozasiz.</div>'
+       + '<button class="btn btn-primary btn-block" data-act="add-item">Tovar qo‘shish</button>';
+    return h;
+  }
+
+  var lowN = state.items.filter(isLow).length;
+  h += '<div class="card">'
+     + '<div class="kv"><span>Tovar turi</span><b>'+state.items.length+'</b></div>'
+     + '<div class="kv"><span>Ombor qiymati</span><b>'+fmtMoney(stockTotal())+'</b></div>'
+     + (lowN ? '<div class="kv"><span>Kam qolgan</span><b>'+lowN+' ta</b></div>' : '')
+     + '</div>';
+
+  h += '<input class="search" id="omsearch" placeholder="Tovar qidirish…" value="'+esc(route.q||'')+'">';
+  h += '<div class="chips">'
+     + '<button class="chip" data-act="sfilter" data-f="all" aria-pressed="'+(f==='all')+'">Hammasi</button>'
+     + '<button class="chip" data-act="sfilter" data-f="low" aria-pressed="'+(f==='low')+'">Kam qolgan</button>'
+     + '<button class="chip" data-act="sfilter" data-f="zero" aria-pressed="'+(f==='zero')+'">Tugagan</button>'
+     + '</div>';
+
+  var list = state.items.filter(function(i){
+    if(q && i.name.toLowerCase().indexOf(q)<0) return false;
+    if(f==='low' && !isLow(i)) return false;
+    if(f==='zero' && itemQty(i.id)>0) return false;
+    return true;
+  }).sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+  if(!list.length){ h += '<div class="empty">Tovar topilmadi</div>'; return h; }
+
+  h += '<div class="card"><div class="list">';
+  list.forEach(function(i){
+    var qty = itemQty(i.id), low = isLow(i);
+    h += '<div class="row tap" data-act="open-item" data-id="'+i.id+'">'
+       + '<div class="avatar" style="background:'+colorFor(i.id)+'">'+esc(initials(i.name))+'</div>'
+       + '<div class="main"><div class="t">'+esc(i.name)+(low?' ⚠':'')+'</div>'
+       + '<div class="s">'+(lastInPrice(i.id) ? fmtMoney(lastInPrice(i.id))+' / '+esc(i.unit||'dona') : 'narx kiritilmagan')+'</div></div>'
+       + '<div class="end"><div class="a '+(qty<=0?'neg':'')+'">'+fmtQty(qty, i.unit)+'</div>'
+       + '<div class="s">'+fmtMoney(itemValue(i.id))+'</div></div></div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+mountFns.ombor = function(){
+  var s = document.getElementById('omsearch');
+  if(s) s.addEventListener('input', function(){
+    route.q = s.value;
+    var pos = s.selectionStart;
+    render();
+    var ns = document.getElementById('omsearch');
+    if(ns){ ns.focus(); try{ ns.setSelectionRange(pos,pos); }catch(e){} }
+  });
+};
+
+/* ---------- bitta tovar: qoldiq + harakatlar ---------- */
+function viewItem(){
+  var i = itm(route.id);
+  if(!i){ return '<div class="empty">Tovar topilmadi</div>'; }
+  var qty = itemQty(i.id);
+  var inQ = movesOf(i.id).filter(function(m){return m.type==='in';}).reduce(function(a,m){return a+m.qty;},0);
+  var outQ = movesOf(i.id).filter(function(m){return m.type==='out';}).reduce(function(a,m){return a+m.qty;},0);
+
+  var h = '<div class="topbar"><button class="back-btn" data-act="nav" data-screen="ombor">‹ Ombor</button>'
+        + '<button class="link" data-act="edit-item" data-id="'+i.id+'">Tahrirlash</button></div>';
+
+  h += '<div class="stack">';
+  h += '<div class="balance-hero">'
+     + '<span class="eyebrow">'+esc(i.name)+' — qoldiq</span>'
+     + '<span class="big '+(qty<0?'neg':qty>0?'pos':'')+'">'+fmtQty(qty, i.unit)+'</span>'
+     + '<div class="flowrow">'
+     + '<div class="flowbox"><div class="k">Prihod</div><div class="v pos">'+fmtQty(inQ, i.unit)+'</div></div>'
+     + '<div class="flowbox"><div class="k">Rasxod</div><div class="v neg">'+fmtQty(outQ, i.unit)+'</div></div>'
+     + '</div></div>';
+
+  h += '<div class="card">'
+     + kv('Oxirgi kirim narxi', lastInPrice(i.id)?fmtMoney(lastInPrice(i.id)):'—')
+     + kv('Qoldiq qiymati', fmtMoney(itemValue(i.id)))
+     + kv('O‘lchov birligi', i.unit||'dona')
+     + ((i.min||0)>0 ? kv('Eng kam qoldiq', fmtQty(i.min, i.unit)) : '')
+     + (isLow(i) ? '<div class="note" style="margin-top:10px">⚠ Qoldiq eng kam chegaradan past.</div>' : '')
+     + '</div>';
+
+  h += '<div class="two">'
+     + '<button class="btn btn-primary" data-act="add-move" data-id="'+i.id+'" data-t="in">Prihod +</button>'
+     + '<button class="btn" data-act="add-move" data-id="'+i.id+'" data-t="out">Rasxod −</button>'
+     + '</div>';
+
+  var ms = movesOf(i.id).sort(function(a,b){ return a.date<b.date ? 1 : a.date>b.date ? -1 : 0; });
+  h += '<div class="card"><div class="card-h"><h2>Harakatlar</h2></div>';
+  if(!ms.length){ h += '<div class="empty">Hali harakat yo‘q</div></div></div>'; return h; }
+  h += '<div class="list">';
+  ms.forEach(function(m){
+    var inn = m.type==='in';
+    h += '<div class="row tap" data-act="edit-move" data-id="'+m.id+'">'
+       + '<div class="main"><div class="t">'+(inn?'Prihod':'Rasxod')+(m.note?' · '+esc(m.note):'')+'</div>'
+       + '<div class="s">'+fmtDateShort(m.date)+(m.price>0?' · '+fmtMoney(m.price)+'/'+esc(i.unit||'dona'):'')
+       + (m.txId?' · kassada':'')+'</div></div>'
+       + '<div class="end"><div class="a">'+(inn?'+':'−')+fmtQty(m.qty, i.unit)+'</div>'
+       + (m.price>0?'<div class="s">'+fmtMoney(m.qty*m.price)+'</div>':'')+'</div></div>';
+  });
+  h += '</div></div></div>';
+  return h;
+}
+
+/* ---------- tovar modali ---------- */
+function openItemModal(existing){
+  var i = existing || {name:'', unit:'dona', min:0};
+  var isEdit = !!existing;
+  var body = '<form>'
+    + '<div class="field"><label>Tovar nomi</label><input name="name" value="'+esc(i.name)+'" placeholder="masalan: Shakar" autofocus></div>'
+    + '<div class="two">'
+    + '<div class="field"><label>O‘lchov birligi</label><select name="unit">'
+    + UNITS.map(function(u){ return '<option'+(u===(i.unit||'dona')?' selected':'')+'>'+u+'</option>'; }).join('')
+    + '</select></div>'
+    + '<div class="field"><label>Eng kam qoldiq</label><input name="min" inputmode="decimal" value="'+(i.min||'')+'" placeholder="0"></div>'
+    + '</div>'
+    + '<div class="note">«Eng kam qoldiq» — shu chegaraga tushganda ogohlantirish chiqadi. Kerak bo‘lmasa bo‘sh qoldiring.</div>'
+    + '<div style="height:10px"></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">'+(isEdit?'Saqlash':'Qo‘shish')+'</button>'
+    + (isEdit?'<button class="btn btn-danger btn-block" type="button" data-act="del-item" data-id="'+i.id+'">O‘chirish</button>':'')
+    + '</form>';
+  openModal(isEdit?'Tovarni tahrirlash':'Yangi tovar', body, {
+    onSubmit:function(form){
+      var nm = form.name.value.trim();
+      if(!nm){ form.name.focus(); return; }
+      if(isEdit){
+        i.name = nm; i.unit = form.unit.value; i.min = parseQty(form.min.value);
+      }else{
+        state.items.push({id:uid(), name:nm, unit:form.unit.value, min:parseQty(form.min.value)});
+      }
+      closeModal(); commit();
+    }
+  });
+}
+
+/* ---------- prihod / rasxod modali ---------- */
+function openStockModal(existing, presetItem, presetType){
+  if(!state.items.length){ openItemModal(); return; }
+  var m = existing || {
+    type: presetType || 'in',
+    itemId: presetItem || state.items[0].id,
+    qty:'', price:'', date: today(), note:''
+  };
+  var isEdit = !!existing;
+  var linked = isEdit ? moveTx(m) : null;
+  var body = '<form>'
+    + '<div class="seg" id="mseg">'
+    + '<button type="button" data-t="in" aria-pressed="'+(m.type==='in')+'">Prihod (kirim)</button>'
+    + '<button type="button" data-t="out" aria-pressed="'+(m.type==='out')+'">Rasxod (chiqim)</button>'
+    + '</div>'
+    + '<div class="field"><label>Tovar</label><select name="itemId" id="mitem">'+itemOptions(m.itemId)+'</select></div>'
+    + '<div class="two">'
+    + '<div class="field"><label>Miqdor</label><input name="qty" inputmode="decimal" placeholder="0" value="'+(m.qty||'')+'" autofocus></div>'
+    + '<div class="field"><label id="mpl">Narx (1 dona)</label><input name="price" inputmode="numeric" placeholder="0" value="'+(m.price||'')+'"></div>'
+    + '</div>'
+    + '<div class="field"><label>Sana</label><input type="date" name="date" value="'+m.date+'"></div>'
+    + '<div class="field"><label>Izoh</label><input name="note" value="'+esc(m.note||'')+'" placeholder="kimdan / kimga, ixtiyoriy"></div>'
+    + '<label class="chk"><input type="checkbox" name="kassa"'+(linked?' checked':'')+'> Kassaga ham yozilsin</label>'
+    + '<div class="field" id="maccf"'+(linked?'':' hidden')+'><label>Hisob</label><select name="accountId">'
+    + accOptions(linked?linked.accountId:firstAccountId())+'</select></div>'
+    + '<div class="note" id="mhint"></div>'
+    + '<div style="height:10px"></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">'+(isEdit?'Saqlash':'Qo‘shish')+'</button>'
+    + (isEdit?'<button class="btn btn-danger btn-block" type="button" data-act="del-move" data-id="'+m.id+'">O‘chirish</button>':'')
+    + '</form>';
+
+  openModal(isEdit?'Harakatni tahrirlash':'Prihod / Rasxod', body, {
+    onMount:function(root){
+      var type = m.type;
+      var form = root.querySelector('form');
+      var paint = function(){
+        var it = itm(form.itemId.value);
+        var unit = (it && it.unit) || 'dona';
+        root.querySelector('#mpl').textContent = (type==='in' ? 'Kirim narxi' : 'Sotish narxi') + ' (1 '+unit+')';
+        root.querySelector('#mhint').textContent = type==='in'
+          ? 'Kassaga yozilsa: tovar puli chiqim sifatida qo‘shiladi.'
+          : 'Kassaga yozilsa: sotuvdan tushgan pul kirim sifatida qo‘shiladi.';
+      };
+      root.querySelectorAll('#mseg button').forEach(function(b){
+        b.addEventListener('click', function(){
+          type = b.dataset.t;
+          root.querySelectorAll('#mseg button').forEach(function(x){
+            x.setAttribute('aria-pressed', x.dataset.t===type);
+          });
+          paint();
+        });
+      });
+      form.itemId.addEventListener('change', paint);
+      form.kassa.addEventListener('change', function(){
+        root.querySelector('#maccf').hidden = !form.kassa.checked;
+      });
+      paint();
+      root._getType = function(){ return type; };
+    },
+    onSubmit:function(form){
+      var type = modalEl._getType();
+      var qty = parseQty(form.qty.value);
+      if(qty <= 0){ form.qty.focus(); return; }
+      var target = isEdit ? m : {id:uid()};
+      target.itemId = form.itemId.value;
+      target.type   = type;
+      target.qty    = qty;
+      target.price  = parseAmount(form.price.value);
+      target.date   = form.date.value || today();
+      target.note   = form.note.value.trim();
+      if(!isEdit){ target.txId = null; state.stock.push(target); }
+      syncMoveTx(target, form.kassa.checked, form.accountId ? form.accountId.value : null);
+      closeModal(); commit();
+    }
+  });
+}
+
 document.addEventListener('click', function(e){
   var el=e.target.closest('[data-act]');
   if(!el) return;
@@ -1745,6 +2054,8 @@ document.addEventListener('click', function(e){
     if(route.name==='groups') openGroupModal();
     else if(route.name==='group') openExpenseModal(route.id);
     else if(route.name==='tx' && route.grp && route.grp!=='__p' && grp(route.grp)) openExpenseModal(route.grp);
+    else if(route.name==='ombor') { if(state.items.length) openStockModal(); else openItemModal(); }
+    else if(route.name==='item') openStockModal(null, route.id);
     else openTxModal();
     return;
   }
@@ -1772,7 +2083,30 @@ document.addEventListener('click', function(e){
   if(a==='del-tx'){
     if(!confirm('Bu amaliyot o‘chirilsinmi?')) return;
     state.transactions=state.transactions.filter(function(x){return x.id!==el.dataset.id;});
+    state.stock.forEach(function(m){ if(m.txId===el.dataset.id) m.txId=null; });
     closeModal(); commit(); return;
+  }
+
+  if(a==='add-item'){ openItemModal(); return; }
+  if(a==='edit-item'){ var eit=itm(el.dataset.id); if(eit) openItemModal(eit); return; }
+  if(a==='del-item'){
+    var dit=itm(el.dataset.id); if(!dit) return;
+    var nmv=movesOf(dit.id).length;
+    if(!confirm('\u00ab'+dit.name+'\u00bb o\u2018chirilsinmi?'+(nmv?(' Uning '+nmv+' ta harakati ham o\u2018chadi.'):''))) return;
+    movesOf(dit.id).slice().forEach(function(m){ dropMove(m.id); });
+    state.items=state.items.filter(function(x){ return x.id!==dit.id; });
+    closeModal(); save(); go('ombor'); return;
+  }
+  if(a==='open-item'){ go('item',{id:el.dataset.id}); return; }
+  if(a==='sfilter'){ route.sf=el.dataset.f; render(); return; }
+  if(a==='add-move'){ openStockModal(null, el.dataset.id, el.dataset.t); return; }
+  if(a==='edit-move'){
+    var emv=state.stock.filter(function(x){ return x.id===el.dataset.id; })[0];
+    if(emv) openStockModal(emv); return;
+  }
+  if(a==='del-move'){
+    if(!confirm('Bu harakat o\u2018chirilsinmi?')) return;
+    dropMove(el.dataset.id); closeModal(); commit(); return;
   }
 
   if(a==='open-group'){ go('group',{id:el.dataset.id,tab:'expenses'}); return; }
