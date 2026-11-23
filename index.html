@@ -672,6 +672,12 @@ function setMemberRole(g, memberId, role){
   SB.from('members').update({role:role}).eq('id',memberId).then(function(r){ if(r.error) return sbFail(r.error); loadGroups(); });
 }
 function removeMember(g, memberId){
+  var self = (memberId===meId(g));
+  if(!self){
+    if(!canEdit(g)){ alert('Sizda a‘zolarni boshqarish huquqi yo‘q — guruh egasidan so‘rang.'); return; }
+    var m=(g.members||[]).filter(function(x){ return x.id===memberId; })[0];
+    if(m && m.role==='owner' && !isOwner(g)){ alert('Guruh egasini faqat boshqa ega chiqara oladi.'); return; }
+  }
   SB.from('members').delete().eq('id',memberId).then(function(r){ if(r.error) return sbFail(r.error); loadGroups(); });
 }
 function renameMemberCloud(g, memberId, name){
@@ -1006,15 +1012,30 @@ function viewGroups(){
   if(!state.groups.length && !cloudErr){
     h+='<div class="empty">Hali guruh yo‘q.<br>Pastdagi + tugma orqali guruh yarating va a‘zolarni taklif qiling.</div>';
   }
+  if(state.groups.length){
+    var aExp=0, aInc=0;
+    state.groups.forEach(function(g){
+      (g.expenses||[]).forEach(function(e){
+        if(entryType(e)==='income') aInc+=e.amount; else aExp+=e.amount;
+      });
+    });
+    h+='<div class="card">'
+      +'<div class="kv"><span>Guruhlar</span><b>'+state.groups.length+'</b></div>'
+      +'<div class="kv"><span>Jami xarajat</span><b class="neg">'+fmtMoney(aExp)+'</b></div>'
+      +'<div class="kv"><span>Jami tushum</span><b class="pos">'+fmtMoney(aInc)+'</b></div>'
+      +'</div>';
+  }
   state.groups.forEach(function(g){
     var n=meNetForGroup(g);
-    var total=g.expenses.reduce(function(s,e){return s+e.amount;},0);
+    var gExp=(g.expenses||[]).reduce(function(s,e){return s + (entryType(e)==='expense'?e.amount:0);},0);
+    var gInc=(g.expenses||[]).reduce(function(s,e){return s + (entryType(e)==='income'?e.amount:0);},0);
     var label = Math.abs(n)<1 ? 'Hisob teng' : n>0 ? 'Sizga qaytariladi' : 'Siz qaytarasiz';
     var cls = Math.abs(n)<1 ? '' : n>0 ? 'pos' : 'neg';
     var pend=(g.members||[]).filter(function(m){return !m.user_id;}).length;
     h+='<div class="card row tap" data-act="open-group" data-id="'+g.id+'" style="align-items:center">'
       +'<div class="avatar" style="background:'+colorFor(g.id)+'">'+esc(initials(g.name))+'</div>'
-      +'<div class="main"><div class="t">'+esc(g.name)+'</div><div class="s">'+g.members.length+' a‘zo'+(pend?(' · '+pend+' taklif kutmoqda'):'')+' · jami '+fmtMoney(total)+'</div></div>'
+      +'<div class="main"><div class="t">'+esc(g.name)+'</div><div class="s">'+g.members.length+' a‘zo'+(pend?(' · '+pend+' taklif kutmoqda'):'')+'</div>'
+      +'<div class="s">Xarajat '+fmtMoney(gExp)+(gInc>0?(' · Tushum '+fmtMoney(gInc)):'')+'</div></div>'
       +'<div class="end"><div class="a '+cls+'">'+(Math.abs(n)<1?'—':fmtMoney(n,true))+'</div><div class="s">'+label+'</div></div>'
       +'</div>';
   });
@@ -1108,26 +1129,34 @@ function viewGroup(){
     }
     h+='</div>';
 
-    var owner=isOwner(g);
+    var owner=isOwner(g), canMng=canEdit(g);
+    var ownerCount=g.members.filter(function(x){ return x.role==='owner'; }).length;
     h+='<div class="card" style="margin-top:14px"><div class="card-h"><h2>A‘zolar</h2>'
       +(owner?'<button class="link" data-act="add-member">A‘zo + taklif</button>':'')+'</div><div class="list">';
     g.members.forEach(function(m){
-      var pending = !m.user_id;
+      var pending = !m.user_id, isMe = (m.id===meId(g));
+      /* egasi — hammani (oxirgi egadan tashqari), tahrirlovchi — egadan boshqasini chiqaradi */
+      var canDel = canMng && !isMe && (owner ? !(m.role==='owner' && ownerCount<=1) : m.role!=='owner');
       h+='<div class="row">'
         +'<div class="avatar" style="background:'+colorFor(m.id)+'">'+esc(initials(m.name))+'</div>'
-        +'<div class="main"><div class="t">'+esc(m.name)+(m.id===meId(g)?' (siz)':'')+'</div>'
+        +'<div class="main"><div class="t">'+esc(m.name)+(isMe?' (siz)':'')+'</div>'
         +'<div class="s">'+(pending?'taklif kutilyapti':roleLabel(m.role))+'</div></div>';
-      if(owner && m.id!==meId(g)){
-        h+='<div class="end" style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">'
-          +'<select class="mrole" data-id="'+m.id+'" style="font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
+      var end='';
+      if(owner && !isMe){
+        end+='<select class="mrole" data-id="'+m.id+'" style="font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
           +['editor','viewer','owner'].map(function(r){return '<option value="'+r+'"'+(m.role===r?' selected':'')+'>'+roleLabel(r)+'</option>';}).join('')
-          +'</select>'
-          +(pending?'<button class="mini-btn" data-act="invite-member" data-id="'+m.id+'">Taklif havolasi</button>'
-                   :'<button class="btn btn-danger" data-act="del-member" data-id="'+m.id+'" style="padding:3px 7px;font-size:12px">Chiqarish</button>')
-          +'</div>';
-      } else if(owner && m.id===meId(g)){
-        h+='<div class="end"><button class="btn" data-act="edit-member" data-id="'+m.id+'" style="padding:4px 9px;font-size:12px">Ism</button></div>';
+          +'</select>';
       }
+      if(pending && owner){
+        end+='<button class="mini-btn" data-act="invite-member" data-id="'+m.id+'">Taklif havolasi</button>';
+      }
+      if(canDel){
+        end+='<button class="btn btn-danger" data-act="del-member" data-id="'+m.id+'" style="padding:3px 7px;font-size:12px">Chiqarish</button>';
+      }
+      if(owner && isMe){
+        end+='<button class="btn" data-act="edit-member" data-id="'+m.id+'" style="padding:4px 9px;font-size:12px">Ism</button>';
+      }
+      if(end) h+='<div class="end" style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">'+end+'</div>';
       h+='</div>';
     });
     h+='</div></div>';
@@ -1762,6 +1791,14 @@ function lastInPrice(id){
 }
 function itemValue(id){ return itemQty(id) * lastInPrice(id); }
 function stockTotal(){ return state.items.reduce(function(a,i){ return a + itemValue(i.id); }, 0); }
+/* prihod yoki rasxodning pul summasi (butun ombor bo‘yicha yoki bitta tovar bo‘yicha) */
+function moveSum(type, itemId){
+  return state.stock.reduce(function(a,m){
+    if(m.type!==type) return a;
+    if(itemId && m.itemId!==itemId) return a;
+    return a + m.qty*(m.price||0);
+  }, 0);
+}
 function isLow(i){ return (i.min||0) > 0 && itemQty(i.id) <= i.min; }
 function parseQty(v){
   var n = parseFloat(String(v).replace(',','.').replace(/[^\d.\-]/g,''));
@@ -1839,9 +1876,13 @@ function viewOmbor(){
   }
 
   var lowN = state.items.filter(isLow).length;
+  var tIn = moveSum('in'), tOut = moveSum('out');
   h += '<div class="card">'
      + '<div class="kv"><span>Tovar turi</span><b>'+state.items.length+'</b></div>'
      + '<div class="kv"><span>Ombor qiymati</span><b>'+fmtMoney(stockTotal())+'</b></div>'
+     + '<div class="kv"><span>Jami prihod</span><b class="neg">'+fmtMoney(tIn)+'</b></div>'
+     + '<div class="kv"><span>Jami rasxod</span><b class="pos">'+fmtMoney(tOut)+'</b></div>'
+     + '<div class="kv"><span>Farq</span><b class="'+(tOut-tIn<0?'neg':tOut-tIn>0?'pos':'')+'">'+fmtMoney(tOut-tIn,true)+'</b></div>'
      + (lowN ? '<div class="kv"><span>Kam qolgan</span><b>'+lowN+' ta</b></div>' : '')
      + '</div>';
 
@@ -1906,6 +1947,8 @@ function viewItem(){
      + '</div></div>';
 
   h += '<div class="card">'
+     + '<div class="kv"><span>Prihod summasi</span><b class="neg">'+fmtMoney(moveSum('in', i.id))+'</b></div>'
+     + '<div class="kv"><span>Rasxod summasi</span><b class="pos">'+fmtMoney(moveSum('out', i.id))+'</b></div>'
      + kv('Oxirgi kirim narxi', lastInPrice(i.id)?fmtMoney(lastInPrice(i.id)):'—')
      + kv('Qoldiq qiymati', fmtMoney(itemValue(i.id)))
      + kv('O‘lchov birligi', i.unit||'dona')
