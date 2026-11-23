@@ -89,6 +89,15 @@ create policy m_bootstrap on members for insert with check (
 create policy m_owner on members for all
   using (member_role(group_id) = 'owner')
   with check (member_role(group_id) = 'owner');
+-- «Tahrirlaydi» ruxsatiga ega a'zo ham boshqa a'zoni guruhdan chiqara oladi
+-- (guruh egasiga tegmaydi — egani faqat boshqa ega chiqaradi)
+drop policy if exists m_editor_del on members;
+create policy m_editor_del on members for delete
+  using (member_role(group_id) = 'editor' and role <> 'owner');
+-- Har kim o'zi guruhdan chiqa oladi (rolidan qat'i nazar)
+drop policy if exists m_self_del on members;
+create policy m_self_del on members for delete
+  using (user_id = auth.uid());
 
 -- ENTRIES
 drop policy if exists e_select on entries;
