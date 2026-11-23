@@ -75,6 +75,9 @@ drop policy if exists g_update on groups;
 create policy g_select on groups for select using (is_member(id));
 create policy g_insert on groups for insert with check (auth.uid() = created_by);
 create policy g_update on groups for update using (member_role(id) = 'owner');
+-- Guruhni butunlay o'chirish (a'zolari, amaliyotlari bilan) — faqat egasi
+drop policy if exists g_delete on groups;
+create policy g_delete on groups for delete using (member_role(id) = 'owner');
 
 -- MEMBERS
 drop policy if exists m_select    on members;
