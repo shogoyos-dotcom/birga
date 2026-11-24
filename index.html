@@ -629,7 +629,11 @@ function applySession(s){
 function authFail(e){
   var m = (e && (e.message||e.error_description)) || '';
   if(/already registered|already been registered|exists/i.test(m))
-    alert('Bu email allaqachon ro‘yxatdan o‘tgan. «Kirish» orqali kiring.');
+    alert('Bu email allaqachon band — u bilan boshqa hisob ochilgan.\n\n'
+        + 'Hozirgi hisobingizni (guruhlar va ombor shu yerda) saqlab qolish uchun:\n'
+        + '• boshqa email yozing — masalan ism+birga@gmail.com (xat o‘sha pochtaga keladi)\n'
+        + '• yoki Supabase ▸ Authentication ▸ Users da keraksiz hisobni o‘chirib, qayta urining\n\n'
+        + 'Diqqat: «Kirish» o‘sha boshqa hisobga olib o‘tadi — hozirgi guruhlaringiz ko‘rinmay qoladi.');
   else if(/Invalid login/i.test(m))
     alert('Email yoki parol noto‘g‘ri.');
   else if(/Password should be/i.test(m))
@@ -673,7 +677,8 @@ function openLinkEmail(){
         render();
       }).catch(function(e){
         if(btn){ btn.disabled=false; btn.textContent='Saqlash'; }
-        authFail(e);
+        /* alert chizishni to‘xtatadi — tugma avval yangilansin */
+        setTimeout(function(){ authFail(e); }, 0);
       });
     }
   });
