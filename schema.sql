@@ -20,11 +20,16 @@ create table if not exists members (
   role text not null default 'viewer',             -- 'owner' | 'editor' | 'viewer'
                                                    -- sukut bo'yicha faqat ko'radi;
                                                    -- tahrirlash huquqini guruh egasi beradi
+  can_stock boolean not null default false,        -- «faqat ko'radi» roli omborni ko'rsinmi?
+                                                   -- (owner/editor doim ko'radi)
   claim_token text,                                -- taklif havolasidagi maxfiy kalit
   created_at timestamptz not null default now()
 );
 create index if not exists members_group_idx on members(group_id);
 create index if not exists members_user_idx on members(user_id);
+-- eski bazalar uchun: ustun keyin qo'shilgan
+alter table members add column if not exists can_stock boolean not null default false;
+alter table members alter column role set default 'viewer';
 
 create table if not exists entries (
   id uuid primary key default gen_random_uuid(),
@@ -90,6 +95,13 @@ create or replace function member_role(gid uuid) returns text
   select role from members where group_id = gid and user_id = auth.uid() limit 1;
 $$;
 
+-- Omborni kim ko'radi: egasi va tahrirlovchi doim, qolganlar — can_stock berilsa
+create or replace function stock_visible(gid uuid) returns boolean
+  language sql security definer stable set search_path = public as $$
+  select exists (select 1 from members where group_id = gid and user_id = auth.uid()
+    and (role in ('owner','editor') or can_stock));
+$$;
+
 -- ---------- RLS ----------
 alter table groups      enable row level security;
 alter table members     enable row level security;
@@ -153,14 +165,14 @@ create policy s_write  on settlements for all
 -- o'zgartira oladi. Ya'ni ruxsat berilmagan a'zo faqat kuzatadi.
 drop policy if exists si_select on stock_items;
 drop policy if exists si_write  on stock_items;
-create policy si_select on stock_items for select using (is_member(group_id));
+create policy si_select on stock_items for select using (stock_visible(group_id));
 create policy si_write  on stock_items for all
   using (member_role(group_id) in ('owner','editor'))
   with check (member_role(group_id) in ('owner','editor'));
 
 drop policy if exists sm_select on stock_moves;
 drop policy if exists sm_write  on stock_moves;
-create policy sm_select on stock_moves for select using (is_member(group_id));
+create policy sm_select on stock_moves for select using (stock_visible(group_id));
 create policy sm_write  on stock_moves for all
   using (member_role(group_id) in ('owner','editor'))
   with check (member_role(group_id) in ('owner','editor'));

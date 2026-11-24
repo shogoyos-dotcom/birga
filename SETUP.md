@@ -7,8 +7,8 @@ Ikki qismdan iborat:
 | Qism | Qayerda ishlaydi | Server kerakmi |
 |---|---|---|
 | Shaxsiy hamyon, hisobotlar | Faqat shu telefonda | yo‘q |
-| **Mening omborim** | Faqat shu telefonda | yo‘q |
-| **Guruhlar** va **guruh ombori** | Supabase bulutida | ha |
+| **Shaxsiy profil ombori** | Faqat shu telefonda | yo‘q |
+| **Guruhlar** va **guruh profili ombori** | Supabase bulutida | ha |
 
 Guruhlar kerak bo‘lmasa, hech narsa sozlamasangiz ham ilova ishlayveradi.
 
@@ -112,11 +112,16 @@ sifatida kiradi.
 |---|---|
 | **Egasi** | Hammasi: a‘zo qo‘shish, rol berish, guruhni o‘chirish |
 | **Tahrirlaydi** | Xarajat/tushum qo‘shish, a‘zoni chiqarish (egadan tashqari) |
-| **Faqat ko‘radi** | Hech narsa o‘zgartira olmaydi |
+| **Faqat ko‘radi** | Guruh xarajatlarini ko‘radi, hech narsa o‘zgartira olmaydi |
 
-Yangi a‘zo **«Faqat ko‘radi»** bo‘lib qo‘shiladi — ya‘ni u hech narsani
-o‘zgartira olmaydi. Tahrirlash huquqini **siz** berasiz: a‘zo yonidagi
-ro‘yxatdan «Tahrirlaydi» ni tanlaysiz.
+Yangi a‘zo **«Faqat ko‘radi»** bo‘lib qo‘shiladi va **omborni ham ko‘rmaydi**.
+Ikkala huquqni **siz** berasiz:
+
+- **o‘zgartirish** — a‘zo yonidagi ro‘yxatdan «Tahrirlaydi» ni tanlang;
+- **omborni ko‘rish** — a‘zo yonidagi **«Omborni ko‘rsin»** tugmasini bosing
+  (bosilgandan keyin «✓ Omborni ko‘radi» bo‘lib qoladi; qayta bossangiz yopiladi).
+
+«Tahrirlaydi» va «Egasi» omborni **doim** ko‘radi.
 
 Har kim o‘zi guruhdan chiqa oladi. Barcha o‘zgarishlar hamma a‘zoda
 **real vaqtda** yangilanadi.
@@ -124,22 +129,30 @@ Har kim o‘zi guruhdan chiqa oladi. Barcha o‘zgarishlar hamma a‘zoda
 > Himoya ilovada emas, **serverda**. Ruxsati yo‘q odam ilovani o‘zgartirsa ham
 > serverning o‘zi yozishga yo‘l qo‘ymaydi.
 
-### Ombor
+### Ombor — bitta, profilga bog‘langan
 
-Ombor ikki xil bo‘lishi mumkin — Ombor ekranining tepasidagi tanlagichdan:
+Ombor **bitta** bo‘ladi: qaysi profilda ishlasangiz, o‘shaning ombori.
+Profilni **Profil ▸ «Profil»** kartasidan almashtirasiz:
 
-| | Kim ko‘radi | Kim o‘zgartiradi |
+| Profil | Kim ko‘radi | Kim o‘zgartiradi |
 |---|---|---|
-| **Mening omborim** | faqat siz, shu telefonda | siz |
-| **☁ Guruh ombori** | guruhning **barcha a‘zolari** | faqat **egasi** va **«Tahrirlaydi»** ruxsati borlar |
+| **Shaxsiy profil** | faqat siz, shu telefonda | siz |
+| **☁ Guruh profili** | egasi, «Tahrirlaydi» va **«Omborni ko‘rsin»** berilgan a‘zolar | egasi va «Tahrirlaydi» |
 
-Ya‘ni do‘koningiz omborini guruhga bog‘lasangiz: xodimlar qoldiqni va hisobotni
-ko‘rib turadi, lekin siz ruxsat bermaguningizcha hech narsa o‘zgartira olmaydi.
-Ma‘lumot serverda saqlanadi — telefon yo‘qolsa ham qolaveradi.
+Ya‘ni do‘koningiz omborini guruhga bog‘lasangiz: siz tanlagan xodimlar qoldiqni
+va hisobotni ko‘rib turadi, lekin siz ruxsat bermaguningizcha hech narsa
+o‘zgartira olmaydi. Qolganlar esa omborni umuman ko‘rmaydi — ularga qulf
+ekrani chiqadi. Ma‘lumot serverda saqlanadi — telefon yo‘qolsa ham qolaveradi.
 
-**Telefondagi omborni guruhga ko‘chirish:** guruh omborini tanlasangiz,
-«Telefondagi ombor» kartasi chiqadi — bir bosishda hamma tovar va harakat
-ko‘chadi (telefondagi nusxa zaxira sifatida qoladi).
+**Ombor ikkiga bo‘linib qolsa:** guruh profilini tanlaganingizda telefonda eski
+tovarlar qolgan bo‘lsa, «Ombor ikkiga bo‘lingan» kartasi chiqadi. **«Bitta
+omborga birlashtirish»** ni bossangiz hamma tovar va harakat guruhga ko‘chadi,
+telefondagi alohida nusxa esa o‘chadi — shunda ombor haqiqatan bitta bo‘ladi.
+Kassadagi pul amaliyotlariga tegilmaydi.
+
+**Har kim o‘z profilida ham ishlashi mumkin:** guruhga qo‘shilgan odam
+«Shaxsiy profil» ni tanlab, o‘zining alohida omborini yuritaveradi — u guruhga
+aralashmaydi.
 
 > Guruh ombori ishlashi uchun **yangilangan `schema.sql`** kerak. Agar
 > «Serverda ombor jadvallari yo‘q» degan ogohlantirish chiqsa —
@@ -228,6 +241,8 @@ hisob qoldig‘i 0 bo‘ladi. Kategoriyalar va guruhlar qoladi.
 | Guruh/a‘zo o‘chmayapti | Ruxsatlar eski — «Serverni yangilash (SQL)» ni bajaring |
 | «Serverda ombor jadvallari yo‘q» | Xuddi shunday — SQL ni yangilang |
 | A‘zo ombor yoza olmayapti | Uning roli «Faqat ko‘radi» — «Tahrirlaydi» ga o‘tkazing |
+| A‘zoga ombor umuman ko‘rinmayapti | Unga «Omborni ko‘rsin» ruxsatini bering |
+| «Omborni ko‘rsin» saqlanmayapti | Eski server — «Serverni yangilash (SQL)» ni bajaring |
 | Havola «yaroqsiz» deydi | Havola to‘liq nusxalanmagan |
 | iPhone’da o‘rnatilmayapti | Safari’da ochish kerak, boshqa brauzerda ishlamaydi |
 | «Email tasdiqlanmagan» | Authentication ▸ Providers ▸ Email ▸ «Confirm email» ni o‘chiring |
