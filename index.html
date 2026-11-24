@@ -720,7 +720,7 @@ function deleteGroupCloud(g, done){
   }).catch(sbFail);
 }
 function sqlNeeded(what){
-  return what+' — serverdagi ruxsat yetmayapti.\n\nSupabase ▸ SQL Editor da yangilangan schema.sql ni bir marta ishga tushiring, keyin qayta urinib ko‘ring.';
+  return what+' — serverdagi ruxsat yetmayapti.\n\nProfil ▸ «Serverni yangilash (SQL)» ni oching, matnni nusxalab Supabase ▸ SQL Editor da bir marta Run qiling. Keyin qayta urinib ko‘ring.';
 }
 function saveExpenseTo(g, existing, data, done){
   if(!canEdit(g)){ alert('Sizda tahrirlash huquqi yo‘q — guruh egasidan so‘rang.'); return; }
@@ -871,7 +871,7 @@ function viewHome(){
   h+='<div class="topbar"><div><h1>Asosiy</h1>'+(state.isSample?'<div class="sub"><span class="sample-tag">Namuna ma‘lumot</span></div>':'')+'</div>'
     +'<div class="monthnav">'
     +'<button class="icon-btn" data-act="month" data-d="-1" aria-label="Oldingi oy">‹</button>'
-    +'<span class="month-label">'+monthLabel(ym)+'</span>'
+    +'<button class="month-label" data-act="pick-ym" style="background:0;border:0;color:inherit;font:inherit;cursor:pointer;padding:2px 4px">'+monthLabel(ym)+' ▾</button>'
     +'<button class="icon-btn" data-act="month" data-d="1" aria-label="Keyingi oy">›</button>'
     +'</div></div>';
 
@@ -885,8 +885,14 @@ function viewHome(){
     +'<div class="flowbox"><div class="k">Chiqim</div><div class="v neg">'+fmtMoney(exp)+'</div></div>'
     +'</div></div>';
 
-  var mch=monthChart(ym);
-  if(mch) h+='<div class="card"><div class="card-h"><h2>Oxirgi 6 oy</h2></div>'+mch+'</div>';
+  var nMon = state.settings && state.settings.chartMonths ? state.settings.chartMonths : 6;
+  var mch=monthChart(ym, nMon);
+  if(mch) h+='<div class="card"><div class="card-h"><h2>Oxirgi '+nMon+' oy</h2>'
+    + '<span class="chips" style="padding:0;gap:5px">'
+    + [3,6,12].map(function(n){
+        return '<button class="chip" style="padding:4px 10px;font-size:12px" data-act="chmon" data-n="'+n+'" aria-pressed="'+(n===nMon)+'">'+n+'</button>';
+      }).join('')
+    + '</span></div>'+mch+'</div>';
 
   h+='<div class="card"><div class="card-h"><h2>Oylik byudjet</h2><button class="link" data-act="set-budget">Tahrirlash</button></div>'
     +(bud>0
@@ -1260,10 +1266,14 @@ function viewProfil(){
     +'<div style="height:12px"></div>'
     +'<button class="btn btn-block" data-act="data-io">Ma‘lumotni ko‘chirish / joylash</button>'
     +'<div style="height:8px"></div>'
+    +'<button class="btn btn-block" data-act="perm-sql">Serverni yangilash (SQL)</button>'
+    +'<div style="height:8px"></div>'
     +'<button class="btn btn-block" data-act="zero-data">Hisobni noldan boshlash</button>'
     +'<div style="height:8px"></div>'
     +'<button class="btn btn-block btn-danger" data-act="reset-data">Hammasini o‘chirish va namunaga qaytish</button>'
     +'</div>';
+
+  h+=installCard();
 
   h+='<div class="note">Shaxsiy hamyon va oddiy guruhlar faqat shu qurilmada saqlanadi — boshqa telefonga «Ma‘lumotni ko‘chirish» orqali o‘tkazing. ☁ bilan belgilangan bulutli guruhlar esa a‘zolar bilan avtomatik sinxronlanadi.</div>';
 
@@ -2253,9 +2263,10 @@ function colPath(x,y,w,h,r){
 }
 
 /* oxirgi 6 oy: kirim va chiqim ustunlari */
-function monthChart(ym){
+function monthChart(ym, n){
+  n = n || 6;
   var ms=[], k;
-  for(k=5;k>=0;k--) ms.push(shiftMonth(ym,-k));
+  for(k=n-1;k>=0;k--) ms.push(shiftMonth(ym,-k));
   var data = ms.map(function(m){
     var gS=groupMonthShares(m), inc=gS.inc, exp=gS.exp;
     monthTx(m).forEach(function(t){
@@ -2268,8 +2279,9 @@ function monthChart(ym){
   if(max<=0) return '';
 
   var W=336, H=142, L=40, R=330, base=108, top=10, ph=base-top;
-  var band=(R-L)/6, bw=15, gap=2, pair=bw*2+gap, off=(band-pair)/2;
-  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Oxirgi olti oy kirim va chiqim">';
+  var band=(R-L)/n;
+  var bw=Math.max(5, Math.min(15, (band-6)/2)), gap=2, pair=bw*2+gap, off=(band-pair)/2;
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Oxirgi '+n+' oy kirim va chiqim">';
   [0,0.5,1].forEach(function(f){
     var y=base-ph*f;
     svg+='<line x1="'+L+'" y1="'+y.toFixed(1)+'" x2="'+R+'" y2="'+y.toFixed(1)+'" style="stroke:var(--line)" stroke-width="1"/>'
@@ -2284,8 +2296,9 @@ function monthChart(ym){
                 + '<title>'+esc(lab)+' · Kirim '+esc(fmtMoney(d.inc))+'</title></path>';
     if(he>0) svg+='<path d="'+colPath(x+bw+gap,base-he,bw,he,4)+'" style="fill:var(--ch-out)">'
                 + '<title>'+esc(lab)+' · Chiqim '+esc(fmtMoney(d.exp))+'</title></path>';
-    svg+='<text x="'+(x+pair/2).toFixed(1)+'" y="'+(base+15)+'" text-anchor="middle" font-size="9.5" style="fill:var(--ink-3)">'
-       + UZMONTH_SHORT[parseInt(d.ym.slice(5,7),10)-1] + '</text>';
+    if(n<=6 || i%2===1)
+      svg+='<text x="'+(x+pair/2).toFixed(1)+'" y="'+(base+15)+'" text-anchor="middle" font-size="9.5" style="fill:var(--ink-3)">'
+         + UZMONTH_SHORT[parseInt(d.ym.slice(5,7),10)-1] + '</text>';
   });
   svg+='</svg>';
   return '<div class="chleg"><span><i style="background:var(--ch-in)"></i>Kirim</span>'
@@ -2324,6 +2337,117 @@ function catChart(list, type){
   return barList(rows, type==='income' ? '--ch-in' : '--ch-out');
 }
 
+/* ---------- ILOVANI O'RNATISH (PWA) ---------- */
+var installPrompt = null;
+function isStandalone(){
+  try{
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  }catch(e){ return false; }
+}
+function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault(); installPrompt = e;
+  if(route.name==='profil') render();
+});
+window.addEventListener('appinstalled', function(){
+  installPrompt = null;
+  if(route.name==='profil') render();
+});
+function installCard(){
+  if(isStandalone()){
+    return '<div class="card"><div class="card-h"><h2>Ilova</h2></div>'
+      + '<div class="note">✓ Ilova telefonga o‘rnatilgan — shu yerdan ishlayapsiz.</div></div>';
+  }
+  var h='<div class="card"><div class="card-h"><h2>Ilovani o‘rnatish</h2></div>';
+  if(installPrompt){
+    h+='<div class="note" style="margin-bottom:10px">Bosh ekranga ilova bo‘lib tushadi, brauzersiz ochiladi va internetsiz ham ishlaydi.</div>'
+     + '<button class="btn btn-primary btn-block" data-act="install-app">Telefonga o‘rnatish</button>';
+  }else if(isIOS()){
+    h+='<div class="note">iPhone‘da: pastdagi <b>Ulashish</b> belgisini bosing → <b>«Bosh ekranga qo‘shish»</b>.<br>'
+     + 'Bu faqat <b>Safari</b> brauzerida ishlaydi.</div>';
+  }else{
+    h+='<div class="note">Android‘da: brauzer menyusi <b>⋮</b> → <b>«Ilovani o‘rnatish»</b> yoki <b>«Bosh ekranga qo‘shish»</b>.<br>'
+     + 'Tugma ko‘rinmasa, sahifani bir-ikki marta oching — brauzer biroz kutadi.</div>';
+  }
+  return h+'</div>';
+}
+
+/* nusxa olish: clipboard promise qaytaradi — rad etilsa zaxira yo‘lga tushamiz */
+function copyText(txt, btn, okText, area){
+  var ok = function(){ btn.textContent = okText || 'Nusxa olindi ✓'; };
+  var fallback = function(){
+    var ta = area || (function(){
+      var t=document.createElement('textarea');
+      t.value=txt; t.style.position='fixed'; t.style.opacity='0';
+      document.body.appendChild(t); return t;
+    })();
+    try{
+      ta.focus(); ta.select();
+      if(document.execCommand('copy')){ ok(); } else { btn.textContent='Nusxa olinmadi — qo‘lda belgilang'; }
+    }catch(e){ btn.textContent='Nusxa olinmadi — qo‘lda belgilang'; }
+    if(!area && ta.parentNode) ta.parentNode.removeChild(ta);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(ok, fallback);
+  }else{
+    fallback();
+  }
+}
+
+/* ---------- SERVER RUXSATLARI (SQL) ---------- */
+var PERM_SQL =
+  "-- Birga Hamyon — ruxsatlar. Supabase ▸ SQL Editor ▸ New query ▸ Run\n" +
+  "drop policy if exists g_delete on groups;\n" +
+  "create policy g_delete on groups for delete using (member_role(id) = 'owner');\n\n" +
+  "drop policy if exists m_editor_del on members;\n" +
+  "create policy m_editor_del on members for delete\n" +
+  "  using (member_role(group_id) = 'editor' and role <> 'owner');\n\n" +
+  "drop policy if exists m_self_del on members;\n" +
+  "create policy m_self_del on members for delete\n" +
+  "  using (user_id = auth.uid());";
+
+function openPermSql(){
+  openModal('Serverni yangilash',
+    '<div class="note">Guruhni o‘chirish va a‘zoni chiqarish uchun serverda ruxsat kerak. '
+    + 'Quyidagini <b>Supabase ▸ SQL Editor ▸ New query</b> ga joylab <b>Run</b> bosing — bir marta.</div>'
+    + '<div style="height:10px"></div>'
+    + '<textarea id="permsql" readonly rows="11" style="font-family:var(--font-mono);font-size:11.5px;line-height:1.5">'
+    + esc(PERM_SQL) + '</textarea>'
+    + '<div style="height:10px"></div>'
+    + '<button class="btn btn-primary btn-block" data-act="copy-sql">Nusxa olish</button>', {});
+}
+
+/* ---------- OY TANLASH ---------- */
+function openMonthPicker(){
+  var cur = route.ym || today().slice(0,7);
+  var year = parseInt(cur.slice(0,4),10);
+  var draw = function(){
+    var g='<div class="row" style="justify-content:space-between;border:0;padding:4px 0 12px">'
+      + '<button class="icon-btn" data-act="py" data-y="'+(year-1)+'" aria-label="Oldingi yil">‹</button>'
+      + '<b style="font-size:17px">'+year+'</b>'
+      + '<button class="icon-btn" data-act="py" data-y="'+(year+1)+'" aria-label="Keyingi yil">›</button></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
+    UZMONTH.forEach(function(nm,ix){
+      var ym = year+'-'+String(ix+1).padStart(2,'0');
+      g+='<button class="chip" style="justify-content:center;padding:11px 0" data-act="pick-month" data-ym="'+ym+'"'
+       + ' aria-pressed="'+(ym===cur)+'">'+nm.slice(0,3)+'</button>';
+    });
+    return g+'</div>'
+      + '<div style="height:12px"></div>'
+      + '<button class="btn btn-block" data-act="pick-month" data-ym="'+today().slice(0,7)+'">Shu oyga qaytish</button>';
+  };
+  openModal('Oyni tanlash', draw(), {
+    onMount:function(root){
+      root.addEventListener('click', function(ev){
+        var el=ev.target.closest('[data-act="py"]');
+        if(!el) return;
+        year = parseInt(el.dataset.y,10);
+        root.querySelector('.sheet-b').innerHTML = draw();
+      });
+    }
+  });
+}
+
 document.addEventListener('click', function(e){
   var el=e.target.closest('[data-act]');
   if(!el) return;
@@ -2343,6 +2467,21 @@ document.addEventListener('click', function(e){
   if(a==='month'){ route.ym=shiftMonth(route.ym, parseInt(el.dataset.d,10)); render(); return; }
   if(a==='filter'){ route.filter=el.dataset.f; render(); return; }
   if(a==='set-budget'){ openBudgetModal(); return; }
+  if(a==='pick-ym'){ openMonthPicker(); return; }
+  if(a==='pick-month'){ route.ym=el.dataset.ym; closeModal(); render(); return; }
+  if(a==='chmon'){
+    state.settings = state.settings || {};
+    state.settings.chartMonths = parseInt(el.dataset.n,10);
+    commit(); return;
+  }
+  if(a==='perm-sql'){ openPermSql(); return; }
+  if(a==='copy-sql'){ copyText(PERM_SQL, el, 'Nusxa olindi ✓', document.getElementById('permsql')); return; }
+  if(a==='install-app'){
+    if(!installPrompt){ alert('Brauzer hozir o‘rnatishni taklif qilmayapti. Menyudan «Ilovani o‘rnatish» ni tanlang.'); return; }
+    installPrompt.prompt();
+    installPrompt.userChoice.then(function(){ installPrompt=null; render(); });
+    return;
+  }
 
   if(a==='edit-tx'){ var t=state.transactions.filter(function(x){return x.id===el.dataset.id;})[0]; if(t) openTxView(t); return; }
   if(a==='edit-tx-go'){ var tg=state.transactions.filter(function(x){return x.id===el.dataset.id;})[0]; closeModal(); if(tg) openTxModal(tg); return; }
@@ -2428,7 +2567,7 @@ document.addEventListener('click', function(e){
   if(a==='share-link'){
     var lk=el.dataset.link;
     if(navigator.share){ navigator.share({title:'Birga Hamyon — taklif', text:'Guruhga qo‘shiling:', url:lk}).catch(function(){}); }
-    else { try{ navigator.clipboard.writeText(lk); el.textContent='Nusxa olindi ✓'; }catch(e){ var t=document.getElementById('ioout'); if(t){t.select();document.execCommand('copy');} el.textContent='Nusxa olindi ✓'; } }
+    else { copyText(lk, el, 'Nusxa olindi ✓', document.getElementById('ioout')); }
     return;
   }
   if(a==='leave-group'){
