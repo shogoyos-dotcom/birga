@@ -585,6 +585,12 @@ var I18N = {
   "Mening omborim":["Мой склад","My inventory"],
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
+  "Birlashgan hisobot":["Общий отчёт","Combined report"],
+  "Sotuv":["Продажи","Sales"],
+  "Umumiy natija (ombor + guruh)":["Общий итог (склад + группа)","Overall (inventory + groups)"],
+  "Guruh · ulushingiz":["Группа · ваша доля","Groups · your share"],
+  "Ombor ›":["Склад ›","Inventory ›"],
+  "Guruhlar ›":["Группы ›","Groups ›"],
   "Turkum":["Категория","Category"],
   "Serveringizda turkum uchun joy yo‘q — «Profil ▸ Serverni yangilash (SQL)» ni yana bir marta bajaring.":["На вашем сервере нет места для категории — выполните «Профиль ▸ Обновить сервер (SQL)» ещё раз.","Your server has no place for the category — run “Profile ▸ Update server (SQL)” once more."],
   "Tovarlar va boshqa hamma narsa saqlandi; faqat turkum guruh omborida yozilmadi.":["Товары и всё остальное сохранены; не записалась только категория в складе группы.","The items and everything else were saved; only the category was not written to the group inventory."],
@@ -1590,10 +1596,6 @@ function viewHome(){
     catLeg+='<div class="li"><span class="dot" style="background:var(--ink-3)"></span>Boshqa<span class="amt">'+fmtMoney(restAmt)+'</span></div>';
   }
 
-  // groups summary
-  var owedToMe=0, iOwe=0;
-  state.groups.forEach(function(g){ var n=meNetForGroup(g); if(n>0) owedToMe+=n; else iOwe+=-n; });
-
   // recent (shaxsiy + guruh)
   var recent=activityList().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0;}).slice(0,5);
 
@@ -1615,6 +1617,8 @@ function viewHome(){
     +'<div class="flowbox"><div class="k">Chiqim</div><div class="v neg">'+fmtMoney(exp)+'</div></div>'
     +'</div></div>';
 
+  h += combinedCard(ym);
+
   var nMon = state.settings && state.settings.chartMonths ? state.settings.chartMonths : 6;
   var mch = nMon===1 ? dayChart(ym) : monthChart(ym, nMon);
   var chTitle = nMon===1 ? (monthLabel(ym)+' — kunlar') : ('Oxirgi '+nMon+' oy');
@@ -1634,12 +1638,6 @@ function viewHome(){
       : '<div class="empty" style="padding:14px 0">Byudjet belgilanmagan</div>')
     +'</div>';
 
-  h+='<div class="card"><div class="card-h"><h2>Guruh hisob-kitobi</h2><button class="link" data-act="nav" data-screen="groups">Barchasi</button></div>'
-    +'<div class="flowrow" style="margin-top:0">'
-    +'<div class="flowbox"><div class="k">Menga qaytariladi</div><div class="v pos">'+fmtMoney(owedToMe)+'</div></div>'
-    +'<div class="flowbox"><div class="k">Men qaytaraman</div><div class="v neg">'+fmtMoney(iOwe)+'</div></div>'
-    +'</div></div>';
-
   if(top.length){
     h+='<div class="card"><div class="card-h"><h2>Kategoriyalar bo‘yicha</h2></div>'
       +'<div class="segbar">'+catSeg+'</div><div class="legend">'+catLeg+'</div></div>';
@@ -1654,6 +1652,50 @@ function viewHome(){
   return h;
 }
 mountFns.home=function(){};
+
+/* Asosiy ekrandagi birlashgan hisobot: ombor + guruh, pastida umumiy natija */
+function combinedCard(ym){
+  var S = monthStock(ym);
+  var G = groupMonthShares(ym);
+  var hasG = state.groups.length > 0;
+  if(!S.has && !hasG) return '';
+
+  var owedToMe=0, iOwe=0;
+  state.groups.forEach(function(g){ var n=meNetForGroup(g); if(n>0) owedToMe+=n; else iOwe+=-n; });
+  var gNet = G.inc - G.exp;
+  var total = S.profit + gNet;
+  var sgn = function(v){ return v<0 ? 'neg' : v>0 ? 'pos' : ''; };
+
+  var h = '<div class="card"><div class="card-h"><h2>Birlashgan hisobot</h2>'
+        + '<span class="eyebrow">'+esc(monthLabel(ym))+'</span></div>';
+
+  if(S.has){
+    h += '<div class="eyebrow" style="margin:2px 0 4px">Ombor · '+esc(omborName())+'</div>'
+       + '<div class="kv"><span>Sotuv</span><b class="pos">'+fmtMoney(S.sale)+'</b></div>'
+       + '<div class="kv"><span>Sotilganning tannarxi</span><b>'+fmtMoney(S.cogs)+'</b></div>'
+       + '<div class="kv"><span>Foyda (FIFO)</span><b class="'+sgn(S.profit)+'">'+fmtMoney(S.profit,true)+'</b></div>';
+  }
+
+  if(hasG){
+    h += '<div class="eyebrow" style="margin:12px 0 4px">Guruh · ulushingiz</div>'
+       + '<div class="kv"><span>Tushum</span><b class="pos">'+fmtMoney(G.inc)+'</b></div>'
+       + '<div class="kv"><span>Xarajat</span><b class="neg">'+fmtMoney(G.exp)+'</b></div>'
+       + '<div class="kv"><span>Menga qaytariladi</span><b class="pos">'+fmtMoney(owedToMe)+'</b></div>'
+       + '<div class="kv"><span>Men qaytaraman</span><b class="neg">'+fmtMoney(iOwe)+'</b></div>';
+  }
+
+  if(S.has && hasG){
+    h += '<div class="kv" style="border-top:1px solid var(--line);margin-top:6px">'
+       + '<span><b>Umumiy natija (ombor + guruh)</b></span>'
+       + '<b class="'+sgn(total)+'">'+fmtMoney(total,true)+'</b></div>';
+  }
+  h += '<div style="height:8px"></div>'
+     + '<div class="chips" style="padding:0;gap:6px">'
+     + '<button class="chip" style="padding:5px 12px;font-size:12px" data-act="nav" data-screen="ombor">Ombor ›</button>'
+     + (hasG ? '<button class="chip" style="padding:5px 12px;font-size:12px" data-act="nav" data-screen="groups">Guruhlar ›</button>' : '')
+     + '</div>';
+  return h + '</div>';
+}
 
 function catMatch(sel, catId, catName){
   if(!sel) return true;
@@ -2762,6 +2804,30 @@ function fifo(id){
   return { cogs:cogs, sale:sale, profit:sale-cogs, soldQty:soldQty,
            leftValue:leftValue, leftQty:leftQty, short:short, perMove:perMove };
 }
+/* bitta oyning ombor natijasi: o‘sha oyda sotilganlar bo‘yicha
+   sotuv, tannarx va FIFO foyda. perMove har bir rasxodning tannarxini beradi. */
+function monthStock(ym){
+  var out = {sale:0, cogs:0, profit:0, has:false};
+  if(!omborCanSee()) return out;
+  var items = curItems();
+  out.has = items.length > 0;
+  if(!out.has) return out;
+  var inMonth = {};
+  curStock().forEach(function(m){
+    if(m.type==='out' && (m.date||'').slice(0,7)===ym) inMonth[m.id]=1;
+  });
+  items.forEach(function(i){
+    var pm = fifo(i.id).perMove;
+    Object.keys(pm).forEach(function(mid){
+      if(!inMonth[mid]) return;
+      out.sale += pm[mid].sale;
+      out.cogs += pm[mid].cost;
+    });
+  });
+  out.profit = out.sale - out.cogs;
+  return out;
+}
+
 /* qoldiq qiymati — FIFO bo‘yicha qolgan partiyalar narxida */
 function itemValue(id){ return fifo(id).leftValue; }
 /* butun ombor bo‘yicha foyda */

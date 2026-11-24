@@ -131,6 +131,22 @@ urinishi ham kerak. `migrateStock` da u unutilib, eski serverda butun
 ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
 `roleNote()` esa Ombor ekranida doimiy ogohlantirish ko‘rsatadi.
 
+## Birlashgan hisobot (Asosiy ekran)
+
+`combinedCard(ym)` — kassa hero dan keyin turadi, eski «Guruh hisob-kitobi»
+kartasi o‘rniga:
+
+- **Ombor** (joriy profilniki): sotuv, tannarx, FIFO foyda — **faqat tanlangan oy**
+- **Guruh**: ulushingiz bo‘yicha tushum/xarajat (`groupMonthShares`) va qarzlar
+  (`meNetForGroup`, bular butun davr uchun)
+- **Umumiy natija** = ombor foydasi + (guruh tushumi − xarajati); faqat
+  ikkala tomon ham bo‘lsa chiqadi
+
+Oy kesimini `monthStock(ym)` beradi: `fifo().perMove` har bir rasxodning
+tannarxini saqlaydi, shuning uchun oyni ajratish uchun qayta hisoblash
+shart emas — o‘sha oydagi `out` harakatlarining `perMove` qiymatlari
+yig‘iladi. `omborCanSee()` false bo‘lsa ombor qismi umuman hisoblanmaydi.
+
 ## Ombor hisobi — FIFO
 
 `fifo(itemId)` harakatlarni **sana bo‘yicha** (sana teng bo‘lsa — kiritilish
