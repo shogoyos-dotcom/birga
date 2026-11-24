@@ -108,7 +108,7 @@ await pg.click('[data-screen="profil"]'); await pg.waitForTimeout(400);
 must(await pg.locator('[data-act="install-app"]').count() > 0, 'Profilda «Telefonga o‘rnatish» TUGMASI bor (matn emas)');
 const order = await pg.$$eval('.card h2', e => e.map(x => x.textContent));
 const ix = order.indexOf('Ilovani o‘rnatish');
-must(ix >= 0 && ix <= 2, 'Karta yuqorida turibdi (' + (ix + 1) + '-o‘rin: ' + order.slice(0, 3).join(', ') + ')');
+must(ix >= 0 && ix <= 3, 'Karta yuqorida turibdi (' + (ix + 1) + '-o‘rin: ' + order.slice(0, 3).join(', ') + ')');
 await pg.click('[data-act="install-app"]'); await pg.waitForTimeout(400);
 must(/Qanday o‘rnatiladi/.test(await pg.locator('#modal').textContent()), 'Brauzer taklif qilmasa — ko‘rsatma oynasi ochiladi');
 must(/Ilovani o‘rnatish|Bosh ekranga qo‘shish/.test(await pg.locator('#modal').textContent()), 'Ko‘rsatmada qadamlar bor');

@@ -27,6 +27,7 @@ Bitta faylni alohida: `node 02-fifo.mjs`
 | `07-kunlik-hisobot.mjs` | Kunlar ro‘yxati va kunlik otchot (kategoriyalar, ombor, foyda) |
 | `08-guruh-ombori.mjs` | Guruh ombori: tanlagich, «faqat ko‘rish» cheklovi, guruh ma‘lumotida FIFO |
 | `09-hisob.mjs` | Email/parol oynalari va tekshiruvlari (tarmoqqa chiqmasdan) |
+| `10-tillar.mjs` | Uch til: menyu, ekranlar, modal, atribut qiymatlari buzilmasligi |
 
 ## Yozish qoidalari
 
