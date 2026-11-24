@@ -1847,8 +1847,45 @@ function avgInPrice(id){
   });
   return q>0 ? sm/q : 0;
 }
-/* qoldiq qiymati o‘rtacha kirim narxi bo‘yicha hisoblanadi */
-function itemValue(id){ return itemQty(id) * avgInPrice(id); }
+/* ---------- FIFO: oldin kelgan oldin ketadi ----------
+   Har bir rasxod eng eski prihod partiyasidan yechiladi, tannarx o‘sha
+   partiyaning narxida olinadi. Qoldiq esa qolgan partiyalar narxida turadi. */
+function fifo(id){
+  var ms = state.stock.map(function(m,ix){ return {m:m, ix:ix}; })
+    .filter(function(x){ return x.m.itemId===id; })
+    .sort(function(a,b){
+      return a.m.date<b.m.date ? -1 : a.m.date>b.m.date ? 1 : (a.ix-b.ix);
+    })
+    .map(function(x){ return x.m; });
+
+  var lots=[], cogs=0, sale=0, soldQty=0, short=0, perMove={};
+  ms.forEach(function(m){
+    if(m.type==='in'){ lots.push({qty:m.qty, price:m.price||0}); return; }
+    var need=m.qty, cost=0;
+    while(need>1e-9 && lots.length){
+      var l=lots[0], take=Math.min(need, l.qty);
+      cost += take*l.price; l.qty -= take; need -= take;
+      if(l.qty<=1e-9) lots.shift();
+    }
+    var amt=m.qty*(m.price||0);
+    cogs+=cost; sale+=amt; soldQty+=m.qty;
+    if(need>1e-9) short+=need;            /* omborda yo‘q edi — tannarxsiz ketdi */
+    perMove[m.id]={cost:cost, sale:amt, profit:amt-cost, uncovered:need};
+  });
+  var leftValue=0, leftQty=0;
+  lots.forEach(function(l){ leftValue+=l.qty*l.price; leftQty+=l.qty; });
+  return { cogs:cogs, sale:sale, profit:sale-cogs, soldQty:soldQty,
+           leftValue:leftValue, leftQty:leftQty, short:short, perMove:perMove };
+}
+/* qoldiq qiymati — FIFO bo‘yicha qolgan partiyalar narxida */
+function itemValue(id){ return fifo(id).leftValue; }
+/* butun ombor bo‘yicha foyda */
+function stockProfit(){
+  return state.items.reduce(function(a,i){ return a + fifo(i.id).profit; }, 0);
+}
+function stockCogs(){
+  return state.items.reduce(function(a,i){ return a + fifo(i.id).cogs; }, 0);
+}
 /* arzon birlik narxlari uchun kasrni ham ko‘rsatamiz (7.09 so‘m) */
 function fmtPrice(n){
   n = Number(n)||0;
@@ -1946,13 +1983,14 @@ function viewOmbor(){
   }
 
   var lowN = state.items.filter(isLow).length;
-  var tIn = moveSum('in'), tOut = moveSum('out');
+  var tIn = moveSum('in'), tOut = moveSum('out'), pr = stockProfit();
   h += '<div class="card">'
      + '<div class="kv"><span>Tovar turi</span><b>'+state.items.length+'</b></div>'
      + '<div class="kv"><span>Ombor qiymati</span><b>'+fmtMoney(stockTotal())+'</b></div>'
      + '<div class="kv"><span>Jami prihod</span><b class="neg">'+fmtMoney(tIn)+'</b></div>'
-     + '<div class="kv"><span>Jami rasxod</span><b class="pos">'+fmtMoney(tOut)+'</b></div>'
-     + '<div class="kv"><span>Farq</span><b class="'+(tOut-tIn<0?'neg':tOut-tIn>0?'pos':'')+'">'+fmtMoney(tOut-tIn,true)+'</b></div>'
+     + '<div class="kv"><span>Sotuv (rasxod)</span><b class="pos">'+fmtMoney(tOut)+'</b></div>'
+     + '<div class="kv"><span>Sotilganning tannarxi</span><b>'+fmtMoney(stockCogs())+'</b></div>'
+     + '<div class="kv"><span>Foyda (FIFO)</span><b class="'+(pr<0?'neg':pr>0?'pos':'')+'">'+fmtMoney(pr,true)+'</b></div>'
      + (lowN ? '<div class="kv"><span>Kam qolgan</span><b>'+lowN+' ta</b></div>' : '')
      + '</div>';
 
@@ -1974,13 +2012,15 @@ function viewOmbor(){
 
   h += '<div class="card"><div class="list">';
   list.forEach(function(i){
-    var qty = itemQty(i.id), low = isLow(i);
+    var qty = itemQty(i.id), low = isLow(i), fq = fifo(i.id);
     h += '<div class="row tap" data-act="open-item" data-id="'+i.id+'">'
        + '<div class="avatar" style="background:'+colorFor(i.id)+'">'+esc(initials(i.name))+'</div>'
        + '<div class="main"><div class="t">'+esc(i.name)+(low?' ⚠':'')+'</div>'
-       + '<div class="s">'+(avgInPrice(i.id) ? ('o‘rtacha '+fmtPrice(avgInPrice(i.id))+' / '+esc(i.unit||'dona')) : 'narx kiritilmagan')+'</div></div>'
+       + '<div class="s">'+(fq.leftQty>0 && fq.leftValue>0
+            ? ('qoldiq ≈ '+fmtPrice(fq.leftValue/fq.leftQty)+' / '+esc(i.unit||'dona'))
+            : (avgInPrice(i.id) ? ('o‘rtacha '+fmtPrice(avgInPrice(i.id))+' / '+esc(i.unit||'dona')) : 'narx kiritilmagan'))+'</div></div>'
        + '<div class="end"><div class="a '+(qty<=0?'neg':'')+'">'+fmtQty(qty, i.unit)+'</div>'
-       + '<div class="s">'+fmtMoney(itemValue(i.id))+'</div></div></div>';
+       + '<div class="s">'+fmtMoney(fq.leftValue)+'</div></div></div>';
   });
   h += '</div></div>';
   return h;
@@ -2016,12 +2056,16 @@ function viewItem(){
      + '<div class="flowbox"><div class="k">Rasxod</div><div class="v neg">'+fmtQty(outQ, i.unit)+'</div></div>'
      + '</div></div>';
 
+  var F = fifo(i.id);
   h += '<div class="card">'
      + '<div class="kv"><span>Prihod summasi</span><b class="neg">'+fmtMoney(moveSum('in', i.id))+'</b></div>'
-     + '<div class="kv"><span>Rasxod summasi</span><b class="pos">'+fmtMoney(moveSum('out', i.id))+'</b></div>'
-     + kv('O‘rtacha kirim narxi', fmtPrice(avgInPrice(i.id)))
+     + '<div class="kv"><span>Sotuv summasi</span><b class="pos">'+fmtMoney(F.sale)+'</b></div>'
+     + '<div class="kv"><span>Sotilganning tannarxi</span><b>'+fmtMoney(F.cogs)+'</b></div>'
+     + '<div class="kv"><span>Foyda (FIFO)</span><b class="'+(F.profit<0?'neg':F.profit>0?'pos':'')+'">'+fmtMoney(F.profit,true)+'</b></div>'
      + kv('Oxirgi kirim narxi', fmtPrice(lastInPrice(i.id)))
-     + kv('Qoldiq qiymati', fmtMoney(itemValue(i.id))+(avgInPrice(i.id)?' (o‘rtacha narxda)':''))
+     + kv('O‘rtacha kirim narxi', fmtPrice(avgInPrice(i.id)))
+     + kv('Qoldiq qiymati', fmtMoney(F.leftValue)+(F.leftQty>0?' (FIFO)':''))
+     + (F.short>0 ? '<div class="note" style="margin-top:10px">⚠ '+fmtQty(F.short,i.unit)+' qoldiqsiz sotilgan — unga tannarx yozilmagan, foyda shuncha yuqori ko‘rinadi. Yetishmagan prihodni kiriting.</div>' : '')
      + kv('O‘lchov birligi', i.unit||'dona')
      + ((i.min||0)>0 ? kv('Eng kam qoldiq', fmtQty(i.min, i.unit)) : '')
      + (isLow(i) ? '<div class="note" style="margin-top:10px">⚠ Qoldiq eng kam chegaradan past.</div>' : '')
@@ -2046,7 +2090,11 @@ function viewItem(){
        + '<div class="s">'+fmtDateShort(m.date)+(m.price>0?' · '+fmtPrice(m.price)+'/'+esc(i.unit||'dona'):'')
        + (m.txId?' · kassada':'')+'</div></div>'
        + '<div class="end"><div class="a">'+(inn?'+':'−')+fmtQty(m.qty, i.unit)+'</div>'
-       + (m.price>0?'<div class="s">'+fmtMoney(m.qty*m.price)+'</div>':'')+'</div></div>';
+       + (m.price>0?'<div class="s">'+fmtMoney(m.qty*m.price)+'</div>':'')
+       + (!inn && F.perMove[m.id] && m.price>0
+            ? '<div class="s '+(F.perMove[m.id].profit<0?'neg':'pos')+'">foyda '+fmtMoney(F.perMove[m.id].profit,true)+'</div>'
+            : '')
+       + '</div></div>';
   });
   h += '</div></div></div>';
   return h;
