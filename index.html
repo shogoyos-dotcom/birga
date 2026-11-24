@@ -585,6 +585,16 @@ var I18N = {
   "Mening omborim":["Мой склад","My inventory"],
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
+  "Turkum":["Категория","Category"],
+  "Turkumlar":["Категории","Categories"],
+  "Turkumsiz":["Без категории","No category"],
+  "Hamma turkum":["Все категории","All categories"],
+  "Jami (hammasi birga)":["Итого (всё вместе)","Total (everything)"],
+  "Tovar":["Товар","Goods"],
+  "Oziq-ovqat":["Продукты","Food"],
+  "masalan: Oziq-ovqat":["например: Продукты","e.g. Food"],
+  "«Turkum» — tovarlarni guruhlash uchun (masalan Tovar, Oziq-ovqat). Omborda har turkumning alohida summasi va hammasining jami chiqadi.":["«Категория» — чтобы группировать товары (например Товар, Продукты). На складе показывается сумма каждой категории и общий итог.","“Category” groups your items (for example Goods, Food). The inventory then shows each category's total and the grand total."],
+  "Turkum serverda saqlanmadi — «Profil ▸ Serverni yangilash (SQL)» ni bir marta bajaring. Tovarning o‘zi saqlandi.":["Категория не сохранилась на сервере — выполните «Профиль ▸ Обновить сервер (SQL)» один раз. Сам товар сохранён.","The category was not saved on the server — run “Profile ▸ Update server (SQL)” once. The item itself was saved."],
   "Puli bor":["Ему должны","Is owed"],
   "Qarzdor":["Должен","Owes"],
   "A‘zolar balansi: yuqorida puli borlar, pastda qarzdorlar":["Балансы участников: сверху те, кому должны, снизу должники.","Member balances: those who are owed on top, debtors below."],
@@ -1331,7 +1341,7 @@ function loadGroups(){
         expenses:(row.entries||[]).map(rowToEntry),
         settlements:(row.settlements||[]).map(rowToSettlement),
         items:(row.stock_items||[]).map(function(x){
-          return {id:x.id, name:x.name, unit:x.unit||'dona', min:Number(x.min_qty)||0};
+          return {id:x.id, name:x.name, unit:x.unit||'dona', min:Number(x.min_qty)||0, cat:x.cat||''};
         }),
         stock:(row.stock_moves||[]).map(function(x){
           return {id:x.id, itemId:x.item_id, type:(x.type==='out'?'out':'in'),
@@ -2587,6 +2597,30 @@ function clearSample(){ if(state.isSample){ state.isSample=false; } }
 /* ---------- global event delegation ---------- */
 /* ---------- OMBOR: tovar prihod / rasxodi ---------- */
 var UNITS = ['dona','kg','gramm','litr','metr','quti','pachka','qop'];
+/* tovar turkumlari: taklif qilinadiganlari, foydalanuvchi o‘zinikini yozishi ham mumkin */
+var CAT_HINTS = ['Tovar','Oziq-ovqat'];
+var NOCAT = 'Turkumsiz';
+function catOf(i){ return ((i && i.cat) || '').trim() || NOCAT; }
+/* joriy ombordagi hamma turkum, alifbo bo‘yicha; «Turkumsiz» oxirida */
+function allCats(){
+  var seen={}, out=[];
+  curItems().forEach(function(i){ var c=catOf(i); if(!seen[c]){ seen[c]=1; out.push(c); } });
+  out.sort(function(a,b){
+    if(a===NOCAT) return 1; if(b===NOCAT) return -1;
+    return a.localeCompare(b);
+  });
+  return out;
+}
+/* turkumlar kesimida: nechta tovar, qoldiq qiymati, foyda */
+function catTotals(){
+  var by={}, order=allCats();
+  order.forEach(function(c){ by[c]={name:c, n:0, value:0, profit:0}; });
+  curItems().forEach(function(i){
+    var r=by[catOf(i)], F=fifo(i.id);
+    r.n++; r.value+=F.leftValue; r.profit+=F.profit;
+  });
+  return order.map(function(c){ return by[c]; });
+}
 
 /* ---------- joriy ombor: telefondagi yoki guruhniki ---------- */
 function omborScope(){
@@ -2606,12 +2640,32 @@ function omborName(){ var g=omborGroup(); return g ? g.name : 'Mening omborim'; 
 function stockDenied(){
   alert('Sizda bu omborni o‘zgartirish huquqi yo‘q — guruh egasidan «Tahrirlaydi» ruxsatini so‘rang.');
 }
+/* serverda hali 'cat' ustuni bo‘lmasligi mumkin — bir marta aniqlab, keyin usiz yuboramiz */
+var sbHasItemCat = true, catSqlWarned = false;
+function itemRow(g, data){
+  var row={group_id:g.id, name:data.name, unit:data.unit, min_qty:data.min||0};
+  if(sbHasItemCat) row.cat = (data.cat||'').trim() || null;
+  return row;
+}
+function isMissingCat(e){
+  return sbHasItemCat && /\bcat\b|schema cache|column/i.test((e && e.message) || '');
+}
+function catSqlHint(){
+  if(catSqlWarned) return;
+  catSqlWarned = true;
+  alert('Turkum serverda saqlanmadi — «Profil ▸ Serverni yangilash (SQL)» ni bir marta bajaring. Tovarning o‘zi saqlandi.');
+}
 function saveItemCloud(g, existing, data, done){
   if(!canEdit(g)){ stockDenied(); return; }
-  var row={group_id:g.id, name:data.name, unit:data.unit, min_qty:data.min||0};
-  var q = existing ? SB.from('stock_items').update(row).eq('id',existing.id)
-                   : SB.from('stock_items').insert(row).select().single();
-  q.then(function(r){
+  var send = function(){
+    var row = itemRow(g, data);
+    return existing ? SB.from('stock_items').update(row).eq('id',existing.id)
+                    : SB.from('stock_items').insert(row).select().single();
+  };
+  send().then(function(r){
+    if(r.error && isMissingCat(r.error)){ sbHasItemCat=false; catSqlHint(); return send(); }
+    return r;
+  }).then(function(r){
     if(r.error) throw r.error;
     return loadGroups().then(function(){ done && done(r.data ? r.data.id : (existing&&existing.id)); });
   }).catch(sbFail);
@@ -2873,6 +2927,19 @@ function viewOmbor(){
      + (lowN ? '<div class="kv"><span>Kam qolgan</span><b class="neg">'+lowN+' ta</b></div>' : '')
      + '</div>';
 
+  /* turkumlar kesimi: har birining alohida summasi va hammasining jami */
+  var cats = catTotals().sort(function(a,b){ return b.value-a.value; });
+  if(cats.length > 1){
+    var cbars = barList(cats.map(function(c){
+      return {name:c.name+' · '+c.n+' ta', value:c.value};
+    }), '--ch-in');
+    if(cbars){
+      h += '<div class="card"><div class="card-h"><h2>Turkumlar</h2></div>' + cbars
+         + '<div class="kv" style="border-top:1px solid var(--line);margin-top:6px">'
+         + '<span><b>Jami (hammasi birga)</b></span><b>'+fmtMoney(stockTotal())+'</b></div></div>';
+    }
+  }
+
   /* grafik: tovarlar bo‘yicha qoldiq qiymati yoki foyda */
   var metric = (state.settings && state.settings.stockChart) || 'value';
   var rows = curItems().map(function(i){
@@ -2916,7 +2983,9 @@ function migrateStock(g){
   if(!state.items.length){ alert('Telefonda ko‘chiriladigan tovar yo‘q.'); return; }
   if(!confirm('Telefondagi '+state.items.length+' ta tovar va '+state.stock.length+' ta harakat «'+g.name+'» omboriga ko‘chiriladi.\n\nShundan keyin ombor bitta bo‘ladi: telefondagi alohida nusxa o‘chadi, ma‘lumot serverda saqlanadi. Kassadagi pul amaliyotlariga tegilmaydi.\n\nDavom etilsinmi?')) return;
 
-  var rows = state.items.map(function(i){ return {group_id:g.id, name:i.name, unit:i.unit||'dona', min_qty:i.min||0}; });
+  var rows = state.items.map(function(i){
+    return itemRow(g, {name:i.name, unit:i.unit||'dona', min:i.min||0, cat:i.cat||''});
+  });
   SB.from('stock_items').insert(rows).select().then(function(r){
     if(r.error) throw r.error;
     /* eski id → yangi id */
@@ -2976,6 +3045,15 @@ function viewItems(){
      + '<button class="chip" data-act="sfilter" data-f="zero" aria-pressed="'+(f==='zero')+'">Tugagan</button>'
      + '<button class="chip" data-act="sfilter" data-f="profit" aria-pressed="'+(f==='profit')+'">Foyda keltirgan</button>'
      + '</div>';
+  var cf = route.cat || '', cl = allCats();
+  if(cl.length > 1){
+    h += '<div class="chips">'
+       + '<button class="chip" data-act="icat" data-c="" aria-pressed="'+(cf==='')+'">Hamma turkum</button>'
+       + cl.map(function(c){
+           return '<button class="chip" data-act="icat" data-c="'+esc(c)+'" aria-pressed="'+(cf===c)+'">'+esc(c)+'</button>';
+         }).join('')
+       + '</div>';
+  }
   h += '<div class="filters"><select id="omsort">'
      + SORTS.map(function(x){
          return '<option value="'+x[0]+'"'+(x[0]===sort?' selected':'')+'>'+x[1]+'</option>';
@@ -2987,6 +3065,7 @@ function viewItems(){
     if(f==='low' && !isLow(i)) return false;
     if(f==='zero' && itemQty(i.id)>0) return false;
     if(f==='profit' && fifo(i.id).profit<=0) return false;
+    if(cf && catOf(i)!==cf) return false;
     return true;
   });
 
@@ -3014,6 +3093,7 @@ function viewItems(){
     else if(sort==='date-d')   sub = lastMoveDate(i.id) ? ('oxirgi harakat · '+fmtDateShort(lastMoveDate(i.id))) : 'harakat yo‘q';
     else if(itemUnitPrice(i.id)) sub = fmtPrice(itemUnitPrice(i.id)) + ' / ' + esc(i.unit||'dona');
     else                       sub = 'narx kiritilmagan';
+    if(!cf && cl.length>1 && catOf(i)!==NOCAT) sub = esc(catOf(i)) + ' · ' + sub;
     h += '<div class="row tap" data-act="open-item" data-id="'+i.id+'">'
        + '<div class="avatar" style="background:'+colorFor(i.id)+'">'+esc(initials(i.name))+'</div>'
        + '<div class="main"><div class="t">'+esc(i.name)+(low?' ⚠':'')+'</div>'
@@ -3109,17 +3189,23 @@ function viewItem(){
 
 /* ---------- tovar modali ---------- */
 function openItemModal(existing, onDone){
-  var i = existing || {name:'', unit:'dona', min:0};
+  var i = existing || {name:'', unit:'dona', min:0, cat:''};
   var isEdit = !!existing;
+  var hints = CAT_HINTS.slice();
+  allCats().forEach(function(c){ if(c!==NOCAT && hints.indexOf(c)<0) hints.push(c); });
   var body = '<form>'
     + '<div class="field"><label>Tovar nomi</label><input name="name" value="'+esc(i.name)+'" placeholder="masalan: Shakar" autofocus></div>'
+    + '<div class="field"><label>Turkum</label>'
+    + '<input name="cat" list="catlist" value="'+esc(i.cat||'')+'" placeholder="masalan: Oziq-ovqat">'
+    + '<datalist id="catlist">'+hints.map(function(c){ return '<option value="'+esc(c)+'">'; }).join('')+'</datalist>'
+    + '</div>'
     + '<div class="two">'
     + '<div class="field"><label>O‘lchov birligi</label><select name="unit">'
     + UNITS.map(function(u){ return '<option value="'+u+'"'+(u===(i.unit||'dona')?' selected':'')+'>'+u+'</option>'; }).join('')
     + '</select></div>'
     + '<div class="field"><label>Eng kam qoldiq</label><input name="min" inputmode="decimal" value="'+(i.min||'')+'" placeholder="0"></div>'
     + '</div>'
-    + '<div class="note">«Eng kam qoldiq» — shu chegaraga tushganda ogohlantirish chiqadi. Kerak bo‘lmasa bo‘sh qoldiring.</div>'
+    + '<div class="note">«Turkum» — tovarlarni guruhlash uchun (masalan Tovar, Oziq-ovqat). Omborda har turkumning alohida summasi va hammasining jami chiqadi. «Eng kam qoldiq» — shu chegaraga tushganda ogohlantirish chiqadi. Kerak bo‘lmasa bo‘sh qoldiring.</div>'
     + '<div style="height:10px"></div>'
     + '<button class="btn btn-primary btn-block" type="submit">'+(isEdit?'Saqlash':'Qo‘shish')+'</button>'
     + (isEdit?'<button class="btn btn-danger btn-block" type="button" data-act="del-item" data-id="'+i.id+'">O‘chirish</button>':'')
@@ -3128,7 +3214,8 @@ function openItemModal(existing, onDone){
     onSubmit:function(form){
       var nm = form.name.value.trim();
       if(!nm){ form.name.focus(); return; }
-      var data = {name:nm, unit:form.unit.value, min:parseQty(form.min.value)};
+      var data = {name:nm, unit:form.unit.value, min:parseQty(form.min.value),
+                  cat:(form.cat ? form.cat.value.trim() : '')};
       var g = omborGroup();
       if(g){
         closeModal();
@@ -3137,10 +3224,10 @@ function openItemModal(existing, onDone){
       }
       var newId=null;
       if(isEdit){
-        i.name = data.name; i.unit = data.unit; i.min = data.min;
+        i.name = data.name; i.unit = data.unit; i.min = data.min; i.cat = data.cat;
       }else{
         newId = uid();
-        state.items.push({id:newId, name:data.name, unit:data.unit, min:data.min});
+        state.items.push({id:newId, name:data.name, unit:data.unit, min:data.min, cat:data.cat});
       }
       closeModal(); commit();
       if(onDone) onDone(newId || i.id);
@@ -3698,6 +3785,8 @@ var PERM_SQL = [
   "create index if not exists stock_moves_group_idx on stock_moves(group_id);",
   "create index if not exists stock_moves_item_idx on stock_moves(item_id);",
   "",
+  "alter table stock_items add column if not exists cat text;",
+  "",
   "-- 2) Yangi a'zo sukut bo'yicha faqat ko'radi va omborni ko'rmaydi",
   "alter table members alter column role set default 'viewer';",
   "alter table members add column if not exists can_stock boolean not null default false;",
@@ -3900,6 +3989,7 @@ document.addEventListener('click', function(e){
     closeModal(); save(); go('items'); return;
   }
   if(a==='open-item'){ go('item',{id:el.dataset.id}); return; }
+  if(a==='icat'){ route.cat = el.dataset.c || ''; render(); return; }
   if(a==='sfilter'){ route.sf=el.dataset.f; render(); return; }
   if(a==='add-move'){
     if(!omborCanEdit()){ stockDenied(); return; }
