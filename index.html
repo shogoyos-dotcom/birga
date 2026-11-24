@@ -586,6 +586,12 @@ var I18N = {
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
   "Birlashgan hisobot":["Общий отчёт","Combined report"],
+  "Guruh bo‘yicha sof":["Чистыми по группе","Group net"],
+  "Tushum (ulushingiz)":["Доход (ваша доля)","Income (your share)"],
+  "Xarajat (ulushingiz)":["Расход (ваша доля)","Expense (your share)"],
+  "Oy":["Месяц","Month"],
+  "Yil":["Год","Year"],
+  "Ombor foydasi tanlangan davr uchun; qarzlar esa butun davr bo‘yicha. Tushum va xarajat — amaliyotlardagi shaxsiy ulushingiz, u ko‘pincha 0 bo‘ladi va jamiga qo‘shilmaydi.":["Прибыль склада — за выбранный период, долги — за всё время. Доход и расход — ваша личная доля в операциях; она часто равна 0 и в итог не входит.","The inventory profit is for the selected period; debts are all-time. Income and expense are your personal share of the entries — often zero, and not part of the total."],
   "Sotuv":["Продажи","Sales"],
   "Umumiy natija (ombor + guruh)":["Общий итог (склад + группа)","Overall (inventory + groups)"],
   "Guruh · ulushingiz":["Группа · ваша доля","Groups · your share"],
@@ -1043,11 +1049,12 @@ function myShareIn(g, e){
   var s=(e.splits||[]).filter(function(x){return x.memberId===meId(g);})[0];
   return s ? s.share : 0;
 }
-function groupMonthShares(ym){
+/* p — davr prefiksi: '2026-11' (oy) yoki '2026' (yil) */
+function groupMonthShares(p){
   var r={inc:0, exp:0, byCat:{}};
   state.groups.forEach(function(g){
     (g.expenses||[]).forEach(function(e){
-      if((e.date||'').slice(0,7)!==ym) return;
+      if((e.date||'').slice(0,p.length)!==p) return;
       var sh=myShareIn(g,e); if(sh<=0) return;
       if(entryType(e)==='income') r.inc+=sh;
       else { r.exp+=sh; var cid=entryCatId(e); r.byCat[cid]=(r.byCat[cid]||0)+sh; }
@@ -1654,20 +1661,30 @@ function viewHome(){
 mountFns.home=function(){};
 
 /* Asosiy ekrandagi birlashgan hisobot: ombor + guruh, pastida umumiy natija */
+function repPeriod(){ return (state.settings && state.settings.repPeriod)==='year' ? 'year' : 'month'; }
 function combinedCard(ym){
-  var S = monthStock(ym);
-  var G = groupMonthShares(ym);
+  var per = repPeriod(), yr = ym.slice(0,4);
+  var pref = per==='year' ? yr : ym;
+  var S = monthStock(pref);
+  var G = groupMonthShares(pref);
   var hasG = state.groups.length > 0;
   if(!S.has && !hasG) return '';
 
+  /* qarzlar — butun davr uchun, sana bilan cheklanmaydi */
   var owedToMe=0, iOwe=0;
   state.groups.forEach(function(g){ var n=meNetForGroup(g); if(n>0) owedToMe+=n; else iOwe+=-n; });
-  var gNet = G.inc - G.exp;
-  var total = S.profit + gNet;
+  var gDebt = owedToMe - iOwe;
+  /* jamiga guruhning SOF QARZI qo‘shiladi: ulush ko‘pincha 0 bo‘ladi
+     (pulni siz berasiz, ulush boshqalarga yoziladi) — o‘shanda ham pul ko‘rinsin */
+  var total = S.profit + gDebt;
   var sgn = function(v){ return v<0 ? 'neg' : v>0 ? 'pos' : ''; };
 
   var h = '<div class="card"><div class="card-h"><h2>Birlashgan hisobot</h2>'
-        + '<span class="eyebrow">'+esc(monthLabel(ym))+'</span></div>';
+        + '<span class="chips" style="padding:0;gap:5px">'
+        + '<button class="chip" style="padding:4px 11px;font-size:12px" data-act="repper" data-p="month" aria-pressed="'+(per==='month')+'">Oy</button>'
+        + '<button class="chip" style="padding:4px 11px;font-size:12px" data-act="repper" data-p="year" aria-pressed="'+(per==='year')+'">Yil</button>'
+        + '</span></div>'
+        + '<div class="eyebrow" style="margin:2px 0 6px">'+esc(per==='year' ? ('Yil '+yr) : monthLabel(ym))+'</div>';
 
   if(S.has){
     h += '<div class="eyebrow" style="margin:2px 0 4px">Ombor · '+esc(omborName())+'</div>'
@@ -1677,11 +1694,12 @@ function combinedCard(ym){
   }
 
   if(hasG){
-    h += '<div class="eyebrow" style="margin:12px 0 4px">Guruh · ulushingiz</div>'
-       + '<div class="kv"><span>Tushum</span><b class="pos">'+fmtMoney(G.inc)+'</b></div>'
-       + '<div class="kv"><span>Xarajat</span><b class="neg">'+fmtMoney(G.exp)+'</b></div>'
+    h += '<div class="eyebrow" style="margin:12px 0 4px">Guruh</div>'
+       + '<div class="kv"><span>Tushum (ulushingiz)</span><b class="pos">'+fmtMoney(G.inc)+'</b></div>'
+       + '<div class="kv"><span>Xarajat (ulushingiz)</span><b class="neg">'+fmtMoney(G.exp)+'</b></div>'
        + '<div class="kv"><span>Menga qaytariladi</span><b class="pos">'+fmtMoney(owedToMe)+'</b></div>'
-       + '<div class="kv"><span>Men qaytaraman</span><b class="neg">'+fmtMoney(iOwe)+'</b></div>';
+       + '<div class="kv"><span>Men qaytaraman</span><b class="neg">'+fmtMoney(iOwe)+'</b></div>'
+       + '<div class="kv"><span>Guruh bo‘yicha sof</span><b class="'+sgn(gDebt)+'">'+fmtMoney(gDebt,true)+'</b></div>';
   }
 
   if(S.has && hasG){
@@ -1689,6 +1707,7 @@ function combinedCard(ym){
        + '<span><b>Umumiy natija (ombor + guruh)</b></span>'
        + '<b class="'+sgn(total)+'">'+fmtMoney(total,true)+'</b></div>';
   }
+  h += '<div class="note" style="margin-top:8px">Ombor foydasi tanlangan davr uchun; qarzlar esa butun davr bo‘yicha. Tushum va xarajat — amaliyotlardagi shaxsiy ulushingiz, u ko‘pincha 0 bo‘ladi va jamiga qo‘shilmaydi.</div>';
   h += '<div style="height:8px"></div>'
      + '<div class="chips" style="padding:0;gap:6px">'
      + '<button class="chip" style="padding:5px 12px;font-size:12px" data-act="nav" data-screen="ombor">Ombor ›</button>'
@@ -2806,7 +2825,7 @@ function fifo(id){
 }
 /* bitta oyning ombor natijasi: o‘sha oyda sotilganlar bo‘yicha
    sotuv, tannarx va FIFO foyda. perMove har bir rasxodning tannarxini beradi. */
-function monthStock(ym){
+function monthStock(p){
   var out = {sale:0, cogs:0, profit:0, has:false};
   if(!omborCanSee()) return out;
   var items = curItems();
@@ -2814,7 +2833,7 @@ function monthStock(ym){
   if(!out.has) return out;
   var inMonth = {};
   curStock().forEach(function(m){
-    if(m.type==='out' && (m.date||'').slice(0,7)===ym) inMonth[m.id]=1;
+    if(m.type==='out' && (m.date||'').slice(0,p.length)===p) inMonth[m.id]=1;
   });
   items.forEach(function(i){
     var pm = fifo(i.id).perMove;
@@ -4071,6 +4090,11 @@ document.addEventListener('click', function(e){
     closeModal(); save(); go('items'); return;
   }
   if(a==='open-item'){ go('item',{id:el.dataset.id}); return; }
+  if(a==='repper'){
+    state.settings = state.settings || {};
+    state.settings.repPeriod = el.dataset.p==='year' ? 'year' : 'month';
+    commit(); return;
+  }
   if(a==='icat'){ route.cat = el.dataset.c || ''; render(); return; }
   if(a==='sfilter'){ route.sf=el.dataset.f; render(); return; }
   if(a==='add-move'){
