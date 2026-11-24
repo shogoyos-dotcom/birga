@@ -243,6 +243,12 @@
   .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .chart svg{display:block;width:100%;height:auto}
+  .chart2{display:flex;align-items:flex-start;gap:0}
+  .chart2 .chaxis{flex:none;display:block}
+  .chscroll{overflow-x:auto;overflow-y:hidden;flex:1;-webkit-overflow-scrolling:touch}
+  .chscroll::-webkit-scrollbar{height:3px}
+  .chscroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .chscroll svg{display:block}
   .chleg{display:flex;gap:16px;margin-bottom:10px;font-size:12px;color:var(--ink-2)}
   .chleg i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:-1px}
   .blrow{padding:7px 0}
@@ -826,12 +832,18 @@ function render(){
     else if(route.name==='profil') html=viewProfil();
     screenEl.innerHTML=html;
     if(mountFns[route.name]) mountFns[route.name]();
+    scrollChartToEnd();
   }catch(err){
     screenEl.innerHTML='<div class="empty">Xatolik: '+esc(err.message)+'</div>';
     console.error(err);
   }
 }
 var mountFns={};
+/* kunlik grafik ochilganda oxiriga (bugunga) suriladi */
+function scrollChartToEnd(){
+  var el=document.getElementById('chscroll');
+  if(el) el.scrollLeft = el.scrollWidth;
+}
 
 /* ---------- HOME ---------- */
 function viewHome(){
@@ -2431,37 +2443,46 @@ function dayChart(ym){
   for(i=1;i<=days;i++){ if(inc[i]>max) max=inc[i]; if(exp[i]>max) max=exp[i]; }
   if(max<=0) return '';
 
-  var W=336, H=142, L=40, R=330, base=108, top=10, ph=base-top;
-  var band=(R-L)/days;
-  var gap=1, bw=(band-1.4-gap)/2, pair=bw*2+gap, off=(band-pair)/2;
-  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(monthLabel(ym))+' — kunlar bo‘yicha kirim va chiqim">';
+  /* har bir kun o‘z sanasi bilan ko‘rinishi uchun grafik yon tomonga suriladi */
+  var H=148, L=56, base=108, top=10, ph=base-top;   /* L — chapdagi qiymat ustuni kengligi */
+  var band=24, bw=10, gap=2, pair=bw*2+gap, off=(band-pair)/2;
+  var W=days*band+8;
+
+  /* chapdagi qimmat o‘qi — surilmaydi */
+  var ax='<svg class="chaxis" viewBox="0 0 '+L+' '+H+'" width="'+L+'" height="'+H+'">';
   [0,0.5,1].forEach(function(f){
     var yy=base-ph*f;
-    svg+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" style="stroke:var(--line)" stroke-width="1"/>'
-       + '<text x="'+(L-6)+'" y="'+(yy+3.4).toFixed(1)+'" text-anchor="end" font-size="9" style="fill:var(--ink-3)">'
-       + (f===0 ? '0' : fmtCompact(max*f)) + '</text>';
+    ax+='<text x="'+(L-6)+'" y="'+(yy+3.4).toFixed(1)+'" text-anchor="end" font-size="9" style="fill:var(--ink-3)">'
+      + (f===0 ? '0' : fmtCompact(max*f)) + '</text>';
+  });
+  ax+='</svg>';
+
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="'
+        + esc(monthLabel(ym)) + ' — kunlar bo‘yicha kirim va chiqim">';
+  [0,0.5,1].forEach(function(f){
+    var yy=base-ph*f;
+    svg+='<line x1="0" y1="'+yy.toFixed(1)+'" x2="'+W+'" y2="'+yy.toFixed(1)+'" style="stroke:var(--line)" stroke-width="1"/>';
   });
   for(i=1;i<=days;i++){
-    var x=L+(i-1)*band+off;
+    var x=(i-1)*band+off;
     var hi=inc[i]/max*ph, he=exp[i]/max*ph;
     var dlab=i+'-'+UZMONTH_SHORT[mo-1];
     var dIso=ym+'-'+String(i).padStart(2,'0');
-    /* bosish nishoni ustundan kengroq — barmoq bilan tegish uchun */
-    svg+='<rect x="'+(L+(i-1)*band).toFixed(2)+'" y="'+top+'" width="'+band.toFixed(2)+'" height="'+(ph+6)+'"'
+    svg+='<rect x="'+((i-1)*band).toFixed(1)+'" y="'+top+'" width="'+band+'" height="'+(ph+10)+'"'
        + ' fill="transparent" style="cursor:pointer" data-act="open-day" data-d="'+dIso+'">'
        + '<title>'+esc(dlab)+(inc[i]>0?(' · Kirim '+esc(fmtMoney(inc[i]))):'')
        + (exp[i]>0?(' · Chiqim '+esc(fmtMoney(exp[i]))):'')+' — hisobot uchun bosing</title></rect>';
-    if(hi>0) svg+='<path d="'+colPath(x, base-hi, bw, hi, 2)+'" style="fill:var(--ch-in)">'
-                + '<title>'+esc(dlab)+' · Kirim '+esc(fmtMoney(inc[i]))+'</title></path>';
-    if(he>0) svg+='<path d="'+colPath(x+bw+gap, base-he, bw, he, 2)+'" style="fill:var(--ch-out)">'
-                + '<title>'+esc(dlab)+' · Chiqim '+esc(fmtMoney(exp[i]))+'</title></path>';
-    if(i===1 || i%5===0)
-      svg+='<text x="'+(x+pair/2).toFixed(1)+'" y="'+(base+15)+'" text-anchor="middle" font-size="9.5" style="fill:var(--ink-3)">'+i+'</text>';
+    if(hi>0) svg+='<path d="'+colPath(x, base-hi, bw, hi, 4)+'" style="fill:var(--ch-in);pointer-events:none"/>';
+    if(he>0) svg+='<path d="'+colPath(x+bw+gap, base-he, bw, he, 4)+'" style="fill:var(--ch-out);pointer-events:none"/>';
+    svg+='<text x="'+(x+pair/2).toFixed(1)+'" y="'+(base+16)+'" text-anchor="middle" font-size="10"'
+       + ' style="fill:var(--ink-'+((inc[i]>0||exp[i]>0)?'2':'3')+');pointer-events:none">'+i+'</text>';
   }
   svg+='</svg>';
+
   return '<div class="chleg"><span><i style="background:var(--ch-in)"></i>Kirim</span>'
-       + '<span><i style="background:var(--ch-out)"></i>Chiqim</span></div>'
-       + '<div class="chart">'+svg+'</div>';
+       + '<span><i style="background:var(--ch-out)"></i>Chiqim</span>'
+       + '<span class="xs" style="margin-left:auto;color:var(--ink-3)">← suring</span></div>'
+       + '<div class="chart2">'+ax+'<div class="chscroll" id="chscroll">'+svg+'</div></div>';
 }
 
 /* ---------- KUNLIK HISOBOT ---------- */
