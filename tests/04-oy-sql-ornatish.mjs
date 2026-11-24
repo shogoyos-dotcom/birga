@@ -69,6 +69,10 @@ must(/Serverni yangilash \(SQL\)/.test(t), '«Serverni yangilash (SQL)» tugmasi
 await pg.click('[data-act="perm-sql"]'); await pg.waitForTimeout(350);
 const sql = await pg.locator('#permsql').inputValue();
 must(/g_delete/.test(sql) && /m_editor_del/.test(sql) && /m_self_del/.test(sql), 'SQL matnida uchala siyosat bor');
+must(/create table if not exists stock_items/.test(sql) && /create table if not exists stock_moves/.test(sql), 'SQL matnida ombor jadvallari ham bor');
+must(/si_write/.test(sql) && /sm_write/.test(sql), 'Ombor ruxsatlari bor');
+must(/alter table members alter column role set default 'viewer'/.test(sql), 'A‘zo roli sukut bo‘yicha viewer qilinadi');
+must(/exception when duplicate_object/.test(sql), 'Realtime qismi qayta ishga tushirilsa xato bermaydi');
 must(/create policy g_delete on groups for delete/.test(sql), 'Guruh o‘chirish siyosati to‘g‘ri yozilgan');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/x-sql.png' });
 await pg.click('[data-act="copy-sql"]'); await pg.waitForTimeout(300);

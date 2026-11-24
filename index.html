@@ -2889,23 +2889,86 @@ function copyText(txt, btn, okText, area){
 }
 
 /* ---------- SERVER RUXSATLARI (SQL) ---------- */
-var PERM_SQL =
-  "-- Birga Hamyon — ruxsatlar. Supabase ▸ SQL Editor ▸ New query ▸ Run\n" +
-  "drop policy if exists g_delete on groups;\n" +
-  "create policy g_delete on groups for delete using (member_role(id) = 'owner');\n\n" +
-  "drop policy if exists m_editor_del on members;\n" +
-  "create policy m_editor_del on members for delete\n" +
-  "  using (member_role(group_id) = 'editor' and role <> 'owner');\n\n" +
-  "drop policy if exists m_self_del on members;\n" +
-  "create policy m_self_del on members for delete\n" +
-  "  using (user_id = auth.uid());";
+var PERM_SQL = [
+  "-- Birga Hamyon — serverni yangilash.",
+  "-- Supabase ▸ SQL Editor ▸ New query ▸ shu matnni joylab Run bosing.",
+  "-- Qayta-qayta ishga tushirsa ham xavfsiz.",
+  "",
+  "-- 1) Ombor jadvallari (guruhga tegishli)",
+  "create table if not exists stock_items (",
+  "  id uuid primary key default gen_random_uuid(),",
+  "  group_id uuid not null references groups(id) on delete cascade,",
+  "  name text not null,",
+  "  unit text not null default 'dona',",
+  "  min_qty numeric not null default 0,",
+  "  created_at timestamptz not null default now()",
+  ");",
+  "create index if not exists stock_items_group_idx on stock_items(group_id);",
+  "",
+  "create table if not exists stock_moves (",
+  "  id uuid primary key default gen_random_uuid(),",
+  "  group_id uuid not null references groups(id) on delete cascade,",
+  "  item_id uuid not null references stock_items(id) on delete cascade,",
+  "  type text not null default 'in',",
+  "  qty numeric not null,",
+  "  price numeric not null default 0,",
+  "  occurred_on date not null default current_date,",
+  "  note text,",
+  "  created_by uuid references auth.users(id),",
+  "  created_at timestamptz not null default now()",
+  ");",
+  "create index if not exists stock_moves_group_idx on stock_moves(group_id);",
+  "create index if not exists stock_moves_item_idx on stock_moves(item_id);",
+  "",
+  "-- 2) Yangi a'zo sukut bo'yicha faqat ko'radi",
+  "alter table members alter column role set default 'viewer';",
+  "",
+  "-- 3) Ombor ruxsatlari: a'zo ko'radi, faqat owner/editor yozadi",
+  "alter table stock_items enable row level security;",
+  "alter table stock_moves enable row level security;",
+  "",
+  "drop policy if exists si_select on stock_items;",
+  "drop policy if exists si_write  on stock_items;",
+  "create policy si_select on stock_items for select using (is_member(group_id));",
+  "create policy si_write  on stock_items for all",
+  "  using (member_role(group_id) in ('owner','editor'))",
+  "  with check (member_role(group_id) in ('owner','editor'));",
+  "",
+  "drop policy if exists sm_select on stock_moves;",
+  "drop policy if exists sm_write  on stock_moves;",
+  "create policy sm_select on stock_moves for select using (is_member(group_id));",
+  "create policy sm_write  on stock_moves for all",
+  "  using (member_role(group_id) in ('owner','editor'))",
+  "  with check (member_role(group_id) in ('owner','editor'));",
+  "",
+  "-- 4) Guruhni o'chirish va a'zoni chiqarish",
+  "drop policy if exists g_delete on groups;",
+  "create policy g_delete on groups for delete using (member_role(id) = 'owner');",
+  "",
+  "drop policy if exists m_editor_del on members;",
+  "create policy m_editor_del on members for delete",
+  "  using (member_role(group_id) = 'editor' and role <> 'owner');",
+  "",
+  "drop policy if exists m_self_del on members;",
+  "create policy m_self_del on members for delete",
+  "  using (user_id = auth.uid());",
+  "",
+  "-- 5) Real vaqtda yangilanish",
+  "do $$ begin",
+  "  alter publication supabase_realtime add table stock_items;",
+  "exception when duplicate_object then null; end $$;",
+  "do $$ begin",
+  "  alter publication supabase_realtime add table stock_moves;",
+  "exception when duplicate_object then null; end $$;"
+].join("\n");
 
 function openPermSql(){
   openModal('Serverni yangilash',
-    '<div class="note">Guruhni o‘chirish va a‘zoni chiqarish uchun serverda ruxsat kerak. '
-    + 'Quyidagini <b>Supabase ▸ SQL Editor ▸ New query</b> ga joylab <b>Run</b> bosing — bir marta.</div>'
+    '<div class="note">Guruh ombori, guruhni o‘chirish va a‘zoni chiqarish uchun serverda '
+    + 'jadval va ruxsatlar kerak. Quyidagini <b>Supabase ▸ SQL Editor ▸ New query</b> ga '
+    + '<b>to‘liq</b> joylab <b>Run</b> bosing. Qayta ishga tushirsa ham xavfsiz.</div>'
     + '<div style="height:10px"></div>'
-    + '<textarea id="permsql" readonly rows="11" style="font-family:var(--font-mono);font-size:11.5px;line-height:1.5">'
+    + '<textarea id="permsql" readonly rows="12" style="font-family:var(--font-mono);font-size:11.5px;line-height:1.5">'
     + esc(PERM_SQL) + '</textarea>'
     + '<div style="height:10px"></div>'
     + '<button class="btn btn-primary btn-block" data-act="copy-sql">Nusxa olish</button>', {});
