@@ -1,0 +1,3 @@
+# test paytida olinadigan skrinshotlar va playwright
+*.png
+node_modules/
