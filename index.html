@@ -804,7 +804,7 @@ function meNetForGroup(g){ return computeBalances(g)[meId(g)]||0; }
 /* ---------- render ---------- */
 function render(){
   try{
-    var map={home:'home',tx:'tx',ombor:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
+    var map={home:'home',tx:'tx',ombor:'ombor',items:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
     Array.prototype.forEach.call(tabbar.children, function(btn){
       btn.setAttribute('aria-current', btn.dataset.screen===map[route.name] ? 'page':'false');
     });
@@ -815,6 +815,7 @@ function render(){
     else if(route.name==='groups') html=viewGroups();
     else if(route.name==='group') html=viewGroup();
     else if(route.name==='ombor') html=viewOmbor();
+    else if(route.name==='items') html=viewItems();
     else if(route.name==='item') html=viewItem();
     else if(route.name==='profil') html=viewProfil();
     screenEl.innerHTML=html;
@@ -889,7 +890,7 @@ function viewHome(){
   var mch=monthChart(ym, nMon);
   if(mch) h+='<div class="card"><div class="card-h"><h2>Oxirgi '+nMon+' oy</h2>'
     + '<span class="chips" style="padding:0;gap:5px">'
-    + [3,6,12].map(function(n){
+    + [1,3,6,12].map(function(n){
         return '<button class="chip" style="padding:4px 10px;font-size:12px" data-act="chmon" data-n="'+n+'" aria-pressed="'+(n===nMon)+'">'+n+'</button>';
       }).join('')
     + '</span></div>'+mch+'</div>';
@@ -1242,6 +1243,8 @@ function viewProfil(){
     +'<div class="row" style="border:0;padding:4px 0"><div class="avatar" style="background:'+colorFor('me')+'">'+esc(initials(state.me.name))+'</div>'
     +'<div class="main"><div class="t">'+esc(state.me.name)+'</div><div class="s">Guruhlarda shu nom ko‘rinadi</div></div></div></div>';
 
+  h+=installCard();
+
   h+='<div class="card"><div class="card-h"><h2>Hisoblar</h2><button class="link" data-act="add-account">Qo‘shish</button></div><div class="list">';
   state.accounts.forEach(function(a){
     h+='<div class="row tap" data-act="edit-account" data-id="'+a.id+'">'
@@ -1272,8 +1275,6 @@ function viewProfil(){
     +'<div style="height:8px"></div>'
     +'<button class="btn btn-block btn-danger" data-act="reset-data">Hammasini o‘chirish va namunaga qaytish</button>'
     +'</div>';
-
-  h+=installCard();
 
   h+='<div class="note">Shaxsiy hamyon va oddiy guruhlar faqat shu qurilmada saqlanadi — boshqa telefonga «Ma‘lumotni ko‘chirish» orqali o‘tkazing. ☁ bilan belgilangan bulutli guruhlar esa a‘zolar bilan avtomatik sinxronlanadi.</div>';
 
@@ -1980,11 +1981,9 @@ function dropMove(id){
 }
 
 /* ---------- OMBOR ekrani ---------- */
+/* ---------- OMBOR: bosh ekran (xulosa + grafik + tugmalar) ---------- */
 function viewOmbor(){
-  var q = (route.q||'').toLowerCase(), f = route.sf||'all';
-  var h = '<div class="topbar"><h1>Ombor</h1>'
-        + (state.items.length ? '<button class="link" data-act="add-item">Tovar +</button>' : '')
-        + '</div>';
+  var h = '<div class="topbar"><h1>Ombor</h1></div>';
 
   if(!state.items.length){
     h += '<div class="empty">Ombor bo‘sh.<br>Avval tovar qo‘shing — keyin prihod va rasxod yozasiz.</div>'
@@ -1994,6 +1993,7 @@ function viewOmbor(){
 
   var lowN = state.items.filter(isLow).length;
   var tIn = moveSum('in'), tOut = moveSum('out'), pr = stockProfit();
+  h += '<div class="stack">';
   h += '<div class="card">'
      + '<div class="kv"><span>Tovar turi</span><b>'+state.items.length+'</b></div>'
      + '<div class="kv"><span>Ombor qiymati</span><b>'+fmtMoney(stockTotal())+'</b></div>'
@@ -2001,41 +2001,122 @@ function viewOmbor(){
      + '<div class="kv"><span>Sotuv (rasxod)</span><b class="pos">'+fmtMoney(tOut)+'</b></div>'
      + '<div class="kv"><span>Sotilganning tannarxi</span><b>'+fmtMoney(stockCogs())+'</b></div>'
      + '<div class="kv"><span>Foyda (FIFO)</span><b class="'+(pr<0?'neg':pr>0?'pos':'')+'">'+fmtMoney(pr,true)+'</b></div>'
-     + (lowN ? '<div class="kv"><span>Kam qolgan</span><b>'+lowN+' ta</b></div>' : '')
+     + (lowN ? '<div class="kv"><span>Kam qolgan</span><b class="neg">'+lowN+' ta</b></div>' : '')
      + '</div>';
+
+  /* grafik: tovarlar bo‘yicha qoldiq qiymati yoki foyda */
+  var metric = (state.settings && state.settings.stockChart) || 'value';
+  var rows = state.items.map(function(i){
+    var F = fifo(i.id);
+    return { name:i.name, value: metric==='profit' ? F.profit : F.leftValue };
+  }).filter(function(r){ return r.value !== 0; });
+  rows.sort(function(a,b){ return Math.abs(b.value)-Math.abs(a.value); });
+  if(rows.length > 6){
+    var tail = rows.slice(5).reduce(function(a,r){ return a+r.value; }, 0);
+    rows = rows.slice(0,5).concat([{name:'Boshqa', value:tail}]);
+  }
+  var och = barList(rows, metric==='profit' ? null : '--ch-in');
+  if(och){
+    h += '<div class="card"><div class="card-h"><h2>Tovarlar</h2>'
+      + '<span class="chips" style="padding:0;gap:5px">'
+      + '<button class="chip" style="padding:4px 10px;font-size:12px" data-act="schart" data-m="value" aria-pressed="'+(metric!=='profit')+'">Qiymat</button>'
+      + '<button class="chip" style="padding:4px 10px;font-size:12px" data-act="schart" data-m="profit" aria-pressed="'+(metric==='profit')+'">Foyda</button>'
+      + '</span></div>' + och + '</div>';
+  }
+
+  h += '<button class="btn btn-primary btn-block" data-act="nav" data-screen="items">'
+     + 'Tovarlar (' + state.items.length + ')' + (lowN ? ' · ⚠ '+lowN : '') + '</button>';
+  h += '<button class="btn btn-block" data-act="add-item">Tovar qo‘shish</button>';
+  h += '</div>';
+  return h;
+}
+mountFns.ombor = function(){};
+
+/* ---------- TOVARLAR ro'yxati: qidiruv, filtr, saralash ---------- */
+var SORTS = [
+  ['name',    'Nomi (A → Z)'],
+  ['name-d',  'Nomi (Z → A)'],
+  ['qty-d',   'Qoldiq: ko‘pdan kamga'],
+  ['qty',     'Qoldiq: kamdan ko‘pga'],
+  ['price-d', 'Narxi: qimmatdan arzonga'],
+  ['price',   'Narxi: arzondan qimmatga'],
+  ['value-d', 'Qoldiq qiymati: kattadan kichikka'],
+  ['profit-d','Foydasi: kattadan kichikka'],
+  ['date-d',  'Oxirgi harakat: yangidan eskiga']
+];
+function itemUnitPrice(id){
+  var F = fifo(id);
+  if(F.leftQty > 0 && F.leftValue > 0) return F.leftValue/F.leftQty;
+  return avgInPrice(id) || lastInPrice(id);
+}
+function lastMoveDate(id){
+  var d = '';
+  state.stock.forEach(function(m){ if(m.itemId===id && m.date>d) d=m.date; });
+  return d;
+}
+function viewItems(){
+  var q = (route.q||'').toLowerCase(), f = route.sf||'all';
+  var sort = (state.settings && state.settings.itemSort) || 'name';
+
+  var h = '<div class="topbar"><button class="back-btn" data-act="nav" data-screen="ombor">‹ Ombor</button>'
+        + '<button class="link" data-act="add-item">Tovar +</button></div>';
 
   h += '<input class="search" id="omsearch" placeholder="Tovar qidirish…" value="'+esc(route.q||'')+'">';
   h += '<div class="chips">'
      + '<button class="chip" data-act="sfilter" data-f="all" aria-pressed="'+(f==='all')+'">Hammasi</button>'
      + '<button class="chip" data-act="sfilter" data-f="low" aria-pressed="'+(f==='low')+'">Kam qolgan</button>'
      + '<button class="chip" data-act="sfilter" data-f="zero" aria-pressed="'+(f==='zero')+'">Tugagan</button>'
+     + '<button class="chip" data-act="sfilter" data-f="profit" aria-pressed="'+(f==='profit')+'">Foyda keltirgan</button>'
      + '</div>';
+  h += '<div class="filters"><select id="omsort">'
+     + SORTS.map(function(x){
+         return '<option value="'+x[0]+'"'+(x[0]===sort?' selected':'')+'>'+x[1]+'</option>';
+       }).join('')
+     + '</select></div>';
 
   var list = state.items.filter(function(i){
     if(q && i.name.toLowerCase().indexOf(q)<0) return false;
     if(f==='low' && !isLow(i)) return false;
     if(f==='zero' && itemQty(i.id)>0) return false;
+    if(f==='profit' && fifo(i.id).profit<=0) return false;
     return true;
-  }).sort(function(a,b){ return a.name.localeCompare(b.name); });
+  });
+
+  list.sort(function(a,b){
+    switch(sort){
+      case 'name-d':   return b.name.localeCompare(a.name);
+      case 'qty-d':    return itemQty(b.id)-itemQty(a.id);
+      case 'qty':      return itemQty(a.id)-itemQty(b.id);
+      case 'price-d':  return itemUnitPrice(b.id)-itemUnitPrice(a.id);
+      case 'price':    return itemUnitPrice(a.id)-itemUnitPrice(b.id);
+      case 'value-d':  return fifo(b.id).leftValue-fifo(a.id).leftValue;
+      case 'profit-d': return fifo(b.id).profit-fifo(a.id).profit;
+      case 'date-d':   return lastMoveDate(b.id)<lastMoveDate(a.id) ? -1 : lastMoveDate(b.id)>lastMoveDate(a.id) ? 1 : 0;
+      default:         return a.name.localeCompare(b.name);
+    }
+  });
 
   if(!list.length){ h += '<div class="empty">Tovar topilmadi</div>'; return h; }
 
   h += '<div class="card"><div class="list">';
   list.forEach(function(i){
-    var qty = itemQty(i.id), low = isLow(i), fq = fifo(i.id);
+    var qty = itemQty(i.id), low = isLow(i), F = fifo(i.id);
+    var sub;
+    if(sort==='profit-d')      sub = 'foyda ' + fmtMoney(F.profit, true);
+    else if(sort==='date-d')   sub = lastMoveDate(i.id) ? ('oxirgi harakat · '+fmtDateShort(lastMoveDate(i.id))) : 'harakat yo‘q';
+    else if(itemUnitPrice(i.id)) sub = fmtPrice(itemUnitPrice(i.id)) + ' / ' + esc(i.unit||'dona');
+    else                       sub = 'narx kiritilmagan';
     h += '<div class="row tap" data-act="open-item" data-id="'+i.id+'">'
        + '<div class="avatar" style="background:'+colorFor(i.id)+'">'+esc(initials(i.name))+'</div>'
        + '<div class="main"><div class="t">'+esc(i.name)+(low?' ⚠':'')+'</div>'
-       + '<div class="s">'+(fq.leftQty>0 && fq.leftValue>0
-            ? ('qoldiq ≈ '+fmtPrice(fq.leftValue/fq.leftQty)+' / '+esc(i.unit||'dona'))
-            : (avgInPrice(i.id) ? ('o‘rtacha '+fmtPrice(avgInPrice(i.id))+' / '+esc(i.unit||'dona')) : 'narx kiritilmagan'))+'</div></div>'
+       + '<div class="s">'+sub+'</div></div>'
        + '<div class="end"><div class="a '+(qty<=0?'neg':'')+'">'+fmtQty(qty, i.unit)+'</div>'
-       + '<div class="s">'+fmtMoney(fq.leftValue)+'</div></div></div>';
+       + '<div class="s">'+fmtMoney(F.leftValue)+'</div></div></div>';
   });
   h += '</div></div>';
   return h;
 }
-mountFns.ombor = function(){
+mountFns.items = function(){
   var s = document.getElementById('omsearch');
   if(s) s.addEventListener('input', function(){
     route.q = s.value;
@@ -2044,6 +2125,12 @@ mountFns.ombor = function(){
     var ns = document.getElementById('omsearch');
     if(ns){ ns.focus(); try{ ns.setSelectionRange(pos,pos); }catch(e){} }
   });
+  var so = document.getElementById('omsort');
+  if(so) so.onchange = function(){
+    state.settings = state.settings || {};
+    state.settings.itemSort = so.value;
+    commit();
+  };
 };
 
 /* ---------- bitta tovar: qoldiq + harakatlar ---------- */
@@ -2054,7 +2141,7 @@ function viewItem(){
   var inQ = movesOf(i.id).filter(function(m){return m.type==='in';}).reduce(function(a,m){return a+m.qty;},0);
   var outQ = movesOf(i.id).filter(function(m){return m.type==='out';}).reduce(function(a,m){return a+m.qty;},0);
 
-  var h = '<div class="topbar"><button class="back-btn" data-act="nav" data-screen="ombor">‹ Ombor</button>'
+  var h = '<div class="topbar"><button class="back-btn" data-act="nav" data-screen="items">‹ Tovarlar</button>'
         + '<button class="link" data-act="edit-item" data-id="'+i.id+'">Tahrirlash</button></div>';
 
   h += '<div class="stack">';
@@ -2309,13 +2396,15 @@ function monthChart(ym, n){
 /* nomlangan qatorlar: nom — ustun — summa (eng kattasi tepada) */
 function barList(rows, cssVar){
   var max=0;
-  rows.forEach(function(r){ if(r.value>max) max=r.value; });
+  rows.forEach(function(r){ var v=Math.abs(r.value); if(v>max) max=v; });
   if(max<=0) return '';
   return rows.map(function(r){
-    var w=Math.max(r.value/max*100, 1.5);
+    var w=Math.max(Math.abs(r.value)/max*100, 1.5);
+    /* cssVar berilmasa — manfiysi qizil, musbati yashil */
+    var col = cssVar ? cssVar : (r.value<0 ? '--ch-out' : '--ch-in');
     return '<div class="blrow"><div class="bltop">'
-      + '<span class="bln">'+esc(r.name)+'</span><b class="blv">'+fmtMoney(r.value)+'</b></div>'
-      + '<div class="bltrack"><span style="width:'+w.toFixed(1)+'%;background:var('+cssVar+')"></span></div></div>';
+      + '<span class="bln">'+esc(r.name)+'</span><b class="blv">'+fmtMoney(r.value, !cssVar)+'</b></div>'
+      + '<div class="bltrack"><span style="width:'+w.toFixed(1)+'%;background:var('+col+')"></span></div></div>';
   }).join('');
 }
 
@@ -2358,18 +2447,28 @@ function installCard(){
     return '<div class="card"><div class="card-h"><h2>Ilova</h2></div>'
       + '<div class="note">✓ Ilova telefonga o‘rnatilgan — shu yerdan ishlayapsiz.</div></div>';
   }
-  var h='<div class="card"><div class="card-h"><h2>Ilovani o‘rnatish</h2></div>';
-  if(installPrompt){
-    h+='<div class="note" style="margin-bottom:10px">Bosh ekranga ilova bo‘lib tushadi, brauzersiz ochiladi va internetsiz ham ishlaydi.</div>'
-     + '<button class="btn btn-primary btn-block" data-act="install-app">Telefonga o‘rnatish</button>';
-  }else if(isIOS()){
-    h+='<div class="note">iPhone‘da: pastdagi <b>Ulashish</b> belgisini bosing → <b>«Bosh ekranga qo‘shish»</b>.<br>'
-     + 'Bu faqat <b>Safari</b> brauzerida ishlaydi.</div>';
-  }else{
-    h+='<div class="note">Android‘da: brauzer menyusi <b>⋮</b> → <b>«Ilovani o‘rnatish»</b> yoki <b>«Bosh ekranga qo‘shish»</b>.<br>'
-     + 'Tugma ko‘rinmasa, sahifani bir-ikki marta oching — brauzer biroz kutadi.</div>';
-  }
-  return h+'</div>';
+  return '<div class="card"><div class="card-h"><h2>Ilovani o‘rnatish</h2></div>'
+    + '<div class="note" style="margin-bottom:10px">Bosh ekranga ilova bo‘lib tushadi, brauzersiz ochiladi va internetsiz ham ishlaydi.</div>'
+    + '<button class="btn btn-primary btn-block" data-act="install-app">Telefonga o‘rnatish</button>'
+    + '</div>';
+}
+/* brauzer o‘zi taklif qilmasa — qo‘lda qilish yo‘lini ko‘rsatamiz */
+function openInstallHelp(){
+  var ios = isIOS();
+  var body = ios
+    ? '<div class="note"><b>iPhone / iPad (faqat Safari)</b><br><br>'
+      + '1. Pastdagi <b>Ulashish</b> belgisini bosing (yuqoriga qaragan strelka)<br>'
+      + '2. Ro‘yxatni pastga suring<br>'
+      + '3. <b>«Bosh ekranga qo‘shish»</b> ni tanlang<br>'
+      + '4. <b>Qo‘shish</b> — tayyor</div>'
+      + '<div class="note" style="margin-top:10px">Chrome yoki boshqa brauzerda bu ishlamaydi — havolani Safari‘da oching.</div>'
+    : '<div class="note"><b>Android (Chrome)</b><br><br>'
+      + '1. Yuqori o‘ng burchakdagi <b>⋮</b> menyusini bosing<br>'
+      + '2. <b>«Ilovani o‘rnatish»</b> yoki <b>«Bosh ekranga qo‘shish»</b> ni tanlang<br>'
+      + '3. <b>O‘rnatish</b> — tayyor</div>'
+      + '<div class="note" style="margin-top:10px">Menyuda bunday punkt bo‘lmasa: sahifani yangilang, bir-ikki daqiqa ishlating va qaytadan qarang — Chrome darhol taklif qilmaydi. '
+      + 'Samsung Internet‘da: menyu → «Sahifa qo‘shish» → «Bosh ekran».</div>';
+  openModal('Qanday o‘rnatiladi', body, {});
 }
 
 /* nusxa olish: clipboard promise qaytaradi — rad etilsa zaxira yo‘lga tushamiz */
@@ -2459,7 +2558,7 @@ document.addEventListener('click', function(e){
     if(route.name==='groups') openGroupModal();
     else if(route.name==='group') openExpenseModal(route.id);
     else if(route.name==='tx' && route.grp && route.grp!=='__p' && grp(route.grp)) openExpenseModal(route.grp);
-    else if(route.name==='ombor') openStockModal();
+    else if(route.name==='ombor' || route.name==='items') openStockModal();
     else if(route.name==='item') openStockModal(null, route.id);
     else openTxModal();
     return;
@@ -2474,10 +2573,15 @@ document.addEventListener('click', function(e){
     state.settings.chartMonths = parseInt(el.dataset.n,10);
     commit(); return;
   }
+  if(a==='schart'){
+    state.settings = state.settings || {};
+    state.settings.stockChart = el.dataset.m;
+    commit(); return;
+  }
   if(a==='perm-sql'){ openPermSql(); return; }
   if(a==='copy-sql'){ copyText(PERM_SQL, el, 'Nusxa olindi ✓', document.getElementById('permsql')); return; }
   if(a==='install-app'){
-    if(!installPrompt){ alert('Brauzer hozir o‘rnatishni taklif qilmayapti. Menyudan «Ilovani o‘rnatish» ni tanlang.'); return; }
+    if(!installPrompt){ openInstallHelp(); return; }
     installPrompt.prompt();
     installPrompt.userChoice.then(function(){ installPrompt=null; render(); });
     return;
@@ -2515,7 +2619,7 @@ document.addEventListener('click', function(e){
     if(!confirm('\u00ab'+dit.name+'\u00bb o\u2018chirilsinmi?'+(nmv?(' Uning '+nmv+' ta harakati ham o\u2018chadi.'):''))) return;
     movesOf(dit.id).slice().forEach(function(m){ dropMove(m.id); });
     state.items=state.items.filter(function(x){ return x.id!==dit.id; });
-    closeModal(); save(); go('ombor'); return;
+    closeModal(); save(); go('items'); return;
   }
   if(a==='open-item'){ go('item',{id:el.dataset.id}); return; }
   if(a==='sfilter'){ route.sf=el.dataset.f; render(); return; }
