@@ -610,9 +610,157 @@ var sbReady = (function(){
   return SB.auth.getSession().then(function(r){
     if(r.data && r.data.session) return r.data.session;
     return SB.auth.signInAnonymously().then(function(x){ if(x.error) throw x.error; return x.data.session; });
-  }).then(function(s){ SB_UID = s.user.id; cloudErr=null; return true; })
+  }).then(function(s){ applySession(s); cloudErr=null; return true; })
     .catch(function(e){ console.error('auth', e); cloudErr='auth'; return false; });
 })();
+
+/* ---------- HISOB: email va parol ---------- */
+var SB_EMAIL = null;          /* hisobga bog‘langan email (anonim bo‘lsa null) */
+
+function authEmail(){ return SB_EMAIL; }
+function isAnon(){ return cloudOn() && !SB_EMAIL; }
+
+/* sessiya o‘zgarganda (kirish, chiqish, email bog‘lash) holatni yangilaymiz */
+function applySession(s){
+  SB_UID   = (s && s.user) ? s.user.id : null;
+  SB_EMAIL = (s && s.user && s.user.email) ? s.user.email : null;
+}
+
+function authFail(e){
+  var m = (e && (e.message||e.error_description)) || '';
+  if(/already registered|already been registered|exists/i.test(m))
+    alert('Bu email allaqachon ro‘yxatdan o‘tgan. «Kirish» orqali kiring.');
+  else if(/Invalid login/i.test(m))
+    alert('Email yoki parol noto‘g‘ri.');
+  else if(/Password should be/i.test(m))
+    alert('Parol juda qisqa — kamida 6 belgi bo‘lsin.');
+  else if(/Email.*not confirmed|confirm/i.test(m))
+    alert('Email tasdiqlanmagan.\n\nSupabase ▸ Authentication ▸ Providers ▸ Email da «Confirm email» ni o‘chiring, keyin qayta urinib ko‘ring.');
+  else alert('Xatolik: ' + (m || 'noma‘lum'));
+  console.error(e);
+}
+
+/* anonim hisobni emailga bog‘lash — guruhlar va ombor joyida qoladi */
+function openLinkEmail(){
+  var body='<form novalidate>'
+    + '<div class="note" style="margin-bottom:12px">Hozirgi hisobingiz <b>saqlanadi</b> — guruhlaringiz va ombor joyida qoladi. '
+    + 'Shundan keyin boshqa telefondan ham shu email bilan kira olasiz.</div>'
+    + '<div class="field"><label>Email</label><input name="email" type="email" inputmode="email" autocomplete="email" placeholder="ism@pochta.com" autofocus></div>'
+    + '<div class="field"><label>Parol</label><input name="pass" type="password" autocomplete="new-password" placeholder="kamida 6 belgi"></div>'
+    + '<div class="field"><label>Parolni takrorlang</label><input name="pass2" type="password" autocomplete="new-password"></div>'
+    + '<div style="height:6px"></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">Saqlash</button>'
+    + '</form>';
+  openModal('Email va parol qo‘shish', body, {
+    onSubmit:function(form){
+      var em=form.email.value.trim(), p1=form.pass.value, p2=form.pass2.value;
+      if(!/.+@.+\..+/.test(em)){ alert('Email to‘g‘ri yozilmagan.'); form.email.focus(); return; }
+      if(p1.length<6){ alert('Parol kamida 6 belgi bo‘lsin.'); form.pass.focus(); return; }
+      if(p1!==p2){ alert('Parollar mos kelmadi.'); form.pass2.focus(); return; }
+      var btn=modalEl.querySelector('button[type="submit"]');
+      if(btn){ btn.disabled=true; btn.textContent='Saqlanyapti…'; }
+      SB.auth.updateUser({email:em, password:p1}).then(function(r){
+        if(r.error) throw r.error;
+        return SB.auth.getSession();
+      }).then(function(r){
+        applySession(r.data && r.data.session);
+        closeModal();
+        if(!SB_EMAIL){
+          alert('Tasdiqlash xati yuborildi. Pochtangizni oching va havolani bosing.\n\nTasdiqlash shart bo‘lmasligi uchun: Supabase ▸ Authentication ▸ Providers ▸ Email ▸ «Confirm email» ni o‘chiring.');
+        }else{
+          alert('Tayyor. Endi boshqa qurilmadan ham shu email bilan kira olasiz.');
+        }
+        render();
+      }).catch(function(e){
+        if(btn){ btn.disabled=false; btn.textContent='Saqlash'; }
+        authFail(e);
+      });
+    }
+  });
+}
+
+/* mavjud hisobga kirish */
+function openSignIn(){
+  var warn = (state.groups.length || state.items.length)
+    ? '<div class="note" style="color:var(--neg);border:1px solid var(--neg);background:var(--surface-2);margin-bottom:12px">'
+      + 'Diqqat: hozir shu qurilmada ochilgan guruhlar <b>boshqa hisobga</b> tegishli. Kirgandan keyin ular ko‘rinmay qoladi. '
+      + 'Agar maqsadingiz hozirgi hisobni saqlash bo‘lsa, «Email qo‘shish» dan foydalaning.</div>'
+    : '';
+  var body='<form novalidate>'+warn
+    + '<div class="field"><label>Email</label><input name="email" type="email" inputmode="email" autocomplete="email" autofocus></div>'
+    + '<div class="field"><label>Parol</label><input name="pass" type="password" autocomplete="current-password"></div>'
+    + '<div style="height:6px"></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">Kirish</button>'
+    + '<button class="btn btn-block" type="button" data-act="reset-pass" style="margin-top:8px">Parolni unutdim</button>'
+    + '</form>';
+  openModal('Hisobga kirish', body, {
+    onSubmit:function(form){
+      var em=form.email.value.trim(), p=form.pass.value;
+      if(!em || !p){ return; }
+      var btn=modalEl.querySelector('button[type="submit"]');
+      if(btn){ btn.disabled=true; btn.textContent='Kirilyapti…'; }
+      SB.auth.signInWithPassword({email:em, password:p}).then(function(r){
+        if(r.error) throw r.error;
+        applySession(r.data.session);
+        closeModal();
+        return loadGroups();
+      }).then(function(){ render(); }).catch(function(e){
+        if(btn){ btn.disabled=false; btn.textContent='Kirish'; }
+        authFail(e);
+      });
+    }
+  });
+}
+
+function signOutCloud(){
+  if(!confirm('Hisobdan chiqasizmi?\n\nGuruhlaringiz serverda qoladi — qaytib kirsangiz hammasi joyida bo‘ladi.\nTelefondagi shaxsiy hamyon va «Mening omborim» ham tegilmaydi.')) return;
+  SB.auth.signOut().then(function(){
+    /* ilova ishlayverishi uchun yana anonim kiramiz */
+    return SB.auth.signInAnonymously();
+  }).then(function(r){
+    applySession(r.data && r.data.session);
+    state.groups = [];
+    try{ localStorage.removeItem('birga_groups_cache'); }catch(e){}
+    return loadGroups();
+  }).then(function(){ go('profil'); }).catch(authFail);
+}
+
+function resetPass(){
+  var em = prompt('Qaysi emailga tiklash havolasini yuboraylik?');
+  if(!em) return;
+  SB.auth.resetPasswordForEmail(em.trim()).then(function(r){
+    if(r.error) throw r.error;
+    alert('Tiklash havolasi yuborildi — pochtangizni tekshiring.\n\nXat kelmasa: bepul tarifda Supabase soatiga bir nechta xat yuboradi, biroz kutib qayta urinib ko‘ring.');
+  }).catch(authFail);
+}
+
+/* Profildagi hisob kartasi */
+function accountCard(){
+  if(cloudErr==='config'){
+    return '<div class="card"><div class="card-h"><h2>Hisob</h2></div>'
+      + '<div class="note">Bulut sozlanmagan — guruhlar va hisob ishlamaydi. <b>config.js</b> ni to‘ldiring (SETUP.md).</div></div>';
+  }
+  if(!cloudOn()){
+    return '<div class="card"><div class="card-h"><h2>Hisob</h2></div>'
+      + '<div class="note">Bulut bilan aloqa yo‘q — internetni tekshiring.</div></div>';
+  }
+  if(SB_EMAIL){
+    return '<div class="card"><div class="card-h"><h2>Hisob</h2></div>'
+      + '<div class="row" style="border:0;padding:4px 0">'
+      + '<div class="avatar" style="background:var(--accent);color:var(--accent-ink)">✓</div>'
+      + '<div class="main"><div class="t">'+esc(SB_EMAIL)+'</div>'
+      + '<div class="s">Boshqa qurilmadan ham shu email bilan kirasiz</div></div></div>'
+      + '<div style="height:10px"></div>'
+      + '<button class="btn btn-block" data-act="sign-out">Chiqish</button></div>';
+  }
+  return '<div class="card"><div class="card-h"><h2>Hisob</h2></div>'
+    + '<div class="note" style="margin-bottom:10px">Hozir hisobingiz <b>faqat shu qurilmada</b>. Brauzer ma‘lumotlari tozalansa '
+    + 'yoki telefon almashsa, guruhlaringizga kira olmay qolasiz.<br><br>'
+    + 'Email va parol qo‘shsangiz — hisobingiz saqlanadi va istalgan qurilmadan kira olasiz.</div>'
+    + '<button class="btn btn-primary btn-block" data-act="link-email">Email va parol qo‘shish</button>'
+    + '<div style="height:8px"></div>'
+    + '<button class="btn btn-block" data-act="sign-in">Mavjud hisobga kirish</button></div>';
+}
 
 function cloudOn(){ return !!(SB && SB_UID); }
 function cloudSetupMsg(){ return 'Bulut hali sozlanmagan. config.js faylini Supabase ma‘lumoti bilan to‘ldiring (SETUP.md ga qarang).'; }
@@ -1282,6 +1430,8 @@ function viewProfil(){
   h+='<div class="card"><div class="card-h"><h2>Foydalanuvchi</h2><button class="link" data-act="edit-me">Tahrirlash</button></div>'
     +'<div class="row" style="border:0;padding:4px 0"><div class="avatar" style="background:'+colorFor('me')+'">'+esc(initials(state.me.name))+'</div>'
     +'<div class="main"><div class="t">'+esc(state.me.name)+'</div><div class="s">Guruhlarda shu nom ko‘rinadi</div></div></div></div>';
+
+  h+=accountCard();
 
   h+=installCard();
 
@@ -3044,6 +3194,10 @@ document.addEventListener('click', function(e){
     state.settings.stockChart = el.dataset.m;
     commit(); return;
   }
+  if(a==='link-email'){ openLinkEmail(); return; }
+  if(a==='sign-in'){ openSignIn(); return; }
+  if(a==='sign-out'){ signOutCloud(); return; }
+  if(a==='reset-pass'){ resetPass(); return; }
   if(a==='perm-sql'){ openPermSql(); return; }
   if(a==='copy-sql'){ copyText(PERM_SQL, el, 'Nusxa olindi ✓', document.getElementById('permsql')); return; }
   if(a==='install-app'){
@@ -3257,6 +3411,14 @@ render();
 sbReady.then(function(ok){
   if(ok){
     subscribeCloud(); loadGroups();
+    SB.auth.onAuthStateChange(function(ev, sess){
+      if(ev==='SIGNED_IN' || ev==='SIGNED_OUT' || ev==='USER_UPDATED' || ev==='TOKEN_REFRESHED'){
+        var before = SB_UID;
+        applySession(sess);
+        if(SB_UID && SB_UID!==before){ subscribeCloud(); loadGroups(); }
+        else render();
+      }
+    });
     // realtime ishlamay qolsa — zaxira sifatida vaqti-vaqti bilan yangilash
     setInterval(function(){ if(document.hidden || !modalEl.hidden) return; loadGroups(); }, 25000);
     document.addEventListener('visibilitychange', function(){ if(!document.hidden) loadGroups(); });

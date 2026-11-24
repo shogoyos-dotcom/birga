@@ -15,6 +15,11 @@ Telefonga o‘rnatiladi, internetsiz ham ishlaydi.
 - Qidiruv, kategoriya/guruh/a‘zo bo‘yicha filtr
 - Chek rasmini biriktirish
 
+### Hisob
+- Ilova anonim kirish bilan darhol ishlaydi — ro‘yxatdan o‘tish shart emas
+- Xohlasangiz **email va parol** qo‘shasiz: hisob saqlanadi va istalgan
+  qurilmadan kirasiz, guruhlar hamda ombor o‘sha yerda bo‘ladi
+
 ### Guruhlar (bulutda)
 - Guruh yaratib, do‘stlarni **havola orqali** taklif qilasiz — ularga ro‘yxatdan o‘tish shart emas
 - Xarajat va tushumlar a‘zolar orasida bo‘linadi, kim kimga qancha qarzdorligi o‘zi hisoblanadi

@@ -44,10 +44,21 @@ Vaqti: ~15 daqiqa. Bepul.
 2. Shu papkadagi **`schema.sql`** ni to‘liq nusxalab oynaga joylang
 3. **Run** — «Success» chiqishi kerak
 
-### 3-qadam — anonim kirishni yoqish
-**Authentication** → **Providers** → **Anonymous** → **Enable** → **Save**
+### 3-qadam — kirish usullarini yoqish
 
-*(Do‘stlaringiz ro‘yxatdan o‘tmasdan qo‘shilishi uchun.)*
+**Authentication** → **Providers** bo‘limida ikkita narsa:
+
+1. **Anonymous** → **Enable** → **Save**
+   *(Do‘stlaringiz ro‘yxatdan o‘tmasdan, havola orqali qo‘shilishi uchun.)*
+2. **Email** → yoqilgan bo‘lishi kerak (odatda o‘zi yoqiq). Ichida
+   **«Confirm email»** ni **o‘chiring** — aks holda har bir ro‘yxatdan o‘tishda
+   pochtaga tasdiqlash xati kerak bo‘ladi, bepul tarifda esa Supabase soatiga
+   bir nechta xat yuboradi va bu noqulaylik tug‘diradi.
+
+> **Nega email kerak?** Anonim hisob brauzerdagi yashirin kalit bilan
+> belgilanadi. Brauzer ma‘lumotlari tozalansa yoki telefon almashsa, o‘sha
+> kalit yo‘qoladi va guruhlaringizga kira olmay qolasiz. Email va parol
+> qo‘shsangiz — hisob saqlanadi.
 
 ### 4-qadam — kalitlarni `config.js` ga yozish
 **Project Settings** → **API** bo‘limidan:
@@ -174,6 +185,28 @@ va 9 xil saralash bor: nomi, qoldiq, narx, qoldiq qiymati, foyda, oxirgi harakat
   sof natija, kategoriyalar, ombor harakatlari va FIFO foydasi, barcha amaliyotlar
 - Oy nomini (**«Noyabr 2026 ▾»**) bossangiz istalgan oyga o‘tasiz
 
+### Hisob: email va parol
+
+**Profil ▸ Hisob** bo‘limida:
+
+| Holat | Nima ko‘rinadi |
+|---|---|
+| Hisob anonim | «Email va parol qo‘shish» va «Mavjud hisobga kirish» |
+| Email bog‘langan | emailingiz va «Chiqish» |
+
+**«Email va parol qo‘shish»** — hozirgi hisobingizni saqlab qo‘yadi:
+guruhlar, a‘zolar va ombor **joyida qoladi**, ustiga email qo‘shiladi.
+Shundan keyin boshqa telefondan ham shu email bilan kirasiz va hammasi
+o‘sha yerda bo‘ladi.
+
+**«Mavjud hisobga kirish»** — boshqa qurilmada, allaqachon email qo‘shilgan
+hisobga kirish uchun. Diqqat: kirgandan keyin shu qurilmadagi **eski anonim
+hisob** guruhlari ko‘rinmay qoladi (ular serverda qolaveradi, lekin boshqa
+hisobniki bo‘ladi).
+
+Telefondagi shaxsiy hamyon va «Mening omborim» hisobga bog‘liq emas — ular
+qurilmada qoladi.
+
 ### Zaxira
 
 **Profil ▸ «Ma‘lumotni ko‘chirish / joylash»** — shaxsiy hamyon va ombor faqat
@@ -197,6 +230,8 @@ hisob qoldig‘i 0 bo‘ladi. Kategoriyalar va guruhlar qoladi.
 | A‘zo ombor yoza olmayapti | Uning roli «Faqat ko‘radi» — «Tahrirlaydi» ga o‘tkazing |
 | Havola «yaroqsiz» deydi | Havola to‘liq nusxalanmagan |
 | iPhone’da o‘rnatilmayapti | Safari’da ochish kerak, boshqa brauzerda ishlamaydi |
+| «Email tasdiqlanmagan» | Authentication ▸ Providers ▸ Email ▸ «Confirm email» ni o‘chiring |
+| Parolni tiklash xati kelmadi | Bepul tarifda xat limiti bor — biroz kutib qayta urining |
 | Yangilanish ko‘rinmayapti | Ilovani yopib qayta oching |
 
 Supabase bepul tarif: 500 MB baza, 50 000 oylik faol foydalanuvchi — oilaviy va
