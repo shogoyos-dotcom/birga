@@ -4,28 +4,33 @@ const BASE = process.env.BIRGA_URL || 'http://127.0.0.1:8099';
 let fails = 0;
 const must = (c, m) => { const l = (c ? '✓ ' : '✗ FAIL ') + m; console.log(l); if (!c) fails++; };
 const b = await chromium.launch();
-const pg = await b.newPage({ viewport: { width: 390, height: 1000 } });
+const pg = await b.newPage({ viewport: { width: 390, height: 1050 } });
 const errs = []; pg.on('pageerror', e => errs.push(String(e)));
 pg.on('console', m => { if (m.type() === 'error' && !/supabase|net::|Failed to load/i.test(m.text())) errs.push('console: ' + m.text()); });
 
-// Bulutsiz muhitda meId(g) '__me__' qaytaradi — guruhdagi o'z qatorimiz
-// shu id bilan bo'lsa, ulush hisobi ham sinaladi.
+// Bulutsiz muhitda meId(g) '__me__' qaytaradi — guruhdagi o'z qatorimiz shu id bilan.
 const ME = '__me__';
-const now = new Date(), ym = now.toISOString().slice(0, 7);
+const now = new Date(), Y = now.getFullYear(), M = now.getMonth() + 1;
+const ym = Y + '-' + String(M).padStart(2, '0');
 const dd = n => ym + '-' + String(n).padStart(2, '0');
-const PREV = (() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 15); return d.toISOString().slice(0, 10); })();
+// shu yilning BOSHQA oyi (yillik filtrni oydan ajratish uchun)
+const OM = M === 1 ? 2 : 1;
+const od = n => Y + '-' + String(OM).padStart(2, '0') + '-' + String(n).padStart(2, '0');
+// o'tgan yil — yillik hisobotga ham kirmasin
+const PREVY = (Y - 1) + '-06-10';
 
+// Foydalanuvchining haqiqiy holati: «Qarz» — pulni MEN berganman, ulushim 0.
+// Ya'ni ulush bo'yicha tushum/xarajat 0, lekin menga 568 263 qaytarilishi kerak.
 const grp = {
   id: 'g1', name: 'ETIKETKA', currency: 'UZS', meMemberId: ME,
   members: [{ id: ME, name: 'Men', role: 'owner', user_id: 'u1' },
-            { id: 'm2', name: 'Aziz', role: 'editor', user_id: 'u2' }],
+            { id: 'm2', name: 'Etiketka', role: 'viewer', user_id: 'u2' },
+            { id: 'm3', name: 'Izzat', role: 'viewer', user_id: 'u3' },
+            { id: 'm4', name: 'Ismoil', role: 'viewer', user_id: 'u4' }],
   expenses: [
-    // Ijara 600 000, teng bo'lingan → mening ulushim 300 000
-    { id: 'e1', type: 'expense', title: 'Ijara', amount: 600000, paidBy: ME, date: dd(5),
-      splits: [{ memberId: ME, share: 300000 }, { memberId: 'm2', share: 300000 }] },
-    // Buyurtma 400 000 tushum → ulushim 200 000
-    { id: 'e2', type: 'income', title: 'Buyurtma', amount: 400000, paidBy: ME, date: dd(6),
-      splits: [{ memberId: ME, share: 200000 }, { memberId: 'm2', share: 200000 }] }
+    { id: 'e1', type: 'expense', title: 'Qarz', amount: 495438, paidBy: ME, date: dd(24), splits: [{ memberId: 'm2', share: 495438 }] },
+    { id: 'e2', type: 'expense', title: 'Qarz', amount: 13065,  paidBy: ME, date: dd(24), splits: [{ memberId: 'm4', share: 13065 }] },
+    { id: 'e3', type: 'expense', title: 'Qarz', amount: 59760,  paidBy: ME, date: dd(24), splits: [{ memberId: 'm3', share: 59760 }] }
   ],
   settlements: [], items: [], stock: []
 };
@@ -38,49 +43,62 @@ await pg.evaluate(o => {
     accounts: [{ id: 'a', name: 'Naqd', opening: 0 }], categories: [],
     transactions: [], budget: { monthly: 0 }, groups: [o.g],
     items: [{ id: 'i1', name: 'Shakar', unit: 'kg', min: 0 }],
+    // hamma kelish narxi 10 000 — FIFO navbati natijani o'zgartirmasin
     stock: [
-      { id: 's1', itemId: 'i1', type: 'in',  qty: 100, price: 10000, date: o.d3, txId: null },
-      { id: 's2', itemId: 'i1', type: 'out', qty: 60,  price: 15000, date: o.d7, txId: null },
-      // o'tgan oydagi sotuv — bu oyning hisobotiga KIRMASIN
-      { id: 's3', itemId: 'i1', type: 'out', qty: 10,  price: 99000, date: o.prev, txId: null }
+      { id: 'p1', itemId: 'i1', type: 'in',  qty: 200, price: 10000, date: o.oIn,  txId: null },
+      { id: 'p2', itemId: 'i1', type: 'in',  qty: 100, price: 10000, date: o.cIn,  txId: null },
+      { id: 's1', itemId: 'i1', type: 'out', qty: 50,  price: 15000, date: o.oOut, txId: null },  // boshqa oy
+      { id: 's2', itemId: 'i1', type: 'out', qty: 60,  price: 15000, date: o.cOut, txId: null },  // shu oy
+      { id: 's3', itemId: 'i1', type: 'out', qty: 5,   price: 99000, date: o.prevY, txId: null }  // o'tgan yil
     ]
   }));
   localStorage.setItem('birga_groups_cache', JSON.stringify([o.g]));
-}, { g: grp, d3: dd(3), d7: dd(7), prev: PREV });
+}, { g: grp, cIn: dd(3), cOut: dd(7), oIn: od(5), oOut: od(10), prevY: PREVY });
 await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(1000);
 
-const card = pg.locator('.card', { hasText: 'Birlashgan hisobot' });
-must(await card.count() === 1, '«Birlashgan hisobot» kartasi bor');
-let t = (await card.textContent()).replace(/\s+/g, ' ');
+const card = () => pg.locator('.card', { hasText: 'Birlashgan hisobot' });
+must(await card().count() === 1, '«Birlashgan hisobot» kartasi bor');
+let t = (await card().textContent()).replace(/\s+/g, ' ');
 
-// ---------- ombor qismi: FIFO, faqat shu oy ----------
-// 60 × 15 000 = 900 000 sotuv ; tannarx 60 × 10 000 = 600 000 ; foyda +300 000
-must(/Sotuv\s*900 000/.test(t),                     'Sotuv 900 000 (o‘tgan oydagi sotuv kirmaydi)');
-must(/Sotilganning tannarxi\s*600 000/.test(t),     'Tannarx 600 000 (FIFO: 60 × 10 000)');
-must(/Foyda \(FIFO\)\s*\+300 000/.test(t),          'Ombor foydasi +300 000');
-must(!/990 000/.test(t),                            'O‘tgan oyning 990 000 lik sotuvi aralashmagan');
+// ---------- OY: 60 × 15 000 = 900 000 ; tannarx 60 × 10 000 = 600 000 ----------
+must(/Sotuv\s*900 000/.test(t),                 'Oy: sotuv 900 000');
+must(/Sotilganning tannarxi\s*600 000/.test(t), 'Oy: tannarx 600 000');
+must(/Foyda \(FIFO\)\s*\+300 000/.test(t),      'Oy: ombor foydasi +300 000');
+must(!/495 000/.test(t),                        'O‘tgan yilning sotuvi aralashmagan');
 
-// ---------- guruh qismi: mening ulushim ----------
-must(/Tushum\s*200 000/.test(t),            'Guruh tushumi (ulushim) 200 000');
-must(/Xarajat\s*300 000/.test(t),           'Guruh xarajati (ulushim) 300 000');
-must(/Menga qaytariladi\s*100 000/.test(t), 'Menga qaytariladi 100 000');
-must(/Men qaytaraman\s*0/.test(t),          'Men qaytaraman 0');
+// ---------- guruh: ulush 0, lekin qarz bor ----------
+must(/Tushum \(ulushingiz\)\s*0/.test(t),  'Ulush bo‘yicha tushum 0 (pulni men berganman)');
+must(/Xarajat \(ulushingiz\)\s*0/.test(t), 'Ulush bo‘yicha xarajat 0');
+must(/Menga qaytariladi\s*568 263/.test(t),'Menga qaytariladi 568 263');
+must(/Guruh bo‘yicha sof\s*\+568 263/.test(t), 'Guruh bo‘yicha sof +568 263');
 
-// ---------- umumiy natija ----------
-// 300 000 (ombor) + (200 000 − 300 000) (guruh) = +200 000
-must(/Umumiy natija \(ombor \+ guruh\)\s*\+200 000/.test(t), 'Umumiy natija +200 000');
-must(await card.locator('[data-screen="ombor"]').count() === 1 &&
-     await card.locator('[data-screen="groups"]').count() === 1, 'Ombor va Guruhlar tugmalari bor');
-await pg.screenshot({ path: (process.argv[2] || '.') + '/h-hisobot.png' });
+// ---------- ASOSIY TUZATISH: qarz jamiga kiradi ----------
+must(/Umumiy natija \(ombor \+ guruh\)\s*\+868 263/.test(t),
+     'Umumiy natija +868 263 = ombor 300 000 + qarz 568 263');
+must(!/Umumiy natija \(ombor \+ guruh\)\s*0 /.test(t), 'Guruhda pul bor ekan, jami 0 emas');
+await pg.screenshot({ path: (process.argv[2] || '.') + '/h-oy.png' });
 
-// ---------- boshqa oyga o'tsa, ombor raqamlari ham o'zgarsin ----------
-await pg.click('[data-act="month"][data-d="-1"]'); await pg.waitForTimeout(500);
-t = (await pg.locator('.card', { hasText: 'Birlashgan hisobot' }).textContent()).replace(/\s+/g, ' ');
-must(/Sotuv\s*990 000/.test(t), 'O‘tgan oyda sotuv 990 000 (10 × 99 000)');
-must(!/Sotuv\s*900 000/.test(t), 'Bu oyning sotuvi o‘tgan oyga qo‘shilmagan');
-await pg.click('[data-act="month"][data-d="1"]'); await pg.waitForTimeout(500);
+// ---------- YIL ----------
+await card().locator('[data-act="repper"][data-p="year"]').click(); await pg.waitForTimeout(500);
+t = (await card().textContent()).replace(/\s+/g, ' ');
+// yil: 900 000 + 750 000 = 1 650 000 ; tannarx 1 100 000 ; foyda 550 000
+must(/Yil\s*/.test(t) && new RegExp('Yil ' + Y).test(t), 'Sarlavhada yil: Yil ' + Y);
+must(/Sotuv\s*1 650 000/.test(t),                 'Yil: sotuv 1 650 000 (900 000 + 750 000)');
+must(/Sotilganning tannarxi\s*1 100 000/.test(t), 'Yil: tannarx 1 100 000');
+must(/Foyda \(FIFO\)\s*\+550 000/.test(t),        'Yil: foyda +550 000');
+must(!/495 000/.test(t),                          'Yil: o‘tgan yilning sotuvi kirmaydi');
+must(/Umumiy natija \(ombor \+ guruh\)\s*\+1 118 263/.test(t),
+     'Yil: umumiy +1 118 263 = 550 000 + 568 263');
+await pg.screenshot({ path: (process.argv[2] || '.') + '/h-yil.png' });
 
-// ---------- ombor ham, guruh ham bo'lmasa karta chiqmasin ----------
+// tanlov saqlanadimi
+await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
+must(/Sotuv\s*1 650 000/.test((await card().textContent()).replace(/\s+/g, ' ')),
+     'Yillik tanlov qayta yuklangandan keyin ham saqlanadi');
+await card().locator('[data-act="repper"][data-p="month"]').click(); await pg.waitForTimeout(500);
+must(/Sotuv\s*900 000/.test((await card().textContent()).replace(/\s+/g, ' ')), 'Oyga qaytdi');
+
+// ---------- karta qachon chiqmaydi ----------
 await pg.evaluate(() => {
   const st = JSON.parse(localStorage.getItem('birga_v1'));
   st.items = []; st.stock = []; st.groups = [];
@@ -90,19 +108,6 @@ await pg.evaluate(() => {
 await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
 must(!/Birlashgan hisobot/.test(await pg.locator('#screen').textContent()),
      'Ombor ham guruh ham bo‘lmasa karta chiqmaydi');
-
-// ---------- faqat ombor bo'lsa: guruh qismi va umumiy natija chiqmasin ----------
-await pg.evaluate(() => {
-  const st = JSON.parse(localStorage.getItem('birga_v1'));
-  st.items = [{ id: 'i1', name: 'Shakar', unit: 'kg', min: 0 }];
-  st.stock = [{ id: 's1', itemId: 'i1', type: 'in', qty: 5, price: 1000, date: st.transactions.length ? '' : new Date().toISOString().slice(0, 10), txId: null }];
-  localStorage.setItem('birga_v1', JSON.stringify(st));
-});
-await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
-t = await pg.locator('#screen').textContent();
-must(/Birlashgan hisobot/.test(t), 'Faqat ombor bo‘lsa ham karta chiqadi');
-must(!/Guruh · ulushingiz/.test(t), 'Guruh yo‘q — guruh bo‘limi chiqmaydi');
-must(!/Umumiy natija/.test(t), 'Bitta tomon bo‘lsa «Umumiy natija» chiqmaydi');
 
 must(errs.length === 0, 'JS xatosi yo‘q' + (errs.length ? ': ' + errs[0] : ''));
 await b.close();

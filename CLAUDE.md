@@ -136,16 +136,31 @@ ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
 `combinedCard(ym)` — kassa hero dan keyin turadi, eski «Guruh hisob-kitobi»
 kartasi o‘rniga:
 
-- **Ombor** (joriy profilniki): sotuv, tannarx, FIFO foyda — **faqat tanlangan oy**
-- **Guruh**: ulushingiz bo‘yicha tushum/xarajat (`groupMonthShares`) va qarzlar
-  (`meNetForGroup`, bular butun davr uchun)
-- **Umumiy natija** = ombor foydasi + (guruh tushumi − xarajati); faqat
-  ikkala tomon ham bo‘lsa chiqadi
+- **Ombor** (joriy profilniki): sotuv, tannarx, FIFO foyda — tanlangan davr uchun
+- **Guruh**: ulushingiz bo‘yicha tushum/xarajat (`groupMonthShares`), qarzlar
+  (`meNetForGroup`) va ularning sofi — qarzlar **butun davr** uchun
+- **Umumiy natija** = ombor foydasi + **guruhning sof qarzi**; faqat ikkala
+  tomon ham bo‘lsa chiqadi
 
-Oy kesimini `monthStock(ym)` beradi: `fifo().perMove` har bir rasxodning
-tannarxini saqlaydi, shuning uchun oyni ajratish uchun qayta hisoblash
-shart emas — o‘sha oydagi `out` harakatlarining `perMove` qiymatlari
-yig‘iladi. `omborCanSee()` false bo‘lsa ombor qismi umuman hisoblanmaydi.
+**Nega ulush emas, qarz?** «Qarz» turidagi yozuvlarda pulni egasi beradi,
+ulush esa butunlay boshqa a‘zoga yoziladi — ya‘ni `myShareIn()` 0 qaytaradi.
+Jami avval `inc − exp` dan hisoblanardi va guruhda 568 263 so‘m turgani holda
+**0** chiqardi. Shuning uchun jamiga `owedToMe − iOwe` qo‘shiladi. Tushum va
+xarajat qatorlari qoldi, lekin jamiga kirmaydi — buni karta ostidagi izoh
+aytib turadi.
+
+### Davr: oy yoki yil
+
+`repPeriod()` → `state.settings.repPeriod` (`'month'` | `'year'`),
+`data-act="repper"` tugmalari bilan almashadi. `monthStock(p)` va
+`groupMonthShares(p)` endi **prefiks** qabul qiladi: `'2026-11'` yoki `'2026'`
+— solishtirish `slice(0, p.length)` bilan, shuning uchun bitta kod ikkala
+davrga ham yaraydi. Eski chaqiruvlar (`viewHome`, `monthChart`) oy prefiksini
+beradi, xatti-harakati o‘zgarmaydi.
+
+Oy kesimini `fifo().perMove` beradi: u har bir rasxodning tannarxini saqlaydi,
+shuning uchun davrni ajratish uchun qayta hisoblash shart emas.
+`omborCanSee()` false bo‘lsa ombor qismi umuman hisoblanmaydi.
 
 ## Ombor hisobi — FIFO
 
