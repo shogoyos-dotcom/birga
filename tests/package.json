@@ -1,0 +1,12 @@
+{
+  "name": "birga-tests",
+  "private": true,
+  "type": "module",
+  "description": "Birga Hamyon — brauzer testlari",
+  "scripts": {
+    "test": "./run.sh"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
