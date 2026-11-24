@@ -13,7 +13,7 @@ pg.on('console', m => { if (m.type() === 'error' && !/supabase|net::|Failed to l
 const D = '2026-11-20';
 const grp = {
   id: 'g1', name: 'Do‘kon', currency: 'UZS', meMemberId: 'me',
-  members: [{ id: 'me', name: 'Men', role: 'viewer', user_id: 'u1' }],
+  members: [{ id: 'me', name: 'Men', role: 'viewer', user_id: 'u1', can_stock: true }],
   expenses: [], settlements: [],
   items: [{ id: 'gi1', name: 'Guruh shakari', unit: 'kg', min: 0 }],
   stock: [
@@ -40,16 +40,24 @@ await pg.waitForTimeout(900);
 await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(400);
 let t = await pg.locator('#screen').textContent();
 
-// ---- tanlagich ----
-must(/Mening omborim/.test(t) && /Do‘kon/.test(t), 'Ombor tanlagichi bor: telefon + guruh');
-must(await pg.locator('[data-act="oscope"]').count() === 2, 'Ikkita ombor tanlovi');
+// ---- Ombor ekranida tanlagich YO'Q, profil nomi bor ----
+must(/Mening omborim/.test(t), 'Ombor sarlavhasida joriy profil: Mening omborim');
+must(await pg.locator('#screen .chips [data-act="oscope"]').count() === 0, 'Ombor ekranida ombor tanlagichi yo‘q');
+
+// ---- profil Profil bo'limidan almashtiriladi ----
+await pg.click('[data-screen="profil"]'); await pg.waitForTimeout(400);
+must(await pg.locator('[data-act="oscope"]').count() === 2, 'Profilda ikkita profil tanlovi (shaxsiy + guruh)');
+must(/Shaxsiy profil/.test(await pg.locator('#screen').textContent()), '«Shaxsiy profil» qatori bor');
+await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(300);
+t = await pg.locator('#screen').textContent();
 must(await pg.locator('.row[data-act="open-item"]').count() === 0, 'Bosh ekranda tovar ro‘yxati yo‘q — u Tovarlar ichida');
 await pg.click('[data-act="nav"][data-screen="items"]'); await pg.waitForTimeout(400);
 must(/Telefon shakari/.test(await pg.locator('#screen').textContent()), 'Telefon omborida o‘z tovari ko‘rinadi');
 must(await pg.locator('[data-act="add-item"]').count() > 0, 'Telefon omborida «Tovar +» bor');
 await pg.click('.back-btn'); await pg.waitForTimeout(300);
 
-// ---- guruh omboriga o'tish (rolim: faqat ko'radi) ----
+// ---- guruh profiliga o'tish (rolim: faqat ko'radi, lekin ombor ochilgan) ----
+await pg.click('[data-screen="profil"]'); await pg.waitForTimeout(300);
 await pg.click('[data-act="oscope"][data-s="g1"]'); await pg.waitForTimeout(500);
 t = await pg.locator('#screen').textContent();
 must(/faqat ko‘rasiz/.test(t), '«Faqat ko‘rasiz» ogohlantirishi chiqdi');
@@ -81,7 +89,7 @@ await pg.click('#fab'); await pg.waitForTimeout(500);
 must(/huquqi yo‘q/.test(alerted), 'FAB bosilsa ruxsat haqida xabar: ' + alerted.slice(0, 50));
 
 // ---- telefon omboriga qaytish: hammasi avvalgidek ----
-await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(300);
+await pg.click('[data-screen="profil"]'); await pg.waitForTimeout(300);
 await pg.click('[data-act="oscope"][data-s="local"]'); await pg.waitForTimeout(500);
 t = await pg.locator('#screen').textContent();
 must(!/faqat ko‘rasiz/.test(t), 'Telefon omborida cheklov yo‘q');
@@ -89,10 +97,26 @@ must(await pg.locator('[data-act="add-item"]').count() > 0, 'Telefon omborida tu
 must(/Ko‘chirish|ko‘chirish/.test(t) === false, 'Telefon omborida ko‘chirish kartasi chiqmaydi (u guruhda chiqadi)');
 
 // tanlov saqlanadimi
+await pg.click('[data-screen="profil"]'); await pg.waitForTimeout(300);
 await pg.click('[data-act="oscope"][data-s="g1"]'); await pg.waitForTimeout(400);
 await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
 await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(400);
 must(/faqat ko‘rasiz/.test(await pg.locator('#screen').textContent()), 'Tanlangan ombor qayta yuklangandan keyin ham saqlanadi');
+
+// ---- ruxsat berilmagan a'zo guruh omborini KO'RMAYDI ----
+await pg.evaluate(() => {
+  const g = JSON.parse(localStorage.getItem('birga_groups_cache'))[0];
+  g.members[0].can_stock = false;
+  localStorage.setItem('birga_groups_cache', JSON.stringify([g]));
+  const st = JSON.parse(localStorage.getItem('birga_v1'));
+  st.groups = [g]; localStorage.setItem('birga_v1', JSON.stringify(st));
+});
+await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
+await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(400);
+t = await pg.locator('#screen').textContent();
+must(/ombor huquqini bermagan/.test(t), 'Ruxsatsiz a‘zoga ombor yopiq');
+must(!/Guruh shakari/.test(t) && !/Tovarlar \(/.test(t), 'Yopiq omborda tovarlar ko‘rinmaydi');
+await pg.screenshot({ path: (process.argv[2] || '.') + '/o-yopiq.png' });
 
 must(errs.length === 0, 'JS xatosi yo‘q' + (errs.length ? ': ' + errs[0] : ''));
 await b.close();

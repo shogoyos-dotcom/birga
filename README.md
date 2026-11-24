@@ -27,9 +27,10 @@ Telefonga o‘rnatiladi, internetsiz ham ishlaydi.
 - Hamma a‘zoda real vaqtda yangilanadi
 
 ### Ombor
-- **Telefonda** yoki **guruhda** (bulutda) bo‘lishi mumkin — ombor tanlagichidan
-- Guruh omborini barcha a‘zolar **ko‘radi**, lekin faqat guruh egasi ruxsat
-  bergan a‘zolar **o‘zgartira oladi**
+- Ombor **bitta** — u joriy **profil**ga tegishli. Profil **Profil ▸ «Profil»**
+  dan tanlanadi: *Shaxsiy profil* (faqat shu telefon) yoki *guruh profili* (bulutda)
+- Guruh omborini faqat **siz ruxsat bergan** a‘zolar ko‘radi
+  («Omborni ko‘rsin»), **o‘zgartirishni** esa «Tahrirlaydi» roli beradi
 - Tovarlar: nomi, o‘lchov birligi (dona, kg, litr, metr, quti…), eng kam qoldiq chegarasi
 - **Prihod** (kirim) va **rasxod** (chiqim) harakatlari
 - Qoldiq, tannarx va foyda **FIFO** usulida hisoblanadi — oldin kelgan tovar oldin ketadi

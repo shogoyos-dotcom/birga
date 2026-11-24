@@ -66,12 +66,15 @@ ichida «Confirm email» o‘chirilgan bo‘lishi kerak.
 Hisob oynalarida `<form novalidate>` ishlatilgan — brauzerning o‘z tekshiruv
 xabari o‘zbekcha bo‘lmasligi mumkin, shuning uchun xabarlarni o‘zimiz beramiz.
 
-## Ombor ikki xil bo‘ladi
+## Ombor bitta — qaysi profilda ishlasa, o‘shaniki
 
-| | Qayerda | Kim ko‘radi |
+Ekranda **tanlagich yo‘q**. Ombor joriy **profil**ga tegishli, profil esa
+**Profil ▸ «Profil»** kartasida tanlanadi (`profileCard()` → `data-act="oscope"`).
+
+| Profil | Qayerda | Kim ko‘radi |
 |---|---|---|
-| **Mening omborim** | `state.items` / `state.stock` (localStorage) | faqat shu qurilma |
-| **Guruh ombori** | Supabase `stock_items` / `stock_moves`, `g.items` / `g.stock` da keshlanadi | guruh a‘zolari |
+| **Shaxsiy profil** | `state.items` / `state.stock` (localStorage) | faqat shu qurilma |
+| **Guruh profili** | Supabase `stock_items` / `stock_moves`, `g.items` / `g.stock` da keshlanadi | ruxsat berilgan a‘zolar |
 
 Tanlov `state.settings.omborScope` da: `'local'` yoki guruh id si.
 
@@ -80,13 +83,31 @@ tegmaydi** — `curItems()` va `curStock()` orqali ishlaydi. Yozishda esa
 `omborGroup()` tekshiriladi: guruh bo‘lsa `saveItemCloud` / `saveMoveCloud` /
 `deleteItemCloud` / `deleteMoveCloud`, aks holda to‘g‘ridan-to‘g‘ri localStorage.
 
-`omborCanEdit()` — guruh omborida `owner`/`editor` uchun `true`. Barcha yozuv
-tugmalari shu bilan yashiriladi, amallar esa qo‘shimcha `stockDenied()` bilan
-to‘siladi. Asl himoya baribir RLS da.
+Guruh profiliga o‘tilganda telefonda eski tovarlar qolgan bo‘lsa, Ombor
+ekranida `migrateCard()` chiqadi. `migrateStock()` ularni serverga ko‘chiradi
+va **telefondagi nusxani tozalaydi** — shunda ombor haqiqatan bitta bo‘ladi.
+Kassadagi pul amaliyotlariga tegilmaydi.
 
-Yangi a‘zo **sukut bo‘yicha `viewer`** — tahrirlash huquqini guruh egasi beradi.
+### Ikki xil ruxsat
 
-«Kassaga ham yozilsin» faqat telefondagi omborda bor; guruh omborida pul
+| | Kim | Funksiya |
+|---|---|---|
+| **Yozish** | `owner`, `editor` | `omborCanEdit()` |
+| **Ko‘rish** | `owner`, `editor`, va `can_stock = true` berilgan a‘zo | `canSeeStock(g)` / `omborCanSee()` |
+
+Yangi a‘zo **sukut bo‘yicha `viewer` va `can_stock = false`** — ya‘ni guruh
+xarajatlarini ko‘radi, omborni ko‘rmaydi. Guruh egasi a‘zolar ro‘yxatidagi
+«Omborni ko‘rsin» tugmasi (`data-act="mstock"` → `setMemberStock`) bilan beradi.
+
+Serverda `stock_visible(gid)` funksiyasi bor, `si_select` va `sm_select`
+siyosatlari **shu funksiya orqali** ishlaydi (`is_member` emas!). Ruxsatsiz
+a‘zoda so‘rov bo‘sh qaytadi, ilova esa qulf ekranini ko‘rsatadi va FAB ni
+yashiradi.
+
+`canSeeStock()` da **`myMember()` topilmasa `true` qaytadi**: bulut uzilgan
+paytda SB_UID yo‘q, keshni bekorga to‘smaslik kerak. Asl himoya baribir RLS da.
+
+«Kassaga ham yozilsin» faqat shaxsiy profil omborida bor; guruh omborida pul
 harakati yozilmaydi (hali).
 
 ## Ombor hisobi — FIFO

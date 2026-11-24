@@ -583,6 +583,28 @@ var I18N = {
   "Hisobga kirish":["Вход в аккаунт","Sign in"],
   "Men qaytaraman":["Я верну","I owe"],
   "Mening omborim":["Мой склад","My inventory"],
+  "Shaxsiy profil":["Личный профиль","Personal profile"],
+  "faqat shu telefon":["только этот телефон","this phone only"],
+  "tanlangan":["выбрано","selected"],
+  "ombor yopiq":["склад закрыт","inventory hidden"],
+  "Yangi guruh profili":["Новый профиль группы","New group profile"],
+  "+ Yangi guruh profili":["+ Новый профиль группы","+ New group profile"],
+  "Profil nomi":["Название профиля","Profile name"],
+  "Omborni ko‘rsin":["Открыть склад","Allow inventory"],
+  "✓ Omborni ko‘radi":["✓ Видит склад","✓ Sees inventory"],
+  "Ombor ikkiga bo‘lingan":["Склад разделён надвое","Inventory is split in two"],
+  "Bitta omborga birlashtirish":["Объединить в один склад","Merge into one inventory"],
+  "Ombor ruxsatini faqat guruh egasi beradi.":["Доступ к складу даёт только владелец группы.","Only the group owner can grant inventory access."],
+  "Ombor ruxsatini saqlab bo‘lmadi":["Не удалось сохранить доступ к складу","Could not save the inventory permission"],
+  "Birlashtirildi. Endi ombor bitta — guruh a‘zolari ham ko‘radi.":["Объединено. Теперь склад один — его видят и участники группы.","Merged. There is one inventory now, and group members see it too."],
+  "Ombor shu profilga tegishli. Guruh profilini tanlasangiz, ombor guruh a‘zolari bilan bitta bo‘ladi — har kim o‘zi ruxsat olgan narsani ko‘radi.":["Склад принадлежит этому профилю. Если выбрать профиль группы, склад станет общим с участниками — каждый видит то, на что ему дали доступ.","The inventory belongs to this profile. Pick a group profile and the inventory becomes one shared with its members — each sees what they were given access to."],
+  "Telefoningizda alohida":["На телефоне отдельно лежат","This phone still holds"],
+  "ta tovar va":["товаров и","items and"],
+  "ta harakat qolgan. Ularni":["движений. Перенесите их в склад","movements. Move them into"],
+  "omboriga ko‘chiring — shunda ombor bitta bo‘ladi va guruh a‘zolari ham ko‘radi.":["— тогда склад станет один, и его увидят участники группы.","— then there is one inventory, and group members see it too."],
+  "Guruh egasi sizga ombor huquqini bermagan.":["Владелец группы не открыл вам склад.","The group owner has not given you inventory access."],
+  "omborini ko‘rish uchun undan ruxsat so‘rang.":["— попросите у него доступ.","— ask them for access."],
+  "Yangi guruh profili bulutda ochiladi: o‘z ombori va hisob-kitobi bilan. A‘zo taklif qilsangiz, u faqat ko‘radi — o‘zgartirish va omborni ko‘rish huquqini siz berasiz.":["Новый профиль группы создаётся в облаке: со своим складом и расчётами. Приглашённый участник только смотрит — право изменять и видеть склад даёте вы.","A new group profile is created in the cloud, with its own inventory and settlements. An invited member can only look — you grant the rights to edit and to see the inventory."],
   "Nusxa olindi ✓":["Скопировано ✓","Copied ✓"],
   "Prihod (kirim)":["Приход","Stock in"],
   "Prihod summasi":["Сумма прихода","Stock-in amount"],
@@ -1248,6 +1270,16 @@ function meId(g){ var m=myMember(g); return m ? m.id : '__me__'; }
 function myRole(g){ var m=myMember(g); return m ? m.role : 'viewer'; }
 function canEdit(g){ var r=myRole(g); return r==='owner'||r==='editor'; }
 function isOwner(g){ return myRole(g)==='owner'; }
+/* ombor ko‘rish huquqi: egasi va tahrirlovchi doim ko‘radi,
+   «faqat ko‘radi» roli esa guruh egasi ruxsat bergandagina (members.can_stock) */
+function canSeeStock(g){
+  if(!g) return true;
+  if(canEdit(g)) return true;
+  /* bulut uzilgan bo‘lsa SB_UID yo‘q — o‘sha paytda guruhdagi o‘z qatorimizga qaraymiz.
+     Kim ekanimiz umuman aniq bo‘lmasa keshni to‘smaymiz: asl himoya baribir RLS da */
+  var m = myMember(g) || (g.members||[]).filter(function(x){ return x.id===g.meMemberId; })[0];
+  return !m || m.can_stock===true;
+}
 function roleLabel(r){ return r==='owner'?'Egasi':r==='viewer'?'Faqat ko‘radi':'Tahrirlaydi'; }
 function randToken(){ return (uid()+uid()+uid()+uid()).slice(0,24); }
 
@@ -1342,6 +1374,17 @@ function addMemberTo(g, name, done){
 }
 function setMemberRole(g, memberId, role){
   SB.from('members').update({role:role}).eq('id',memberId).then(function(r){ if(r.error) return sbFail(r.error); loadGroups(); });
+}
+function setMemberStock(g, memberId, val){
+  if(!isOwner(g)){ alert('Ombor ruxsatini faqat guruh egasi beradi.'); return; }
+  SB.from('members').update({can_stock: val}).eq('id', memberId).then(function(r){
+    if(r.error){
+      if(/can_stock|column|schema cache/i.test(r.error.message||'')) alert(sqlNeeded('Ombor ruxsatini saqlab bo‘lmadi'));
+      else sbFail(r.error);
+      return;
+    }
+    return loadGroups();
+  }).then(function(){ render(); }).catch(sbFail);
 }
 function removeMember(g, memberId){
   var self = (memberId===meId(g));
@@ -1467,7 +1510,9 @@ function render(){
     Array.prototype.forEach.call(tabbar.children, function(btn){
       btn.setAttribute('aria-current', btn.dataset.screen===map[route.name] ? 'page':'false');
     });
-    fabWrap.hidden = (route.name==='profil');
+    /* yopiq guruh omborida qo‘shish tugmasi ham ko‘rinmasin */
+    var lockedStock = (route.name==='ombor'||route.name==='items'||route.name==='item') && !omborCanSee();
+    fabWrap.hidden = (route.name==='profil') || lockedStock;
     var html='';
     if(route.name==='home') html=viewHome();
     else if(route.name==='tx') html=viewTx();
@@ -1864,6 +1909,11 @@ function viewGroup(){
           +['editor','viewer','owner'].map(function(r){return '<option value="'+r+'"'+(m.role===r?' selected':'')+'>'+roleLabel(r)+'</option>';}).join('')
           +'</select>';
       }
+      if(owner && !isMe && m.role!=='owner' && m.role!=='editor'){
+        var seesStock = m.can_stock===true;
+        end+='<button class="mini-btn" data-act="mstock" data-id="'+m.id+'" data-v="'+(seesStock?'0':'1')+'">'
+          + (seesStock ? '✓ Omborni ko‘radi' : 'Omborni ko‘rsin') + '</button>';
+      }
       if(pending && owner){
         end+='<button class="mini-btn" data-act="invite-member" data-id="'+m.id+'">Taklif havolasi</button>';
       }
@@ -1910,11 +1960,13 @@ function viewProfil(){
     +'<div class="row" style="border:0;padding:4px 0"><div class="avatar" style="background:'+colorFor('me')+'">'+esc(initials(state.me.name))+'</div>'
     +'<div class="main"><div class="t">'+esc(state.me.name)+'</div><div class="s">Guruhlarda shu nom ko‘rinadi</div></div></div></div>';
 
+  h+=installCard();
+
+  h+=profileCard();
+
   h+=langCard();
 
   h+=accountCard();
-
-  h+=installCard();
 
   h+='<div class="card"><div class="card-h"><h2>Hisoblar</h2><button class="link" data-act="add-account">Qo‘shish</button></div><div class="list">';
   state.accounts.forEach(function(a){
@@ -1951,6 +2003,29 @@ function viewProfil(){
 
   h+='</div>';
   return h;
+}
+/* ---------- qaysi profilda ishlayapmiz: shaxsiy yoki guruh ---------- */
+function profileCard(){
+  var cloud = state.groups.filter(function(g){ return !!g.id; });
+  var sc = omborScope();
+  var h = '<div class="card"><div class="card-h"><h2>Profil</h2></div>'
+    + '<div class="note" style="margin-bottom:10px">Ombor shu profilga tegishli. Guruh profilini tanlasangiz, '
+    + 'ombor guruh a‘zolari bilan bitta bo‘ladi — har kim o‘zi ruxsat olgan narsani ko‘radi.</div>'
+    + '<div class="list">';
+  h += profileRow('local', 'Shaxsiy profil', 'faqat shu telefon', sc==='local');
+  cloud.forEach(function(g){
+    var sub = roleLabel(myRole(g)) + (canSeeStock(g) ? '' : ' · ombor yopiq');
+    h += profileRow(g.id, g.name, sub, sc===g.id, true);
+  });
+  h += '</div>';
+  if(cloudOn()) h += '<div style="height:10px"></div><button class="btn btn-block" data-act="new-ombor">+ Yangi guruh profili</button>';
+  return h + '</div>';
+}
+function profileRow(id, name, sub, on, cloud){
+  return '<div class="row tap" data-act="oscope" data-s="'+esc(id)+'">'
+    + '<div class="avatar" style="background:'+colorFor(id)+'">'+esc(initials(name))+'</div>'
+    + '<div class="main"><div class="t">'+(cloud?'☁ ':'')+esc(name)+'</div><div class="s">'+esc(sub)+'</div></div>'
+    + '<div class="end">'+(on?'<span class="mini-btn">tanlangan</span>':'')+'</div></div>';
 }
 function catRow(c){
   return '<div class="row tap" data-act="edit-category" data-id="'+c.id+'">'
@@ -2517,6 +2592,7 @@ function curItems(){ var g=omborGroup(); return g ? (g.items||[]) : state.items;
 function curStock(){ var g=omborGroup(); return g ? (g.stock||[]) : state.stock; }
 /* guruh omborida faqat 'egasi' va 'tahrirlaydi' yozadi, qolganlar ko‘radi */
 function omborCanEdit(){ var g=omborGroup(); return g ? canEdit(g) : true; }
+function omborCanSee(){ var g=omborGroup(); return g ? canSeeStock(g) : true; }
 function omborName(){ var g=omborGroup(); return g ? g.name : 'Mening omborim'; }
 
 /* ---------- guruh omboriga yozish (Supabase) ---------- */
@@ -2716,31 +2792,16 @@ function dropMove(id){
 
 /* ---------- OMBOR ekrani ---------- */
 /* ---------- OMBOR: bosh ekran (xulosa + grafik + tugmalar) ---------- */
-/* qaysi ombor: telefondagi yoki bulutli guruhlarniki */
-function omborPicker(){
-  var cloud = state.groups.filter(function(g){ return !!g.id; });
-  var sc = omborScope();
-  /* bitta ombor yetarli bo‘lsa tanlagich ko‘rinmaydi; qo‘shimcha ochish tugmasi doim bor */
-  var h='<div class="chips">';
-  if(cloud.length){
-    h+='<button class="chip" data-act="oscope" data-s="local" aria-pressed="'+(sc==='local')+'">Mening omborim</button>'
-     + cloud.map(function(g){
-         return '<button class="chip" data-act="oscope" data-s="'+g.id+'" aria-pressed="'+(sc===g.id)+'">☁ '+esc(g.name)+'</button>';
-       }).join('');
-  }
-  if(cloudOn()) h+='<button class="chip" data-act="new-ombor">+ Yangi ombor</button>';
-  return h+'</div>';
-}
-/* qo‘shimcha ombor ochish — a‘zolar va ruxsatlar guruhniki bilan bir xil */
+/* ombor bitta: qaysi profilda ishlayotganimiz Profil bo‘limida tanlanadi */
 function openNewOmbor(){
   var body='<form novalidate>'
-    + '<div class="note" style="margin-bottom:12px">Yangi ombor bulutda ochiladi. Unga a‘zo taklif qilsangiz, '
-    + 'ular omborni ko‘radi; o‘zgartirish huquqini siz berasiz.</div>'
-    + '<div class="field"><label>Ombor nomi</label><input name="name" placeholder="masalan: Do‘kon 2" autofocus></div>'
+    + '<div class="note" style="margin-bottom:12px">Yangi guruh profili bulutda ochiladi: o‘z ombori va hisob-kitobi bilan. '
+    + 'A‘zo taklif qilsangiz, u faqat ko‘radi — o‘zgartirish va omborni ko‘rish huquqini siz berasiz.</div>'
+    + '<div class="field"><label>Profil nomi</label><input name="name" placeholder="masalan: Do‘kon 2" autofocus></div>'
     + '<div style="height:8px"></div>'
     + '<button class="btn btn-primary btn-block" type="submit">Ochish</button>'
     + '</form>';
-  openModal('Yangi ombor', body, {
+  openModal('Yangi guruh profili', body, {
     onSubmit:function(form){
       var nm=form.name.value.trim();
       if(!nm){ form.name.focus(); return; }
@@ -2773,9 +2834,15 @@ function roleNote(){
 function viewOmbor(){
   var canEd = omborCanEdit(), g = omborGroup();
   var h = '<div class="topbar"><h1>Ombor</h1>'
-        + (g ? '<span class="eyebrow">'+esc(roleLabel(myRole(g)))+'</span>' : '')
+        + '<span class="eyebrow tap" data-act="nav" data-screen="profil">'
+        + (g ? '☁ ' : '') + esc(omborName()) + (g ? ' · '+esc(roleLabel(myRole(g))) : '') + ' ›</span>'
         + '</div>';
-  h += omborPicker();
+
+  if(g && !canSeeStock(g)){
+    return h + '<div class="empty">🔒 Guruh egasi sizga ombor huquqini bermagan.'
+      + '<br>«'+esc(g.name)+'» omborini ko‘rish uchun undan ruxsat so‘rang.</div>';
+  }
+
   h += roleNote();
 
   if(!curItems().length){
@@ -2830,17 +2897,17 @@ mountFns.ombor = function(){};
 
 /* telefondagi omborni guruhga ko‘chirish taklifi */
 function migrateCard(g){
-  return '<div class="card"><div class="card-h"><h2>Telefondagi ombor</h2></div>'
-    + '<div class="note" style="margin-bottom:10px">Telefoningizda '+state.items.length+' ta tovar va '
-    + state.stock.length+' ta harakat bor. Ularni «'+esc(g.name)+'» omboriga ko‘chirsangiz, '
-    + 'guruh a‘zolari ham ko‘radi va ma‘lumot serverda saqlanadi.</div>'
-    + '<button class="btn btn-block" data-act="migrate-stock" data-gid="'+g.id+'">Shu guruhga ko‘chirish</button></div>';
+  return '<div class="card"><div class="card-h"><h2>Ombor ikkiga bo‘lingan</h2></div>'
+    + '<div class="note" style="margin-bottom:10px">Telefoningizda alohida '+state.items.length+' ta tovar va '
+    + state.stock.length+' ta harakat qolgan. Ularni «'+esc(g.name)+'» omboriga ko‘chiring — '
+    + 'shunda ombor bitta bo‘ladi va guruh a‘zolari ham ko‘radi.</div>'
+    + '<button class="btn btn-primary btn-block" data-act="migrate-stock" data-gid="'+g.id+'">Bitta omborga birlashtirish</button></div>';
 }
 /* ketma-ket yuboramiz: avval tovarlar, keyin ularning harakatlari */
 function migrateStock(g){
   if(!canEdit(g)){ stockDenied(); return; }
   if(!state.items.length){ alert('Telefonda ko‘chiriladigan tovar yo‘q.'); return; }
-  if(!confirm('Telefondagi '+state.items.length+' ta tovar va '+state.stock.length+' ta harakat «'+g.name+'» omboriga ko‘chiriladi.\n\nTelefondagi nusxa zaxira sifatida qoladi — uni keyin Profil orqali tozalaysiz.\n\nDavom etilsinmi?')) return;
+  if(!confirm('Telefondagi '+state.items.length+' ta tovar va '+state.stock.length+' ta harakat «'+g.name+'» omboriga ko‘chiriladi.\n\nShundan keyin ombor bitta bo‘ladi: telefondagi alohida nusxa o‘chadi, ma‘lumot serverda saqlanadi. Kassadagi pul amaliyotlariga tegilmaydi.\n\nDavom etilsinmi?')) return;
 
   var rows = state.items.map(function(i){ return {group_id:g.id, name:i.name, unit:i.unit||'dona', min_qty:i.min||0}; });
   SB.from('stock_items').insert(rows).select().then(function(r){
@@ -2858,7 +2925,9 @@ function migrateStock(g){
     if(r && r.error) throw r.error;
     return loadGroups();
   }).then(function(){
-    alert('Ko‘chirildi. Endi bu ombor guruh a‘zolariga ham ko‘rinadi.');
+    /* endi ombor bitta: telefondagi alohida nusxani olib tashlaymiz */
+    state.items = []; state.stock = []; save();
+    alert('Birlashtirildi. Endi ombor bitta — guruh a‘zolari ham ko‘radi.');
     render();
   }).catch(sbFail);
 }
@@ -3554,23 +3623,31 @@ var PERM_SQL = [
   "create index if not exists stock_moves_group_idx on stock_moves(group_id);",
   "create index if not exists stock_moves_item_idx on stock_moves(item_id);",
   "",
-  "-- 2) Yangi a'zo sukut bo'yicha faqat ko'radi",
+  "-- 2) Yangi a'zo sukut bo'yicha faqat ko'radi va omborni ko'rmaydi",
   "alter table members alter column role set default 'viewer';",
+  "alter table members add column if not exists can_stock boolean not null default false;",
   "",
-  "-- 3) Ombor ruxsatlari: a'zo ko'radi, faqat owner/editor yozadi",
+  "create or replace function stock_visible(gid uuid) returns boolean",
+  "  language sql security definer stable set search_path = public as $$",
+  "  select exists (select 1 from members where group_id = gid and user_id = auth.uid()",
+  "    and (role in ('owner','editor') or can_stock));",
+  "$$;",
+  "",
+  "-- 3) Ombor ruxsatlari: egasi/tahrirlovchi yozadi,",
+  "--    «faqat ko'radi» roli esa guruh egasi ruxsat bersagina ko'radi",
   "alter table stock_items enable row level security;",
   "alter table stock_moves enable row level security;",
   "",
   "drop policy if exists si_select on stock_items;",
   "drop policy if exists si_write  on stock_items;",
-  "create policy si_select on stock_items for select using (is_member(group_id));",
+  "create policy si_select on stock_items for select using (stock_visible(group_id));",
   "create policy si_write  on stock_items for all",
   "  using (member_role(group_id) in ('owner','editor'))",
   "  with check (member_role(group_id) in ('owner','editor'));",
   "",
   "drop policy if exists sm_select on stock_moves;",
   "drop policy if exists sm_write  on stock_moves;",
-  "create policy sm_select on stock_moves for select using (is_member(group_id));",
+  "create policy sm_select on stock_moves for select using (stock_visible(group_id));",
   "create policy sm_write  on stock_moves for all",
   "  using (member_role(group_id) in ('owner','editor'))",
   "  with check (member_role(group_id) in ('owner','editor'));",
@@ -3724,6 +3801,10 @@ document.addEventListener('click', function(e){
     state.settings = state.settings || {};
     state.settings.omborScope = el.dataset.s;
     save(); go('ombor'); return;
+  }
+  if(a==='mstock'){
+    var sg=grp(route.id); if(sg) setMemberStock(sg, el.dataset.id, el.dataset.v==='1');
+    return;
   }
   if(a==='new-ombor'){ openNewOmbor(); return; }
   if(a==='migrate-stock'){ var mg=grp(el.dataset.gid); if(mg) migrateStock(mg); return; }
