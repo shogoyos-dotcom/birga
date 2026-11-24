@@ -64,10 +64,13 @@ create table if not exists stock_items (
   group_id uuid not null references groups(id) on delete cascade,
   name text not null,
   unit text not null default 'dona',
-  min_qty numeric not null default 0,            -- eng kam qoldiq chegarasi
+  min_qty numeric not null default 0,
+  cat text,                                        -- turkum: Tovar, Oziq-ovqat, ...            -- eng kam qoldiq chegarasi
   created_at timestamptz not null default now()
 );
 create index if not exists stock_items_group_idx on stock_items(group_id);
+-- eski bazalar uchun: ustun keyin qo'shilgan
+alter table stock_items add column if not exists cat text;
 
 create table if not exists stock_moves (
   id uuid primary key default gen_random_uuid(),

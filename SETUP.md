@@ -144,6 +144,12 @@ va hisobotni ko‘rib turadi, lekin siz ruxsat bermaguningizcha hech narsa
 o‘zgartira olmaydi. Qolganlar esa omborni umuman ko‘rmaydi — ularga qulf
 ekrani chiqadi. Ma‘lumot serverda saqlanadi — telefon yo‘qolsa ham qolaveradi.
 
+**Turkumlar:** har bir tovarga turkum berishingiz mumkin (masalan «Tovar» va
+«Oziq-ovqat») — tovar oynasidagi **Turkum** maydoniga yozasiz yoki tayyor
+taklifdan tanlaysiz. Shunda Ombor ekranida **«Turkumlar»** kartasi chiqadi:
+har turkumning alohida summasi va pastida **«Jami (hammasi birga)»**.
+Tovarlar ekranida esa turkum bo‘yicha filtrlash mumkin.
+
 **Ombor ikkiga bo‘linib qolsa:** guruh profilini tanlaganingizda telefonda eski
 tovarlar qolgan bo‘lsa, «Ombor ikkiga bo‘lingan» kartasi chiqadi. **«Bitta
 omborga birlashtirish»** ni bossangiz hamma tovar va harakat guruhga ko‘chadi,

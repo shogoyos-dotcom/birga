@@ -110,6 +110,22 @@ paytda SB_UID yo‘q, keshni bekorga to‘smaslik kerak. Asl himoya baribir RLS 
 «Kassaga ham yozilsin» faqat shaxsiy profil omborida bor; guruh omborida pul
 harakati yozilmaydi (hali).
 
+### Tovar turkumlari
+
+Tovarda `cat` maydoni bor (`Tovar`, `Oziq-ovqat`, … — foydalanuvchi o‘zi yozadi;
+`CAT_HINTS` faqat taklif). Bo‘sh bo‘lsa `NOCAT` = «Turkumsiz».
+
+- `catOf(i)` / `allCats()` / `catTotals()` — turkum kesimidagi hisob
+- Ombor ekranida «Turkumlar» kartasi: har turkum ustuni + **«Jami (hammasi
+  birga)»**. Turkum bitta bo‘lsa karta chiqmaydi
+- Tovarlar ekranida turkum chiplari (`data-act="icat"` → `route.cat`)
+
+Serverda `stock_items.cat`. Eski serverda bu ustun yo‘q, shuning uchun
+`sbHasItemCat` bayrog‘i bor: xato chiqsa turkumsiz qayta yuboriladi va
+foydalanuvchiga SQL ni yangilash kerakligi **bir marta** aytiladi
+(`catSqlHint`). Tovarning o‘zi baribir saqlanadi. `itemRow()` shu bayroqni
+hisobga oladi — bulutga tovar yozadigan hamma joy shundan o‘tadi.
+
 ## Ombor hisobi — FIFO
 
 `fifo(itemId)` harakatlarni **sana bo‘yicha** (sana teng bo‘lsa — kiritilish
