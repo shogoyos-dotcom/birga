@@ -34,16 +34,10 @@ await pg.evaluate(d => localStorage.setItem('birga_v1', JSON.stringify({
 await pg.reload({ waitUntil: 'domcontentloaded' });
 await pg.waitForTimeout(900);
 
-// ---------- kunlar ro'yxati ----------
+// ---------- kunlar ro'yxati olib tashlandi: grafikning o'zi yetarli ----------
 let t = await pg.locator('#screen').textContent();
-must(/Kunlar/.test(t), 'Asosiyda «Kunlar» kartasi bor');
-const dayRows = await pg.locator('.row[data-act="open-day"]').count();
-must(dayRows === now.getDate(), 'Oyning hamma kuni ro‘yxatda (' + dayRows + ' ta, bugun ' + now.getDate() + '-kun)');
-const r3 = await pg.locator('.row[data-act="open-day"][data-d="' + D3 + '"]').textContent();
-must(/\+1 450 000/.test(r3), '3-kun qatorida sof natija +1 450 000 (2 000 000 − 550 000): ' + r3.replace(/\s+/g, ' ').trim());
-const r7 = await pg.locator('.row[data-act="open-day"][data-d="' + D7 + '"]').textContent();
-must(/ombor: 1/.test(r7), '7-kun qatorida ombor harakati belgisi bor');
-await pg.screenshot({ path: (process.argv[2] || '.') + '/k-kunlar.png' });
+must(!/Kunlar/.test(t), 'Asosiyda «Kunlar» ro‘yxati yo‘q');
+must(await pg.locator('.row[data-act="open-day"]').count() === 0, 'Kun qatorlari yo‘q');
 
 // ---------- grafikdan bosish ----------
 must(await pg.locator('svg rect[data-act="open-day"]').count() > 0, 'Grafik ustunlari bosiladigan');
@@ -67,7 +61,7 @@ must(/3-/.test(await pg.locator('.month-label').textContent()), 'Oldingi kunga q
 
 // ---------- sotuv kuni: foyda ----------
 await pg.click('.back-btn'); await pg.waitForTimeout(400);
-await pg.click('.row[data-act="open-day"][data-d="' + D7 + '"]'); await pg.waitForTimeout(500);
+await pg.click('svg rect[data-act="open-day"][data-d="' + D7 + '"]'); await pg.waitForTimeout(500);
 t = await pg.locator('#screen').textContent().then(x => x.replace(/\s+/g, ' '));
 must(/Sotuv\s*900 000/.test(t), 'Sotuv kuni: sotuv 900 000 (60 × 15 000)');
 must(/Foyda \(FIFO\)\s*\+300 000/.test(t), 'O‘sha kunning foydasi +300 000 (900 000 − 60×10 000)');
