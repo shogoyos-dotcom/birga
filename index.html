@@ -387,6 +387,11 @@ function dayHead(d){
   var p=d.split('-'); return parseInt(p[2],10)+'-'+UZMONTH[parseInt(p[1],10)-1];
 }
 function monthLabel(ym){ var p=ym.split('-'); return UZMONTH[parseInt(p[1],10)-1]+' '+p[0]; }
+function shiftDay(d,delta){
+  var p=d.split('-'), dt=new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10)+delta);
+  var z=function(n){ return String(n).padStart(2,'0'); };
+  return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate());
+}
 function shiftMonth(ym,delta){
   var p=ym.split('-'), y=parseInt(p[0],10), m=parseInt(p[1],10)-1+delta;
   y+=Math.floor(m/12); m=((m%12)+12)%12;
@@ -804,7 +809,7 @@ function meNetForGroup(g){ return computeBalances(g)[meId(g)]||0; }
 /* ---------- render ---------- */
 function render(){
   try{
-    var map={home:'home',tx:'tx',ombor:'ombor',items:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
+    var map={home:'home',day:'home',tx:'tx',ombor:'ombor',items:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
     Array.prototype.forEach.call(tabbar.children, function(btn){
       btn.setAttribute('aria-current', btn.dataset.screen===map[route.name] ? 'page':'false');
     });
@@ -814,6 +819,7 @@ function render(){
     else if(route.name==='tx') html=viewTx();
     else if(route.name==='groups') html=viewGroups();
     else if(route.name==='group') html=viewGroup();
+    else if(route.name==='day') html=viewDay();
     else if(route.name==='ombor') html=viewOmbor();
     else if(route.name==='items') html=viewItems();
     else if(route.name==='item') html=viewItem();
@@ -895,6 +901,8 @@ function viewHome(){
         return '<button class="chip" style="padding:4px 10px;font-size:12px" data-act="chmon" data-n="'+n+'" aria-pressed="'+(n===nMon)+'">'+n+'</button>';
       }).join('')
     + '</span></div>'+mch+'</div>';
+
+  if(nMon===1){ var dc=daysCard(ym); if(dc) h+=dc; }
 
   h+='<div class="card"><div class="card-h"><h2>Oylik byudjet</h2><button class="link" data-act="set-budget">Tahrirlash</button></div>'
     +(bud>0
@@ -1318,8 +1326,8 @@ function accOptions(sel){
 }
 
 /* ---------- transaction modal ---------- */
-function openTxModal(existing){
-  var t=existing||{type:'expense',date:today(),accountId:firstAccountId(),categoryId:fallbackCat('expense'),amount:'',note:''};
+function openTxModal(existing, presetDate){
+  var t=existing||{type:'expense',date:presetDate||today(),accountId:firstAccountId(),categoryId:fallbackCat('expense'),amount:'',note:''};
   var isEdit=!!existing;
   var body='<form>'
     +'<div class="seg" id="tseg">'
@@ -2437,6 +2445,12 @@ function dayChart(ym){
     var x=L+(i-1)*band+off;
     var hi=inc[i]/max*ph, he=exp[i]/max*ph;
     var dlab=i+'-'+UZMONTH_SHORT[mo-1];
+    var dIso=ym+'-'+String(i).padStart(2,'0');
+    /* bosish nishoni ustundan kengroq — barmoq bilan tegish uchun */
+    svg+='<rect x="'+(L+(i-1)*band).toFixed(2)+'" y="'+top+'" width="'+band.toFixed(2)+'" height="'+(ph+6)+'"'
+       + ' fill="transparent" style="cursor:pointer" data-act="open-day" data-d="'+dIso+'">'
+       + '<title>'+esc(dlab)+(inc[i]>0?(' · Kirim '+esc(fmtMoney(inc[i]))):'')
+       + (exp[i]>0?(' · Chiqim '+esc(fmtMoney(exp[i]))):'')+' — hisobot uchun bosing</title></rect>';
     if(hi>0) svg+='<path d="'+colPath(x, base-hi, bw, hi, 2)+'" style="fill:var(--ch-in)">'
                 + '<title>'+esc(dlab)+' · Kirim '+esc(fmtMoney(inc[i]))+'</title></path>';
     if(he>0) svg+='<path d="'+colPath(x+bw+gap, base-he, bw, he, 2)+'" style="fill:var(--ch-out)">'
@@ -2448,6 +2462,138 @@ function dayChart(ym){
   return '<div class="chleg"><span><i style="background:var(--ch-in)"></i>Kirim</span>'
        + '<span><i style="background:var(--ch-out)"></i>Chiqim</span></div>'
        + '<div class="chart">'+svg+'</div>';
+}
+
+/* ---------- KUNLIK HISOBOT ---------- */
+var UZWEEK = ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
+
+/* bir kunning kirim/chiqimi — Asosiydagi raqamlar bilan bir xil manbadan */
+function dayTotals(d){
+  var inc=0, exp=0, n=0;
+  state.transactions.forEach(function(t){
+    if(t.date!==d) return;
+    n++;
+    if(t.type==='income') inc+=t.amount; else if(t.type==='expense') exp+=t.amount;
+  });
+  state.groups.forEach(function(g){
+    (g.expenses||[]).forEach(function(e){
+      if(e.date!==d) return;
+      var sh=myShareIn(g,e); if(sh<=0) return;
+      n++;
+      if(entryType(e)==='income') inc+=sh; else exp+=sh;
+    });
+  });
+  return {inc:inc, exp:exp, net:inc-exp, n:n};
+}
+function daysIn(ym){ return new Date(parseInt(ym.slice(0,4),10), parseInt(ym.slice(5,7),10), 0).getDate(); }
+function dayName(d){ return UZWEEK[new Date(d+'T00:00:00').getDay()]; }
+
+/* Asosiy ekranda, 1 oy tanlanganda — oyning hamma kuni */
+function daysCard(ym){
+  var n=daysIn(ym), i, h='', any=false;
+  var todayStr=today();
+  for(i=n;i>=1;i--){
+    var d = ym+'-'+String(i).padStart(2,'0');
+    if(d>todayStr && ym===todayStr.slice(0,7)) continue;   /* kelajak kunlarini ko‘rsatmaymiz */
+    var T=dayTotals(d);
+    if(T.n) any=true;
+    var moves = state.stock.filter(function(m){ return m.date===d; }).length;
+    h+='<div class="row tap" data-act="open-day" data-d="'+d+'">'
+      +'<div class="avatar" style="background:'+(T.n||moves?colorFor(d):'var(--surface-2)')+';color:'+(T.n||moves?'#fff':'var(--ink-3)')+'">'+i+'</div>'
+      +'<div class="main"><div class="t">'+i+'-'+UZMONTH[parseInt(ym.slice(5,7),10)-1].toLowerCase()+'</div>'
+      +'<div class="s">'+dayName(d)+(moves?(' · ombor: '+moves):'')+'</div></div>'
+      +'<div class="end">'
+      + (T.n
+          ? '<div class="a '+(T.net<0?'neg':T.net>0?'pos':'')+'">'+fmtMoney(T.net,true)+'</div>'
+            +'<div class="s">'+(T.inc>0?'+'+fmtCompact(T.inc):'')+(T.inc>0&&T.exp>0?' / ':'')+(T.exp>0?'−'+fmtCompact(T.exp):'')+'</div>'
+          : '<div class="s">—</div>')
+      +'</div></div>';
+  }
+  if(!h) return '';
+  return '<div class="card"><div class="card-h"><h2>Kunlar</h2>'
+    + '<span class="eyebrow">'+(any?'hisobot uchun bosing':'yozuv yo‘q')+'</span></div>'
+    + '<div class="list">'+h+'</div></div>';
+}
+
+/* ---------- bitta kunning hisoboti ---------- */
+function viewDay(){
+  var d = route.d || today();
+  var T = dayTotals(d);
+  var ym = d.slice(0,7);
+  var prev = shiftDay(d,-1), next = shiftDay(d,1);
+
+  var h = '<div class="topbar"><button class="back-btn" data-act="nav" data-screen="home">‹ Asosiy</button>'
+        + '<div class="monthnav">'
+        + '<button class="icon-btn" data-act="open-day" data-d="'+prev+'" aria-label="Oldingi kun">‹</button>'
+        + '<span class="month-label">'+fmtDateShort(d)+'</span>'
+        + '<button class="icon-btn" data-act="open-day" data-d="'+next+'" aria-label="Keyingi kun">›</button>'
+        + '</div></div>';
+
+  h += '<div class="stack">';
+  h += '<div class="balance-hero">'
+     + '<span class="eyebrow">'+esc(fmtDateLong(d))+' · '+esc(dayName(d))+'</span>'
+     + '<span class="big '+(T.net<0?'neg':T.net>0?'pos':'')+'">'+fmtMoney(T.net,true)+'</span>'
+     + '<div class="flowrow">'
+     + '<div class="flowbox"><div class="k">Kirim</div><div class="v pos">'+fmtMoney(T.inc)+'</div></div>'
+     + '<div class="flowbox"><div class="k">Chiqim</div><div class="v neg">'+fmtMoney(T.exp)+'</div></div>'
+     + '</div></div>';
+
+  var rows = activityList().filter(function(r){ return r.date===d; })
+    .sort(function(a,b){ return b.amount-a.amount; });
+
+  /* kategoriyalar bo‘yicha */
+  var cch = catChart(rows, 'expense');
+  if(cch) h += '<div class="card"><div class="card-h"><h2>Chiqim — kategoriyalar</h2></div>'+cch+'</div>';
+
+  /* ombor harakatlari */
+  var moves = state.stock.map(function(m,ix){ return {m:m,ix:ix}; })
+    .filter(function(x){ return x.m.date===d; })
+    .sort(function(a,b){ return b.ix-a.ix; })
+    .map(function(x){ return x.m; });
+  if(moves.length){
+    var dIn=0, dOut=0, dProfit=0;
+    moves.forEach(function(m){
+      var amt=m.qty*(m.price||0);
+      if(m.type==='in') dIn+=amt;
+      else{
+        dOut+=amt;
+        var F=fifo(m.itemId);
+        if(F.perMove[m.id]) dProfit+=F.perMove[m.id].profit;
+      }
+    });
+    h += '<div class="card"><div class="card-h"><h2>Ombor</h2><span class="eyebrow">'+moves.length+' ta harakat</span></div>'
+      + (dIn>0  ? '<div class="kv"><span>Prihod</span><b class="neg">'+fmtMoney(dIn)+'</b></div>' : '')
+      + (dOut>0 ? '<div class="kv"><span>Sotuv</span><b class="pos">'+fmtMoney(dOut)+'</b></div>' : '')
+      + (dOut>0 ? '<div class="kv"><span>Foyda (FIFO)</span><b class="'+(dProfit<0?'neg':dProfit>0?'pos':'')+'">'+fmtMoney(dProfit,true)+'</b></div>' : '')
+      + '<div class="list" style="margin-top:6px">';
+    moves.forEach(function(m){
+      var it=itm(m.itemId), inn=m.type==='in';
+      var F=fifo(m.itemId), pm=F.perMove[m.id];
+      h += '<div class="row tap" data-act="open-item" data-id="'+m.itemId+'">'
+        + '<div class="avatar" style="background:'+colorFor(m.itemId)+'">'+esc(initials(it?it.name:'?'))+'</div>'
+        + '<div class="main"><div class="t">'+esc(it?it.name:'O‘chirilgan tovar')+'</div>'
+        + '<div class="s">'+(inn?'prihod':'rasxod')+(m.note?' · '+esc(m.note):'')
+        + (m.price>0?' · '+fmtPrice(m.price):'')+'</div></div>'
+        + '<div class="end"><div class="a">'+(inn?'+':'−')+fmtQty(m.qty, it&&it.unit)+'</div>'
+        + (m.price>0?'<div class="s">'+fmtMoney(m.qty*m.price)+'</div>':'')
+        + (!inn && pm && m.price>0 ? '<div class="s '+(pm.profit<0?'neg':'pos')+'">foyda '+fmtMoney(pm.profit,true)+'</div>' : '')
+        + '</div></div>';
+    });
+    h += '</div></div>';
+  }
+
+  /* amaliyotlar */
+  if(rows.length){
+    h += '<div class="card"><div class="card-h"><h2>Amaliyotlar</h2><span class="eyebrow">'+rows.length+' ta</span></div><div class="list">';
+    rows.forEach(function(r){ h += actRow(r); });
+    h += '</div></div>';
+  }
+
+  if(!rows.length && !moves.length){
+    h += '<div class="empty">Bu kunda yozuv yo‘q.<br>Pastdagi + tugma orqali qo‘shing.</div>';
+  }
+  h += '</div>';
+  return h;
 }
 
 /* nomlangan qatorlar: nom — ustun — summa (eng kattasi tepada) */
@@ -2617,6 +2763,7 @@ document.addEventListener('click', function(e){
     else if(route.name==='tx' && route.grp && route.grp!=='__p' && grp(route.grp)) openExpenseModal(route.grp);
     else if(route.name==='ombor' || route.name==='items') openStockModal();
     else if(route.name==='item') openStockModal(null, route.id);
+    else if(route.name==='day') openTxModal(null, route.d);
     else openTxModal();
     return;
   }
@@ -2624,6 +2771,7 @@ document.addEventListener('click', function(e){
   if(a==='filter'){ route.filter=el.dataset.f; render(); return; }
   if(a==='set-budget'){ openBudgetModal(); return; }
   if(a==='pick-ym'){ openMonthPicker(); return; }
+  if(a==='open-day'){ go('day',{d:el.dataset.d}); return; }
   if(a==='pick-month'){ route.ym=el.dataset.ym; closeModal(); render(); return; }
   if(a==='chmon'){
     state.settings = state.settings || {};
