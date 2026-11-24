@@ -359,6 +359,468 @@
 (function(){
 "use strict";
 
+var I18N = {
+  "Shaxsiy hamyon va oddiy guruhlar faqat shu qurilmada saqlanadi — boshqa telefonga «Ma‘lumotni ko‘chirish» orqali o‘tkazing. ☁ bilan belgilangan bulutli guruhlar esa a‘zolar bilan avtomatik sinxronlanadi.":["Личный кошелёк и обычные группы хранятся только на этом устройстве — перенесите их через «Перенос данных». Облачные группы со значком ☁ синхронизируются с участниками автоматически.","The personal wallet and local groups are stored only on this device — move them with “Export / import data”. Cloud groups marked ☁ sync with members automatically."],
+  "Bu faqat shaxsiy hamyoningiz (hisoblar, kategoriyalar, amaliyotlar). Guruhlar bulutda — boshqa telefonda o‘sha taklif havolasi bilan kirasiz.":["Это только ваш личный кошелёк (счета, категории, операции). Группы в облаке — на другом телефоне входите по той же ссылке-приглашению.","This is only your personal wallet (accounts, categories, transactions). Groups live in the cloud — on another phone use the same invite link."],
+  "Shaxsiy ma‘lumot (hisoblar, kategoriyalar, amaliyotlar) o‘chiriladi va namuna qaytariladi. Bulutli guruhlarga tegilmaydi. Davom etilsinmi?":["Личные данные (счета, категории, операции) будут удалены и вернётся пример. Облачные группы не тронутся. Продолжить?","Personal data (accounts, categories, transactions) is erased and the sample comes back. Cloud groups are untouched. Continue?"],
+  "Faqat ombor hisobi: qoldiq ko‘payadi, pul harakati yozilmaydi. Tovar puli ham hisobga olinsin desangiz, yuqoridagi katakchani belgilang.":["Только складской учёт: остаток вырастет, движение денег не запишется. Чтобы учесть и деньги за товар — отметьте галочку выше.","Stock only: the quantity goes up, no cash entry is made. Tick the box above to record the money too."],
+  "Faqat ombor hisobi: qoldiq kamayadi, pul harakati yozilmaydi. Sotuvdan tushgan pul ham hisobga olinsin desangiz, katakchani belgilang.":["Только складской учёт: остаток уменьшится, движение денег не запишется. Чтобы учесть выручку — отметьте галочку.","Stock only: the quantity goes down, no cash entry is made. Tick the box to record the sale money too."],
+  "Qurilma xotirasi to‘ldi. Ba‘zi chek rasmlarini o‘chiring yoki Profil → «Ma‘lumotni ko‘chirish» orqali zaxira oling.":["Память устройства заполнена. Удалите часть фото чеков или сделайте резервную копию через Профиль → «Перенос данных».","Device storage is full. Delete some receipt photos or back up via Profile → “Export / import data”."],
+  "qoldiqsiz sotilgan — unga tannarx yozilmagan, foyda shuncha yuqori ko‘rinadi. Yetishmagan prihodni kiriting.":["продано без остатка — себестоимость не учтена, прибыль выглядит выше. Внесите недостающий приход.","sold without stock — no cost was recorded, so profit looks higher. Enter the missing stock-in."],
+  "Hozirgi bo‘linish. O‘zgartirish uchun biror a‘zoning summasini yozing — qolgani boshqalarga teng bo‘linadi.":["Текущее разделение. Чтобы изменить, впишите сумму участнику — остальное разделится поровну.","Current split. To change it, type an amount for a member — the rest is split evenly."],
+  "«Eng kam qoldiq» — shu chegaraga tushganda ogohlantirish chiqadi. Kerak bo‘lmasa bo‘sh qoldiring.":["«Мин. остаток» — при падении до этого уровня появится предупреждение. Не нужно — оставьте пустым.","“Min. stock” — a warning appears when the quantity drops to it. Leave empty if not needed."],
+  "Diqqat: «Kirish» o‘sha boshqa hisobga olib o‘tadi — hozirgi guruhlaringiz ko‘rinmay qoladi.":["Внимание: «Войти» переключит на тот другой аккаунт — текущие группы пропадут из виду.","Note: “Sign in” switches to that other account — your current groups will disappear."],
+  "Sizda bu omborni o‘zgartirish huquqi yo‘q — guruh egasidan «Tahrirlaydi» ruxsatini so‘rang.":["У вас нет прав менять этот склад — попросите у владельца группы право «Редактирует».","You cannot change this inventory — ask the group owner for “Can edit”."],
+  "Sizda «faqat ko‘rish» huquqi bor. Xarajat qo‘shish uchun guruh egasidan ruxsat so‘rang.":["У вас только просмотр. Чтобы добавлять расходы, попросите права у владельца группы.","You have view-only access. Ask the group owner for rights to add expenses."],
+  "Email va parol qo‘shsangiz — hisobingiz saqlanadi va istalgan qurilmadan kira olasiz.":["Добавьте почту и пароль — аккаунт сохранится и будет доступен с любого устройства.","Add an email and password — your account is kept and works on any device."],
+  "Bosh ekranga ilova bo‘lib tushadi, brauzersiz ochiladi va internetsiz ham ishlaydi.":["Появится на главном экране, откроется без браузера и работает без интернета.","It lands on your home screen, opens without the browser and works offline."],
+  "Agar maqsadingiz hozirgi hisobni saqlash bo‘lsa, «Email qo‘shish» dan foydalaning.":["Если хотите сохранить текущий аккаунт — используйте «Добавить почту».","If you want to keep this account, use “Add email” instead."],
+  "Bulut bilan aloqa yo‘q — o‘zgarishlar saqlanmasligi mumkin. Internetni tekshiring.":["Нет связи с облаком — изменения могут не сохраниться. Проверьте интернет.","No cloud connection — changes may not be saved. Check your internet."],
+  "Guruh omborida pul harakati alohida yozilmaydi — faqat qoldiq o‘zgaradi.":["На складе группы движение денег не записывается — меняется только остаток.","In a group inventory no cash entry is made — only the stock changes."],
+  "Guruhlaringiz serverda qoladi — qaytib kirsangiz hammasi joyida bo‘ladi.":["Группы останутся на сервере — после входа всё будет на месте.","Your groups stay on the server — sign back in and everything is there."],
+  "Chrome yoki boshqa brauzerda bu ishlamaydi — havolani Safari‘da oching.":["В Chrome и других браузерах это не работает — откройте ссылку в Safari.","This does not work in Chrome or other browsers — open the link in Safari."],
+  "Hozirgi hisobingizni (guruhlar va ombor shu yerda) saqlab qolish uchun:":["Чтобы сохранить текущий аккаунт (группы и склад здесь):","To keep your current account (groups and inventory are here):"],
+  "Guruhdan chiqasizmi? Qayta kirish uchun yangi taklif kerak bo‘ladi.":["Выйти из группы? Для возврата понадобится новое приглашение.","Leave the group? You will need a new invite to come back."],
+  "Guruh ombori, guruhni o‘chirish va a‘zoni chiqarish uchun serverda":["Для склада группы, удаления группы и исключения участника на сервере","For group inventory, deleting a group and removing members, the server"],
+  "O‘zgartirish uchun guruh egasidan «Tahrirlaydi» ruxsatini so‘rang.":["Чтобы менять, попросите у владельца группы право «Редактирует».","To make changes, ask the group owner for “Can edit”."],
+  "Pastdagi + tugma orqali guruh yarating va a‘zolarni taklif qiling.":["Создайте группу кнопкой + внизу и пригласите участников.","Create a group with the + button below and invite members."],
+  "Shundan keyin boshqa telefondan ham shu email bilan kira olasiz.":["После этого вы сможете войти с этой почтой и с другого телефона.","After that you can sign in with this email from another phone."],
+  "Sizda a‘zolarni boshqarish huquqi yo‘q — guruh egasidan so‘rang.":["У вас нет прав управлять участниками — попросите владельца группы.","You cannot manage members — ask the group owner."],
+  "Tayyor. Endi boshqa qurilmadan ham shu email bilan kira olasiz.":["Готово. Теперь можно входить с этой почтой с любого устройства.","Done. You can now sign in with this email from any device."],
+  "Samsung Internet‘da: menyu → «Sahifa qo‘shish» → «Bosh ekran».":["В Samsung Internet: меню → «Добавить страницу» → «Главный экран».","In Samsung Internet: menu → “Add page” → “Home screen”."],
+  "Telefondagi shaxsiy hamyon va «Mening omborim» ham tegilmaydi.":["Личный кошелёк и «Мой склад» на телефоне не тронутся.","Your personal wallet and “My inventory” on this phone are untouched."],
+  "Sizda «faqat ko‘rish» huquqi bor — amaliyot qo‘sha olmaysiz.":["У вас только просмотр — добавлять операции нельзя.","You have view-only access — you cannot add entries."],
+  "Bu a‘zo guruhdan chiqarilsinmi? Uning amaliyotlari qoladi.":["Исключить участника из группы? Его операции останутся.","Remove this member from the group? Their entries stay."],
+  "Kategoriyalar va bulutli guruhlar qoladi. Davom etilsinmi?":["Категории и облачные группы останутся. Продолжить?","Categories and cloud groups stay. Continue?"],
+  "Ko‘chirildi. Endi bu ombor guruh a‘zolariga ham ko‘rinadi.":["Перенесено. Теперь склад видят и участники группы.","Moved. Group members can now see this inventory."],
+  "guruh a‘zolari ham ko‘radi va ma‘lumot serverda saqlanadi.":["участники группы тоже увидят, а данные будут храниться на сервере.","group members see it too and the data is stored on the server."],
+  "sifatida qo‘shiladi. Havola faqat shu odam uchun ishlaydi.":["будет добавлен. Ссылка работает только для этого человека.","will be added. The link works only for this person."],
+  "yoki telefon almashsa, guruhlaringizga kira olmay qolasiz.":["или телефон сменится — вы потеряете доступ к группам.","or you change phones, you lose access to your groups."],
+  "Bu email allaqachon band — u bilan boshqa hisob ochilgan.":["Эта почта уже занята — на неё заведён другой аккаунт.","This email is already taken — another account uses it."],
+  "Yangi ombor bulutda ochiladi. Unga a‘zo taklif qilsangiz,":["Новый склад создаётся в облаке. Если пригласите участников,","The new inventory is created in the cloud. If you invite members,"],
+  "ular omborni ko‘radi; o‘zgartirish huquqini siz berasiz.":["они будут видеть склад; право изменять даёте вы.","they can view it; you decide who may edit."],
+  "Avval tovar qo‘shing — keyin prihod va rasxod yozasiz.":["Сначала добавьте товар — потом записывайте приход и расход.","Add an item first — then record stock in and out."],
+  "Miqdor va narxni kiriting — summa shu yerda ko‘rinadi.":["Введите количество и цену — сумма появится здесь.","Enter quantity and price — the total shows here."],
+  "Sizda tahrirlash huquqi yo‘q — guruh egasidan so‘rang.":["У вас нет прав на изменение — попросите владельца группы.","You do not have edit rights — ask the group owner."],
+  "Tiklash havolasi yuborildi — pochtangizni tekshiring.":["Ссылка для восстановления отправлена — проверьте почту.","A reset link was sent — check your inbox."],
+  "Kerak bo‘lsa summani o‘zgartiring, so‘ng «Saqlash».":["При необходимости измените сумму, затем «Сохранить».","Adjust the amount if needed, then “Save”."],
+  "ni Supabase ma‘lumoti bilan to‘ldiring (SETUP.md).":["заполните его данными Supabase (SETUP.md).","fill it in with your Supabase details (SETUP.md)."],
+  "Bulut sozlanmagan — guruhlar va hisob ishlamaydi.":["Облако не настроено — группы и аккаунт не работают.","Cloud is not configured — groups and account are unavailable."],
+  "tegishli. Kirgandan keyin ular ko‘rinmay qoladi.":["принадлежат. После входа они пропадут из виду.","After signing in they will no longer be visible."],
+  "Bulut bilan aloqa yo‘q — internetni tekshiring.":["Нет связи с облаком — проверьте интернет.","No connection to the cloud — check your internet."],
+  "Kamida bitta kishi tanlang yoki ulush kiriting":["Выберите человека или введите долю","Pick a person or enter a share"],
+  "Boshqa qurilmadan ham shu email bilan kirasiz":["С этой почтой вы войдёте и с другого устройства","Sign in from any device with this email"],
+  "Bulut xatosi — internet aloqasini tekshiring.":["Ошибка облака — проверьте интернет.","Cloud error — check your internet connection."],
+  "Diqqat: hozir shu qurilmada ochilgan guruhlar":["Внимание: открытые на этом устройстве группы принадлежат","Note: the groups open on this device belong"],
+  "Guruh egasini faqat boshqa ega chiqara oladi.":["Владельца группы может исключить только другой владелец.","Only another owner can remove the group owner."],
+  "+ tugma orqali xarajat yoki tushum qo‘shing.":["Добавьте расход или доход кнопкой +.","Add an expense or income with the + button."],
+  "CHIQIM yoziladi — tovar uchun to‘langan pul.":["будет записан РАСХОД — деньги, уплаченные за товар.","will be recorded as an EXPENSE — money paid for the goods."],
+  "Qaysi emailga tiklash havolasini yuboraylik?":["На какую почту отправить ссылку для восстановления?","Which email should we send the reset link to?"],
+  "Bulut sozlanmagan — guruhlar ishlashi uchun":["Облако не настроено — чтобы группы работали,","Cloud is not configured — for groups to work,"],
+  "belgisini bosing (yuqoriga qaragan strelka)":["нажмите значок (стрелка вверх)","tap the icon (arrow pointing up)"],
+  "Chek rasmi juda katta — rasmsiz saqlanadi.":["Фото чека слишком большое — сохраним без него.","The receipt photo is too large — saving without it."],
+  "Parol juda qisqa — kamida 6 belgi bo‘lsin.":["Пароль слишком короткий — минимум 6 символов.","Password too short — at least 6 characters."],
+  "bosing. Qayta ishga tushirsa ham xavfsiz.":["Повторный запуск безопасен.","Running it again is safe."],
+  "Hammasini o‘chirish va namunaga qaytish":["Удалить всё и вернуть пример","Erase all and restore the sample"],
+  "— guruhlaringiz va ombor joyida qoladi.":["— группы и склад останутся на месте.","— your groups and inventory stay."],
+  "KIRIM yoziladi — sotuvdan tushgan pul.":["будет записан ПРИХОД — деньги с продажи.","will be recorded as INCOME — money from the sale."],
+  "Kamida bitta kategoriya qolishi kerak.":["Должна остаться хотя бы одна категория.","At least one category must remain."],
+  "Sizda bu amalni bajarish huquqi yo‘q.":["У вас нет прав на это действие.","You are not allowed to do this."],
+  "Telefonda ko‘chiriladigan tovar yo‘q.":["На телефоне нет товаров для переноса.","There are no items on this phone to move."],
+  "jadval va ruxsatlar kerak. Quyidagini":["нужны таблицы и права. Вставьте","tables and permissions are needed. Paste the text below into"],
+  "Shaxsiy hamyon baribir ishlayveradi.":["Личный кошелёк всё равно работает.","The personal wallet keeps working anyway."],
+  "shundan keyin guruh ombori ishlaydi.":["после этого склад группы заработает.","after that the group inventory works."],
+  "Kassaga ham yozilsin — pul harakati":["Записать и в кассу — движение денег","Also record cash movement"],
+  "A‘zolar (vergul bilan, ixtiyoriy)":["Участники (через запятую, необязательно)","Members (comma-separated, optional)"],
+  "Bu taklif allaqachon ishlatilgan.":["Это приглашение уже использовано.","This invite has already been used."],
+  "Nusxa olinmadi — qo‘lda belgilang":["Не скопировалось — выделите вручную","Copy failed — select manually"],
+  "Pastdagi + tugma orqali qo‘shing.":["Добавьте через кнопку + внизу.","Add one with the + button below."],
+  "Qoldiq qiymati: kattadan kichikka":["Стоимость остатка: по убыванию","Remaining value: high to low"],
+  "⚠ Qoldiq eng kam chegaradan past.":["⚠ Остаток ниже минимального.","⚠ Stock is below the minimum."],
+  "Ma‘lumotni ko‘chirish / joylash":["Перенос данных","Export / import data"],
+  "Oxirgi harakat: yangidan eskiga":["Последнее движение: сначала новые","Last movement: newest first"],
+  "Serverda ombor jadvallari yo‘q.":["На сервере нет таблиц склада.","The inventory tables are missing on the server."],
+  "kishi ulush nisbatida bo‘linadi":["человек по долям","people by share"],
+  "— serverdagi ruxsat yetmayapti.":["— на сервере не хватает прав.","— the server permissions are missing."],
+  "A‘zo qo‘shish va taklif qilish":["Добавить участника и пригласить","Add a member and invite"],
+  "Brauzer ma‘lumotlari tozalansa":["Если данные браузера очистят","If browser data is cleared"],
+  "Parol kamida 6 belgi bo‘lsin.":["Пароль должен быть не короче 6 символов.","Password must be at least 6 characters."],
+  "• hisoblar qoldig‘i 0 bo‘ladi":["• остатки счетов станут 0","• account balances become 0"],
+  "Guruhlarda shu nom ko‘rinadi":["Это имя видят в группах","This name is shown in groups"],
+  "iPhone / iPad (faqat Safari)":["iPhone / iPad (только Safari)","iPhone / iPad (Safari only)"],
+  "• barcha amaliyotlar o‘chadi":["• все операции будут удалены","• all transactions are deleted"],
+  "Email yoki parol noto‘g‘ri.":["Неверная почта или пароль.","Wrong email or password."],
+  "Harakatni o‘chirib bo‘lmadi":["Не удалось удалить движение","Could not delete the movement"],
+  "Kamida bitta ulush kiriting":["Введите хотя бы одну долю","Enter at least one share"],
+  "— nisbat bo‘yicha bo‘linadi":["— делится по долям","— split by share"],
+  "Bu amaliyot o‘chirilsinmi?":["Удалить эту операцию?","Delete this transaction?"],
+  "Foydasi: kattadan kichikka":["Прибыль: по убыванию","Profit: high to low"],
+  "Guruhni butunlay o‘chirish":["Удалить группу полностью","Delete group entirely"],
+  "Kamida bitta kishi tanlang":["Выберите хотя бы одного человека","Pick at least one person"],
+  "Boshqa qurilmadan joylang":["Вставьте с другого устройства","Paste from another device"],
+  "Bu harakat o‘chirilsinmi?":["Удалить это движение?","Delete this movement?"],
+  "Email to‘g‘ri yozilmagan.":["Эл. почта написана неверно.","That email address is not valid."],
+  "Guruhlar bo‘yicha xarajat":["Расходы по группам","Expenses by group"],
+  "Guruhni o‘chirib bo‘lmadi":["Не удалось удалить группу","Could not delete the group"],
+  "Hech kimga qarzingiz yo‘q":["Вы никому не должны","You owe nothing"],
+  "Taklif havolasi yaroqsiz.":["Ссылка-приглашение недействительна.","The invite link is not valid."],
+  "Tovarni o‘chirib bo‘lmadi":["Не удалось удалить товар","Could not delete the item"],
+  "kimdan / kimga, ixtiyoriy":["от кого / кому, необязательно","from / to, optional"],
+  "A‘zoni chiqarib bo‘lmadi":["Не удалось исключить участника","Could not remove the member"],
+  "Chek rasmini biriktirish":["Прикрепить фото чека","Attach receipt photo"],
+  "Guruhdan chiqib bo‘lmadi":["Не удалось выйти из группы","Could not leave the group"],
+  "Hamma hisob-kitob teng 👍":["Все расчёты сведены 👍","Everything is settled 👍"],
+  "Hisob noldan boshlanadi:":["Счёт начнётся с нуля:","Your books will start from zero:"],
+  "Hisob-kitobni tasdiqlash":["Подтвердить расчёт","Confirm settlement"],
+  "Narxi: arzondan qimmatga":["Цена: по возрастанию","Price: low to high"],
+  "Narxi: qimmatdan arzonga":["Цена: по убыванию","Price: high to low"],
+  "Serverni yangilash (SQL)":["Обновить сервер (SQL)","Update server (SQL)"],
+  "Email va parol qo‘shish":["Добавить эл. почту и пароль","Add email and password"],
+  "Har oyga umumiy chegara":["Общий лимит на месяц","Monthly limit"],
+  "Hisob noldan boshlanadi":["Счёт начнётся с нуля","Books will start from zero"],
+  "Hisobni noldan boshlash":["Начать счёт с нуля","Reset balances to zero"],
+  "Joylash va almashtirish":["Вставить и заменить","Paste and replace"],
+  "Kategoriyani tahrirlash":["Изменить категорию","Edit category"],
+  "kishi teng — har biriga":["человек поровну — каждому","people evenly — each"],
+  "tahrirlash uchun bosing":["нажмите, чтобы изменить","tap to edit"],
+  "«Bosh ekranga qo‘shish»":["«На экран «Домой»»","“Add to Home Screen”"],
+  "• byudjet nolga tushadi":["• бюджет обнулится","• the budget is reset"],
+  "Chiqim — kategoriyalar":["Расход — категории","Expenses — categories"],
+  "Kategoriyalar bo‘yicha":["По категориям","By category"],
+  "Shu guruhga ko‘chirish":["Перенести в эту группу","Move to this group"],
+  "Amaliyotlar bo‘limiga":["В раздел «Операции»","In Transactions,"],
+  "Amaliyotni tahrirlash":["Изменить операцию","Edit transaction"],
+  "Birga Hamyon — taklif":["Birga Hamyon — приглашение","Birga Hamyon — invite"],
+  "Byudjet belgilanmagan":["Бюджет не задан","No budget set"],
+  "Email tasdiqlanmagan.":["Эл. почта не подтверждена.","Email not confirmed."],
+  "Kirim — kategoriyalar":["Приход — категории","Income — categories"],
+  "Mavjud hisobga kirish":["Войти в существующий аккаунт","Sign in to existing account"],
+  "Parollar mos kelmadi.":["Пароли не совпадают.","Passwords do not match."],
+  "Qoldiq: kamdan ko‘pga":["Остаток: по возрастанию","Stock: low to high"],
+  "Qoldiq: ko‘pdan kamga":["Остаток: по убыванию","Stock: high to low"],
+  "Sotilganning tannarxi":["Себестоимость продаж","Cost of goods sold"],
+  "Barcha kategoriyalar":["Все категории","All categories"],
+  "Bu kunda yozuv yo‘q.":["В этот день записей нет.","No entries on this day."],
+  "Harakatni tahrirlash":["Изменить движение","Edit movement"],
+  "Hisobdan chiqasizmi?":["Выйти из аккаунта?","Sign out?"],
+  "O‘rtacha kirim narxi":["Средняя цена прихода","Average cost price"],
+  "hisobot uchun bosing":["нажмите для отчёта","tap for report"],
+  "Boshlang‘ich qoldiq":["Начальный остаток","Opening balance"],
+  "Guruhga qo‘shiling:":["Присоединяйтесь к группе:","Join the group:"],
+  "Hali amaliyot yo‘q.":["Пока нет операций.","No transactions yet."],
+  "So‘nggi amaliyotlar":["Последние операции","Recent transactions"],
+  "Telefonga o‘rnatish":["Установить на телефон","Install on phone"],
+  "To‘lovni tahrirlash":["Изменить платёж","Edit payment"],
+  "Yuborish / ulashish":["Отправить / поделиться","Send / share"],
+  "faqat shu qurilmada":["только на этом устройстве","only on this device"],
+  "«Ilovani o‘rnatish»":["«Установить приложение»","“Install app”"],
+  "Amaliyot topilmadi":["Операции не найдены","No transactions found"],
+  "Guruh hisob-kitobi":["Расчёты в группах","Group balances"],
+  "Guruhga qo‘shilish":["Вступить в группу","Join group"],
+  "Hali amaliyot yo‘q":["Пока нет операций","No transactions yet"],
+  "Hisobni tahrirlash":["Изменить счёт","Edit account"],
+  "Hozirgi hisobingiz":["Текущий аккаунт","Your current account"],
+  "Noto‘g‘ri ma‘lumot":["Неверные данные","Invalid data"],
+  "Oxirgi kirim narxi":["Последняя цена прихода","Last cost price"],
+  "Parolni takrorlang":["Повторите пароль","Repeat password"],
+  "Qanday o‘rnatiladi":["Как установить","How to install"],
+  "Qo‘shimcha daromad":["Доп. доход","Extra income"],
+  "Serverni yangilash":["Обновление сервера","Update the server"],
+  "Tovarni tahrirlash":["Изменить товар","Edit item"],
+  "• ombor tozalanadi":["• склад очистится","• the inventory is cleared"],
+  "Hali harakat yo‘q":["Пока нет движений","No movements yet"],
+  "Ilovani o‘rnatish":["Установить приложение","Install the app"],
+  "Kimlarga tegishli":["На кого делится","Split between"],
+  "Menga qaytariladi":["Мне вернут","Owed to me"],
+  "O‘chirilgan tovar":["Удалённый товар","Deleted item"],
+  "Sizga qaytariladi":["Вам вернут","Owed to you"],
+  "Telefondagi ombor":["Склад на телефоне","Inventory on this phone"],
+  "narx kiritilmagan":["цена не указана","no price set"],
+  "taklif kutilyapti":["ожидает приглашения","invite pending"],
+  "— taklif havolasi":["— ссылка-приглашение","— invite link"],
+  "Android (Chrome)":["Android (Chrome)","Android (Chrome)"],
+  "Bu oy sof natija":["Чистый итог за месяц","Net this month"],
+  "Eng kam o‘tkazma":["Минимум переводов","Fewest transfers"],
+  "Guruhdan chiqish":["Выйти из группы","Leave group"],
+  "Hali guruh yo‘q.":["Пока нет групп.","No groups yet."],
+  "Hozir hisobingiz":["Сейчас ваш аккаунт","Your account is currently"],
+  "Shu oyga qaytish":["Вернуться к текущему месяцу","Back to this month"],
+  "Tovar / Mahsulot":["Товар / Продукция","Goods"],
+  "To‘lovlar tarixi":["История платежей","Payment history"],
+  "Yangi kategoriya":["Новая категория","New category"],
+  "menyusini bosing":["нажмите меню","open the menu"],
+  "A‘zolar balansi":["Баланс участников","Member balances"],
+  "Foyda keltirgan":["Прибыльные","Profitable"],
+  "Guruh topilmadi":["Группа не найдена","Group not found"],
+  "Kafe / Restoran":["Кафе / Ресторан","Cafe / Restaurant"],
+  "Kim qabul qildi":["Кто получил","Who received"],
+  "Kiritilganlar (":["Введено (","Entered ("],
+  "Namuna ma‘lumot":["Пример данных","Sample data"],
+  "O‘lchov birligi":["Единица измерения","Unit"],
+  "Parolni unutdim":["Забыли пароль","Forgot password"],
+  "Prihod / Rasxod":["Приход / Расход","Stock in / out"],
+  "Rasxod (chiqim)":["Расход","Stock out"],
+  "Taklif havolasi":["Ссылка-приглашение","Invite link"],
+  "Tovar qidirish…":["Поиск товара…","Search items…"],
+  "Tovar topilmadi":["Товар не найден","No items found"],
+  "taklif kutmoqda":["ожидают приглашения","pending invites"],
+  "— kategoriyalar":["— категории","— categories"],
+  "+ Yangi tovar…":["+ Новый товар…","+ New item…"],
+  "Barcha a‘zolar":["Все участники","All members"],
+  "Eng kam qoldiq":["Мин. остаток","Min. stock"],
+  "Hisobga kirish":["Вход в аккаунт","Sign in"],
+  "Men qaytaraman":["Я верну","I owe"],
+  "Mening omborim":["Мой склад","My inventory"],
+  "Nusxa olindi ✓":["Скопировано ✓","Copied ✓"],
+  "Prihod (kirim)":["Приход","Stock in"],
+  "Prihod summasi":["Сумма прихода","Stock-in amount"],
+  "Qoldiq qiymati":["Стоимость остатка","Remaining value"],
+  "Rasxod summasi":["Сумма расхода","Stock-out amount"],
+  "Siz bu omborni":["Вы этот склад","You are"],
+  "Siz qaytarasiz":["Вы вернёте","You owe"],
+  "Sotuv (rasxod)":["Продажи (расход)","Sales (stock out)"],
+  "Tovar qo‘shish":["Добавить товар","Add item"],
+  "Yangi amaliyot":["Новая операция","New transaction"],
+  "boshqa hisobga":["другому аккаунту","to another account"],
+  "faqat ko‘rasiz":["только просматриваете","view only"],
+  "kamida 6 belgi":["минимум 6 символов","at least 6 characters"],
+  "oxirgi harakat":["последнее движение","last movement"],
+  "+ Yangi ombor":["+ Новый склад","+ New inventory"],
+  "A‘zo + taklif":["Участник + приглашение","Member + invite"],
+  "Faqat ko‘radi":["Только смотрит","View only"],
+  "Foydalanuvchi":["Пользователь","User"],
+  "Kategoriyalar":["Категории","Categories"],
+  "Narx (1 dona)":["Цена (1 шт.)","Price (1 unit)"],
+  "Ombor qiymati":["Стоимость склада","Inventory value"],
+  "Oylik byudjet":["Месячный бюджет","Monthly budget"],
+  "Plastik karta":["Карта","Card"],
+  "Qo‘shilyapti…":["Присоединение…","Joining…"],
+  "Savdo tushumi":["Выручка","Sales revenue"],
+  "Sotuv summasi":["Сумма продаж","Sales amount"],
+  "Uy / Kommunal":["Дом / Коммунальные","Home / Utilities"],
+  "Yaratilmoqda…":["Создание…","Creating…"],
+  "faqat ko‘rish":["только просмотр","view only"],
+  "ni bajaring —":["выполните —","— run it"],
+  "Bekor qilish":["Отмена","Cancel"],
+  "Foyda (FIFO)":["Прибыль (FIFO)","Profit (FIFO)"],
+  "Jami xarajat":["Всего расходов","Total expenses"],
+  "Ko‘ngilochar":["Развлечения","Entertainment"],
+  "Nomi (A → Z)":["Название (А → Я)","Name (A → Z)"],
+  "Nomi (Z → A)":["Название (Я → А)","Name (Z → A)"],
+  "Ombor bo‘sh.":["Склад пуст.","Inventory is empty."],
+  "Oxirgi 12 oy":["Последние 12 месяцев","Last 12 months"],
+  "Oyni tanlash":["Выбор месяца","Pick a month"],
+  "Saqlanyapti…":["Сохранение…","Saving…"],
+  "Sotish narxi":["Цена продажи","Selling price"],
+  "harakat yo‘q":["нет движений","no movements"],
+  "kishiga teng":["на человека поровну","per person, evenly"],
+  "Amaliyotlar":["Операции","Transactions"],
+  "Bu havolani":["Эту ссылку","Send this link"],
+  "Hisoblash ›":["Рассчитать ›","Settle ›"],
+  "Jami prihod":["Всего приход","Total stock in"],
+  "Jami rasxod":["Всего расход","Total stock out"],
+  "Jami tushum":["Всего доходов","Total income"],
+  "Kim to‘ladi":["Кто платит","Who pays"],
+  "Kirilyapti…":["Вход…","Signing in…"],
+  "Kirim narxi":["Цена прихода","Cost price"],
+  "Nusxa oling":["Скопируйте","Copy it"],
+  "Nusxa olish":["Копировать","Copy"],
+  "Ochilyapti…":["Открывается…","Opening…"],
+  "Oxirgi 1 oy":["Последний 1 месяц","Last 1 month"],
+  "Oxirgi 3 oy":["Последние 3 месяца","Last 3 months"],
+  "Oxirgi 6 oy":["Последние 6 месяцев","Last 6 months"],
+  "Tahrirlaydi":["Редактирует","Can edit"],
+  "Yangi guruh":["Новая группа","New group"],
+  "Yangi hisob":["Новый счёт","New account"],
+  "Yangi ombor":["Новый склад","New inventory"],
+  "Yangi tovar":["Новый товар","New item"],
+  "oshib ketdi":["превышено","over"],
+  "Aniq: jami":["Точно: всего","Exact: total"],
+  "Bo‘linishi":["Разделение","Split"],
+  "Chek rasmi":["Фото чека","Receipt photo"],
+  "Chorshanba":["Среда","Wednesday"],
+  "Guruh nomi":["Название группы","Group name"],
+  "Harakatlar":["Движения","Movements"],
+  "Hisob teng":["Баланс сведён","All settled"],
+  "Kam qolgan":["Заканчивается","Low stock"],
+  "Kategoriya":["Категория","Category"],
+  "Nima uchun":["За что","What for"],
+  "Ombor nomi":["Название склада","Inventory name"],
+  "Oziq-ovqat":["Продукты","Groceries"],
+  "Qo‘shilish":["Присоединиться","Join"],
+  "Sarflandi:":["Потрачено:","Spent:"],
+  "Sozlamalar":["Настройки","Settings"],
+  "Tahrirlash":["Изменить","Edit"],
+  "Tovar nomi":["Название товара","Item name"],
+  "Tovar turi":["Видов товара","Item types"],
+  "Yangi a‘zo":["Новый участник","New member"],
+  "hisob teng":["баланс сведён","settled"],
+  "ta harakat":["движений","movements"],
+  "yozuv yo‘q":["нет записей","no entries"],
+  "A‘zo ismi":["Имя участника","Member name"],
+  "Balanslar":["Балансы","Balances"],
+  "Chiqarish":["Исключить","Remove"],
+  "O‘chirish":["Удалить","Delete"],
+  "Payshanba":["Четверг","Thursday"],
+  "Qidirish…":["Поиск…","Search…"],
+  "Transport":["Транспорт","Transport"],
+  "Yakshanba":["Воскресенье","Sunday"],
+  "ixtiyoriy":["необязательно","optional"],
+  "saqlanadi":["сохранится","will be kept"],
+  "Barchasi":["Все","All"],
+  "Dushanba":["Понедельник","Monday"],
+  "Guruhlar":["Группы","Groups"],
+  "Hisoblar":["Счета","Accounts"],
+  "Ismingiz":["Ваше имя","Your name"],
+  "Kim oldi":["Кто получил","Who received"],
+  "Naqd pul":["Наличные","Cash"],
+  "Prihod +":["Приход +","Stock in +"],
+  "Qo‘shish":["Добавить","Add"],
+  "Rasxod −":["Расход −","Stock out −"],
+  "Seshanba":["Вторник","Tuesday"],
+  "Tovarlar":["Товары","Items"],
+  "Ulashish":["Поделиться","Share"],
+  "Xatolik:":["Ошибка:","Error:"],
+  "Yaratish":["Создать","Create"],
+  "noma‘lum":["неизвестно","unknown"],
+  "o‘rtacha":["в среднем","average"],
+  "— kunlar":["— по дням","— days"],
+  "— qoldiq":["— остаток","— stock"],
+  "— tayyor":["— готово","— done"],
+  "← suring":["← листайте","← swipe"],
+  "A‘zolar":["Участники","Members"],
+  "Chiqish":["Выйти","Sign out"],
+  "Hammasi":["Все","All"],
+  "Saqlash":["Сохранить","Save"],
+  "Sentabr":["Сентябрь","September"],
+  "Sog‘liq":["Здоровье","Health"],
+  "Tovar +":["Товар +","Item +"],
+  "Tugagan":["Закончился","Out of stock"],
+  "Valyuta":["Валюта","Currency"],
+  "Xarajat":["Расход","Expense"],
+  "Asosiy":["Главная","Home"],
+  "Avgust":["Август","August"],
+  "Boshqa":["Прочее","Other"],
+  "Chiqim":["Расход","Expense"],
+  "Dekabr":["Декабрь","December"],
+  "Fevral":["Февраль","February"],
+  "Havola":["Ссылка","Link"],
+  "Kirish":["Войти","Sign in"],
+  "Kunlar":["Дни","Days"],
+  "Miqdor":["Количество","Quantity"],
+  "Noyabr":["Ноябрь","November"],
+  "Ochish":["Открыть","Open"],
+  "Oktabr":["Октябрь","October"],
+  "Oxirgi":["Последние","Recent"],
+  "Prihod":["Приход","Stock in"],
+  "Profil":["Профиль","Profile"],
+  "Qiymat":["Стоимость","Value"],
+  "Qoldi:":["Осталось:","Left:"],
+  "Qo‘lda":["Вручную","Manual"],
+  "Rasxod":["Расход","Stock out"],
+  "Shanba":["Суббота","Saturday"],
+  "Tushum":["Доход","Income"],
+  "Yanvar":["Январь","January"],
+  "Yopish":["Закрыть","Close"],
+  "ombor:":["склад:","inventory:"],
+  "pachka":["пачка","pack"],
+  "qoldiq":["остаток","stock"],
+  "(siz)":["(вы)","(you)"],
+  "Aprel":["Апрель","April"],
+  "Bugun":["Сегодня","Today"],
+  "Egasi":["Владелец","Owner"],
+  "Email":["Эл. почта","Email"],
+  "Foyda":["Прибыль","Profit"],
+  "Hisob":["Аккаунт","Account"],
+  "Ilova":["Приложение","App"],
+  "Kecha":["Вчера","Yesterday"],
+  "Kimga":["Кому","To whom"],
+  "Kirim":["Приход","Income"],
+  "Ombor":["Склад","Inventory"],
+  "Oylik":["Зарплата","Salary"],
+  "Parol":["Пароль","Password"],
+  "Summa":["Сумма","Amount"],
+  "Tovar":["Товар","Item"],
+  "Uning":["Его","Its"],
+  "foyda":["прибыль","profit"],
+  "gramm":["грамм","gram"],
+  "Iyul":["Июль","July"],
+  "Iyun":["Июнь","June"],
+  "Izoh":["Заметка","Note"],
+  "Jami":["Итого","Total"],
+  "Juma":["Пятница","Friday"],
+  "Mart":["Март","March"],
+  "Nomi":["Название","Name"],
+  "Sana":["Дата","Date"],
+  "Turi":["Тип","Type"],
+  "dona":["шт.","pcs"],
+  "litr":["литр","litre"],
+  "metr":["метр","metre"],
+  "quti":["коробка","box"],
+  "so'm":["сум","UZS"],
+  "Ism":["Имя","Name"],
+  "May":["Май","May"],
+  "Men":["Я","Me"],
+  "qop":["мешок","sack"]
+};
+
+/* ---------- TIL ---------- */
+var LANGS = [['uz','O‘zbek'], ['ru','Русский'], ['en','English']];
+function lang(){
+  var l = (state.settings && state.settings.lang) || 'uz';
+  return (l==='ru' || l==='en') ? l : 'uz';
+}
+/* harf hisoblanadigan belgilar — kalit so‘z o‘rtasida almashmasligi uchun */
+var TR_W = '0-9A-Za-zЀ-ӿ‘’';
+var _trRe = null;
+function trRe(){
+  if(_trRe) return _trRe;
+  var keys = [];
+  for(var k in I18N){ if(I18N.hasOwnProperty(k)) keys.push(k); }
+  keys.sort(function(a,b){ return b.length - a.length; });   /* uzunidan boshlab */
+  var alts = keys.map(function(k){ return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|');
+  _trRe = new RegExp('(^|[^'+TR_W+'])('+alts+')(?![' + TR_W + '])', 'g');
+  return _trRe;
+}
+/* faqat ko‘rinadigan matnni almashtiramiz */
+function trText(s, ix){
+  return String(s).replace(trRe(), function(m, pre, key){
+    var v = I18N[key];
+    return pre + ((v && v[ix]) || key);
+  });
+}
+/* Teg ichidagi qiymatlar (value, data-*, class…) TARJIMA QILINMAYDI —
+   aks holda saqlanadigan ma‘lumot buziladi (masalan value="dona").
+   Faqat foydalanuvchi ko‘radigan atributlar tarjima qilinadi. */
+var TR_ATTR = /\s(placeholder|aria-label|title|alt)="([^"]*)"/g;
+function tr(s){
+  if(s==null || s==='') return s;
+  var L = lang();
+  if(L==='uz') return s;
+  var ix = (L==='ru') ? 0 : 1;
+  return String(s).replace(/<[^>]*>|[^<]+/g, function(ch){
+    if(ch.charAt(0) !== '<') return trText(ch, ix);
+    return ch.replace(TR_ATTR, function(m, a, v){
+      return ' ' + a + '="' + trText(v, ix) + '"';
+    });
+  });
+}
+/* alert/confirm/prompt ham tarjima bo‘lsin — chaqiruv joylarini o‘zgartirmaymiz */
+var _alert = window.alert, _confirm = window.confirm, _prompt = window.prompt;
+function alert(m){ return _alert.call(window, tr(m)); }
+function confirm(m){ return _confirm.call(window, tr(m)); }
+function prompt(m, d){ return _prompt.call(window, tr(m), d); }
+
+function langCard(){
+  var cur = lang();
+  return '<div class="card"><div class="card-h"><h2>Til · Язык · Language</h2></div>'
+    + '<div class="chips" style="padding-bottom:0">'
+    + LANGS.map(function(x){
+        return '<button class="chip" data-act="set-lang" data-l="'+x[0]+'" aria-pressed="'+(x[0]===cur)+'">'+x[1]+'</button>';
+      }).join('')
+    + '</div></div>';
+}
+
 /* ---------- storage ---------- */
 var STORE_KEY = 'birga_v1';
 var UZMONTH = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
@@ -962,6 +1424,7 @@ function go(name, extra){
 }
 
 var screenEl = document.getElementById('screen');
+var NAV_HTML = document.getElementById('tabbar').innerHTML;
 var modalEl = document.getElementById('modal');
 var fabWrap = document.getElementById('fabwrap');
 var tabbar = document.getElementById('tabbar');
@@ -988,6 +1451,7 @@ function meNetForGroup(g){ return computeBalances(g)[meId(g)]||0; }
 function render(){
   try{
     var map={home:'home',day:'home',tx:'tx',ombor:'ombor',items:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
+    tabbar.innerHTML = tr(NAV_HTML);
     Array.prototype.forEach.call(tabbar.children, function(btn){
       btn.setAttribute('aria-current', btn.dataset.screen===map[route.name] ? 'page':'false');
     });
@@ -1002,7 +1466,7 @@ function render(){
     else if(route.name==='items') html=viewItems();
     else if(route.name==='item') html=viewItem();
     else if(route.name==='profil') html=viewProfil();
-    screenEl.innerHTML=html;
+    screenEl.innerHTML=tr(html);
     if(mountFns[route.name]) mountFns[route.name]();
     scrollChartToEnd();
   }catch(err){
@@ -1436,6 +1900,8 @@ function viewProfil(){
     +'<div class="row" style="border:0;padding:4px 0"><div class="avatar" style="background:'+colorFor('me')+'">'+esc(initials(state.me.name))+'</div>'
     +'<div class="main"><div class="t">'+esc(state.me.name)+'</div><div class="s">Guruhlarda shu nom ko‘rinadi</div></div></div></div>';
 
+  h+=langCard();
+
   h+=accountCard();
 
   h+=installCard();
@@ -1489,10 +1955,10 @@ mountFns.profil=function(){
 /* ---------- modal helpers ---------- */
 function openModal(title, body, opts){
   opts=opts||{};
-  modalEl.innerHTML='<div class="scrim" data-act="close-modal"></div>'
+  modalEl.innerHTML=tr('<div class="scrim" data-act="close-modal"></div>'
     +'<div class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(title)+'">'
     +'<div class="sheet-h"><h2>'+esc(title)+'</h2><button class="close-x" data-act="close-modal" aria-label="Yopish">✕</button></div>'
-    +'<div class="sheet-b">'+body+'</div></div>';
+    +'<div class="sheet-b">'+body+'</div></div>');
   modalEl.hidden=false;
   var form=modalEl.querySelector('form');
   if(form) form.addEventListener('submit', function(ev){ ev.preventDefault(); opts.onSubmit && opts.onSubmit(form); });
@@ -2243,14 +2709,44 @@ function dropMove(id){
 /* qaysi ombor: telefondagi yoki bulutli guruhlarniki */
 function omborPicker(){
   var cloud = state.groups.filter(function(g){ return !!g.id; });
-  if(!cloud.length) return '';
   var sc = omborScope();
-  return '<div class="chips">'
-    + '<button class="chip" data-act="oscope" data-s="local" aria-pressed="'+(sc==='local')+'">Mening omborim</button>'
-    + cloud.map(function(g){
-        return '<button class="chip" data-act="oscope" data-s="'+g.id+'" aria-pressed="'+(sc===g.id)+'">☁ '+esc(g.name)+'</button>';
-      }).join('')
-    + '</div>';
+  /* bitta ombor yetarli bo‘lsa tanlagich ko‘rinmaydi; qo‘shimcha ochish tugmasi doim bor */
+  var h='<div class="chips">';
+  if(cloud.length){
+    h+='<button class="chip" data-act="oscope" data-s="local" aria-pressed="'+(sc==='local')+'">Mening omborim</button>'
+     + cloud.map(function(g){
+         return '<button class="chip" data-act="oscope" data-s="'+g.id+'" aria-pressed="'+(sc===g.id)+'">☁ '+esc(g.name)+'</button>';
+       }).join('');
+  }
+  if(cloudOn()) h+='<button class="chip" data-act="new-ombor">+ Yangi ombor</button>';
+  return h+'</div>';
+}
+/* qo‘shimcha ombor ochish — a‘zolar va ruxsatlar guruhniki bilan bir xil */
+function openNewOmbor(){
+  var body='<form novalidate>'
+    + '<div class="note" style="margin-bottom:12px">Yangi ombor bulutda ochiladi. Unga a‘zo taklif qilsangiz, '
+    + 'ular omborni ko‘radi; o‘zgartirish huquqini siz berasiz.</div>'
+    + '<div class="field"><label>Ombor nomi</label><input name="name" placeholder="masalan: Do‘kon 2" autofocus></div>'
+    + '<div style="height:8px"></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">Ochish</button>'
+    + '</form>';
+  openModal('Yangi ombor', body, {
+    onSubmit:function(form){
+      var nm=form.name.value.trim();
+      if(!nm){ form.name.focus(); return; }
+      var btn=modalEl.querySelector('button[type="submit"]');
+      if(btn){ btn.disabled=true; btn.textContent='Ochilyapti…'; }
+      createGroupCloud(nm, [], function(gid){
+        closeModal();
+        if(gid){
+          state.settings = state.settings || {};
+          state.settings.omborScope = gid;
+          save();
+        }
+        go('ombor');
+      });
+    }
+  });
 }
 function roleNote(){
   var g=omborGroup();
@@ -2533,7 +3029,7 @@ function openItemModal(existing, onDone){
     + '<div class="field"><label>Tovar nomi</label><input name="name" value="'+esc(i.name)+'" placeholder="masalan: Shakar" autofocus></div>'
     + '<div class="two">'
     + '<div class="field"><label>O‘lchov birligi</label><select name="unit">'
-    + UNITS.map(function(u){ return '<option'+(u===(i.unit||'dona')?' selected':'')+'>'+u+'</option>'; }).join('')
+    + UNITS.map(function(u){ return '<option value="'+u+'"'+(u===(i.unit||'dona')?' selected':'')+'>'+u+'</option>'; }).join('')
     + '</select></div>'
     + '<div class="field"><label>Eng kam qoldiq</label><input name="min" inputmode="decimal" value="'+(i.min||'')+'" placeholder="0"></div>'
     + '</div>'
@@ -3199,6 +3695,11 @@ document.addEventListener('click', function(e){
     state.settings.stockChart = el.dataset.m;
     commit(); return;
   }
+  if(a==='set-lang'){
+    state.settings = state.settings || {};
+    state.settings.lang = el.dataset.l;
+    commit(); return;
+  }
   if(a==='link-email'){ openLinkEmail(); return; }
   if(a==='sign-in'){ openSignIn(); return; }
   if(a==='sign-out'){ signOutCloud(); return; }
@@ -3241,6 +3742,7 @@ document.addEventListener('click', function(e){
     state.settings.omborScope = el.dataset.s;
     save(); go('ombor'); return;
   }
+  if(a==='new-ombor'){ openNewOmbor(); return; }
   if(a==='migrate-stock'){ var mg=grp(el.dataset.gid); if(mg) migrateStock(mg); return; }
   if(a==='add-item'){ if(!omborCanEdit()){ stockDenied(); return; } openItemModal(); return; }
   if(a==='edit-item'){
