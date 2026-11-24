@@ -45,6 +45,27 @@ budget, groups, items, stock, settings}`
 - `txId` — «Kassaga ham yozilsin» orqali bog‘langan amaliyot; harakat
   tahrirlansa/o‘chsa u ham o‘zgaradi (`syncMoveTx`, `dropMove`)
 
+## Hisob (auth)
+
+Ilova **anonim** kirish bilan boshlanadi (`signInAnonymously`), keyin
+foydalanuvchi xohlasa emailga bog‘laydi:
+
+- `applySession(s)` — `SB_UID` va `SB_EMAIL` ni bitta joydan yangilaydi.
+  Boshqa hech qayerda qo‘lda yozilmaydi
+- `openLinkEmail()` — `updateUser({email, password})`: anonim hisob
+  **doimiy hisobga aylanadi**, guruhlar va ombor saqlanib qoladi
+- `openSignIn()` — `signInWithPassword`; shu qurilmadagi eski anonim hisob
+  guruhlari ko‘rinmay qolishi haqida oldindan ogohlantiradi
+- `signOutCloud()` — chiqgandan keyin **yana anonim kiradi**, aks holda
+  ilovaning bulut qismi butunlay o‘chib qolardi; guruh keshi ham tozalanadi
+- `onAuthStateChange` — boshqa oynada kirish/chiqish bo‘lsa ham holat yangilanadi
+
+Supabase tomonida: **Anonymous** va **Email** provayderlari yoqiq, Email
+ichida «Confirm email» o‘chirilgan bo‘lishi kerak.
+
+Hisob oynalarida `<form novalidate>` ishlatilgan — brauzerning o‘z tekshiruv
+xabari o‘zbekcha bo‘lmasligi mumkin, shuning uchun xabarlarni o‘zimiz beramiz.
+
 ## Ombor ikki xil bo‘ladi
 
 | | Qayerda | Kim ko‘radi |
