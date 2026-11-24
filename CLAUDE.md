@@ -45,6 +45,29 @@ budget, groups, items, stock, settings}`
 - `txId` — «Kassaga ham yozilsin» orqali bog‘langan amaliyot; harakat
   tahrirlansa/o‘chsa u ham o‘zgaradi (`syncMoveTx`, `dropMove`)
 
+## Ombor ikki xil bo‘ladi
+
+| | Qayerda | Kim ko‘radi |
+|---|---|---|
+| **Mening omborim** | `state.items` / `state.stock` (localStorage) | faqat shu qurilma |
+| **Guruh ombori** | Supabase `stock_items` / `stock_moves`, `g.items` / `g.stock` da keshlanadi | guruh a‘zolari |
+
+Tanlov `state.settings.omborScope` da: `'local'` yoki guruh id si.
+
+Ombor moduli **hech qachon to‘g‘ridan-to‘g‘ri `state.items`/`state.stock` ga
+tegmaydi** — `curItems()` va `curStock()` orqali ishlaydi. Yozishda esa
+`omborGroup()` tekshiriladi: guruh bo‘lsa `saveItemCloud` / `saveMoveCloud` /
+`deleteItemCloud` / `deleteMoveCloud`, aks holda to‘g‘ridan-to‘g‘ri localStorage.
+
+`omborCanEdit()` — guruh omborida `owner`/`editor` uchun `true`. Barcha yozuv
+tugmalari shu bilan yashiriladi, amallar esa qo‘shimcha `stockDenied()` bilan
+to‘siladi. Asl himoya baribir RLS da.
+
+Yangi a‘zo **sukut bo‘yicha `viewer`** — tahrirlash huquqini guruh egasi beradi.
+
+«Kassaga ham yozilsin» faqat telefondagi omborda bor; guruh omborida pul
+harakati yozilmaydi (hali).
+
 ## Ombor hisobi — FIFO
 
 `fifo(itemId)` harakatlarni **sana bo‘yicha** (sana teng bo‘lsa — kiritilish
@@ -81,6 +104,11 @@ Qoldiq qiymati — qolgan partiyalar o‘z narxida. O‘rtacha narx **ishlatilma
    `\s*` bilan yozing
 6. Xato xabarlari foydalanuvchini **aniq ishga** yo‘naltirsin (masalan
    «Profil ▸ Serverni yangilash (SQL)»), fayl nomiga emas
+7. **`loadGroups()` so‘roviga yangi jadval qo‘shsangiz, eski sxemani ham
+   o‘ylang.** `stock_items` qo‘shilganda, SQL ni hali ishga tushirmagan
+   foydalanuvchilarda butun guruhlar ishlamay qolgan edi (PGRST200). Hozir
+   `sbHasStock` bayrog‘i bor: bunday xatoda so‘rov omborsiz qayta yuboriladi,
+   foydalanuvchiga esa SQL ni yangilash kerakligi aytiladi
 
 ## Ishni tekshirish
 

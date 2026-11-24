@@ -17,7 +17,9 @@ create table if not exists members (
   group_id uuid not null references groups(id) on delete cascade,
   name text not null,
   user_id uuid references auth.users(id),          -- null = hali qo‘shilmagan (taklif kutyapti)
-  role text not null default 'editor',             -- 'owner' | 'editor' | 'viewer'
+  role text not null default 'viewer',             -- 'owner' | 'editor' | 'viewer'
+                                                   -- sukut bo'yicha faqat ko'radi;
+                                                   -- tahrirlash huquqini guruh egasi beradi
   claim_token text,                                -- taklif havolasidagi maxfiy kalit
   created_at timestamptz not null default now()
 );
@@ -51,6 +53,32 @@ create table if not exists settlements (
 );
 create index if not exists settlements_group_idx on settlements(group_id);
 
+-- ---------- Ombor (guruhga tegishli) ----------
+create table if not exists stock_items (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  name text not null,
+  unit text not null default 'dona',
+  min_qty numeric not null default 0,            -- eng kam qoldiq chegarasi
+  created_at timestamptz not null default now()
+);
+create index if not exists stock_items_group_idx on stock_items(group_id);
+
+create table if not exists stock_moves (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  item_id uuid not null references stock_items(id) on delete cascade,
+  type text not null default 'in',               -- 'in' = prihod | 'out' = rasxod
+  qty numeric not null,
+  price numeric not null default 0,
+  occurred_on date not null default current_date,
+  note text,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists stock_moves_group_idx on stock_moves(group_id);
+create index if not exists stock_moves_item_idx on stock_moves(item_id);
+
 -- ---------- Yordamchi funksiyalar (RLS uchun) ----------
 create or replace function is_member(gid uuid) returns boolean
   language sql security definer stable set search_path = public as $$
@@ -67,6 +95,8 @@ alter table groups      enable row level security;
 alter table members     enable row level security;
 alter table entries     enable row level security;
 alter table settlements enable row level security;
+alter table stock_items  enable row level security;
+alter table stock_moves  enable row level security;
 
 -- GROUPS
 drop policy if exists g_select on groups;
@@ -118,6 +148,23 @@ create policy s_write  on settlements for all
   using (member_role(group_id) in ('owner','editor'))
   with check (member_role(group_id) in ('owner','editor'));
 
+-- OMBOR
+-- Guruh a'zosi ombor ma'lumotini KO'RADI, lekin faqat 'owner' yoki 'editor'
+-- o'zgartira oladi. Ya'ni ruxsat berilmagan a'zo faqat kuzatadi.
+drop policy if exists si_select on stock_items;
+drop policy if exists si_write  on stock_items;
+create policy si_select on stock_items for select using (is_member(group_id));
+create policy si_write  on stock_items for all
+  using (member_role(group_id) in ('owner','editor'))
+  with check (member_role(group_id) in ('owner','editor'));
+
+drop policy if exists sm_select on stock_moves;
+drop policy if exists sm_write  on stock_moves;
+create policy sm_select on stock_moves for select using (is_member(group_id));
+create policy sm_write  on stock_moves for all
+  using (member_role(group_id) in ('owner','editor'))
+  with check (member_role(group_id) in ('owner','editor'));
+
 -- ---------- Taklif / qo‘shilish RPC ----------
 -- Havola egasi guruhga a'zo bo‘lishдан oldin nima ko‘rishini qaytaradi
 create or replace function invite_preview(p_member uuid, p_token text)
@@ -150,3 +197,5 @@ alter publication supabase_realtime add table groups;
 alter publication supabase_realtime add table members;
 alter publication supabase_realtime add table entries;
 alter publication supabase_realtime add table settlements;
+alter publication supabase_realtime add table stock_items;
+alter publication supabase_realtime add table stock_moves;
