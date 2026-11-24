@@ -126,6 +126,11 @@ foydalanuvchiga SQL ni yangilash kerakligi **bir marta** aytiladi
 (`catSqlHint`). Tovarning o‘zi baribir saqlanadi. `itemRow()` shu bayroqni
 hisobga oladi — bulutga tovar yozadigan hamma joy shundan o‘tadi.
 
+**Diqqat:** `itemRow()` ni ishlatgan har bir so‘rovga `isMissingCat` qayta
+urinishi ham kerak. `migrateStock` da u unutilib, eski serverda butun
+ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
+`roleNote()` esa Ombor ekranida doimiy ogohlantirish ko‘rsatadi.
+
 ## Ombor hisobi — FIFO
 
 `fifo(itemId)` harakatlarni **sana bo‘yicha** (sana teng bo‘lsa — kiritilish

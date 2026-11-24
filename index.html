@@ -586,6 +586,10 @@ var I18N = {
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
   "Turkum":["Категория","Category"],
+  "Serveringizda turkum uchun joy yo‘q — «Profil ▸ Serverni yangilash (SQL)» ni yana bir marta bajaring.":["На вашем сервере нет места для категории — выполните «Профиль ▸ Обновить сервер (SQL)» ещё раз.","Your server has no place for the category — run “Profile ▸ Update server (SQL)” once more."],
+  "Tovarlar va boshqa hamma narsa saqlandi; faqat turkum guruh omborida yozilmadi.":["Товары и всё остальное сохранены; не записалась только категория в складе группы.","The items and everything else were saved; only the category was not written to the group inventory."],
+  "Turkumlar serverda saqlanmayapti.":["Категории не сохраняются на сервере.","Categories are not being saved on the server."],
+  "ni yana bir marta bajaring — shundan keyin turkum guruh a‘zolariga ham ko‘rinadi.":["выполните ещё раз — после этого категорию увидят и участники группы.","once more — after that group members will see the category too."],
   "Turkumlar":["Категории","Categories"],
   "Turkumsiz":["Без категории","No category"],
   "Hamma turkum":["Все категории","All categories"],
@@ -2653,7 +2657,7 @@ function isMissingCat(e){
 function catSqlHint(){
   if(catSqlWarned) return;
   catSqlWarned = true;
-  alert('Turkum serverda saqlanmadi — «Profil ▸ Serverni yangilash (SQL)» ni bir marta bajaring. Tovarning o‘zi saqlandi.');
+  alert('Serveringizda turkum uchun joy yo‘q — «Profil ▸ Serverni yangilash (SQL)» ni yana bir marta bajaring.\n\nTovarlar va boshqa hamma narsa saqlandi; faqat turkum guruh omborida yozilmadi.');
 }
 function saveItemCloud(g, existing, data, done){
   if(!canEdit(g)){ stockDenied(); return; }
@@ -2888,6 +2892,11 @@ function roleNote(){
          + 'Serverda ombor jadvallari yo‘q. <b>Profil ▸ «Serverni yangilash (SQL)»</b> ni bajaring — '
          + 'shundan keyin guruh ombori ishlaydi.</div>';
   }
+  if(canEdit(g) && !sbHasItemCat){
+    return '<div class="note" style="color:var(--neg);border:1px solid var(--neg);background:var(--surface-2);margin-bottom:12px">'
+         + 'Turkumlar serverda saqlanmayapti. <b>Profil ▸ «Serverni yangilash (SQL)»</b> ni yana bir marta '
+         + 'bajaring — shundan keyin turkum guruh a‘zolariga ham ko‘rinadi.</div>';
+  }
   if(canEdit(g)) return '';
   return '<div class="note" style="margin-bottom:12px">👁 Siz bu omborni <b>faqat ko‘rasiz</b>. '
        + 'O‘zgartirish uchun guruh egasidan «Tahrirlaydi» ruxsatini so‘rang.</div>';
@@ -2983,10 +2992,17 @@ function migrateStock(g){
   if(!state.items.length){ alert('Telefonda ko‘chiriladigan tovar yo‘q.'); return; }
   if(!confirm('Telefondagi '+state.items.length+' ta tovar va '+state.stock.length+' ta harakat «'+g.name+'» omboriga ko‘chiriladi.\n\nShundan keyin ombor bitta bo‘ladi: telefondagi alohida nusxa o‘chadi, ma‘lumot serverda saqlanadi. Kassadagi pul amaliyotlariga tegilmaydi.\n\nDavom etilsinmi?')) return;
 
-  var rows = state.items.map(function(i){
-    return itemRow(g, {name:i.name, unit:i.unit||'dona', min:i.min||0, cat:i.cat||''});
-  });
-  SB.from('stock_items').insert(rows).select().then(function(r){
+  var mkRows = function(){
+    return state.items.map(function(i){
+      return itemRow(g, {name:i.name, unit:i.unit||'dona', min:i.min||0, cat:i.cat||''});
+    });
+  };
+  var sendItems = function(){ return SB.from('stock_items').insert(mkRows()).select(); };
+  sendItems().then(function(r){
+    /* eski serverda 'cat' ustuni yo‘q — turkumsiz qayta yuboramiz, ko‘chirish yiqilmasin */
+    if(r.error && isMissingCat(r.error)){ sbHasItemCat=false; catSqlHint(); return sendItems(); }
+    return r;
+  }).then(function(r){
     if(r.error) throw r.error;
     /* eski id → yangi id */
     var map={}, made=r.data||[];
