@@ -584,6 +584,10 @@ var I18N = {
   "Men qaytaraman":["Я верну","I owe"],
   "Mening omborim":["Мой склад","My inventory"],
   "Shaxsiy profil":["Личный профиль","Personal profile"],
+  "Kim qancha":["Кто сколько","Who owes what"],
+  "Puli bor":["Ему должны","Is owed"],
+  "Qarzdor":["Должен","Owes"],
+  "A‘zolar balansi: yuqorida puli borlar, pastda qarzdorlar":["Балансы участников: сверху те, кому должны, снизу должники.","Member balances: those who are owed on top, debtors below."],
   "faqat shu telefon":["только этот телефон","this phone only"],
   "tanlangan":["выбрано","selected"],
   "ombor yopiq":["склад закрыт","inventory hidden"],
@@ -1839,6 +1843,9 @@ function viewGroup(){
     +(Math.abs(myNet)<1?'Hisob teng':fmtMoney(myNet,true))+'</span>'
     +'<div class="sub" style="color:var(--ink-2);font-size:12.5px;margin-top:2px">'
     +(myNet>1?'Shu summa sizga qaytarilishi kerak':myNet<-1?'Shu summani qaytarishingiz kerak':'Hech kimga qarzingiz yo‘q')+'</div></div>';
+
+  var bch = balanceChart(g, net);
+  if(bch) h += '<div style="margin-top:14px"></div>' + bch;
 
   h+='<div class="seg" style="margin:14px 0 12px">'
     +'<button data-act="gtab" data-tab="expenses" aria-pressed="'+(tab==='expenses')+'">Amaliyotlar</button>'
@@ -3269,6 +3276,74 @@ function colPath(x,y,w,h,r){
   r = Math.min(r, h, w/2);
   return 'M'+x+' '+(y+h)+' V'+(y+r)+' Q'+x+' '+y+' '+(x+r)+' '+y
        + ' H'+(x+w-r)+' Q'+(x+w)+' '+y+' '+(x+w)+' '+(y+r)+' V'+(y+h)+' Z';
+}
+
+/* pastga o‘sadigan ustun: poyasi yumaloq, tepasi nol chizig‘ida tekis */
+function colPathDown(x,y,w,h,r){
+  r = Math.min(r, h, w/2);
+  return 'M'+x+' '+y+' V'+(y+h-r)+' Q'+x+' '+(y+h)+' '+(x+r)+' '+(y+h)
+       + ' H'+(x+w-r)+' Q'+(x+w)+' '+(y+h)+' '+(x+w)+' '+(y+h-r)+' V'+y+' Z';
+}
+
+/* A‘zolar balansi — nol chizig‘idan yuqorida yashil (puli bor),
+   pastda qizil (qarzdor). Ikkala tomon bitta o‘lchovda. */
+function balanceChart(g, net){
+  var rows = (g.members||[]).map(function(m){
+    return { id:m.id, name:m.name, me:(m.id===meId(g)), v:(net[m.id]||0) };
+  }).sort(function(a,b){ return b.v-a.v; });
+  if(rows.length < 2) return '';
+
+  var maxAbs = 0, hasPos = false, hasNeg = false;
+  rows.forEach(function(r){
+    var a = Math.abs(r.v);
+    if(a > maxAbs) maxAbs = a;
+    if(r.v > 1) hasPos = true;
+    if(r.v < -1) hasNeg = true;
+  });
+  if(maxAbs < 1) return '';
+
+  var n = rows.length, showVal = n <= 6;
+  var PH = 58, L = 6, R = 330, W = 336;
+  var top = showVal ? 15 : 6;
+  var posH = hasPos ? PH : 0, negH = hasNeg ? PH : 0;
+  var zeroY = top + posH;
+  var negEnd = zeroY + negH;
+  var nameY = negEnd + (showVal && hasNeg ? 25 : 14);
+  var H = nameY + 5;
+
+  var band = (R-L)/n;
+  var bw = Math.max(9, Math.min(30, band-16));
+
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'
+    + esc('A‘zolar balansi: yuqorida puli borlar, pastda qarzdorlar') + '">';
+  /* nol chizig‘i */
+  svg += '<line x1="'+L+'" y1="'+zeroY+'" x2="'+R+'" y2="'+zeroY+'" style="stroke:var(--line)" stroke-width="1"/>';
+
+  rows.forEach(function(r,i){
+    var cx = L + i*band + band/2, x = cx - bw/2;
+    var pos = r.v > 1, neg = r.v < -1;
+    var hgt = Math.max(Math.abs(r.v)/maxAbs*PH, (pos||neg) ? 3 : 0);
+    var lbl = esc(r.name) + ' · ' + esc(pos ? 'qaytariladi' : neg ? 'qarzdor' : 'hisob teng')
+            + (pos||neg ? ' ' + esc(fmtMoney(Math.abs(r.v))) : '');
+    if(pos){
+      svg += '<path d="'+colPath(x, zeroY-hgt, bw, hgt, 4)+'" style="fill:var(--ch-in)"><title>'+lbl+'</title></path>';
+      if(showVal) svg += '<text x="'+cx.toFixed(1)+'" y="'+(zeroY-hgt-5).toFixed(1)+'" text-anchor="middle" font-size="9.5" style="fill:var(--ink-2)">+'+fmtCompact(r.v)+'</text>';
+    }else if(neg){
+      svg += '<path d="'+colPathDown(x, zeroY, bw, hgt, 4)+'" style="fill:var(--ch-out)"><title>'+lbl+'</title></path>';
+      if(showVal) svg += '<text x="'+cx.toFixed(1)+'" y="'+(zeroY+hgt+12).toFixed(1)+'" text-anchor="middle" font-size="9.5" style="fill:var(--ink-2)">−'+fmtCompact(r.v)+'</text>';
+    }else{
+      svg += '<rect x="'+x.toFixed(1)+'" y="'+(zeroY-1.5)+'" width="'+bw+'" height="3" rx="1.5" style="fill:var(--ink-3)"><title>'+lbl+'</title></rect>';
+    }
+    var nm = r.name.length > (n>4 ? 7 : 10) ? r.name.slice(0, (n>4?6:9))+'…' : r.name;
+    svg += '<text x="'+cx.toFixed(1)+'" y="'+nameY+'" text-anchor="middle" font-size="9.5" style="fill:var(--ink-3)">'
+         + esc(nm) + (r.me ? ' •' : '') + '</text>';
+  });
+  svg += '</svg>';
+
+  return '<div class="card"><div class="card-h"><h2>Kim qancha</h2></div>'
+    + '<div class="chleg"><span><i style="background:var(--ch-in)"></i>Puli bor</span>'
+    + '<span><i style="background:var(--ch-out)"></i>Qarzdor</span></div>'
+    + '<div class="chart">'+svg+'</div></div>';
 }
 
 /* oxirgi 6 oy: kirim va chiqim ustunlari */

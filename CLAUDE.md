@@ -130,6 +130,11 @@ Qoldiq qiymati — qolgan partiyalar o‘z narxida. O‘rtacha narx **ishlatilma
   suriladi (`.chscroll`), qiymat o‘qi alohida SVG da (`.chaxis`)
 - `barList(rows, cssVar)` — nomlangan gorizontal ustunlar; `cssVar` berilmasa
   ishoraga qarab rang (foyda/zarar)
+- `balanceChart(g, net)` — guruh ekranidagi a‘zolar balansi: nol chizig‘idan
+  **yuqorida yashil** (puli bor), **pastda qizil** (qarzdor). Ikkala tomon
+  **bitta o‘lchovda** (`maxAbs`). Pastga o‘sadigan ustun uchun `colPathDown()`
+  bor — `colPath()` ning teskarisi. A‘zo 2 tadan kam yoki hamma teng bo‘lsa
+  grafik umuman chiqmaydi
 
 ## Oldin uchragan tuzoqlar
 
