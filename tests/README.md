@@ -25,6 +25,7 @@ Bitta faylni alohida: `node 02-fifo.mjs`
 | `05-tovarlar.mjs` | Ombor grafigi, Tovarlar ekrani, 9 xil saralash, filtrlar, qidiruv |
 | `06-kunlik-grafik.mjs` | Kunlik grafik: har bir sana, surilishi, qiymat o‘qi |
 | `07-kunlik-hisobot.mjs` | Kunlar ro‘yxati va kunlik otchot (kategoriyalar, ombor, foyda) |
+| `08-guruh-ombori.mjs` | Guruh ombori: tanlagich, «faqat ko‘rish» cheklovi, guruh ma‘lumotida FIFO |
 
 ## Yozish qoidalari
 
@@ -34,3 +35,5 @@ Bitta faylni alohida: `node 02-fifo.mjs`
 - `.kv` qatorlarida yorliq bilan raqam orasida bo‘sh joy yo‘q —
   `/Foyda \(FIFO\)\s*\+300 000/` kabi `\s*` bilan yozing
 - `placeholder` matni `textContent` ga kirmaydi — elementni selektor bilan tekshiring
+- Bulutsiz muhitda `myRole()` hamisha `viewer` qaytaradi — guruh ombori ustidagi
+  «faqat ko‘rish» holatini aynan shu bilan sinaymiz (`08-guruh-ombori.mjs`)

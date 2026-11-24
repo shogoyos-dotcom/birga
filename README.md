@@ -22,6 +22,9 @@ Telefonga o‘rnatiladi, internetsiz ham ishlaydi.
 - Hamma a‘zoda real vaqtda yangilanadi
 
 ### Ombor
+- **Telefonda** yoki **guruhda** (bulutda) bo‘lishi mumkin — ombor tanlagichidan
+- Guruh omborini barcha a‘zolar **ko‘radi**, lekin faqat guruh egasi ruxsat
+  bergan a‘zolar **o‘zgartira oladi**
 - Tovarlar: nomi, o‘lchov birligi (dona, kg, litr, metr, quti…), eng kam qoldiq chegarasi
 - **Prihod** (kirim) va **rasxod** (chiqim) harakatlari
 - Qoldiq, tannarx va foyda **FIFO** usulida hisoblanadi — oldin kelgan tovar oldin ketadi
@@ -70,8 +73,8 @@ Build, npm, kompilyatsiya kerak emas.
 
 | Nima | Qayerda |
 |---|---|
-| Shaxsiy hamyon, ombor, sozlamalar | Telefonning o‘zida (`localStorage`) |
-| Guruhlar, a‘zolar, guruh amaliyotlari | Supabase (bulut) |
+| Shaxsiy hamyon, sozlamalar, telefondagi ombor | Telefonning o‘zida (`localStorage`) |
+| Guruhlar, a‘zolar, guruh amaliyotlari, **guruh ombori** | Supabase (bulut) |
 
 Telefondagi ma‘lumot boshqa qurilmaga o‘tmaydi — **Profil ▸ «Ma‘lumotni ko‘chirish»**
 orqali zaxira oling.

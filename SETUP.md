@@ -6,8 +6,9 @@ Ikki qismdan iborat:
 
 | Qism | Qayerda ishlaydi | Server kerakmi |
 |---|---|---|
-| Shaxsiy hamyon, **ombor**, hisobotlar | Faqat shu telefonda | yo‘q |
-| **Guruhlar** (do‘stlar bilan birga) | Supabase bulutida | ha |
+| Shaxsiy hamyon, hisobotlar | Faqat shu telefonda | yo‘q |
+| **Mening omborim** | Faqat shu telefonda | yo‘q |
+| **Guruhlar** va **guruh ombori** | Supabase bulutida | ha |
 
 Guruhlar kerak bo‘lmasa, hech narsa sozlamasangiz ham ilova ishlayveradi.
 
@@ -102,10 +103,36 @@ sifatida kiradi.
 | **Tahrirlaydi** | Xarajat/tushum qo‘shish, a‘zoni chiqarish (egadan tashqari) |
 | **Faqat ko‘radi** | Hech narsa o‘zgartira olmaydi |
 
+Yangi a‘zo **«Faqat ko‘radi»** bo‘lib qo‘shiladi — ya‘ni u hech narsani
+o‘zgartira olmaydi. Tahrirlash huquqini **siz** berasiz: a‘zo yonidagi
+ro‘yxatdan «Tahrirlaydi» ni tanlaysiz.
+
 Har kim o‘zi guruhdan chiqa oladi. Barcha o‘zgarishlar hamma a‘zoda
 **real vaqtda** yangilanadi.
 
+> Himoya ilovada emas, **serverda**. Ruxsati yo‘q odam ilovani o‘zgartirsa ham
+> serverning o‘zi yozishga yo‘l qo‘ymaydi.
+
 ### Ombor
+
+Ombor ikki xil bo‘lishi mumkin — Ombor ekranining tepasidagi tanlagichdan:
+
+| | Kim ko‘radi | Kim o‘zgartiradi |
+|---|---|---|
+| **Mening omborim** | faqat siz, shu telefonda | siz |
+| **☁ Guruh ombori** | guruhning **barcha a‘zolari** | faqat **egasi** va **«Tahrirlaydi»** ruxsati borlar |
+
+Ya‘ni do‘koningiz omborini guruhga bog‘lasangiz: xodimlar qoldiqni va hisobotni
+ko‘rib turadi, lekin siz ruxsat bermaguningizcha hech narsa o‘zgartira olmaydi.
+Ma‘lumot serverda saqlanadi — telefon yo‘qolsa ham qolaveradi.
+
+**Telefondagi omborni guruhga ko‘chirish:** guruh omborini tanlasangiz,
+«Telefondagi ombor» kartasi chiqadi — bir bosishda hamma tovar va harakat
+ko‘chadi (telefondagi nusxa zaxira sifatida qoladi).
+
+> Guruh ombori ishlashi uchun **yangilangan `schema.sql`** kerak. Agar
+> «Serverda ombor jadvallari yo‘q» degan ogohlantirish chiqsa —
+> Profil ▸ «Serverni yangilash (SQL)» ni bajaring.
 
 **Tovar qo‘shish:** Ombor → «Tovar qo‘shish» → nom, o‘lchov birligi va
 xohlasangiz **«eng kam qoldiq»** chegarasi (shunga tushganda ⚠ chiqadi).
@@ -123,6 +150,9 @@ harakati ham yoziladi:
 
 Summa = miqdor × narx. Harakatni tahrirlasangiz yoki o‘chirsangiz, pul yozuvi
 ham o‘zi bilan o‘zgaradi. Belgilamasangiz — faqat qoldiq o‘zgaradi.
+
+*(Bu katakcha faqat «Mening omborim» da bor. Guruh omborida pul harakati
+alohida yozilmaydi — faqat qoldiq o‘zgaradi.)*
 
 **Foyda FIFO bo‘yicha** (oldin kelgan oldin ketadi): har bir sotuv eng eski
 prihod partiyasidan yechiladi, tannarx o‘sha partiyaning narxida olinadi.
@@ -163,6 +193,8 @@ hisob qoldig‘i 0 bo‘ladi. Kategoriyalar va guruhlar qoladi.
 | Guruh yaratganda xato | `schema.sql` to‘liq run bo‘lmagan — qaytadan running |
 | Do‘st «Qo‘shilish»da xato | Anonymous provider yoqilmagan (3-qadam) |
 | Guruh/a‘zo o‘chmayapti | Ruxsatlar eski — «Serverni yangilash (SQL)» ni bajaring |
+| «Serverda ombor jadvallari yo‘q» | Xuddi shunday — SQL ni yangilang |
+| A‘zo ombor yoza olmayapti | Uning roli «Faqat ko‘radi» — «Tahrirlaydi» ga o‘tkazing |
 | Havola «yaroqsiz» deydi | Havola to‘liq nusxalanmagan |
 | iPhone’da o‘rnatilmayapti | Safari’da ochish kerak, boshqa brauzerda ishlamaydi |
 | Yangilanish ko‘rinmayapti | Ilovani yopib qayta oching |
