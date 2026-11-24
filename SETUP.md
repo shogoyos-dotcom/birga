@@ -1,86 +1,156 @@
-# Birga Hamyon (bulutli) — o‘rnatish qo‘llanmasi
+# Birga Hamyon — o‘rnatish va ishlatish qo‘llanmasi
 
-Bu versiyada **shaxsiy hamyon** telefonda saqlanadi, **guruhlar** esa
-haqiqiy serverda (Supabase) — do‘stlaringiz havola orqali qo‘shiladi,
-sizga claude.ai kerak emas.
+Ilova: **https://shogoyos-dotcom.github.io/birga/**
 
-Vaqti: ~15–20 daqiqa. Bepul.
+Ikki qismdan iborat:
+
+| Qism | Qayerda ishlaydi | Server kerakmi |
+|---|---|---|
+| Shaxsiy hamyon, **ombor**, hisobotlar | Faqat shu telefonda | yo‘q |
+| **Guruhlar** (do‘stlar bilan birga) | Supabase bulutida | ha |
+
+Guruhlar kerak bo‘lmasa, hech narsa sozlamasangiz ham ilova ishlayveradi.
 
 ---
 
-## 1-qadam — Supabase loyihasi (bepul)
-
-1. https://supabase.com → **Start your project** → GitHub bilan kiring.
-2. **New project**: nom bering, kuchli parol qo‘ying, region — Frankfurt (yaqinroq). **Create**.
-3. 1–2 daqiqa kutasiz (loyiha tayyorlanadi).
-
-## 2-qadam — Jadval va qoidalarni yaratish
-
-1. Chap menyuda **SQL Editor** → **+ New query**.
-2. Shu papkadagi **`schema.sql`** faylini to‘liq oching, hammasini nusxalab, oynaga joylang.
-3. **Run** (pastda) — «Success» chiqishi kerak.
-
-## 3-qadam — Anonim kirishni yoqish
-
-1. **Authentication** → **Providers** (yoki **Sign In / Providers**).
-2. **Anonymous** ni toping → **Enable** → **Save**.
-   *(Bu do‘stlaringiz ro‘yxatdan o‘tmasdan qo‘shilishi uchun.)*
-
-## 4-qadam — Kalitlarni `config.js` ga yozish
-
-1. **Project Settings** (pastdagi tishli belgi) → **API**.
-2. Ikkita qiymatni ko‘chiring:
-   - **Project URL** → `config.js` dagi `supabaseUrl`
-   - **anon / public** key → `config.js` dagi `supabaseAnonKey`
-3. `config.js` shunga o‘xshash bo‘ladi:
-   ```js
-   window.BIRGA_CONFIG = {
-     supabaseUrl: "https://abcd1234.supabase.co",
-     supabaseAnonKey: "eyJhbGciOiJIUzI1NiIs...uzun_kalit..."
-   };
-   ```
-   *(anon key ochiq kalit — brauzerda ko‘rinishi normal, xavfsiz.)*
-
-## 5-qadam — Saytni internetga qo‘yish
-
-Eng osoni — **Netlify Drop**:
-
-1. https://app.netlify.com/drop
-2. Butun **`birga-cloud`** papkasini oynaga sudrab tashlang.
-3. 10 soniyada `https://nimadir-123.netlify.app` havolasi chiqadi. Tayyor.
-
-*(Yoki: Vercel, Cloudflare Pages, GitHub Pages — hammasi bo‘ladi. Faqat
-statik fayllar, build kerak emas.)*
-
-## 6-qadam — Telefonga o‘rnatish
+## 1-qism. Telefonga o‘rnatish
 
 Havolani telefon brauzerida oching:
 
 - **Android (Chrome):** ⋮ → **«Ilovani o‘rnatish»**
-- **iPhone (Safari):** Ulashish → **«Bosh ekranga qo‘shish»**
+- **iPhone:** havolani **Safari**da oching → **Ulashish** ⬆️ → **«Bosh ekranga qo‘shish»**
+  *(Chrome yoki Telegram ichidagi brauzerda ishlamaydi.)*
+
+Ilova ichida ham tugma bor: **Profil ▸ «Telefonga o‘rnatish»**. Brauzer tayyor
+bo‘lsa bir bosishda o‘rnatadi, bo‘lmasa qadamma-qadam ko‘rsatma chiqaradi.
+
+O‘rnatilgach ilova bosh ekranda turadi, brauzer satrisiz ochiladi va
+**internetsiz ham ishlaydi**.
+
+---
+
+## 2-qism. Guruhlar uchun server (Supabase)
+
+Vaqti: ~15 daqiqa. Bepul.
+
+### 1-qadam — loyiha yaratish
+1. https://supabase.com → **Start your project** → GitHub bilan kiring
+2. **New project**: nom, kuchli parol, region — Frankfurt. **Create**
+3. 1–2 daqiqa kutasiz
+
+### 2-qadam — jadval va qoidalar
+1. Chap menyuda **SQL Editor** → **+ New query**
+2. Shu papkadagi **`schema.sql`** ni to‘liq nusxalab oynaga joylang
+3. **Run** — «Success» chiqishi kerak
+
+### 3-qadam — anonim kirishni yoqish
+**Authentication** → **Providers** → **Anonymous** → **Enable** → **Save**
+
+*(Do‘stlaringiz ro‘yxatdan o‘tmasdan qo‘shilishi uchun.)*
+
+### 4-qadam — kalitlarni `config.js` ga yozish
+**Project Settings** → **API** bo‘limidan:
+
+- **Project URL** → `supabaseUrl`
+- **anon / public** key → `supabaseAnonKey`
+
+```js
+window.BIRGA_CONFIG = {
+  supabaseUrl: "https://abcd1234.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIs...uzun_kalit..."
+};
+```
+
+> ⚠️ `supabaseUrl` — faqat **Project URL**. Oxiriga `/rest/v1/` qo‘shmang,
+> ilova yo‘lni o‘zi qo‘shadi.
+> *(anon key ochiq kalit — brauzerda ko‘rinishi normal.)*
+
+### 5-qadam — saytni joylash
+`main` ga push qilsangiz GitHub Pages o‘zi yangilaydi. Yoki
+[Netlify Drop](https://app.netlify.com/drop) ga papkani sudrab tashlang.
+
+---
+
+## Ruxsatlarni yangilash
+
+Ilovaga yangi imkoniyat qo‘shilganda serverdagi qoidalar ham yangilanishi kerak.
+Agar **guruhni o‘chirib bo‘lmasa** yoki **a‘zoni chiqarib bo‘lmasa**:
+
+**Profil ▸ «Serverni yangilash (SQL)»** → **Nusxa olish** → Supabase ▸ SQL Editor ▸ **Run**
+
+Yoki shu papkadagi `schema.sql` ni qaytadan to‘liq run qiling — xavfsiz,
+qoidalar qayta yoziladi, ma‘lumotga tegilmaydi.
 
 ---
 
 ## Ishlatish
 
-**Guruh yaratish** (Guruhlar → +):
-- Nom yozasiz, xohlasangiz a‘zolar ismini vergul bilan.
-- Siz avtomatik **egasi** bo‘lasiz.
+### Guruhlar
 
-**A‘zo qo‘shish va taklif:**
-- Guruh ichida → **Balanslar** → «A‘zolar» → **«A‘zo + taklif»**.
-- Ism yozib saqlaysiz → shu odam uchun **shaxsiy taklif havolasi** chiqadi.
-- **«Yuborish / ulashish»** tugmasi bilan Telegram/WhatsApp orqali jo‘natasiz.
-- Do‘stingiz havolani telefonida ochadi → ilova o‘rnatiladi → «Qo‘shilish» →
-  o‘sha a‘zo sifatida guruhga kiradi.
+**Guruh yaratish:** Guruhlar → **+** → nom yozasiz. Siz avtomatik **egasi** bo‘lasiz.
 
-**Ruxsatlar** (faqat egasi ko‘radi, har a‘zo yonida):
-- **Egasi** — hamma narsa, a‘zolar va ruxsatlarni boshqaradi.
-- **Tahrirlaydi** — xarajat/tushum/hisob-kitob qo‘sha oladi.
-- **Faqat ko‘radi** — hech narsa o‘zgartira olmaydi, faqat kuzatadi.
-- Rolni istagan vaqt o‘zgartirasiz — server darrov qo‘llaydi.
+**A‘zo qo‘shish:** guruh ichida → **Balanslar** → «A‘zolar» → **«A‘zo + taklif»** →
+ism yozib saqlaysiz → **shaxsiy taklif havolasi** chiqadi → Telegram/WhatsApp
+orqali yuborasiz. Do‘stingiz havolani ochadi → «Qo‘shilish» → o‘sha a‘zo
+sifatida kiradi.
 
-Barcha o‘zgarishlar hamma a‘zoda **real vaqtda** yangilanadi.
+**Ruxsatlar** (har a‘zo yonida, faqat egasi o‘zgartiradi):
+
+| Rol | Nima qila oladi |
+|---|---|
+| **Egasi** | Hammasi: a‘zo qo‘shish, rol berish, guruhni o‘chirish |
+| **Tahrirlaydi** | Xarajat/tushum qo‘shish, a‘zoni chiqarish (egadan tashqari) |
+| **Faqat ko‘radi** | Hech narsa o‘zgartira olmaydi |
+
+Har kim o‘zi guruhdan chiqa oladi. Barcha o‘zgarishlar hamma a‘zoda
+**real vaqtda** yangilanadi.
+
+### Ombor
+
+**Tovar qo‘shish:** Ombor → «Tovar qo‘shish» → nom, o‘lchov birligi va
+xohlasangiz **«eng kam qoldiq»** chegarasi (shunga tushganda ⚠ chiqadi).
+
+**Prihod / rasxod:** pastdagi **+** → turini tanlang → miqdor, narx, sana, izoh.
+Tovar ro‘yxatida **«+ Yangi tovar…»** ham bor — oynani yopmasdan tovar ochasiz.
+
+**«Kassaga ham yozilsin»** — belgilansangiz, ombor harakati bilan birga pul
+harakati ham yoziladi:
+
+| Harakat | Amaliyotlarda |
+|---|---|
+| Prihod | **chiqim** — tovarga to‘langan pul |
+| Rasxod | **kirim** — sotuvdan tushgan pul |
+
+Summa = miqdor × narx. Harakatni tahrirlasangiz yoki o‘chirsangiz, pul yozuvi
+ham o‘zi bilan o‘zgaradi. Belgilamasangiz — faqat qoldiq o‘zgaradi.
+
+**Foyda FIFO bo‘yicha** (oldin kelgan oldin ketadi): har bir sotuv eng eski
+prihod partiyasidan yechiladi, tannarx o‘sha partiyaning narxida olinadi.
+
+```
+prihod 100 000 × 7      tannarx: 85 000 × 7 = 595 000
+rasxod  85 000 × 25     foyda:   2 125 000 − 595 000 = 1 530 000
+prihod  10 000 × 8      qoldiq:  15 000×7 + 10 000×8 = 185 000
+```
+
+**Tovarlar** ro‘yxatida qidiruv, filtr (kam qolgan / tugagan / foyda keltirgan)
+va 9 xil saralash bor: nomi, qoldiq, narx, qoldiq qiymati, foyda, oxirgi harakat.
+
+### Hisobotlar
+
+- **Asosiy** → grafik ustidagi **1 / 3 / 6 / 12** — davr tanlanadi
+- **1** tanlansa oyning har bir kuni ustun bo‘lib chiqadi (grafik yon tomonga suriladi)
+- **Kunni** (ro‘yxatdan yoki grafikdan) bossangiz — o‘sha kunning to‘liq hisoboti:
+  sof natija, kategoriyalar, ombor harakatlari va FIFO foydasi, barcha amaliyotlar
+- Oy nomini (**«Noyabr 2026 ▾»**) bossangiz istalgan oyga o‘tasiz
+
+### Zaxira
+
+**Profil ▸ «Ma‘lumotni ko‘chirish / joylash»** — shaxsiy hamyon va ombor faqat
+shu telefonda saqlanadi, boshqa qurilmaga shu orqali o‘tkaziladi.
+
+**Profil ▸ «Hisobni noldan boshlash»** — amaliyotlar, ombor va byudjet tozalanadi,
+hisob qoldig‘i 0 bo‘ladi. Kategoriyalar va guruhlar qoladi.
 
 ---
 
@@ -89,10 +159,13 @@ Barcha o‘zgarishlar hamma a‘zoda **real vaqtda** yangilanadi.
 | Belgi | Sabab / yechim |
 |---|---|
 | «Bulut sozlanmagan» | `config.js` to‘ldirilmagan yoki `https://XXXX...` qolib ketgan |
-| «Bulut bilan aloqa yo‘q» | internet yo‘q, yoki noto‘g‘ri URL/kalit |
-| Guruh yaratganda xato | `schema.sql` to‘liq run bo‘lmagan — qayta running |
+| «Bulut bilan aloqa yo‘q» | Internet yo‘q, yoki URL/kalit noto‘g‘ri |
+| Guruh yaratganda xato | `schema.sql` to‘liq run bo‘lmagan — qaytadan running |
 | Do‘st «Qo‘shilish»da xato | Anonymous provider yoqilmagan (3-qadam) |
-| Havola «yaroqsiz» deydi | havola to‘liq nusxalanmagan (oxirigacha) |
+| Guruh/a‘zo o‘chmayapti | Ruxsatlar eski — «Serverni yangilash (SQL)» ni bajaring |
+| Havola «yaroqsiz» deydi | Havola to‘liq nusxalanmagan |
+| iPhone’da o‘rnatilmayapti | Safari’da ochish kerak, boshqa brauzerda ishlamaydi |
+| Yangilanish ko‘rinmayapti | Ilovani yopib qayta oching |
 
-Supabase bepul tarif: 500 MB baza, 50 000 oylik faol foydalanuvchi —
-oilaviy/do‘stona foydalanish uchun yetib ortadi.
+Supabase bepul tarif: 500 MB baza, 50 000 oylik faol foydalanuvchi — oilaviy va
+do‘stona foydalanish uchun yetib ortadi.
