@@ -136,11 +136,22 @@ ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
 `combinedCard(ym)` — kassa hero dan keyin turadi, eski «Guruh hisob-kitobi»
 kartasi o‘rniga:
 
-- **Ombor** (joriy profilniki): sotuv, tannarx, FIFO foyda — tanlangan davr uchun
+- **Ombor** (joriy profilniki): sotuv, tannarx, FIFO foyda — tanlangan davr
+  uchun; va **«Hozir ombordagi tovar»** (`stockTotal()`, davrga bog‘liq emas)
+- **Ombordan tashqari** (`cashOutside`): shaxsiy kassadagi tushum/xarajat va
+  ularning sofi
 - **Guruh**: ulushingiz bo‘yicha tushum/xarajat (`groupMonthShares`), qarzlar
   (`meNetForGroup`) va ularning sofi — qarzlar **butun davr** uchun
-- **Umumiy natija** = ombor foydasi + **guruhning sof qarzi**; faqat ikkala
-  tomon ham bo‘lsa chiqadi
+- **Umumiy natija** = ombor foydasi + kassa sofi + guruhning sof qarzi;
+  manbalardan kamida **ikkitasi** bo‘lsa chiqadi
+
+**`cashOutside()` ikki marta sanashdan saqlaydi:** «Kassaga ham yozilsin»
+orqali ombor harakatiga bog‘langan amaliyotlar (`state.stock[].txId`) chiqarib
+tashlanadi — ular ombor qismida allaqachon hisoblangan. `curStock()` emas,
+aynan `state.stock`: `txId` faqat telefondagi harakatlarda bo‘ladi.
+
+**«Hozir ombordagi tovar» jamiga qo‘shilmaydi** — u pul emas, tovar; foyda
+bilan qo‘shish ma‘nosiz bo‘lardi. Buni karta ostidagi izoh aytib turadi.
 
 **Nega ulush emas, qarz?** «Qarz» turidagi yozuvlarda pulni egasi beradi,
 ulush esa butunlay boshqa a‘zoga yoziladi — ya‘ni `myShareIn()` 0 qaytaradi.
@@ -207,7 +218,9 @@ Qoldiq qiymati — qolgan partiyalar o‘z narxida. O‘rtacha narx **ishlatilma
 4. **Bulut uzilganda `state.groups` tozalanadi** — testlarda Supabase CDN sini
    bloklang, aks holda natija beqaror bo‘ladi
 5. **`.kv` qatorida yorliq bilan qiymat orasida bo‘sh joy yo‘q** — testda
-   `\s*` bilan yozing
+   `\s*` bilan yozing. Shuningdek, karta ostidagi **izoh matni** ham ekranda
+   bor: «Umumiy natija yo‘q» kabi tekshiruvni `#screen` matni bo‘yicha emas,
+   aynan `.kv` qatori bo‘yicha qiling
 6. Xato xabarlari foydalanuvchini **aniq ishga** yo‘naltirsin (masalan
    «Profil ▸ Serverni yangilash (SQL)»), fayl nomiga emas
 7. **`loadGroups()` so‘roviga yangi jadval qo‘shsangiz, eski sxemani ham

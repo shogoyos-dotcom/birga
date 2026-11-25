@@ -40,13 +40,20 @@ await pg.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
 await pg.evaluate(o => {
   localStorage.setItem('birga_v1', JSON.stringify({
     version: 1, currency: 'UZS', me: { id: 'me', name: 'Men' },
-    accounts: [{ id: 'a', name: 'Naqd', opening: 0 }], categories: [],
-    transactions: [], budget: { monthly: 0 }, groups: [o.g],
+    accounts: [{ id: 'a', name: 'Naqd', opening: 0 }],
+    categories: [{ id: 'c1', name: 'Ijara', kind: 'expense' }, { id: 'c2', name: 'Xizmat', kind: 'income' }],
+    transactions: [
+      { id: 't1', accountId: 'a', categoryId: 'c2', amount: 400000, type: 'income',  note: 'Xizmat', date: o.cIn },
+      { id: 't2', accountId: 'a', categoryId: 'c1', amount: 150000, type: 'expense', note: 'Ijara',  date: o.cIn },
+      // ombor prihodiga BOG'LANGAN — «Ombordan tashqari» ga kirmasligi kerak
+      { id: 't3', accountId: 'a', categoryId: 'c1', amount: 999999, type: 'expense', note: 'Tovar puli', date: o.cIn }
+    ],
+    budget: { monthly: 0 }, groups: [o.g],
     items: [{ id: 'i1', name: 'Shakar', unit: 'kg', min: 0 }],
     // hamma kelish narxi 10 000 — FIFO navbati natijani o'zgartirmasin
     stock: [
       { id: 'p1', itemId: 'i1', type: 'in',  qty: 200, price: 10000, date: o.oIn,  txId: null },
-      { id: 'p2', itemId: 'i1', type: 'in',  qty: 100, price: 10000, date: o.cIn,  txId: null },
+      { id: 'p2', itemId: 'i1', type: 'in',  qty: 100, price: 10000, date: o.cIn,  txId: 't3' },
       { id: 's1', itemId: 'i1', type: 'out', qty: 50,  price: 15000, date: o.oOut, txId: null },  // boshqa oy
       { id: 's2', itemId: 'i1', type: 'out', qty: 60,  price: 15000, date: o.cOut, txId: null },  // shu oy
       { id: 's3', itemId: 'i1', type: 'out', qty: 5,   price: 99000, date: o.prevY, txId: null }  // o'tgan yil
@@ -66,6 +73,17 @@ must(/Sotilganning tannarxi\s*600 000/.test(t), 'Oy: tannarx 600 000');
 must(/Foyda \(FIFO\)\s*\+300 000/.test(t),      'Oy: ombor foydasi +300 000');
 must(!/495 000/.test(t),                        'O‘tgan yilning sotuvi aralashmagan');
 
+// ---------- ombordagi qoldiq qiymati ----------
+// kelgan 300, sotilgan 110 → qolgan 190 × 10 000 = 1 900 000
+must(/Hozir ombordagi tovar\s*1 900 000/.test(t), 'Hozir ombordagi tovar 1 900 000');
+
+// ---------- ombordan tashqari pul (ikki marta sanalmasin) ----------
+must(/Ombordan tashqari/.test(t),  '«Ombordan tashqari» bo‘limi bor');
+must(/Tushum\s*400 000/.test(t),   'Tashqari tushum 400 000');
+must(/Xarajat\s*150 000/.test(t),  'Tashqari xarajat 150 000');
+must(!/999 999/.test(t), 'Ombor prihodiga bog‘langan amaliyot tashqariga KIRMAYDI');
+must(/Sof\s*\+250 000/.test(t),    'Tashqari sof +250 000');
+
 // ---------- guruh: ulush 0, lekin qarz bor ----------
 must(/Tushum \(ulushingiz\)\s*0/.test(t),  'Ulush bo‘yicha tushum 0 (pulni men berganman)');
 must(/Xarajat \(ulushingiz\)\s*0/.test(t), 'Ulush bo‘yicha xarajat 0');
@@ -73,9 +91,10 @@ must(/Menga qaytariladi\s*568 263/.test(t),'Menga qaytariladi 568 263');
 must(/Guruh bo‘yicha sof\s*\+568 263/.test(t), 'Guruh bo‘yicha sof +568 263');
 
 // ---------- ASOSIY TUZATISH: qarz jamiga kiradi ----------
-must(/Umumiy natija \(ombor \+ guruh\)\s*\+868 263/.test(t),
-     'Umumiy natija +868 263 = ombor 300 000 + qarz 568 263');
-must(!/Umumiy natija \(ombor \+ guruh\)\s*0 /.test(t), 'Guruhda pul bor ekan, jami 0 emas');
+must(/Umumiy natija\s*\+1 118 263/.test(t),
+     'Umumiy natija +1 118 263 = ombor 300 000 + tashqari 250 000 + qarz 568 263');
+must(!/Umumiy natija\s*0 /.test(t), 'Guruhda pul bor ekan, jami 0 emas');
+must(await card().locator('.kv', { hasText: 'Umumiy natija' }).count() === 1, 'Jami qatori bitta');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/h-oy.png' });
 
 // ---------- YIL ----------
@@ -87,8 +106,8 @@ must(/Sotuv\s*1 650 000/.test(t),                 'Yil: sotuv 1 650 000 (900 000
 must(/Sotilganning tannarxi\s*1 100 000/.test(t), 'Yil: tannarx 1 100 000');
 must(/Foyda \(FIFO\)\s*\+550 000/.test(t),        'Yil: foyda +550 000');
 must(!/495 000/.test(t),                          'Yil: o‘tgan yilning sotuvi kirmaydi');
-must(/Umumiy natija \(ombor \+ guruh\)\s*\+1 118 263/.test(t),
-     'Yil: umumiy +1 118 263 = 550 000 + 568 263');
+must(/Umumiy natija\s*\+1 368 263/.test(t),
+     'Yil: umumiy +1 368 263 = 550 000 + 250 000 + 568 263');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/h-yil.png' });
 
 // tanlov saqlanadimi
@@ -147,7 +166,7 @@ await card().locator('[data-act="repper"][data-p="month"]').click(); await pg.wa
 must(/Sotuv\s*2 700 000/.test((await card().textContent()).replace(/\s+/g, ' ')),
      'Oyga qaytsa butun oy hisoblanadi (2 700 000)');
 
-// ---------- karta qachon chiqmaydi ----------
+// ---------- faqat kassa bo'lsa ham karta chiqsin ----------
 await pg.evaluate(() => {
   const st = JSON.parse(localStorage.getItem('birga_v1'));
   st.items = []; st.stock = []; st.groups = [];
@@ -155,8 +174,24 @@ await pg.evaluate(() => {
   localStorage.removeItem('birga_groups_cache');
 });
 await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
+t = await pg.locator('#screen').textContent();
+must(/Birlashgan hisobot/.test(t), 'Ombor ham guruh ham bo‘lmasa, kassa uchun karta chiqadi');
+must(/Ombordan tashqari/.test(t), 'Faqat kassa bo‘limi ko‘rinadi');
+must(!/Ombor · /.test(t) && !/Guruh bo‘yicha sof/.test(t), 'Ombor va guruh bo‘limlari yo‘q');
+// endi 999 999 ham bog'lanmagan (ombor o'chdi) — shuning uchun tashqariga kiradi
+// izohda ham «Umumiy natija» so'zi bor — shuning uchun aynan .kv qatorini qidiramiz
+must(await card().locator('.kv', { hasText: 'Umumiy natija' }).count() === 0,
+     'Bitta manba qolsa «Umumiy natija» qatori chiqmaydi');
+
+// ---------- hech narsa bo'lmasa karta umuman chiqmasin ----------
+await pg.evaluate(() => {
+  const st = JSON.parse(localStorage.getItem('birga_v1'));
+  st.transactions = [];
+  localStorage.setItem('birga_v1', JSON.stringify(st));
+});
+await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
 must(!/Birlashgan hisobot/.test(await pg.locator('#screen').textContent()),
-     'Ombor ham guruh ham bo‘lmasa karta chiqmaydi');
+     'Hech narsa bo‘lmasa karta chiqmaydi');
 
 must(errs.length === 0, 'JS xatosi yo‘q' + (errs.length ? ': ' + errs[0] : ''));
 await b.close();
