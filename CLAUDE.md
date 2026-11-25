@@ -142,16 +142,21 @@ kartasi o‘rniga:
   ularning sofi
 - **Guruh**: ulushingiz bo‘yicha tushum/xarajat (`groupMonthShares`), qarzlar
   (`meNetForGroup`) va ularning sofi — qarzlar **butun davr** uchun
-- **Umumiy natija** = ombor foydasi + kassa sofi + guruhning sof qarzi;
-  manbalardan kamida **ikkitasi** bo‘lsa chiqadi
+- **Umumiy natija (sotuv + guruh)** = `S.sale + gDebt` — foydalanuvchi
+  aynan shunday so‘radi. Ombor ham, guruh ham bo‘lganda chiqadi.
+  **Sotuv — aylanma, foyda emas** (ichida tannarx bor), shuning uchun
+  yorliqda formulaning o‘zi yozilgan va «Foyda (FIFO)» alohida qator bo‘lib
+  turadi. Kassa sofi va «Hozir ombordagi tovar» jamiga **qo‘shilmaydi**
 
 **`cashOutside()` ikki marta sanashdan saqlaydi:** «Kassaga ham yozilsin»
 orqali ombor harakatiga bog‘langan amaliyotlar (`state.stock[].txId`) chiqarib
 tashlanadi — ular ombor qismida allaqachon hisoblangan. `curStock()` emas,
 aynan `state.stock`: `txId` faqat telefondagi harakatlarda bo‘ladi.
 
-**«Hozir ombordagi tovar» jamiga qo‘shilmaydi** — u pul emas, tovar; foyda
-bilan qo‘shish ma‘nosiz bo‘lardi. Buni karta ostidagi izoh aytib turadi.
+**«Hozir ombordagi tovar» jamiga qo‘shilmaydi** — u pul emas, tovar. Kassa
+bo‘limi ham ko‘rsatiladi, lekin jamiga kirmaydi. Nima qo‘shilgani va nima
+qo‘shilmagani karta ostidagi izohda yozilgan — formula o‘zgarsa **izohni ham
+yangilang** (u lug‘atda kalit sifatida ham bor, ikkalasi bir xil bo‘lsin).
 
 **Nega ulush emas, qarz?** «Qarz» turidagi yozuvlarda pulni egasi beradi,
 ulush esa butunlay boshqa a‘zoga yoziladi — ya‘ni `myShareIn()` 0 qaytaradi.
@@ -223,6 +228,13 @@ Qoldiq qiymati — qolgan partiyalar o‘z narxida. O‘rtacha narx **ishlatilma
    aynan `.kv` qatori bo‘yicha qiling
 6. Xato xabarlari foydalanuvchini **aniq ishga** yo‘naltirsin (masalan
    «Profil ▸ Serverni yangilash (SQL)»), fayl nomiga emas
+8. **`git merge -X ours` ni ishonmay tekshiring.** Bu repoda har PR `main` ga
+   **squash** bilan qo‘shiladi, shuning uchun shox tarixi `main` niki bilan
+   ajralib qoladi va keyingi merge da `-X ours` ba‘zan `main` tomonini oladi.
+   Bir marta shunday bo‘lib, sinalgan shart eski holiga qaytib ketgan edi.
+   Merge dan keyin **doim** `git diff <merge-dan-oldingi-sha> HEAD` ni
+   bajaring — bo‘sh bo‘lishi kerak.
+
 7. **`loadGroups()` so‘roviga yangi jadval qo‘shsangiz, eski sxemani ham
    o‘ylang.** `stock_items` qo‘shilganda, SQL ni hali ishga tushirmagan
    foydalanuvchilarda butun guruhlar ishlamay qolgan edi (PGRST200). Hozir
