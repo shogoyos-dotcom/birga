@@ -228,25 +228,29 @@ Qoldiq qiymati — qolgan partiyalar o‘z narxida. O‘rtacha narx **ishlatilma
    aynan `.kv` qatori bo‘yicha qiling
 6. Xato xabarlari foydalanuvchini **aniq ishga** yo‘naltirsin (masalan
    «Profil ▸ Serverni yangilash (SQL)»), fayl nomiga emas
-8. **`git merge -X ours` ni ishonmay tekshiring.** Bu repoda har PR `main` ga
-   **squash** bilan qo‘shiladi, shuning uchun shox tarixi `main` niki bilan
-   ajralib qoladi va keyingi merge da `-X ours` ba‘zan `main` tomonini oladi.
-   Bir marta shunday bo‘lib, sinalgan shart eski holiga qaytib ketgan edi.
-   Merge dan keyin **doim** `git diff <merge-dan-oldingi-sha> HEAD` ni
-   bajaring — bo‘sh bo‘lishi kerak.
-
 7. **`loadGroups()` so‘roviga yangi jadval qo‘shsangiz, eski sxemani ham
    o‘ylang.** `stock_items` qo‘shilganda, SQL ni hali ishga tushirmagan
    foydalanuvchilarda butun guruhlar ishlamay qolgan edi (PGRST200). Hozir
    `sbHasStock` bayrog‘i bor: bunday xatoda so‘rov omborsiz qayta yuboriladi,
    foydalanuvchiga esa SQL ni yangilash kerakligi aytiladi
 
-8. **`git merge -X ours` ni ishonmay tekshiring.** Bu repoda har PR `main` ga
-   **squash** bilan qo‘shiladi, shuning uchun shox tarixi `main` niki bilan
-   ajralib qoladi va keyingi merge da `-X ours` ba‘zan `main` tomonini oladi.
-   Bir marta shunday bo‘lib, sinalgan shart eski holiga qaytib ketgan edi.
-   Merge dan keyin **doim** `git diff <merge-dan-oldingi-sha> HEAD` ni
-   bajaring — bo‘sh bo‘lishi kerak.
+8. **`main` ni shoxga qo‘shishda `-X ours` emas, `-s ours` ishlating.**
+   Bu repoda har PR `main` ga **squash** bilan qo‘shiladi, shuning uchun shox
+   tarixi `main` niki bilan ajralib qoladi. `-X ours` faqat *to‘qnashgan*
+   bo‘laklarni bizniki bilan hal qiladi — qolganini `main` dan oladi va
+   sinalgan kodni eski holiga qaytarib qo‘yishi mumkin. Shunday bo‘lib, bir
+   marta shart, bir marta esa hujjatdagi band qaytib kelgan (ikki nusxa
+   bo‘lib qolgan). `-s ours` esa butun daraxtni bizniki qoldiradi — bu
+   to‘g‘ri, chunki shoxda `main` da yo‘q narsa bo‘lmaydi.
+
+   **Har safar ikkala tekshiruvni bajaring:**
+
+   ```bash
+   BEFORE=$(git rev-parse HEAD)
+   git merge --no-edit -s ours origin/main
+   git diff --stat $BEFORE HEAD        # BO'SH bo'lishi shart
+   git diff --stat origin/main HEAD    # faqat o'zingiz qilgan o'zgarish
+   ```
 
 ## Ishni tekshirish
 
