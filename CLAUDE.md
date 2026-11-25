@@ -228,6 +228,13 @@ Qoldiq qiymati — qolgan partiyalar o‘z narxida. O‘rtacha narx **ishlatilma
    aynan `.kv` qatori bo‘yicha qiling
 6. Xato xabarlari foydalanuvchini **aniq ishga** yo‘naltirsin (masalan
    «Profil ▸ Serverni yangilash (SQL)»), fayl nomiga emas
+8. **`git merge -X ours` ni ishonmay tekshiring.** Bu repoda har PR `main` ga
+   **squash** bilan qo‘shiladi, shuning uchun shox tarixi `main` niki bilan
+   ajralib qoladi va keyingi merge da `-X ours` ba‘zan `main` tomonini oladi.
+   Bir marta shunday bo‘lib, sinalgan shart eski holiga qaytib ketgan edi.
+   Merge dan keyin **doim** `git diff <merge-dan-oldingi-sha> HEAD` ni
+   bajaring — bo‘sh bo‘lishi kerak.
+
 7. **`loadGroups()` so‘roviga yangi jadval qo‘shsangiz, eski sxemani ham
    o‘ylang.** `stock_items` qo‘shilganda, SQL ni hali ishga tushirmagan
    foydalanuvchilarda butun guruhlar ishlamay qolgan edi (PGRST200). Hozir
