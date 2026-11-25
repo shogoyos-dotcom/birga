@@ -270,6 +270,8 @@
   .split-line .sinput{width:104px;flex:none}
   .split-line .calc{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);min-width:78px;flex:none;text-align:right}
   .split-line input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--accent)}
+  .split-line .pcs{color:var(--ink-3);font-size:13px;margin-left:-4px}
+  .calcline{margin-top:5px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)}
   .split-status{font-size:12.5px;color:var(--ink-2);padding-top:4px;line-height:1.4}
   .split-status.bad{color:var(--neg)}
   .split-status.warn{color:var(--warn)}
@@ -585,6 +587,9 @@ var I18N = {
   "Mening omborim":["Мой склад","My inventory"],
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
+  "Foiz":["Процент","Percent"],
+  "Kamida bitta foiz kiriting":["Введите хотя бы один процент","Enter at least one percentage"],
+  "Bo‘linish to‘g‘ri emas — kishi tanlang, ulush yoki foiz kiriting (foiz 100 dan oshmasin)":["Разделение неверно — выберите участника, укажите долю или процент (процент не больше 100)","The split is not valid — pick a person, or enter a share or a percentage (at most 100%)"],
   "Birlashgan hisobot":["Общий отчёт","Combined report"],
   "Guruh bo‘yicha sof":["Чистыми по группе","Group net"],
   "Hozir ombordagi tovar":["Товара на складе сейчас","Stock on hand now"],
@@ -911,7 +916,65 @@ var PALETTE = ['#0E7C6B','#B0503C','#9A6B1E','#43617A','#5F6B36','#6B4E71','#9C4
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function today(){ var d=new Date(),z=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function parseAmount(v){ var n=parseFloat(String(v).replace(/[^\d.\-]/g,'')); return isFinite(n)?Math.round(n):0; }
+/* ---------- kichik kalkulyator ----------
+   Summa va miqdor maydonlariga «3*45000+500» kabi ifoda yozsa bo‘ladi.
+   eval() ishlatilmaydi — o‘z tahlilchimiz, faqat raqam va amallarni tushunadi. */
+function isPlainNum(v){ return /^-?[\d.,\s\u00A0]*$/.test(String(v==null?'':v)); }
+function calcEval(src){
+  var s = String(src==null?'':src)
+    .replace(/[\u00A0\s]/g,'')
+    .replace(/[×xX]/g,'*').replace(/[÷:]/g,'/')
+    .replace(/,/g,'.');
+  if(s==='' || !/^[0-9.+\-*/()]+$/.test(s)) return null;
+  var i=0;
+  var peek=function(){ return s.charAt(i); };
+  var num=function(){
+    var st=i;
+    while(i<s.length && /[0-9.]/.test(s.charAt(i))) i++;
+    if(i===st) return NaN;
+    var v=parseFloat(s.slice(st,i));
+    return isFinite(v) ? v : NaN;
+  };
+  var expr;
+  var factor=function(){
+    var c=peek();
+    if(c==='+'){ i++; return factor(); }
+    if(c==='-'){ i++; var f=factor(); return isNaN(f) ? NaN : -f; }
+    if(c==='('){ i++; var v=expr(); if(peek()!==')') return NaN; i++; return v; }
+    return num();
+  };
+  var term=function(){
+    var v=factor();
+    while(!isNaN(v) && (peek()==='*' || peek()==='/')){
+      var op=peek(); i++;
+      var r=factor();
+      if(isNaN(r)) return NaN;
+      if(op==='*') v=v*r;
+      else { if(r===0) return NaN; v=v/r; }
+    }
+    return v;
+  };
+  expr=function(){
+    var v=term();
+    while(!isNaN(v) && (peek()==='+' || peek()==='-')){
+      var op=peek(); i++;
+      var r=term();
+      if(isNaN(r)) return NaN;
+      v = (op==='+') ? v+r : v-r;
+    }
+    return v;
+  };
+  var out=expr();
+  if(i!==s.length || isNaN(out) || !isFinite(out)) return null;
+  return out;
+}
+/* ifoda bo‘lsa hisoblangan sonni, aks holda null */
+function calcOf(v){ return isPlainNum(v) ? null : calcEval(v); }
+
+function parseAmount(v){
+  var c=calcOf(v); if(c!==null) return Math.round(c);
+  var n=parseFloat(String(v).replace(/[^\d.\-]/g,'')); return isFinite(n)?Math.round(n):0;
+}
 
 function fmtMoney(n,withSign){
   var neg = n<0; n=Math.abs(Math.round(n));
@@ -989,6 +1052,16 @@ function splitWeighted(amount, pairs){
   var dist=out.reduce(function(s,o){return s+o.share;},0), rem=amount-dist;
   out.map(function(o,i){return {i:i,frac:o.frac};}).sort(function(a,b){return b.frac-a.frac;}).slice(0,rem).forEach(function(x){ out[x.i].share++; });
   return out.map(function(o){ return {memberId:o.memberId, share:o.share}; });
+}
+/* "Foiz" rejimi: har kimga % yoziladi. Foizlar yig‘indisi 100 dan kam
+   bo‘lsa, qolgani bo‘linmaydi — u to‘lovchida qoladi. */
+function splitPct(amount, pairs){
+  var tot=0;
+  pairs.forEach(function(x){ if(x.p>0) tot+=x.p; });
+  if(tot<=0) return {rows:[], totalPct:0, used:0};
+  var used=Math.round(amount*tot/100);
+  var rows=splitWeighted(used, pairs.map(function(x){ return {id:x.id, w:(x.p>0?x.p:0)}; }));
+  return {rows:rows, totalPct:tot, used:used};
 }
 // "Aniq" rejim: ba'zi a'zolar summasi qo'lda kiritiladi (raw[id] bo'sh emas),
 // qolgan summa bo'sh qolganlar orasida teng bo'linadi.
@@ -2255,9 +2328,36 @@ function openModal(title, body, opts){
     +'<div class="sheet-h"><h2>'+esc(title)+'</h2><button class="close-x" data-act="close-modal" aria-label="Yopish">✕</button></div>'
     +'<div class="sheet-b">'+body+'</div></div>');
   modalEl.hidden=false;
+  wireCalc(modalEl);
   var form=modalEl.querySelector('form');
   if(form) form.addEventListener('submit', function(ev){ ev.preventDefault(); opts.onSubmit && opts.onSubmit(form); });
   if(opts.onMount) opts.onMount(modalEl);
+}
+/* Hamma raqam maydonini kalkulyatorga aylantiradi: yozayotganda natija
+   ko‘rinadi, maydondan chiqqanda esa o‘rniga shu son yoziladi. */
+function wireCalc(root){
+  var qty = function(inp){ return (inp.getAttribute('inputmode')==='decimal'); };
+  [].slice.call(root.querySelectorAll('input[inputmode="numeric"],input[inputmode="decimal"]')).forEach(function(inp){
+    if(inp.closest && inp.closest('.split-line')) return;
+    var line=document.createElement('div');
+    line.className='calcline'; line.hidden=true;
+    if(inp.parentNode) inp.parentNode.insertBefore(line, inp.nextSibling);
+    var paint=function(){
+      var c=calcOf(inp.value);
+      if(c===null){ line.hidden=true; return; }
+      line.textContent='= ' + (qty(inp) ? fmtQty(Math.round(c*1000)/1000) : fmtMoney(Math.round(c)));
+      line.hidden=false;
+    };
+    inp.addEventListener('input', paint);
+    inp.addEventListener('blur', function(){
+      var c=calcOf(inp.value);
+      if(c===null) return;
+      inp.value = String(qty(inp) ? Math.round(c*1000)/1000 : Math.round(c));
+      line.hidden=true;
+      inp.dispatchEvent(new Event('input', {bubbles:true}));   /* bog‘liq hisoblar yangilansin */
+    });
+    paint();
+  });
 }
 function closeModal(){ modalEl.hidden=true; modalEl.innerHTML=''; }
 
@@ -2454,6 +2554,18 @@ function buildSplitBody(mode, g, amount, prev){
         +'<input class="sinput" data-id="'+m.id+'" inputmode="numeric" placeholder="avto" value="'+val+'">'
         +'<span class="calc" data-id="'+m.id+'"></span></div>';
     });
+  }else if(mode==='pct'){
+    g.members.forEach(function(m){
+      /* tahrirlashda hozirgi summadan foizni tiklaymiz */
+      var val='';
+      if(hasPrev && prev[m.id]!=null && amount>0){
+        val = String(Math.round(prev[m.id]/amount*1000)/10);
+      }
+      rows+='<div class="split-line"><span class="nm">'+esc(m.name)+'</span>'
+        +'<input class="sinput" data-id="'+m.id+'" inputmode="numeric" placeholder="0" value="'+val+'">'
+        +'<span class="pcs">%</span>'
+        +'<span class="calc" data-id="'+m.id+'"></span></div>';
+    });
   }else{ // shares
     g.members.forEach(function(m){
       rows+='<div class="split-line"><span class="nm">'+esc(m.name)+'</span>'
@@ -2537,6 +2649,7 @@ function openExpenseModal(groupId, existing){
     +'<button type="button" data-m="equal" aria-pressed="'+(mode==='equal')+'">Teng</button>'
     +'<button type="button" data-m="exact" aria-pressed="'+(mode==='exact')+'">Aniq</button>'
     +'<button type="button" data-m="shares" aria-pressed="'+(mode==='shares')+'">Ulush</button>'
+    +'<button type="button" data-m="pct" aria-pressed="'+(mode==='pct')+'">Foiz</button>'
     +'</div></div>'
     +'<div id="splitbox">'+buildSplitBody(mode,g,parseAmount(e.amount||0),prevSplitMap(e.splits))+'</div>'
     +'<button class="btn btn-primary btn-block" type="submit">'+(isEdit?'Saqlash':'Qo‘shish')+'</button>'
@@ -2622,6 +2735,26 @@ function openExpenseModal(groupId, existing){
               stat.className='split-status'+(diff===0?'':' warn');
             }
           }
+        }else if(mode==='pct'){
+          var pv=inputVals();
+          var pp=Object.keys(pv).map(function(k){ return {id:k, p:pv[k]}; });
+          var pr=splitPct(amt, pp), pmap={};
+          pr.rows.forEach(function(x){ pmap[x.memberId]=x.share; });
+          setCalc(pmap);
+          if(pr.totalPct<=0){
+            stat.textContent='Kamida bitta foiz kiriting';
+            stat.className='split-status bad';
+          }else if(pr.totalPct>100){
+            stat.textContent='Jami '+pr.totalPct+'% — 100% dan oshib ketdi';
+            stat.className='split-status bad';
+          }else if(pr.totalPct===100){
+            stat.textContent='Jami 100% — '+fmtMoney(pr.used)+' ✓';
+            stat.className='split-status';
+          }else{
+            stat.textContent='Jami '+pr.totalPct+'% ('+fmtMoney(pr.used)+') · qolgan '
+              + (Math.round((100-pr.totalPct)*10)/10) + '% bo‘linmaydi';
+            stat.className='split-status warn';
+          }
         }else{
           var w=inputVals(); var pairs=Object.keys(w).map(function(k){return {id:k,w:w[k]};});
           var res=splitWeighted(amt,pairs), map2={}; res.forEach(function(s){map2[s.memberId]=s.share;});
@@ -2684,6 +2817,13 @@ function openExpenseModal(groupId, existing){
           if(r.fixedSum===amt) return fp.map(function(p){return {memberId:p.id,share:p.w};});
           return splitWeighted(amt, fp);
         }
+        if(mode==='pct'){
+          var pv=inputVals();
+          var pp=Object.keys(pv).map(function(k){ return {id:k, p:pv[k]}; });
+          var pr=splitPct(amt, pp);
+          if(!pr.rows.length || pr.totalPct>100) return null;
+          return pr.rows.filter(function(x){ return x.share>0; });
+        }
         var w=inputVals();
         var pairs=Object.keys(w).filter(function(k){return w[k]>0;}).map(function(k){return {id:k,w:w[k]};});
         if(!pairs.length) return null;
@@ -2698,7 +2838,7 @@ function openExpenseModal(groupId, existing){
       var splits=modalEl._readSplits();
       if(!splits || !splits.length){
         var st=modalEl.querySelector('#sstat');
-        if(st){ st.className='split-status bad'; st.textContent='Kamida bitta kishi tanlang yoki ulush kiriting'; }
+        if(st){ st.className='split-status bad'; st.textContent='Bo‘linish to‘g‘ri emas — kishi tanlang, ulush yoki foiz kiriting (foiz 100 dan oshmasin)'; }
         return;
       }
       var selCat=cat(form.categoryId.value)||{};
@@ -3006,6 +3146,7 @@ function moveSum(type, itemId){
 }
 function isLow(i){ return (i.min||0) > 0 && itemQty(i.id) <= i.min; }
 function parseQty(v){
+  var c=calcOf(v); if(c!==null) return Math.round(c*1000)/1000;
   var n = parseFloat(String(v).replace(',','.').replace(/[^\d.\-]/g,''));
   return isFinite(n) ? n : 0;
 }
