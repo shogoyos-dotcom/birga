@@ -4,7 +4,7 @@ const BASE = process.env.BIRGA_URL || 'http://127.0.0.1:8099';
 let fails = 0;
 const must = (c, m) => { const l = (c ? '✓ ' : '✗ FAIL ') + m; console.log(l); if (!c) fails++; };
 const b = await chromium.launch();
-const pg = await b.newPage({ viewport: { width: 390, height: 1000 } });
+const pg = await b.newPage({ viewport: { width: 390, height: 1000 }, hasTouch: true, isMobile: true });
 const errs = []; pg.on('pageerror', e => errs.push(String(e)));
 pg.on('console', m => { if (m.type() === 'error' && !/supabase|net::|Failed to load/i.test(m.text())) errs.push('console: ' + m.text()); });
 
@@ -55,6 +55,33 @@ await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900)
 await pg.click('#fab'); await pg.waitForTimeout(500);
 const amt = pg.locator('#modal input[name="amount"]');
 must(await amt.count() === 1, 'Amaliyot oynasi ochildi');
+
+// Telefon klaviaturasida + va × tugmalari YO'Q — shuning uchun maydon ostida
+// o'z amal tugmalarimiz bo'lishi SHART, aks holda ifoda yozib bo'lmaydi.
+must(await pg.locator('#modal .calcpad:not([hidden])').count() === 0, 'Tugmalar fokusdan oldin yashirin');
+await amt.click(); await pg.waitForTimeout(300);
+const keys = pg.locator('#modal .calcpad:not([hidden]) .ckey');
+must(await keys.count() === 6, 'Fokusda 6 ta amal tugmasi chiqadi');
+must((await keys.allTextContents()).join('') === '+−×÷()', 'Tugmalar: + − × ÷ ( )');
+
+// faqat raqam yozib, amallarni TUGMADAN bosamiz
+const key = t => pg.locator('#modal .calcpad .ckey', { hasText: t }).first();
+await amt.type('3');
+await key('×').tap();
+await amt.type('45000');
+await key('+').tap();
+await amt.type('500');
+await pg.waitForTimeout(300);
+must(await amt.inputValue() === '3×45000+500', 'Tugmalar maydonga belgi qo‘yadi: ' + await amt.inputValue());
+must(/135 500/.test(await pg.locator('#modal .calcline:not([hidden])').first().textContent()),
+     'Tugma bilan yozilgan ifoda hisoblanadi: 3 × 45 000 + 500 = 135 500');
+must(await pg.evaluate(() => document.activeElement && document.activeElement.name) === 'amount',
+     'Tugma bosilganda fokus maydonda qoladi (klaviatura yopilmaydi)');
+await pg.locator('#modal input[name="note"]').click(); await pg.waitForTimeout(400);
+must(await amt.inputValue() === '135500', 'Tugma bilan yozilgani ham songa aylanadi');
+must(await pg.locator('#modal .calcpad:not([hidden])').count() === 0, 'Maydondan chiqqanda tugmalar yashirinadi');
+
+await amt.click();
 await amt.fill('3*45000');
 await pg.waitForTimeout(250);
 let line = pg.locator('#modal .calcline:not([hidden])').first();
@@ -62,7 +89,7 @@ must(await line.count() === 1, 'Ifoda yozilsa natija ko‘rinadi');
 must(/135 000/.test(await line.textContent()), 'Jonli natija: 3 × 45 000 = 135 000');
 await pg.locator('#modal input[name="note"]').click();   // blur
 await pg.waitForTimeout(250);
-must(await amt.inputValue() === '135000', 'Maydondan chiqqanda o‘rniga son yoziladi');
+must(await amt.inputValue() === '135000', 'Klaviaturadan yozilgan ifoda ham ishlaydi');
 must(await pg.locator('#modal .calcline:not([hidden])').count() === 0, 'Natija qatori yashirinadi');
 
 // oddiy son kalkulyator sifatida ko'rinmasin

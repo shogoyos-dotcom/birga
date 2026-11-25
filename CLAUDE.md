@@ -137,6 +137,16 @@ Har bir `inputmode="numeric"` / `"decimal"` maydoniga **ifoda** yozsa bo‘ladi:
 `3*45000+500`, `(100+50)*2`, `12,5*4`, `50:2`. Yozayotganda tagida `= …`
 ko‘rinadi, maydondan chiqqanda esa o‘rniga shu son yoziladi.
 
+**Telefon klaviaturasida `+` va `×` tugmalari yo‘q!** `inputmode="numeric"`
+Androidda faqat raqam, minus, probel va vergulni beradi — ya‘ni ifodani
+*yozib bo‘lmaydi*. Shuning uchun maydon ostida o‘z tugmalarimiz turadi
+(`.calcpad`: `+ − × ÷ ( )`), fokusda ko‘rinadi. Tugma `pointerdown` da
+`preventDefault()` qiladi — fokus maydonda qoladi, klaviatura yopilmaydi.
+`click` ham ulangan (klaviatura bilan ishlash uchun), 500 ms qo‘riqchi ikki
+marta qo‘shib yuborishdan saqlaydi. **Buni sinaganda `hasTouch: true` bilan
+sinang va amallarni faqat tugmadan kiriting** — aks holda test telefonda
+mavjud bo‘lmagan klaviaturani taqlid qiladi va kamchilik ko‘rinmay qoladi.
+
 - `calcEval(src)` — **`eval()` ishlatilmaydi**, o‘z tahlilchimiz: faqat raqam,
   `+ − * / ( )` va `× ÷ x :` belgilarini tushunadi, boshqasiga `null`
 - `calcOf(v)` — oddiy son bo‘lsa `null`, ifoda bo‘lsa natija
