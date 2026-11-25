@@ -39,3 +39,22 @@ Bitta faylni alohida: `node 02-fifo.mjs`
 - `placeholder` matni `textContent` ga kirmaydi — elementni selektor bilan tekshiring
 - Bulutsiz muhitda `myRole()` hamisha `viewer` qaytaradi — guruh ombori ustidagi
   «faqat ko‘rish» holatini aynan shu bilan sinaymiz (`08-guruh-ombori.mjs`)
+
+## Guruhning «ega» oynalarini sinash
+
+`canEdit()` `SB_UID` ga qarab ishlaydi, test esa bulutni bloklaydi — shuning
+uchun guruhga xarajat qo'shish kabi oynalar normalda **umuman ochilmaydi**.
+`15-kalkulyator-foiz.mjs` buni sahifani yo'lda ushlab hal qiladi:
+
+```js
+await pg.route('**/index.html*', async route => {
+  const res = await route.fetch();
+  const body = (await res.text())
+    .replace('var SB=null, SB_UID=null,', "var SB=null, SB_UID='u1',");
+  await route.fulfill({ response: res, body });
+});
+```
+
+A'zoning `user_id` si `'u1'` bo'lsa, u endi «men» hisoblanadi va ega oynalari
+ochiladi. **Saqlashni sinab bo'lmaydi** — `SB` baribir `null`, bulutga yozish
+yiqiladi. Shuning uchun natijani `modalEl._readSplits()` orqali tekshiring.

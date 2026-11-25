@@ -131,6 +131,34 @@ urinishi ham kerak. `migrateStock` da u unutilib, eski serverda butun
 ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
 `roleNote()` esa Ombor ekranida doimiy ogohlantirish ko‘rsatadi.
 
+## Kalkulyator (summa maydonlarida)
+
+Har bir `inputmode="numeric"` / `"decimal"` maydoniga **ifoda** yozsa bo‘ladi:
+`3*45000+500`, `(100+50)*2`, `12,5*4`, `50:2`. Yozayotganda tagida `= …`
+ko‘rinadi, maydondan chiqqanda esa o‘rniga shu son yoziladi.
+
+- `calcEval(src)` — **`eval()` ishlatilmaydi**, o‘z tahlilchimiz: faqat raqam,
+  `+ − * / ( )` va `× ÷ x :` belgilarini tushunadi, boshqasiga `null`
+- `calcOf(v)` — oddiy son bo‘lsa `null`, ifoda bo‘lsa natija
+- `parseAmount` va `parseQty` shu orqali o‘tadi, ya‘ni **hamma maydon** birdan
+  kalkulyatorga aylandi
+- `wireCalc(root)` ni `openModal` chaqiradi; hamma raqam maydoni modal ichida.
+  `.split-line` ichidagilar **chiqarib tashlanadi** — ularda natija yon
+  tomondagi `.calc` ustunida ko‘rinadi, qo‘shimcha qator flex qatorini buzardi
+
+## Guruhda pulni bo‘lish — to‘rt rejim
+
+`buildSplitBody(mode, …)` va `recalc()` da: `equal` (teng), `exact` (aniq
+summa), `shares` (ulush nisbati), **`pct` (foiz)**.
+
+`splitPct(amount, pairs)` — har kimga `%`. Foizlar yig‘indisi 100 dan **kam
+bo‘lsa, qolgani bo‘linmaydi** va to‘lovchida qoladi; 100 dan **oshsa**
+`_readSplits()` `null` qaytaradi, ya‘ni saqlanmaydi. Taqsimlashni
+`splitWeighted` qiladi: `amount × jamiFoiz / 100` ni foizlar nisbatida
+bo‘ladi, shuning uchun tiyin-tiyingacha to‘g‘ri chiqadi.
+
+Tahrirlashda hozirgi summalardan foiz tiklanadi (`share/amount*100`).
+
 ## «Pulim» (Asosiy ekranning birinchi kartasi)
 
 `pulimCard()` — foydalanuvchining asosiy savoliga javob: **naqd pulim qancha**.
