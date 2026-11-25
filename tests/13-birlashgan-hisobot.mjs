@@ -98,6 +98,55 @@ must(/Sotuv\s*1 650 000/.test((await card().textContent()).replace(/\s+/g, ' '))
 await card().locator('[data-act="repper"][data-p="month"]').click(); await pg.waitForTimeout(500);
 must(/Sotuv\s*900 000/.test((await card().textContent()).replace(/\s+/g, ' ')), 'Oyga qaytdi');
 
+// ---------- DAVR: istalgan sanadan istalgan sanagacha ----------
+// shu oyga chegara sinovi uchun yana uchta sotuv qo'shamiz
+await pg.evaluate(o => {
+  const st = JSON.parse(localStorage.getItem('birga_v1'));
+  st.stock.push(
+    { id: 'r0', itemId: 'i1', type: 'in',  qty: 500, price: 10000, date: o.d1,  txId: null },
+    { id: 'r1', itemId: 'i1', type: 'out', qty: 10,  price: 15000, date: o.d14, txId: null }, // chegaradan oldin
+    { id: 'r2', itemId: 'i1', type: 'out', qty: 20,  price: 15000, date: o.d15, txId: null }, // chegara kuni
+    { id: 'r3', itemId: 'i1', type: 'out', qty: 40,  price: 15000, date: o.d20, txId: null }, // chegara kuni
+    { id: 'r4', itemId: 'i1', type: 'out', qty: 50,  price: 15000, date: o.d21, txId: null }  // chegaradan keyin
+  );
+  localStorage.setItem('birga_v1', JSON.stringify(st));
+}, { d1: dd(1), d14: dd(14), d15: dd(15), d20: dd(20), d21: dd(21) });
+await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
+
+await card().locator('[data-act="repper"][data-p="range"]').click(); await pg.waitForTimeout(500);
+must(await pg.locator('#modal input[name="from"]').count() === 1 &&
+     await pg.locator('#modal input[name="to"]').count() === 1, 'Davr oynasida ikkita sana maydoni bor');
+await pg.fill('#modal input[name="from"]', dd(15));
+await pg.fill('#modal input[name="to"]', dd(20));
+await pg.click('#modal button[type="submit"]'); await pg.waitForTimeout(600);
+t = (await card().textContent()).replace(/\s+/g, ' ');
+// 20 + 40 = 60 dona × 15 000 = 900 000 (10 va 50 chegaradan tashqarida)
+must(/Sotuv\s*900 000/.test(t),                 'Davr: chegara kunlari ham kiradi (20+40 = 900 000)');
+must(/Sotilganning tannarxi\s*600 000/.test(t), 'Davr: tannarx 600 000');
+must(/Foyda \(FIFO\)\s*\+300 000/.test(t),       'Davr: foyda +300 000');
+must(!/1 650 000/.test(t) && !/2 400 000/.test(t), 'Davrdan tashqaridagi sotuvlar kirmaydi');
+must(new RegExp(String(dd(15).slice(8)).replace(/^0/, '') + '-\\S+ ' + Y + ' — ').test(t),
+     'Yorliqda tanlangan sanalar ko‘rinadi: ' + t.slice(t.indexOf('Davr') + 4, t.indexOf('Davr') + 50));
+await pg.screenshot({ path: (process.argv[2] || '.') + '/h-davr.png' });
+
+// teskari bersa o'rni almashsin
+await card().locator('[data-act="repper"][data-p="range"]').click(); await pg.waitForTimeout(400);
+await pg.fill('#modal input[name="from"]', dd(20));
+await pg.fill('#modal input[name="to"]', dd(15));
+await pg.click('#modal button[type="submit"]'); await pg.waitForTimeout(600);
+must(/Sotuv\s*900 000/.test((await card().textContent()).replace(/\s+/g, ' ')),
+     'Teskari sana berilsa o‘rni almashadi');
+
+// qayta yuklanganda saqlansin
+await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
+must(/Sotuv\s*900 000/.test((await card().textContent()).replace(/\s+/g, ' ')),
+     'Tanlangan davr qayta yuklangandan keyin ham saqlanadi');
+
+// oyga qaytsa — butun oy qaytsin (10+20+40+50+60 = 180 × 15 000 = 2 700 000)
+await card().locator('[data-act="repper"][data-p="month"]').click(); await pg.waitForTimeout(500);
+must(/Sotuv\s*2 700 000/.test((await card().textContent()).replace(/\s+/g, ' ')),
+     'Oyga qaytsa butun oy hisoblanadi (2 700 000)');
+
 // ---------- karta qachon chiqmaydi ----------
 await pg.evaluate(() => {
   const st = JSON.parse(localStorage.getItem('birga_v1'));

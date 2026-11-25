@@ -149,14 +149,21 @@ Jami avval `inc − exp` dan hisoblanardi va guruhda 568 263 so‘m turgani hold
 xarajat qatorlari qoldi, lekin jamiga kirmaydi — buni karta ostidagi izoh
 aytib turadi.
 
-### Davr: oy yoki yil
+### Davr: oy, yil yoki tanlangan sanalar
 
-`repPeriod()` → `state.settings.repPeriod` (`'month'` | `'year'`),
-`data-act="repper"` tugmalari bilan almashadi. `monthStock(p)` va
-`groupMonthShares(p)` endi **prefiks** qabul qiladi: `'2026-11'` yoki `'2026'`
-— solishtirish `slice(0, p.length)` bilan, shuning uchun bitta kod ikkala
-davrga ham yaraydi. Eski chaqiruvlar (`viewHome`, `monthChart`) oy prefiksini
-beradi, xatti-harakati o‘zgarmaydi.
+`repPeriod()` → `state.settings.repPeriod` (`'month'` | `'year'` | `'range'`),
+`data-act="repper"` tugmalari bilan almashadi. `'range'` da `repFrom`/`repTo`
+ham saqlanadi; ularsiz `repPeriod()` **oyga qaytadi**, shuning uchun yarim
+saqlangan holat ilovani buzmaydi. `repSel(ym)` davr qiymati va yorlig‘ini
+bitta joydan beradi.
+
+`monthStock(p)` va `groupMonthShares(p)` davrni `inPeriod(d, p)` orqali
+tekshiradi: `p` **satr** bo‘lsa prefiks (`'2026-11'`, `'2026'`), **obyekt**
+bo‘lsa `{from, to}` — ikkala chegara ham **ichiga kiradi**. Shuning uchun
+bitta kod uchala davrga ham yaraydi va eski chaqiruvlar (`viewHome`,
+`monthChart`) oy prefiksini berib ishlayveradi.
+
+`openRangeModal()` — teskari berilgan sanalarni o‘zi almashtiradi.
 
 Oy kesimini `fifo().perMove` beradi: u har bir rasxodning tannarxini saqlaydi,
 shuning uchun davrni ajratish uchun qayta hisoblash shart emas.
