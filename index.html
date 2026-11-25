@@ -1787,7 +1787,7 @@ function combinedCard(ym){
        + '<div class="kv"><span>Guruh bo‘yicha sof</span><b class="'+sgn(gDebt)+'">'+fmtMoney(gDebt,true)+'</b></div>';
   }
 
-  if([S.has, C.has, hasG].filter(Boolean).length > 1){
+  if(S.has && hasG){
     h += '<div class="kv" style="border-top:1px solid var(--line);margin-top:6px">'
        + '<span><b>Umumiy natija (sotuv + guruh)</b></span>'
        + '<b class="'+sgn(total)+'">'+fmtMoney(total,true)+'</b></div>';
