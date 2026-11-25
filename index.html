@@ -591,6 +591,7 @@ var I18N = {
   "Ombordan tashqari":["Вне склада","Outside the inventory"],
   "Sof":["Чистыми","Net"],
   "Umumiy natija":["Общий итог","Overall"],
+  "Umumiy natija (sotuv + guruh)":["Общий итог (продажи + группа)","Overall (sales + groups)"],
   "Davr":["Период","Range"],
   "Davrni tanlash":["Выбрать период","Pick a date range"],
   "Boshlanishi":["Начало","From"],
@@ -602,7 +603,7 @@ var I18N = {
   "Xarajat (ulushingiz)":["Расход (ваша доля)","Expense (your share)"],
   "Oy":["Месяц","Month"],
   "Yil":["Год","Year"],
-  "Umumiy natija = ombor foydasi + ombordan tashqari sof + guruh bo‘yicha sof. «Hozir ombordagi tovar» va guruhdagi ulushingiz jamiga qo‘shilmaydi: birinchisi pul emas, tovar; ikkinchisi ko‘pincha 0 bo‘ladi.":["Прибыль склада — за выбранный период, долги — за всё время. Доход и расход — ваша личная доля в операциях; она часто равна 0 и в итог не входит.","The inventory profit is for the selected period; debts are all-time. Income and expense are your personal share of the entries — often zero, and not part of the total."],
+  "Umumiy natija = sotuv + guruh bo‘yicha sof. Sotuv — aylanma, ichida tovarning tannarxi ham bor; sof foydani «Foyda (FIFO)» qatoridan ko‘ring. «Hozir ombordagi tovar» va ombordan tashqari pul jamiga qo‘shilmaydi.":["Прибыль склада — за выбранный период, долги — за всё время. Доход и расход — ваша личная доля в операциях; она часто равна 0 и в итог не входит.","The inventory profit is for the selected period; debts are all-time. Income and expense are your personal share of the entries — often zero, and not part of the total."],
   "Sotuv":["Продажи","Sales"],
   "Umumiy natija (ombor + guruh)":["Общий итог (склад + группа)","Overall (inventory + groups)"],
   "Guruh · ulushingiz":["Группа · ваша доля","Groups · your share"],
@@ -1748,9 +1749,10 @@ function combinedCard(ym){
   var owedToMe=0, iOwe=0;
   state.groups.forEach(function(g){ var n=meNetForGroup(g); if(n>0) owedToMe+=n; else iOwe+=-n; });
   var gDebt = owedToMe - iOwe;
-  /* jamiga guruhning SOF QARZI qo‘shiladi: ulush ko‘pincha 0 bo‘ladi
-     (pulni siz berasiz, ulush boshqalarga yoziladi) — o‘shanda ham pul ko‘rinsin */
-  var total = S.profit + C.net + gDebt;
+  /* umumiy natija = SOTUV + guruhning sof qarzi.
+     Sotuv — aylanma (ichida tannarx ham bor), foyda emas; shuning uchun
+     yorliqda formulaning o‘zi yozilgan va «Foyda (FIFO)» alohida turadi. */
+  var total = S.sale + gDebt;
   var sgn = function(v){ return v<0 ? 'neg' : v>0 ? 'pos' : ''; };
 
   var h = '<div class="card"><div class="card-h"><h2>Birlashgan hisobot</h2>'
@@ -1785,12 +1787,12 @@ function combinedCard(ym){
        + '<div class="kv"><span>Guruh bo‘yicha sof</span><b class="'+sgn(gDebt)+'">'+fmtMoney(gDebt,true)+'</b></div>';
   }
 
-  if([S.has, C.has, hasG].filter(Boolean).length > 1){
+  if(S.has && hasG){
     h += '<div class="kv" style="border-top:1px solid var(--line);margin-top:6px">'
-       + '<span><b>Umumiy natija</b></span>'
+       + '<span><b>Umumiy natija (sotuv + guruh)</b></span>'
        + '<b class="'+sgn(total)+'">'+fmtMoney(total,true)+'</b></div>';
   }
-  h += '<div class="note" style="margin-top:8px">Umumiy natija = ombor foydasi + ombordan tashqari sof + guruh bo‘yicha sof. «Hozir ombordagi tovar» va guruhdagi ulushingiz jamiga qo‘shilmaydi: birinchisi pul emas, tovar; ikkinchisi ko‘pincha 0 bo‘ladi.</div>';
+  h += '<div class="note" style="margin-top:8px">Umumiy natija = sotuv + guruh bo‘yicha sof. Sotuv — aylanma, ichida tovarning tannarxi ham bor; sof foydani «Foyda (FIFO)» qatoridan ko‘ring. «Hozir ombordagi tovar» va ombordan tashqari pul jamiga qo‘shilmaydi.</div>';
   h += '<div style="height:8px"></div>'
      + '<div class="chips" style="padding:0;gap:6px">'
      + '<button class="chip" style="padding:5px 12px;font-size:12px" data-act="nav" data-screen="ombor">Ombor ›</button>'
