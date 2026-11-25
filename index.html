@@ -587,11 +587,18 @@ var I18N = {
   "Kim qancha":["Кто сколько","Who owes what"],
   "Birlashgan hisobot":["Общий отчёт","Combined report"],
   "Guruh bo‘yicha sof":["Чистыми по группе","Group net"],
+  "Davr":["Период","Range"],
+  "Davrni tanlash":["Выбрать период","Pick a date range"],
+  "Boshlanishi":["Начало","From"],
+  "Tugashi":["Конец","To"],
+  "Ko‘rsatish":["Показать","Show"],
+  "Hisobot shu ikki sana orasidagi ma‘lumotni ko‘rsatadi. Ikkala kun ham hisobga kiradi.":["Отчёт покажет данные между этими двумя датами. Оба дня входят в расчёт.","The report covers everything between these two dates. Both days are included."],
+  "Ikkala sanani ham tanlang.":["Выберите обе даты.","Pick both dates."],
   "Tushum (ulushingiz)":["Доход (ваша доля)","Income (your share)"],
   "Xarajat (ulushingiz)":["Расход (ваша доля)","Expense (your share)"],
   "Oy":["Месяц","Month"],
   "Yil":["Год","Year"],
-  "Ombor foydasi tanlangan davr uchun; qarzlar esa butun davr bo‘yicha. Tushum va xarajat — amaliyotlardagi shaxsiy ulushingiz, u ko‘pincha 0 bo‘ladi va jamiga qo‘shilmaydi.":["Прибыль склада — за выбранный период, долги — за всё время. Доход и расход — ваша личная доля в операциях; она часто равна 0 и в итог не входит.","The inventory profit is for the selected period; debts are all-time. Income and expense are your personal share of the entries — often zero, and not part of the total."],
+  "Sotuv, tannarx va foyda tanlangan davr uchun; qarzlar esa butun davr bo‘yicha. Tushum va xarajat — amaliyotlardagi shaxsiy ulushingiz, u ko‘pincha 0 bo‘ladi va jamiga qo‘shilmaydi.":["Прибыль склада — за выбранный период, долги — за всё время. Доход и расход — ваша личная доля в операциях; она часто равна 0 и в итог не входит.","The inventory profit is for the selected period; debts are all-time. Income and expense are your personal share of the entries — often zero, and not part of the total."],
   "Sotuv":["Продажи","Sales"],
   "Umumiy natija (ombor + guruh)":["Общий итог (склад + группа)","Overall (inventory + groups)"],
   "Guruh · ulushingiz":["Группа · ваша доля","Groups · your share"],
@@ -1049,12 +1056,18 @@ function myShareIn(g, e){
   var s=(e.splits||[]).filter(function(x){return x.memberId===meId(g);})[0];
   return s ? s.share : 0;
 }
-/* p — davr prefiksi: '2026-11' (oy) yoki '2026' (yil) */
+/* p — davr: '2026-11' (oy), '2026' (yil) yoki {from:'...', to:'...'} (tanlangan sanalar) */
+function inPeriod(d, p){
+  d = d || '';
+  if(!d) return false;
+  if(typeof p === 'string') return d.slice(0, p.length) === p;
+  return (!p.from || d >= p.from) && (!p.to || d <= p.to);
+}
 function groupMonthShares(p){
   var r={inc:0, exp:0, byCat:{}};
   state.groups.forEach(function(g){
     (g.expenses||[]).forEach(function(e){
-      if((e.date||'').slice(0,p.length)!==p) return;
+      if(!inPeriod(e.date, p)) return;
       var sh=myShareIn(g,e); if(sh<=0) return;
       if(entryType(e)==='income') r.inc+=sh;
       else { r.exp+=sh; var cid=entryCatId(e); r.byCat[cid]=(r.byCat[cid]||0)+sh; }
@@ -1661,10 +1674,49 @@ function viewHome(){
 mountFns.home=function(){};
 
 /* Asosiy ekrandagi birlashgan hisobot: ombor + guruh, pastida umumiy natija */
-function repPeriod(){ return (state.settings && state.settings.repPeriod)==='year' ? 'year' : 'month'; }
+function repPeriod(){
+  var v = (state.settings && state.settings.repPeriod) || 'month';
+  if(v==='range' && !(state.settings.repFrom && state.settings.repTo)) return 'month';
+  return (v==='year' || v==='range') ? v : 'month';
+}
+/* joriy davr: solishtirish uchun qiymat va ekranda ko‘rinadigan yorliq */
+function repSel(ym){
+  var per = repPeriod();
+  if(per==='year'){ var yr=ym.slice(0,4); return {per:per, p:yr, label:'Yil '+yr}; }
+  if(per==='range'){
+    var f=state.settings.repFrom, t=state.settings.repTo;
+    return {per:per, p:{from:f, to:t}, label:fmtDateLong(f)+' — '+fmtDateLong(t)};
+  }
+  return {per:'month', p:ym, label:monthLabel(ym)};
+}
+/* «Davr» — istalgan sanadan istalgan sanagacha */
+function openRangeModal(){
+  var st = state.settings || {};
+  var f = st.repFrom || (today().slice(0,8)+'01'), t = st.repTo || today();
+  var body = '<form novalidate>'
+    + '<div class="note" style="margin-bottom:12px">Hisobot shu ikki sana orasidagi ma‘lumotni ko‘rsatadi. Ikkala kun ham hisobga kiradi.</div>'
+    + '<div class="two">'
+    + '<div class="field"><label>Boshlanishi</label><input type="date" name="from" value="'+esc(f)+'"></div>'
+    + '<div class="field"><label>Tugashi</label><input type="date" name="to" value="'+esc(t)+'"></div>'
+    + '</div>'
+    + '<div style="height:10px"></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">Ko‘rsatish</button>'
+    + '</form>';
+  openModal('Davrni tanlash', body, {
+    onSubmit:function(form){
+      var a=form.from.value, b=form.to.value;
+      if(!a || !b){ alert('Ikkala sanani ham tanlang.'); return; }
+      if(a>b){ var w=a; a=b; b=w; }     /* teskari bersa — o‘rnini almashtiramiz */
+      state.settings = state.settings || {};
+      state.settings.repFrom = a;
+      state.settings.repTo = b;
+      state.settings.repPeriod = 'range';
+      closeModal(); commit();
+    }
+  });
+}
 function combinedCard(ym){
-  var per = repPeriod(), yr = ym.slice(0,4);
-  var pref = per==='year' ? yr : ym;
+  var R = repSel(ym), per = R.per, pref = R.p;
   var S = monthStock(pref);
   var G = groupMonthShares(pref);
   var hasG = state.groups.length > 0;
@@ -1683,8 +1735,9 @@ function combinedCard(ym){
         + '<span class="chips" style="padding:0;gap:5px">'
         + '<button class="chip" style="padding:4px 11px;font-size:12px" data-act="repper" data-p="month" aria-pressed="'+(per==='month')+'">Oy</button>'
         + '<button class="chip" style="padding:4px 11px;font-size:12px" data-act="repper" data-p="year" aria-pressed="'+(per==='year')+'">Yil</button>'
+        + '<button class="chip" style="padding:4px 11px;font-size:12px" data-act="repper" data-p="range" aria-pressed="'+(per==='range')+'">Davr</button>'
         + '</span></div>'
-        + '<div class="eyebrow" style="margin:2px 0 6px">'+esc(per==='year' ? ('Yil '+yr) : monthLabel(ym))+'</div>';
+        + '<div class="eyebrow" style="margin:2px 0 6px">'+esc(R.label)+'</div>';
 
   if(S.has){
     h += '<div class="eyebrow" style="margin:2px 0 4px">Ombor · '+esc(omborName())+'</div>'
@@ -1707,7 +1760,7 @@ function combinedCard(ym){
        + '<span><b>Umumiy natija (ombor + guruh)</b></span>'
        + '<b class="'+sgn(total)+'">'+fmtMoney(total,true)+'</b></div>';
   }
-  h += '<div class="note" style="margin-top:8px">Ombor foydasi tanlangan davr uchun; qarzlar esa butun davr bo‘yicha. Tushum va xarajat — amaliyotlardagi shaxsiy ulushingiz, u ko‘pincha 0 bo‘ladi va jamiga qo‘shilmaydi.</div>';
+  h += '<div class="note" style="margin-top:8px">Sotuv, tannarx va foyda tanlangan davr uchun; qarzlar esa butun davr bo‘yicha. Tushum va xarajat — amaliyotlardagi shaxsiy ulushingiz, u ko‘pincha 0 bo‘ladi va jamiga qo‘shilmaydi.</div>';
   h += '<div style="height:8px"></div>'
      + '<div class="chips" style="padding:0;gap:6px">'
      + '<button class="chip" style="padding:5px 12px;font-size:12px" data-act="nav" data-screen="ombor">Ombor ›</button>'
@@ -2833,7 +2886,7 @@ function monthStock(p){
   if(!out.has) return out;
   var inMonth = {};
   curStock().forEach(function(m){
-    if(m.type==='out' && (m.date||'').slice(0,p.length)===p) inMonth[m.id]=1;
+    if(m.type==='out' && inPeriod(m.date, p)) inMonth[m.id]=1;
   });
   items.forEach(function(i){
     var pm = fifo(i.id).perMove;
@@ -4091,8 +4144,10 @@ document.addEventListener('click', function(e){
   }
   if(a==='open-item'){ go('item',{id:el.dataset.id}); return; }
   if(a==='repper'){
+    var pp = el.dataset.p;
+    if(pp==='range'){ openRangeModal(); return; }
     state.settings = state.settings || {};
-    state.settings.repPeriod = el.dataset.p==='year' ? 'year' : 'month';
+    state.settings.repPeriod = pp==='year' ? 'year' : 'month';
     commit(); return;
   }
   if(a==='icat'){ route.cat = el.dataset.c || ''; render(); return; }
