@@ -131,6 +131,25 @@ urinishi ham kerak. `migrateStock` da u unutilib, eski serverda butun
 ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
 `roleNote()` esa Ombor ekranida doimiy ogohlantirish ko‘rsatadi.
 
+## «Pulim» (Asosiy ekranning birinchi kartasi)
+
+`pulimCard()` — foydalanuvchining asosiy savoliga javob: **naqd pulim qancha**.
+
+```
+Pulim — naqd        walletTotal()   = hamma hisoblar ochilish + amaliyotlar
+Ombordagi tovar     stockTotal()    = FIFO qoldiq qiymati
+Menga qaytariladi   owedToMe        } meNetForGroup bo‘yicha
+Men qaytaraman      −iOwe           }
+Sof boylik          cash + goods + owedToMe − iOwe
+```
+
+Nol bo‘lgan qatorlar chiqmaydi; hech biri bo‘lmasa faqat naqd raqami qoladi.
+
+**Hozircha naqd to‘liq emas:** guruh amaliyotlari kassaga tegmaydi (ishchiga
+berilgan pul `state.transactions` ga tushmaydi). Shuning uchun guruh bo‘lsa
+karta ostida shuni aytadigan eslatma chiqadi. Keyingi qadam — ishchilar
+daftarini kassaga bog‘lash; o‘shanda eslatma olib tashlanadi.
+
 ## Birlashgan hisobot (Asosiy ekran)
 
 `combinedCard(ym)` — kassa hero dan keyin turadi, eski «Guruh hisob-kitobi»

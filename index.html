@@ -588,6 +588,11 @@ var I18N = {
   "Birlashgan hisobot":["Общий отчёт","Combined report"],
   "Guruh bo‘yicha sof":["Чистыми по группе","Group net"],
   "Hozir ombordagi tovar":["Товара на складе сейчас","Stock on hand now"],
+  "Pulim — naqd":["Мои деньги — наличные","My money — cash"],
+  "Hisoblaringizdagi qoldiq":["Остаток на ваших счетах","The balance of your accounts"],
+  "Ombordagi tovar":["Товар на складе","Stock on hand"],
+  "Sof boylik":["Чистые активы","Net worth"],
+  "Guruh amaliyotlari naqd pulga ta‘sir qilmaydi. Ishchiga bergan pul kassadan ham ayrilishi uchun uni «Amaliyotlar» ga chiqim qilib yozing.":["Операции в группах не влияют на наличные. Чтобы выданные работнику деньги списались из кассы, запишите их и в «Операции» как расход.","Group entries do not affect your cash. To deduct money given to a worker, also record it as an expense under “Transactions”."],
   "Ombordan tashqari":["Вне склада","Outside the inventory"],
   "Sof":["Чистыми","Net"],
   "Umumiy natija":["Общий итог","Overall"],
@@ -1634,7 +1639,9 @@ function viewHome(){
 
   h+='<div class="stack">';
 
-  h+='<div class="balance-hero">'
+  h+=pulimCard();
+
+  h+='<div class="balance-hero" style="margin-top:14px">'
     +'<span class="eyebrow">Bu oy sof natija</span>'
     +'<span class="big '+(net<0?'neg':net>0?'pos':'')+'">'+fmtMoney(net,true)+'</span>'
     +'<div class="flowrow">'
@@ -1735,6 +1742,40 @@ function cashOutside(p){
     else if(t.type==='expense') exp += t.amount;
   });
   return {inc:inc, exp:exp, net:inc-exp, has:(inc>0 || exp>0)};
+}
+/* hamma hisoblardagi naqd pul */
+function walletTotal(){
+  return state.accounts.reduce(function(a,x){ return a + accBalance(x.id); }, 0);
+}
+/* «Pulim qancha» — bosh ekranning eng birinchi javobi.
+   Naqd pul, ombordagi tovar va qarzlar bitta joyda. */
+function pulimCard(){
+  var cash  = walletTotal();
+  var goods = omborCanSee() ? stockTotal() : 0;
+  var owedToMe=0, iOwe=0;
+  state.groups.forEach(function(g){ var n=meNetForGroup(g); if(n>0) owedToMe+=n; else iOwe+=-n; });
+  var net = cash + goods + owedToMe - iOwe;
+  var sgn = function(v){ return v<0 ? 'neg' : v>0 ? 'pos' : ''; };
+  var rows = '';
+  if(goods)     rows += '<div class="kv"><span>Ombordagi tovar</span><b>'+fmtMoney(goods)+'</b></div>';
+  if(owedToMe)  rows += '<div class="kv"><span>Menga qaytariladi</span><b class="pos">'+fmtMoney(owedToMe)+'</b></div>';
+  if(iOwe)      rows += '<div class="kv"><span>Men qaytaraman</span><b class="neg">'+fmtMoney(-iOwe,true)+'</b></div>';
+
+  var h = '<div class="balance-hero" style="padding:14px 16px">'
+        + '<span class="eyebrow">Pulim — naqd</span>'
+        + '<span class="big '+sgn(cash)+'" style="font-size:27px">'+fmtMoney(cash)+'</span>'
+        + '<div class="sub" style="color:var(--ink-2);font-size:12.5px;margin-top:2px">Hisoblaringizdagi qoldiq</div>'
+        + '</div>';
+  if(rows){
+    h += '<div class="card" style="margin-top:10px">' + rows
+       + '<div class="kv" style="border-top:1px solid var(--line);margin-top:2px">'
+       + '<span><b>Sof boylik</b></span><b class="'+sgn(net)+'">'+fmtMoney(net,true)+'</b></div>';
+    if(state.groups.length){
+      h += '<div class="note" style="margin-top:8px">Guruh amaliyotlari naqd pulga ta‘sir qilmaydi. Ishchiga bergan pul kassadan ham ayrilishi uchun uni «Amaliyotlar» ga chiqim qilib yozing.</div>';
+    }
+    h += '</div>';
+  }
+  return h;
 }
 function combinedCard(ym){
   var R = repSel(ym), per = R.per, pref = R.p;
