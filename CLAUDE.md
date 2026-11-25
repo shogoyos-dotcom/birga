@@ -142,21 +142,21 @@ kartasi o‘rniga:
   ularning sofi
 - **Guruh**: ulushingiz bo‘yicha tushum/xarajat (`groupMonthShares`), qarzlar
   (`meNetForGroup`) va ularning sofi — qarzlar **butun davr** uchun
-- **Umumiy natija (sotuv + guruh)** = `S.sale + gDebt` — foydalanuvchi
-  aynan shunday so‘radi. Ombor ham, guruh ham bo‘lganda chiqadi.
-  **Sotuv — aylanma, foyda emas** (ichida tannarx bor), shuning uchun
-  yorliqda formulaning o‘zi yozilgan va «Foyda (FIFO)» alohida qator bo‘lib
-  turadi. Kassa sofi va «Hozir ombordagi tovar» jamiga **qo‘shilmaydi**
+- **Umumiy natija** = `S.sale + C.net + gDebt` — foydalanuvchi aynan shunday
+  so‘radi. Uchta manbadan kamida **ikkitasi** bo‘lganda chiqadi (bittada u
+  yuqoridagi qatorning takrori bo‘lib qolardi). **Sotuv — aylanma, foyda
+  emas** (ichida tannarx bor), shuning uchun «Foyda (FIFO)» alohida qator
+  bo‘lib turadi. Jamiga **faqat «Hozir ombordagi tovar» qo‘shilmaydi**
 
 **`cashOutside()` ikki marta sanashdan saqlaydi:** «Kassaga ham yozilsin»
 orqali ombor harakatiga bog‘langan amaliyotlar (`state.stock[].txId`) chiqarib
 tashlanadi — ular ombor qismida allaqachon hisoblangan. `curStock()` emas,
 aynan `state.stock`: `txId` faqat telefondagi harakatlarda bo‘ladi.
 
-**«Hozir ombordagi tovar» jamiga qo‘shilmaydi** — u pul emas, tovar. Kassa
-bo‘limi ham ko‘rsatiladi, lekin jamiga kirmaydi. Nima qo‘shilgani va nima
-qo‘shilmagani karta ostidagi izohda yozilgan — formula o‘zgarsa **izohni ham
-yangilang** (u lug‘atda kalit sifatida ham bor, ikkalasi bir xil bo‘lsin).
+**«Hozir ombordagi tovar» jamiga qo‘shilmaydi** — u pul emas, tovar. Nima
+qo‘shilgani va nima qo‘shilmagani karta ostidagi izohda yozilgan — formula
+o‘zgarsa **izohni ham yangilang** (u lug‘atda kalit sifatida ham bor,
+ikkalasi aynan bir xil bo‘lishi shart, aks holda tarjima mos tushmaydi).
 
 **Nega ulush emas, qarz?** «Qarz» turidagi yozuvlarda pulni egasi beradi,
 ulush esa butunlay boshqa a‘zoga yoziladi — ya‘ni `myShareIn()` 0 qaytaradi.

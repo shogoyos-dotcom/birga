@@ -91,10 +91,10 @@ must(/Menga qaytariladi\s*568 263/.test(t),'Menga qaytariladi 568 263');
 must(/Guruh bo‘yicha sof\s*\+568 263/.test(t), 'Guruh bo‘yicha sof +568 263');
 
 // ---------- ASOSIY TUZATISH: qarz jamiga kiradi ----------
-must(/Umumiy natija \(sotuv \+ guruh\)\s*\+1 468 263/.test(t),
-     'Umumiy natija +1 468 263 = sotuv 900 000 + guruh sof 568 263');
-must(!/Umumiy natija \(sotuv \+ guruh\)\s*\+1 118 263/.test(t),
-     'Foyda emas, aynan SOTUV qo‘shilgan');
+must(/Umumiy natija\s*\+1 718 263/.test(t),
+     'Umumiy natija +1 718 263 = sotuv 900 000 + tashqari 250 000 + guruh 568 263');
+must(!/Umumiy natija\s*\+1 118 263/.test(t), 'Foyda emas, aynan SOTUV qo‘shilgan');
+must(!/Umumiy natija\s*\+1 468 263/.test(t), 'Ombordan tashqari sof ham qo‘shilgan');
 must(!/Umumiy natija\s*0 /.test(t), 'Guruhda pul bor ekan, jami 0 emas');
 must(await card().locator('.kv', { hasText: 'Umumiy natija' }).count() === 1, 'Jami qatori bitta');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/h-oy.png' });
@@ -108,8 +108,8 @@ must(/Sotuv\s*1 650 000/.test(t),                 'Yil: sotuv 1 650 000 (900 000
 must(/Sotilganning tannarxi\s*1 100 000/.test(t), 'Yil: tannarx 1 100 000');
 must(/Foyda \(FIFO\)\s*\+550 000/.test(t),        'Yil: foyda +550 000');
 must(!/495 000/.test(t),                          'Yil: o‘tgan yilning sotuvi kirmaydi');
-must(/Umumiy natija \(sotuv \+ guruh\)\s*\+2 218 263/.test(t),
-     'Yil: umumiy +2 218 263 = sotuv 1 650 000 + guruh sof 568 263');
+must(/Umumiy natija\s*\+2 468 263/.test(t),
+     'Yil: umumiy +2 468 263 = sotuv 1 650 000 + tashqari 250 000 + guruh 568 263');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/h-yil.png' });
 
 // tanlov saqlanadimi
