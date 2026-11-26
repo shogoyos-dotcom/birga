@@ -95,7 +95,7 @@ must(/Oxirgi kirim narxi\s*8 so'm/.test(t.replace(/\s+/g, ' ')), 'Oxirgi kirim n
 must(/O‘rtacha kirim narxi\s*7[.,]09 so'm/.test(t.replace(/\s+/g, ' ')), 'O‘rtacha kirim narxi = 7.09 so‘m (780 000 / 110 000)');
 // qoldiq 25 000 × 7.0909 = 177 273
 must(/185 000/.test(t), 'Qoldiq qiymati FIFO bo‘yicha: 185 000 so‘m (15 000×7 + 10 000×8)');
-const firstMove = await pg.locator('.row[data-act="edit-move"]').first().textContent();
+const firstMove = await pg.locator('.row[data-act="move-view"]').first().textContent();
 must(/8 so'm/.test(firstMove), 'Harakatlar ro‘yxatida eng yangisi tepada: ' + firstMove.replace(/\s+/g, ' ').trim().slice(0, 40));
 await pg.screenshot({ path: (process.argv[2] || '.') + '/g-tovar.png' });
 

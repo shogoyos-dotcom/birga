@@ -135,7 +135,7 @@ await closeSheet();
 await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(600);
 await pg.click('[data-act="nav"][data-screen="items"]'); await pg.waitForTimeout(500);
 await pg.locator('.row[data-act="open-item"]').first().evaluate(e => e.click()); await pg.waitForTimeout(500);
-await pg.locator('.row[data-act="edit-move"]').first().evaluate(e => e.click()); await pg.waitForTimeout(600);
+await pg.locator('.row[data-act="move-view"]').first().evaluate(e => e.click()); await pg.waitForTimeout(600);
 t = (await pg.locator('#modal').textContent()).replace(/\s+/g, ' ');
 must(/Qo‘shdi\s*Aziz · 23-noy 07:05/.test(t), 'Ombor harakatida ham: Aziz · 23-noy 07:05');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/n-ombor.png' });

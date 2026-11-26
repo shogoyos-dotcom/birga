@@ -35,7 +35,7 @@ await pg.click('[data-screen="ombor"]'); await pg.waitForTimeout(400);
 must(await pg.locator('[data-screen="moves"]').count() === 1, 'Ombor ekranida «Harakatlar» tugmasi bor');
 await pg.click('[data-screen="moves"]'); await pg.waitForTimeout(500);
 
-const rows = () => pg.locator('[data-act="edit-move"]');
+const rows = () => pg.locator('[data-act="move-view"]');
 const stat = async () => (await pg.locator('.card').first().textContent()).replace(/\s+/g, ' ');
 must(await rows().count() === 3, 'Uchala harakat ham ro‘yxatda');
 let st = await stat();
@@ -74,8 +74,16 @@ must(await rows().count() === 3, 'Yil bo‘yicha ham uchalasi');
 await pg.click('[data-act="repper"][data-p="month"]'); await pg.waitForTimeout(400);
 
 // ================= TAHRIRLASH: KASSAGA HAM YOZILSIN =================
-await pg.locator('[data-act="edit-move"]').last().click();   // eng eskisi: Inbazar prihodi
-await pg.waitForTimeout(600);
+// qator bosilsa avval MA'LUMOT chiqadi, keyin tahrirlanadi
+await rows().last().click();   // eng eskisi: Inbazar prihodi
+await pg.waitForTimeout(500);
+let mv = (await pg.locator('#modal').textContent()).replace(/\s+/g, ' ');
+must(/Turi\s*Prihod \(kirim\)/.test(mv), 'Ma‘lumot oynasi: turi');
+must(/Kimdan \(ta‘minotchi\)\s*Inbazar/.test(mv), 'Ma‘lumot oynasi: ta‘minotchi');
+must(/Summa \(jami\)\s*1 320 000/.test(mv), 'Ma‘lumot oynasi: summa');
+must(/Kassada\s*Yo‘q/.test(mv), 'Ma‘lumot oynasi: hozircha kassada yo‘q');
+await pg.screenshot({ path: (process.argv[2] || '.') + '/k-harakat-malumot.png' });
+await pg.click('#modal [data-act="edit-move-go"]'); await pg.waitForTimeout(600);
 must(await pg.locator('#modal select[name="party"]').inputValue() === 'Inbazar',
      'Tahrirlashda ta‘minotchi tanlangan turadi');
 must((await pg.locator('#modal #mpartyl').textContent()) === 'Kimdan (ta‘minotchi)',
@@ -135,6 +143,21 @@ const made = await pg.evaluate(() => {
 must(made.party === 'Yangi zavod', 'Yangi ta‘minotchi saqlandi: ' + made.party);
 must(made.note === 'sinov', 'Izoh alohida saqlandi: ' + made.note);
 must(await pg.locator('#mvsup option').count() === 4, 'Yangi ta‘minotchi filtrda ham paydo bo‘ldi');
+
+// ================= «TANLANMAGAN» FILTRI =================
+// nomi yozilmagan rasxod qo'shamiz
+await pg.click('#fab'); await pg.waitForTimeout(600);
+await pg.click('#modal [data-t="out"]'); await pg.waitForTimeout(300);
+await pg.fill('#modal input[name="qty"]', '7');
+await pg.fill('#modal input[name="price"]', '2000');
+await pg.click('#modal button[type="submit"]'); await pg.waitForTimeout(700);
+
+must((await pg.locator('#mvcli option').allTextContents()).join('|') === 'Hamma klient|Tanlanmagan|Shox aka',
+     'Nomsiz rasxod bo‘lsa «Tanlanmagan» qo‘shiladi');
+await pg.selectOption('#mvcli', '__none'); await pg.waitForTimeout(400);
+must(await rows().count() === 1, 'Faqat klienti yozilmagan rasxod');
+must(/Sotuv \(rasxod\)\s*14 000/.test(await stat()), 'Uning summasi 7 × 2 000 = 14 000');
+await pg.selectOption('#mvcli', ''); await pg.waitForTimeout(400);
 
 must(errs.length === 0, 'JS xatosi yo‘q' + (errs.length ? ': ' + errs[0] : ''));
 await b.close();

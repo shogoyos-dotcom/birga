@@ -125,6 +125,29 @@ must((await pg.locator('#modal .xinput').first().inputValue()) === '', 'Rejim al
 st = await stat();
 must(/4 kishi teng — har biriga 17 250/.test(st), 'Shaxsiysiz holat avvalgidek: ' + st);
 
+// ================= «NIMA UCHUN» MAJBURIY EMAS =================
+must((await pg.locator('#modal label', { hasText: 'Nima uchun' }).first().textContent()).includes('ixtiyoriy'),
+     '«Nima uchun» yorlig‘ida «ixtiyoriy» yozilgan');
+// nomsiz amaliyot — ro'yxatda kategoriya nomi ko'rinsin
+await pg.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem('birga_v1'));
+  s.groups[0].expenses = [
+    { id:'e1', type:'expense', title:'',  amount:50000, date:'2026-11-26', paidBy:'__me__',
+      categoryName:'Oziq-ovqat', splits:[{memberId:'__me__', share:50000}] },
+    { id:'e2', type:'income',  title:'',  amount:30000, date:'2026-11-26', paidBy:'m2',
+      categoryName:'', splits:[{memberId:'m2', share:30000}] }
+  ];
+  localStorage.setItem('birga_v1', JSON.stringify(s));
+  localStorage.setItem('birga_groups_cache', JSON.stringify(s.groups));
+});
+await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(900);
+await pg.click('[data-screen="groups"]'); await pg.waitForTimeout(400);
+await pg.click('.row.tap'); await pg.waitForTimeout(500);
+let gt = (await pg.locator('#screen').textContent()).replace(/\s+/g, ' ');
+must(/Oziq-ovqat/.test(gt), 'Nomsiz xarajat kategoriya nomi bilan ko‘rinadi: ' + gt.slice(0, 80));
+must(/Tushum/.test(gt), 'Kategoriyasi ham yo‘q bo‘lsa — turi ko‘rinadi («Tushum»)');
+await pg.screenshot({ path: (process.argv[2] || '.') + '/k-nomsiz.png' });
+
 must(errs.length === 0, 'JS xatosi yo‘q' + (errs.length ? ': ' + errs[0] : ''));
 await b.close();
 console.log('\n' + (fails ? fails + ' TA YIQILDI' : 'HAMMASI O‘TDI'));
