@@ -214,6 +214,23 @@ mavjud bo‘lmagan klaviaturani taqlid qiladi va kamchilik ko‘rinmay qoladi.
 `buildSplitBody(mode, …)` va `recalc()` da: `equal` (teng), `exact` (aniq
 summa), `shares` (ulush nisbati), **`pct` (foiz)**.
 
+### «Teng» + shaxsiy qo‘shimcha
+
+Teng rejimidagi har bir qatorda **«+ shaxsiy»** maydoni bor (`.xinput`).
+Hisob `splitEqualPlus(amount, ids, extra, allIds)` da: avval kimning nimasi
+o‘ziniki bo‘lsa ayriladi, **qolgani belgilanganlar orasida teng bo‘linadi**.
+69 000 dan 7 000 Izzatniki bo‘lsa, qolgan 62 000 ikkiga bo‘linadi →
+Izzat 38 000, SHO 31 000.
+
+- shaxsiy summa **belgilanmagan** a‘zoda ham hisobga olinadi (u faqat o‘zinikini
+  to‘laydi, qolganiga qo‘shilmaydi)
+- hech kim belgilanmasa — faqat shaxsiylar yoziladi, qolgani to‘lovchida qoladi
+- shaxsiylar yig‘indisi summadan oshsa `_readSplits()` `null` qaytaradi
+
+Qator `<label>` bo‘lgani uchun ichidagi maydon bosilganda belgilash tugmasi
+**almashmaydi** — HTML spetsifikatsiyasi bo‘yicha interaktiv element ichidagi
+bosish `<label>` ga o‘tmaydi.
+
 `splitPct(amount, pairs)` — har kimga `%`. Foizlar yig‘indisi 100 dan **kam
 bo‘lsa, qolgani bo‘linmaydi** va to‘lovchida qoladi; 100 dan **oshsa**
 `_readSplits()` `null` qaytaradi, ya‘ni saqlanmaydi. Taqsimlashni
