@@ -84,12 +84,15 @@ create table if not exists stock_moves (
   price numeric not null default 0,
   occurred_on date not null default current_date,
   note text,
+  party text,                                    -- kimdan / kimga: ta'minotchi yoki klient
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
 create index if not exists stock_moves_group_idx on stock_moves(group_id);
 alter table stock_moves add column if not exists updated_by uuid references auth.users(id);
 alter table stock_moves add column if not exists updated_at timestamptz;
+-- kimdan / kimga: prihodda ta'minotchi, rasxodda klient
+alter table stock_moves add column if not exists party text;
 create index if not exists stock_moves_item_idx on stock_moves(item_id);
 
 -- ---------- Yordamchi funksiyalar (RLS uchun) ----------

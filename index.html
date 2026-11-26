@@ -484,7 +484,18 @@ var I18N = {
   "Hech kimga qarzingiz yo‘q":["Вы никому не должны","You owe nothing"],
   "Taklif havolasi yaroqsiz.":["Ссылка-приглашение недействительна.","The invite link is not valid."],
   "Tovarni o‘chirib bo‘lmadi":["Не удалось удалить товар","Could not delete the item"],
-  "kimdan / kimga, ixtiyoriy":["от кого / кому, необязательно","from / to, optional"],
+  "Kimdan (ta‘minotchi)":["От кого (поставщик)","From (supplier)"],
+  "Kimga (klient)":["Кому (клиент)","To (client)"],
+  "— yo‘q —":["— нет —","— none —"],
+  "+ Yangi…":["+ Новый…","+ New…"],
+  "Yangi nom":["Новое имя","New name"],
+  "Ta‘minotchi":["Поставщик","Supplier"],
+  "Klient":["Клиент","Client"],
+  "Hamma tovar":["Все товары","All items"],
+  "Hamma ta‘minotchi":["Все поставщики","All suppliers"],
+  "Hamma klient":["Все клиенты","All clients"],
+  "Harakat topilmadi":["Движений не найдено","No movements found"],
+  "Harakatlar soni":["Количество движений","Movement count"],
   "A‘zoni chiqarib bo‘lmadi":["Не удалось исключить участника","Could not remove the member"],
   "Chek rasmini biriktirish":["Прикрепить фото чека","Attach receipt photo"],
   "Guruhdan chiqib bo‘lmadi":["Не удалось выйти из группы","Could not leave the group"],
@@ -1513,7 +1524,7 @@ function loadGroups(){
         stock:(row.stock_moves||[]).map(function(x){
           return {id:x.id, itemId:x.item_id, type:(x.type==='out'?'out':'in'),
                   qty:Number(x.qty)||0, price:Number(x.price)||0,
-                  date:x.occurred_on, note:x.note||'', txId:null,
+                  date:x.occurred_on, note:x.note||'', party:x.party||'', txId:null,
                   createdAt:x.created_at, createdBy:x.created_by,
                   updatedAt:x.updated_at, updatedBy:x.updated_by};
         })
@@ -1720,13 +1731,13 @@ function meNetForGroup(g){ return computeBalances(g)[meId(g)]||0; }
 /* ---------- render ---------- */
 function render(){
   try{
-    var map={home:'home',day:'home',tx:'tx',ombor:'ombor',items:'ombor',item:'ombor',groups:'groups',group:'groups',profil:'profil'};
+    var map={home:'home',day:'home',tx:'tx',ombor:'ombor',items:'ombor',item:'ombor',moves:'ombor',groups:'groups',group:'groups',profil:'profil'};
     tabbar.innerHTML = tr(NAV_HTML);
     Array.prototype.forEach.call(tabbar.children, function(btn){
       btn.setAttribute('aria-current', btn.dataset.screen===map[route.name] ? 'page':'false');
     });
     /* yopiq guruh omborida qo‘shish tugmasi ham ko‘rinmasin */
-    var lockedStock = (route.name==='ombor'||route.name==='items'||route.name==='item') && !omborCanSee();
+    var lockedStock = (route.name==='ombor'||route.name==='items'||route.name==='item'||route.name==='moves') && !omborCanSee();
     fabWrap.hidden = (route.name==='profil') || lockedStock;
     var html='';
     if(route.name==='home') html=viewHome();
@@ -1737,6 +1748,7 @@ function render(){
     else if(route.name==='ombor') html=viewOmbor();
     else if(route.name==='items') html=viewItems();
     else if(route.name==='item') html=viewItem();
+    else if(route.name==='moves') html=viewMoves();
     else if(route.name==='profil') html=viewProfil();
     screenEl.innerHTML=tr(html);
     if(mountFns[route.name]) mountFns[route.name]();
@@ -3197,6 +3209,37 @@ function stampRow(row, existing){
   }
   return row;
 }
+/* xuddi shunday: «kimdan / kimga» — ta‘minotchi va klient */
+var sbHasParty = true, partySqlWarned = false;
+function isMissingParty(e){
+  /* «party» so‘zi aniq — audit tekshiruvidan oldin ishlaydi */
+  return sbHasParty && /\bparty\b/i.test((e && e.message) || '');
+}
+function partySqlHint(){
+  if(partySqlWarned) return;
+  partySqlWarned = true;
+  alert('Serveringizda «kimdan / kimga» uchun joy yo‘q — «Profil ▸ Serverni yangilash (SQL)» ni yana bir marta bajaring.\n\nHarakatning o‘zi saqlandi; faqat ta‘minotchi/klient yozilmadi.');
+}
+function moveRow(g, data, existing){
+  var row = {group_id:g.id, item_id:data.itemId, type:data.type, qty:data.qty,
+             price:data.price||0, occurred_on:data.date, note:data.note||null};
+  if(sbHasParty) row.party = (data.party||'').trim() || null;
+  return stampRow(row, existing);
+}
+/* eski serverda ustun bo‘lmasa — usiz qayta yuboramiz (party, keyin audit) */
+function sendRetry(send){
+  var tries = 0;
+  var attempt = function(){
+    return send().then(function(r){
+      if(r.error && tries < 3){
+        if(isMissingParty(r.error)){ tries++; sbHasParty=false; partySqlHint(); return attempt(); }
+        if(isMissingAudit(r.error)){ tries++; sbHasAudit=false; auditSqlHint(); return attempt(); }
+      }
+      return r;
+    });
+  };
+  return attempt();
+}
 function itemRow(g, data){
   var row={group_id:g.id, name:data.name, unit:data.unit, min_qty:data.min||0};
   if(sbHasItemCat) row.cat = (data.cat||'').trim() || null;
@@ -3239,15 +3282,11 @@ function deleteItemCloud(g, id, done){
 function saveMoveCloud(g, existing, data, done){
   if(!canEdit(g)){ stockDenied(); return; }
   var send=function(){
-    var row=stampRow({group_id:g.id, item_id:data.itemId, type:data.type, qty:data.qty,
-                      price:data.price||0, occurred_on:data.date, note:data.note||null}, existing);
+    var row=moveRow(g, data, existing);
     return existing ? SB.from('stock_moves').update(row).eq('id',existing.id)
                     : SB.from('stock_moves').insert(row);
   };
-  send().then(function(r){
-    if(r.error && isMissingAudit(r.error)){ sbHasAudit=false; auditSqlHint(); return send(); }
-    return r;
-  }).then(function(r){
+  sendRetry(send).then(function(r){
     if(r.error) throw r.error;
     return loadGroups().then(function(){ done && done(); });
   }).catch(sbFail);
@@ -3290,6 +3329,19 @@ function noteHints(){
   });
   return out.slice(0,20);
 }
+/* Kimdan / kimga — shu ombordagi oldingilari, yangisidan eskisiga.
+   Alohida ro‘yxat: prihodda ta‘minotchi, rasxodda klient. */
+function partyHints(type){
+  var seen={}, out=[];
+  curStock().slice().reverse().forEach(function(m){
+    if(type && m.type!==type) return;
+    var t=(m.party||'').trim();
+    if(!t || seen[t.toLowerCase()]) return;
+    seen[t.toLowerCase()]=1; out.push(t);
+  });
+  return out;
+}
+function partyLabel(type){ return type==='in' ? 'Kimdan (ta‘minotchi)' : 'Kimga (klient)'; }
 /* o‘rtacha kirim narxi — jami prihod puli / jami prihod miqdori */
 function avgInPrice(id){
   var q=0, sm=0;
@@ -3563,6 +3615,8 @@ function viewOmbor(){
 
   h += '<button class="btn btn-primary btn-block" data-act="nav" data-screen="items">'
      + 'Tovarlar (' + curItems().length + ')' + (lowN ? ' · ⚠ '+lowN : '') + '</button>';
+  h += '<button class="btn btn-block" data-act="nav" data-screen="moves">'
+     + 'Harakatlar (' + curStock().length + ')</button>';
   if(canEd) h += '<button class="btn btn-block" data-act="add-item">Tovar qo‘shish</button>';
   if(g && canEd && state.items.length) h += migrateCard(g);
   h += '</div>';
@@ -3599,12 +3653,17 @@ function migrateStock(g){
     /* eski id → yangi id */
     var map={}, made=r.data||[];
     state.items.forEach(function(old, ix){ if(made[ix]) map[old.id]=made[ix].id; });
-    var moves = state.stock.filter(function(m){ return map[m.itemId]; }).map(function(m){
-      return {group_id:g.id, item_id:map[m.itemId], type:m.type, qty:m.qty,
-              price:m.price||0, occurred_on:m.date, note:m.note||null, created_by:SB_UID};
-    });
-    if(!moves.length) return {error:null};
-    return SB.from('stock_moves').insert(moves);
+    var src = state.stock.filter(function(m){ return map[m.itemId]; });
+    if(!src.length) return {error:null};
+    var sendMoves = function(){
+      return SB.from('stock_moves').insert(src.map(function(m){
+        var row = {group_id:g.id, item_id:map[m.itemId], type:m.type, qty:m.qty,
+                   price:m.price||0, occurred_on:m.date, note:m.note||null, created_by:SB_UID};
+        if(sbHasParty) row.party = (m.party||'').trim() || null;
+        return row;
+      }));
+    };
+    return sendRetry(sendMoves);
   }).then(function(r){
     if(r && r.error) throw r.error;
     return loadGroups();
@@ -3780,8 +3839,9 @@ function viewItem(){
   h += '<div class="list">';
   ms.forEach(function(m){
     var inn = m.type==='in';
+    var sub = [m.party, m.note].filter(Boolean).map(esc).join(' · ');
     h += '<div class="row'+(canEd?' tap':'')+'"'+(canEd?(' data-act="edit-move" data-id="'+m.id+'"'):'')+'>'
-       + '<div class="main"><div class="t">'+(inn?'Prihod':'Rasxod')+(m.note?' · '+esc(m.note):'')+'</div>'
+       + '<div class="main"><div class="t">'+(inn?'Prihod':'Rasxod')+(sub?' · '+sub:'')+'</div>'
        + '<div class="s">'+fmtDateShort(m.date)+(m.price>0?' · '+fmtPrice(m.price)+'/'+esc(i.unit||'dona'):'')
        + (m.txId?' · kassada':'')+'</div></div>'
        + '<div class="end"><div class="a">'+(inn?'+':'−')+fmtQty(m.qty, i.unit)+'</div>'
@@ -3794,6 +3854,109 @@ function viewItem(){
   h += '</div></div></div>';
   return h;
 }
+
+/* ---------- HARAKATLAR: tovar / ta‘minotchi / klient / davr bo‘yicha ---------- */
+/* Filtr `route` da turadi — boshqa ekranga o‘tib qaytsa tozalanadi. */
+function mvFilter(){ return {item:route.mi||'', sup:route.ms||'', cli:route.mc||''}; }
+function mvMoves(p){
+  var f = mvFilter();
+  return curStock().map(function(m,ix){ return {m:m, ix:ix}; })
+    .filter(function(x){
+      var m = x.m;
+      if(!inPeriod(m.date, p)) return false;
+      if(f.item && m.itemId!==f.item) return false;
+      if(f.sup && !(m.type==='in'  && (m.party||'')===f.sup)) return false;
+      if(f.cli && !(m.type==='out' && (m.party||'')===f.cli)) return false;
+      return true;
+    })
+    .sort(function(a,b){ return a.m.date<b.m.date ? 1 : a.m.date>b.m.date ? -1 : (b.ix-a.ix); })
+    .map(function(x){ return x.m; });
+}
+function viewMoves(){
+  var g = omborGroup(), canEd = omborCanEdit();
+  var h = '<div class="topbar"><button class="back-btn" data-act="nav" data-screen="ombor">‹ Ombor</button>'
+        + '<span class="eyebrow">'+(g?'☁ ':'')+esc(omborName())+'</span></div>';
+  if(g && !canSeeStock(g)){
+    return h + '<div class="empty">🔒 Guruh egasi sizga ombor huquqini bermagan.</div>';
+  }
+
+  var per = repPeriod(), R = repSel(route.ym || today().slice(0,7));
+  var f = mvFilter();
+  h += '<div class="chips" style="padding-bottom:0">'
+     + ['month','year','range'].map(function(x,i){
+         return '<button class="chip" data-act="repper" data-p="'+x+'" aria-pressed="'+(per===x)+'">'
+              + ['Oy','Yil','Davr'][i] + '</button>';
+       }).join('')
+     + '</div>'
+     + '<div class="eyebrow" style="margin:7px 0 7px">'+esc(R.label)+'</div>';
+
+  var sups = partyHints('in'), clis = partyHints('out');
+  var opts = function(list, cur){
+    return list.map(function(x){
+      return '<option value="'+esc(x)+'"'+(x===cur?' selected':'')+'>'+esc(x)+'</option>';
+    }).join('');
+  };
+  h += '<div class="filters">'
+     + '<select id="mvitem"><option value="">Hamma tovar</option>'
+     + curItems().map(function(i){
+         return '<option value="'+i.id+'"'+(i.id===f.item?' selected':'')+'>'+esc(i.name)+'</option>';
+       }).join('') + '</select>'
+     + (sups.length ? '<select id="mvsup"><option value="">Hamma ta‘minotchi</option>'+opts(sups,f.sup)+'</select>' : '')
+     + (clis.length ? '<select id="mvcli"><option value="">Hamma klient</option>'+opts(clis,f.cli)+'</select>' : '')
+     + '</div>';
+
+  var ms = mvMoves(R.p);
+  var fc = {}, fm = function(id){ if(!fc[id]) fc[id]=fifo(id); return fc[id]; };
+  var inSum=0, outSum=0, profit=0, hasProfit=false;
+  ms.forEach(function(m){
+    var amt = Math.round(m.qty*(m.price||0));
+    if(m.type==='in'){ inSum += amt; return; }
+    outSum += amt;
+    var pm = fm(m.itemId).perMove[m.id];
+    if(pm && m.price>0){ profit += pm.profit; hasProfit = true; }
+  });
+  h += '<div class="card">'
+     + kv('Harakatlar soni', String(ms.length))
+     + '<div class="kv"><span>Jami prihod</span><b class="neg">'+fmtMoney(inSum)+'</b></div>'
+     + '<div class="kv"><span>Sotuv (rasxod)</span><b class="pos">'+fmtMoney(outSum)+'</b></div>'
+     + (hasProfit ? '<div class="kv"><span>Foyda (FIFO)</span><b class="'+(profit<0?'neg':profit>0?'pos':'')+'">'
+                    + fmtMoney(profit,true)+'</b></div>' : '')
+     + '</div>';
+
+  if(!ms.length) return h + '<div class="empty">Harakat topilmadi</div>';
+
+  h += '<div class="card"><div class="card-h"><h2>Harakatlar</h2></div><div class="list">';
+  ms.forEach(function(m){
+    var i = itm(m.itemId) || {name:'?', unit:'dona'};
+    var inn = m.type==='in';
+    var sub = [m.party, m.note].filter(Boolean).map(esc).join(' · ');
+    var pm = !inn && m.price>0 ? fm(m.itemId).perMove[m.id] : null;
+    h += '<div class="row'+(canEd?' tap':'')+'"'+(canEd?(' data-act="edit-move" data-id="'+m.id+'"'):'')+'>'
+       + '<div class="main"><div class="t">'+esc(i.name)+'</div>'
+       + '<div class="s">'+(inn?'Prihod':'Rasxod')+(sub?' · '+sub:'')+'</div>'
+       + '<div class="s">'+fmtDateShort(m.date)+(m.txId?' · kassada':'')+'</div></div>'
+       + '<div class="end"><div class="a">'+(inn?'+':'−')+fmtQty(m.qty, i.unit)+'</div>'
+       + (m.price>0?'<div class="s">'+fmtMoney(m.qty*m.price)+'</div>':'')
+       + (pm ? '<div class="s '+(pm.profit<0?'neg':'pos')+'">foyda '+fmtMoney(pm.profit,true)+'</div>' : '')
+       + '</div></div>';
+  });
+  return h + '</div></div>';
+}
+mountFns.moves = function(){
+  var bind = function(id, key, clear){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.onchange = function(){
+      route[key] = el.value;
+      if(el.value && clear) clear.forEach(function(k){ route[k]=''; });
+      render();
+    };
+  };
+  /* ta‘minotchi prihodda, klient rasxodda — ikkisi birga mantiqsiz */
+  bind('mvitem','mi');
+  bind('mvsup','ms',['mc']);
+  bind('mvcli','mc',['ms']);
+};
 
 /* ---------- tovar modali ---------- */
 function openItemModal(existing, onDone){
@@ -3853,7 +4016,7 @@ function openStockModal(existing, presetItem, presetType){
     itemId: m0item,
     /* oxirgi narx o‘zi turadi — har safar qaytadan yozmaslik uchun;
        o‘chirib boshqasini yozsa, o‘sha qoladi */
-    qty:'', price: (lastPriceOf(m0item, m0type) || ''), date: today(), note:''
+    qty:'', price: (lastPriceOf(m0item, m0type) || ''), date: today(), note:'', party:''
   };
   var isEdit = !!existing;
   var linked = isEdit ? moveTx(m) : null;
@@ -3869,8 +4032,12 @@ function openStockModal(existing, presetItem, presetType){
     + '</div>'
     + '<div class="field"><label>Summa (jami)</label><input name="total" inputmode="numeric" placeholder="0"></div>'
     + '<div class="field"><label>Sana</label><input type="date" name="date" value="'+m.date+'"></div>'
+    + '<div class="field"><label id="mpartyl">'+partyLabel(m.type)+'</label>'
+    + '<select name="party" id="mparty"></select>'
+    + '<input name="partyNew" id="mpartynew" placeholder="Yangi nom" hidden style="margin-top:7px">'
+    + '</div>'
     + '<div class="field"><label>Izoh</label>'
-    + '<input name="note" list="notehints" value="'+esc(m.note||'')+'" placeholder="kimdan / kimga, ixtiyoriy">'
+    + '<input name="note" list="notehints" value="'+esc(m.note||'')+'" placeholder="ixtiyoriy">'
     + '<datalist id="notehints">'+noteHints().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('')+'</datalist>'
     + '</div>'
     + (omborGroup()
@@ -3904,6 +4071,25 @@ function openStockModal(existing, presetItem, presetType){
         suggested = String(np);
         form.price.value = suggested;
       };
+      /* Kimdan / kimga — tanlanadi yoki yangisi yoziladi (tovarga o‘xshab).
+         Prihod va rasxod ro‘yxati alohida: ta‘minotchi va klient. */
+      var psel = form.party, pnew = form.partyNew;
+      var fillParty = function(keep){
+        var cur = (keep!=null) ? keep : ((m.party||'').trim());
+        var list = partyHints(type);
+        if(cur && list.indexOf(cur)<0) list = [cur].concat(list);
+        psel.innerHTML = '<option value="">'+tr('— yo‘q —')+'</option>'
+          + list.map(function(x){ return '<option value="'+esc(x)+'">'+esc(x)+'</option>'; }).join('')
+          + '<option value="__new">'+tr('+ Yangi…')+'</option>';
+        psel.value = (cur && list.indexOf(cur)>=0) ? cur : '';
+        pnew.hidden = true; pnew.value = '';
+        root.querySelector('#mpartyl').textContent = tr(partyLabel(type));
+      };
+      psel.addEventListener('change', function(){
+        if(psel.value==='__new'){ pnew.hidden=false; pnew.focus(); }
+        else { pnew.hidden=true; pnew.value=''; }
+      });
+      fillParty();
       var paint = function(){
         var it = itm(form.itemId.value);
         var unit = (it && it.unit) || 'dona';
@@ -3931,6 +4117,7 @@ function openStockModal(existing, presetItem, presetType){
             x.setAttribute('aria-pressed', x.dataset.t===type);
           });
           suggestPrice();
+          fillParty('');          /* ta‘minotchi va klient ro‘yxati alohida */
           paint();
         });
       });
@@ -3983,7 +4170,8 @@ function openStockModal(existing, presetItem, presetType){
         itemId: form.itemId.value, type: type, qty: qty,
         price: parseAmount(form.price.value),
         date: form.date.value || today(),
-        note: form.note.value.trim()
+        note: form.note.value.trim(),
+        party: (form.party.value==='__new' ? form.partyNew.value : form.party.value).trim()
       };
       var g2 = omborGroup();
       if(g2){
@@ -3994,6 +4182,7 @@ function openStockModal(existing, presetItem, presetType){
       var target = isEdit ? m : {id:uid()};
       target.itemId=data.itemId; target.type=data.type; target.qty=data.qty;
       target.price=data.price; target.date=data.date; target.note=data.note;
+      target.party=data.party;
       if(!isEdit){ target.txId = null; state.stock.push(target); }
       syncMoveTx(target, form.kassa && form.kassa.checked, form.accountId ? form.accountId.value : null);
       closeModal(); commit();
@@ -4445,6 +4634,7 @@ var PERM_SQL = [
   "alter table entries     add column if not exists updated_at timestamptz;",
   "alter table stock_moves add column if not exists updated_by uuid references auth.users(id);",
   "alter table stock_moves add column if not exists updated_at timestamptz;",
+  "alter table stock_moves add column if not exists party text;",
   "",
   "-- 2) Yangi a'zo sukut bo'yicha faqat ko'radi va omborni ko'rmaydi",
   "alter table members alter column role set default 'viewer';",
@@ -4550,7 +4740,7 @@ document.addEventListener('click', function(e){
     if(route.name==='groups') openGroupModal();
     else if(route.name==='group') openExpenseModal(route.id);
     else if(route.name==='tx' && route.grp && route.grp!=='__p' && grp(route.grp)) openExpenseModal(route.grp);
-    else if(route.name==='ombor' || route.name==='items'){
+    else if(route.name==='ombor' || route.name==='items' || route.name==='moves'){
       if(!omborCanEdit()){ stockDenied(); return; }
       openStockModal();
     }
