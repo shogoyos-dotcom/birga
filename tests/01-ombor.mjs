@@ -85,7 +85,7 @@ await pg.waitForTimeout(200);
 if (await pg.locator('[data-act="nav"][data-screen="items"]').count()) { await pg.click('[data-act="nav"][data-screen="items"]'); await pg.waitForTimeout(350); }
 await pg.click('.row[data-act="open-item"]');
 await pg.waitForTimeout(250);
-await pg.click('.row[data-act="edit-move"]');
+await pg.click('.row[data-act="move-view"]');   // avval ma'lumot oynasi
 await pg.waitForTimeout(250);
 // qaysi harakat ochilganini modaldagi tugmadan aniqlaymiz
 const delId = await pg.getAttribute('[data-act="del-move"]', 'data-id');

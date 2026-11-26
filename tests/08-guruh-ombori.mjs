@@ -78,7 +78,12 @@ await pg.click('.row[data-act="open-item"]'); await pg.waitForTimeout(400);
 t = await pg.locator('#screen').textContent();
 must(await pg.locator('[data-act="add-move"]').count() === 0, 'Tovar ekranida «Prihod +/Rasxod −» yo‘q');
 must(await pg.locator('[data-act="edit-item"]').count() === 0, '«Tahrirlash» yo‘q');
-must(await pg.locator('[data-act="edit-move"]').count() === 0, 'Harakat qatori bosilmaydi');
+// qator bosiladi, lekin faqat ma'lumot chiqadi — tahrirlash tugmasi yo'q
+must(await pg.locator('[data-act="move-view"]').count() > 0, 'Harakat qatori bosiladi (ma‘lumot uchun)');
+await pg.locator('[data-act="move-view"]').first().click(); await pg.waitForTimeout(400);
+must(await pg.locator('#modal [data-act="edit-move-go"]').count() === 0, 'Ma‘lumot oynasida «Tahrirlash» yo‘q');
+must(await pg.locator('#modal [data-act="del-move"]').count() === 0, 'Ma‘lumot oynasida «O‘chirish» ham yo‘q');
+await pg.locator('#modal .close-x').evaluate(e => e.click()); await pg.waitForTimeout(300);
 must(/150 kg/.test(t), 'Qoldiq to‘g‘ri: 150 kg (200 − 50)');
 await pg.screenshot({ path: (process.argv[2] || '.') + '/o-tovar.png' });
 

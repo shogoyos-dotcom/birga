@@ -185,16 +185,41 @@ qiladi — `saveMoveCloud` ham, `migrateStock` ham shuni ishlatadi.
 Ta‘minotchi bilan klient **birga mantiqsiz** (harakat yo kirim, yo chiqim),
 shuning uchun biri tanlansa ikkinchisi tozalanadi (`mountFns.moves`).
 
+Nomi yozilmagan harakat bo‘lsa ro‘yxatga **«Tanlanmagan»** (`__none`) ham
+qo‘shiladi — shunday harakatlarni topish uchun. Tanlagich esa faqat
+hech bo‘lmasa bitta nom bo‘lganda chiqadi.
+
 Filtr `route` da turadi — boshqa ekranga o‘tib qaytsa tozalanadi; davr esa
 `state.settings.repPeriod` da, ya‘ni butun ilovada bitta.
 
 Jami: harakatlar soni, jami prihod, sotuv, **Foyda (FIFO)** — oxirgisi
 `fifo().perMove` dan, har tovar uchun bir marta hisoblanadi (`fc` keshi).
 
-Qator bosilsa harakat tahrirlanadi — **«Kassaga ham yozilsin» shu yerdan
-yetiladi**: avval prihod yoziladi (pul bermay), keyin to‘laganda shu
-katakcha belgilanadi va `syncMoveTx` kassaga chiqim yozadi. Pul harakati
+### Avval ma‘lumot, keyin tahrirlash
+
+Harakat qatori bosilsa `openMoveView(m)` ochiladi — guruh amaliyotidagi
+`openEntryView` kabi: turi, tovar, narx, summa, sana, kimdan/kimga, izoh,
+rasxodda FIFO foyda, shaxsiy omborda «Kassada» qatori va `auditBlock`.
+Pastida **«Tahrirlash»** (`edit-move-go`) va «O‘chirish».
+
+Ro‘yxat qatorlari `data-act="move-view"` — **ruxsati yo‘q a‘zo ham**
+ma‘lumotni ko‘radi, faqat tugmalar chiqmaydi (`omborCanEdit()`).
+`edit-move` acti qoldi, lekin endi uni faqat `edit-move-go` ishlatadi.
+
+**«Kassaga ham yozilsin» shu yo‘ldan yetiladi**: avval prihod yoziladi
+(pul bermay), keyin to‘laganda harakat ochilib tahrirlanadi va katakcha
+belgilanadi — `syncMoveTx` kassaga chiqim yozadi. Pul harakati
 **harakatning sanasi** bilan yoziladi, to‘lov kuni bilan emas.
+
+## «Nima uchun» majburiy emas
+
+Guruh amaliyotida sarlavha bo‘sh qolishi mumkin. Ekranda bo‘shliq
+qolmasligi uchun `entryTitle(e)` ishlatiladi: **sarlavha → kategoriya nomi →
+turi** («Chiqim» / «Tushum»). Amaliyot qatori, avatar harflari va
+`openEntryView` sarlavhasi — hammasi shundan o‘tadi, ya‘ni yangi joyda
+`e.title` ni to‘g‘ridan-to‘g‘ri yozmang.
+
+Tekshiruvda faqat summa qoldi: `if(amt<=0){ form.amount.focus(); return; }`.
 
 ## Izoh takliflari
 

@@ -495,6 +495,10 @@ var I18N = {
   "Hamma ta‘minotchi":["Все поставщики","All suppliers"],
   "Hamma klient":["Все клиенты","All clients"],
   "Harakat topilmadi":["Движений не найдено","No movements found"],
+  "Tanlanmagan":["Не указан","Not set"],
+  "Nima uchun (ixtiyoriy)":["За что (необязательно)","What for (optional)"],
+  "Kassada":["В кассе","In cash book"],
+  "Ha — pul harakati yozilgan":["Да — движение денег записано","Yes — a cash movement exists"],
   "Harakatlar soni":["Количество движений","Movement count"],
   "A‘zoni chiqarib bo‘lmadi":["Не удалось исключить участника","Could not remove the member"],
   "Chek rasmini biriktirish":["Прикрепить фото чека","Attach receipt photo"],
@@ -1147,6 +1151,15 @@ function exactShares(total, raw, ids){
 
 /* ---------- group balances ---------- */
 function entryType(e){ return e.type==='income' ? 'income' : 'expense'; }
+/* «Nima uchun» majburiy emas — bo‘sh bo‘lsa kategoriya nomi,
+   u ham bo‘lmasa shunchaki turi ko‘rinadi (ekranda bo‘shliq qolmasin) */
+function entryTitle(e){
+  var t = (e && e.title || '').trim();
+  if(t) return t;
+  var c = (e && e.categoryName) || (cat(e && e.categoryId)||{}).name || '';
+  if(c) return c;
+  return entryType(e)==='income' ? 'Tushum' : 'Chiqim';
+}
 function computeBalances(g){
   var net={}; g.members.forEach(function(m){ net[m.id]=0; });
   g.expenses.forEach(function(e){
@@ -2048,7 +2061,7 @@ function activityList(){
       out.push({ kind:'entry', id:e.id, date:e.date, type:et, amount:e.amount,
         catId:e.categoryId||catIdByName(e.categoryName,et),
         catName:(e.categoryName||(cat(e.categoryId)||{}).name||'—'),
-        title:e.title, gid:g.id, gname:g.name, payerName:memName(g,e.paidBy),
+        title:entryTitle(e), gid:g.id, gname:g.name, payerName:memName(g,e.paidBy),
         memberIds:mids, mine:myShareIn(g,e), receipt:e.receipt||null });
     });
   });
@@ -2238,10 +2251,10 @@ function viewGroup(){
         var payer=memName(g,e.paidBy);
         var av = e.receipt
           ? '<div class="avatar rcimg" data-act="view-receipt" data-id="'+e.id+'"><img src="'+e.receipt+'" alt=""></div>'
-          : '<div class="avatar" style="background:'+colorFor(e.categoryName||e.categoryId||e.id)+'">'+esc(initials(e.title))+'</div>';
+          : '<div class="avatar" style="background:'+colorFor(e.categoryName||e.categoryId||e.id)+'">'+esc(initials(entryTitle(e)))+'</div>';
         h+='<div class="row tap" data-act="edit-expense" data-id="'+e.id+'">'
           +av
-          +'<div class="main"><div class="t">'+esc(e.title)+'</div><div class="s">'+esc(payer)+' · '+fmtDateShort(e.date)+(e.receipt?' · chek':'')+'</div></div>'
+          +'<div class="main"><div class="t">'+esc(entryTitle(e))+'</div><div class="s">'+esc(payer)+' · '+fmtDateShort(e.date)+(e.receipt?' · chek':'')+'</div></div>'
           +'<div class="end"><div class="a '+(inc?'pos':'')+'">'+(inc?'+':'')+fmtMoney(e.amount)+'</div><div class="s">ulushingiz '+fmtMoney(mine)+'</div></div>'
           +'</div>';
       });
@@ -2760,8 +2773,8 @@ function openMemberView(gid, mid){
       if(r.paid>0)  sub.push((inc?'qabul qildi ':'to‘ladi ')+fmtMoney(r.paid));
       if(r.share>0) sub.push('ulushi '+fmtMoney(r.share));
       body += '<div class="row tap" data-act="entry-view" data-gid="'+g.id+'" data-id="'+r.e.id+'">'
-        + '<div class="avatar" style="background:'+colorFor(r.e.categoryName||r.e.id)+'">'+esc(initials(r.e.title))+'</div>'
-        + '<div class="main"><div class="t">'+esc(r.e.title)+'</div>'
+        + '<div class="avatar" style="background:'+colorFor(r.e.categoryName||r.e.id)+'">'+esc(initials(entryTitle(r.e)))+'</div>'
+        + '<div class="main"><div class="t">'+esc(entryTitle(r.e))+'</div>'
         + '<div class="s">'+fmtDateShort(r.e.date)+(sub.length?(' · '+esc(sub.join(' · '))):'')+'</div></div>'
         + '<div class="end"><div class="a '+(inc?'pos':'')+'">'+(inc?'+':'')+fmtMoney(r.e.amount)+'</div></div>'
         + '</div>';
@@ -2796,7 +2809,7 @@ function openEntryView(gid, e){
     body+='<div class="btn-row"><button class="btn btn-primary" type="button" data-act="edit-entry-go" data-gid="'+g.id+'" data-id="'+e.id+'">Tahrirlash</button>'
       +'<button class="btn btn-danger" type="button" data-act="del-expense" data-gid="'+g.id+'" data-id="'+e.id+'">O‘chirish</button></div>';
   }
-  openModal(e.title||'Amaliyot', body, {});
+  openModal(entryTitle(e), body, {});
 }
 function openTxView(t){
   var c=cat(t.categoryId)||{name:'—'};
@@ -2827,7 +2840,7 @@ function openExpenseModal(groupId, existing){
     +'<button type="button" data-et="expense" aria-pressed="'+(etype==='expense')+'">Chiqim</button>'
     +'<button type="button" data-et="income" aria-pressed="'+(etype==='income')+'">Tushum</button>'
     +'</div>'
-    +'<div class="field"><label>Nima uchun</label><input name="title" value="'+esc(e.title)+'" placeholder="Kechki ovqat…" autofocus></div>'
+    +'<div class="field"><label>Nima uchun (ixtiyoriy)</label><input name="title" value="'+esc(e.title)+'" placeholder="Kechki ovqat…" autofocus></div>'
     +'<div class="two">'
     +'<div class="field"><label>Summa</label><input name="amount" id="eamt" inputmode="numeric" value="'+(e.amount||'')+'"></div>'
     +'<div class="field"><label>Sana</label><input type="date" name="date" value="'+e.date+'"></div>'
@@ -3046,9 +3059,9 @@ function openExpenseModal(groupId, existing){
       };
     },
     onSubmit:function(form){
-      var title=form.title.value.trim();
+      var title=form.title.value.trim();       /* majburiy emas — entryTitle() to‘ldiradi */
       var amt=parseAmount(form.amount.value);
-      if(!title || amt<=0){ return; }
+      if(amt<=0){ form.amount.focus(); return; }
       var et=modalEl._getEType();
       var splits=modalEl._readSplits();
       if(!splits || !splits.length){
@@ -3840,7 +3853,7 @@ function viewItem(){
   ms.forEach(function(m){
     var inn = m.type==='in';
     var sub = [m.party, m.note].filter(Boolean).map(esc).join(' · ');
-    h += '<div class="row'+(canEd?' tap':'')+'"'+(canEd?(' data-act="edit-move" data-id="'+m.id+'"'):'')+'>'
+    h += '<div class="row tap" data-act="move-view" data-id="'+m.id+'">'
        + '<div class="main"><div class="t">'+(inn?'Prihod':'Rasxod')+(sub?' · '+sub:'')+'</div>'
        + '<div class="s">'+fmtDateShort(m.date)+(m.price>0?' · '+fmtPrice(m.price)+'/'+esc(i.unit||'dona'):'')
        + (m.txId?' · kassada':'')+'</div></div>'
@@ -3855,6 +3868,36 @@ function viewItem(){
   return h;
 }
 
+/* ---------- harakat: avval ma‘lumot, keyin tahrirlash ---------- */
+function openMoveView(m){
+  if(!m) return;
+  var i = itm(m.itemId) || {name:'?', unit:'dona'};
+  var inn = m.type==='in', unit = i.unit||'dona';
+  var g = omborGroup();
+  var pm = (!inn && m.price>0) ? fifo(m.itemId).perMove[m.id] : null;
+  var body = '<div class="view-amt">'+(inn?'+':'−')+fmtQty(m.qty, unit)+'</div>'
+    + '<div class="view-meta">'
+    + kv('Turi', inn?'Prihod (kirim)':'Rasxod (chiqim)')
+    + kv('Tovar', i.name)
+    + kv((inn?'Kirim narxi':'Sotish narxi')+' (1 '+unit+')', fmtPrice(m.price))
+    + kv('Summa (jami)', fmtMoney(Math.round(m.qty*(m.price||0))))
+    + kv('Sana', fmtDateLong(m.date))
+    + (m.party ? kv(inn?'Kimdan (ta‘minotchi)':'Kimga (klient)', m.party) : '')
+    + (m.note ? kv('Izoh', m.note) : '')
+    + (pm ? '<div class="kv"><span>Foyda (FIFO)</span><b class="'+(pm.profit<0?'neg':'pos')+'">'
+            + fmtMoney(pm.profit,true)+'</b></div>' : '')
+    + (g ? '' : kv('Kassada', m.txId ? 'Ha — pul harakati yozilgan' : 'Yo‘q'))
+    + auditBlock(g, m)
+    + '</div>';
+  if(omborCanEdit()){
+    body += '<div class="btn-row">'
+      + '<button class="btn btn-primary" type="button" data-act="edit-move-go" data-id="'+m.id+'">Tahrirlash</button>'
+      + '<button class="btn btn-danger" type="button" data-act="del-move" data-id="'+m.id+'">O‘chirish</button>'
+      + '</div>';
+  }
+  openModal(inn?'Prihod':'Rasxod', body, {});
+}
+
 /* ---------- HARAKATLAR: tovar / ta‘minotchi / klient / davr bo‘yicha ---------- */
 /* Filtr `route` da turadi — boshqa ekranga o‘tib qaytsa tozalanadi. */
 function mvFilter(){ return {item:route.mi||'', sup:route.ms||'', cli:route.mc||''}; }
@@ -3865,8 +3908,14 @@ function mvMoves(p){
       var m = x.m;
       if(!inPeriod(m.date, p)) return false;
       if(f.item && m.itemId!==f.item) return false;
-      if(f.sup && !(m.type==='in'  && (m.party||'')===f.sup)) return false;
-      if(f.cli && !(m.type==='out' && (m.party||'')===f.cli)) return false;
+      /* '__none' — ta‘minotchi/klient yozilmagan harakatlar */
+      var okParty = function(want, type){
+        if(m.type!==type) return false;
+        var pv = (m.party||'').trim();
+        return want==='__none' ? pv==='' : pv===want;
+      };
+      if(f.sup && !okParty(f.sup, 'in'))  return false;
+      if(f.cli && !okParty(f.cli, 'out')) return false;
       return true;
     })
     .sort(function(a,b){ return a.m.date<b.m.date ? 1 : a.m.date>b.m.date ? -1 : (b.ix-a.ix); })
@@ -3891,18 +3940,23 @@ function viewMoves(){
      + '<div class="eyebrow" style="margin:7px 0 7px">'+esc(R.label)+'</div>';
 
   var sups = partyHints('in'), clis = partyHints('out');
-  var opts = function(list, cur){
-    return list.map(function(x){
-      return '<option value="'+esc(x)+'"'+(x===cur?' selected':'')+'>'+esc(x)+'</option>';
-    }).join('');
+  /* nomi yozilmagan harakat bo‘lsa — uni ham topsa bo‘lsin */
+  var bare = function(type){
+    return curStock().filter(function(m){ return m.type===type && !(m.party||'').trim(); }).length > 0;
+  };
+  var opts = function(list, cur, type){
+    return (bare(type) ? '<option value="__none"'+(cur==='__none'?' selected':'')+'>Tanlanmagan</option>' : '')
+      + list.map(function(x){
+          return '<option value="'+esc(x)+'"'+(x===cur?' selected':'')+'>'+esc(x)+'</option>';
+        }).join('');
   };
   h += '<div class="filters">'
      + '<select id="mvitem"><option value="">Hamma tovar</option>'
      + curItems().map(function(i){
          return '<option value="'+i.id+'"'+(i.id===f.item?' selected':'')+'>'+esc(i.name)+'</option>';
        }).join('') + '</select>'
-     + (sups.length ? '<select id="mvsup"><option value="">Hamma ta‘minotchi</option>'+opts(sups,f.sup)+'</select>' : '')
-     + (clis.length ? '<select id="mvcli"><option value="">Hamma klient</option>'+opts(clis,f.cli)+'</select>' : '')
+     + (sups.length ? '<select id="mvsup"><option value="">Hamma ta‘minotchi</option>'+opts(sups,f.sup,'in')+'</select>' : '')
+     + (clis.length ? '<select id="mvcli"><option value="">Hamma klient</option>'+opts(clis,f.cli,'out')+'</select>' : '')
      + '</div>';
 
   var ms = mvMoves(R.p);
@@ -3931,7 +3985,7 @@ function viewMoves(){
     var inn = m.type==='in';
     var sub = [m.party, m.note].filter(Boolean).map(esc).join(' · ');
     var pm = !inn && m.price>0 ? fm(m.itemId).perMove[m.id] : null;
-    h += '<div class="row'+(canEd?' tap':'')+'"'+(canEd?(' data-act="edit-move" data-id="'+m.id+'"'):'')+'>'
+    h += '<div class="row tap" data-act="move-view" data-id="'+m.id+'">'
        + '<div class="main"><div class="t">'+esc(i.name)+'</div>'
        + '<div class="s">'+(inn?'Prihod':'Rasxod')+(sub?' · '+sub:'')+'</div>'
        + '<div class="s">'+fmtDateShort(m.date)+(m.txId?' · kassada':'')+'</div></div>'
@@ -4850,6 +4904,16 @@ document.addEventListener('click', function(e){
   if(a==='add-move'){
     if(!omborCanEdit()){ stockDenied(); return; }
     openStockModal(null, el.dataset.id, el.dataset.t); return;
+  }
+  if(a==='move-view'){
+    openMoveView(curStock().filter(function(x){ return x.id===el.dataset.id; })[0]);
+    return;
+  }
+  if(a==='edit-move-go'){
+    var egv=curStock().filter(function(x){ return x.id===el.dataset.id; })[0];
+    closeModal();
+    if(egv) openStockModal(egv);
+    return;
   }
   if(a==='edit-move'){
     if(!omborCanEdit()){ stockDenied(); return; }
