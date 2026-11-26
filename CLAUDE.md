@@ -152,6 +152,50 @@ qo‘yilganda `input` hodisasi yuborilmaydi. Narx butun songa yaxlitlanadi —
 `parseAmount` baribir shunday saqlaydi, shuning uchun ko‘rinib turgan son
 saqlanadigan son bilan bir xil bo‘ladi.
 
+## Kimdan / kimga — ta‘minotchi va klient
+
+Harakatda `party` maydoni bor: **prihodda ta‘minotchi, rasxodda klient**.
+Izoh bundan alohida — ikkisi aralashmaydi.
+
+- `partyHints(type)` — shu ombordagi oldingi nomlar, **yangisidan eskisiga**,
+  takrorsiz. Prihod va rasxod ro‘yxati **alohida**
+- `partyLabel(type)` — «Kimdan (ta‘minotchi)» yoki «Kimga (klient)»
+- Oynada `<select>` + **«+ Yangi…»**: tanlanadi yoki yangisi yoziladi
+  (tovardagidek). Tur almashsa `fillParty('')` ro‘yxatni qayta quradi
+- Yozishda: `form.party.value==='__new' ? form.partyNew.value : form.party.value`
+
+Serverda `stock_moves.party`. Eski serverda bu ustun yo‘q — `sbHasParty`
+bayrog‘i `sbHasItemCat` kabi ishlaydi. `isMissingParty()` **aniq `party`
+so‘zini** qidiradi, chunki `isMissingAudit()` ning qolipi juda keng
+(`column` ham mos keladi) va u birinchi tekshirilsa audit bekorga
+o‘chib qolardi. `sendRetry(send)` ikkala qayta urinishni bitta joyda
+qiladi — `saveMoveCloud` ham, `migrateStock` ham shuni ishlatadi.
+
+## Ombor ▸ «Harakatlar» — filtrli hisobot
+
+`viewMoves()` (marshrut `moves`, Ombor ekranidagi tugmadan). Filtrlar:
+
+| Filtr | Qayerda | Nima qiladi |
+|---|---|---|
+| **Tovar** | `#mvitem` → `route.mi` | shu tovar harakatlari |
+| **Ta‘minotchi** | `#mvsup` → `route.ms` | shu nom bilan **prihod**lar |
+| **Klient** | `#mvcli` → `route.mc` | shu nom bilan **rasxod**lar |
+| **Davr** | `data-act="repper"` | Oy / Yil / Davr — birlashgan hisobotdagidek |
+
+Ta‘minotchi bilan klient **birga mantiqsiz** (harakat yo kirim, yo chiqim),
+shuning uchun biri tanlansa ikkinchisi tozalanadi (`mountFns.moves`).
+
+Filtr `route` da turadi — boshqa ekranga o‘tib qaytsa tozalanadi; davr esa
+`state.settings.repPeriod` da, ya‘ni butun ilovada bitta.
+
+Jami: harakatlar soni, jami prihod, sotuv, **Foyda (FIFO)** — oxirgisi
+`fifo().perMove` dan, har tovar uchun bir marta hisoblanadi (`fc` keshi).
+
+Qator bosilsa harakat tahrirlanadi — **«Kassaga ham yozilsin» shu yerdan
+yetiladi**: avval prihod yoziladi (pul bermay), keyin to‘laganda shu
+katakcha belgilanadi va `syncMoveTx` kassaga chiqim yozadi. Pul harakati
+**harakatning sanasi** bilan yoziladi, to‘lov kuni bilan emas.
+
 ## Izoh takliflari
 
 `noteHints()` — joriy ombordagi oldingi izohlar, **yangisidan eskisiga**,
