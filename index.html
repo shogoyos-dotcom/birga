@@ -591,6 +591,22 @@ var I18N = {
   "Mening omborim":["Мой склад","My inventory"],
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
+  "ta amaliyot":["операций","entries"],
+  "Qatnashgan amaliyoti":["Участвовал в операциях","Entries taken part in"],
+  "Unga qaytariladi":["Ему вернут","Owed to them"],
+  "U qaytaradi":["Он вернёт","They owe"],
+  "Holati":["Состояние","Status"],
+  "U to‘lagan (xarajat)":["Он заплатил (расход)","They paid (expense)"],
+  "Uning ulushi (xarajat)":["Его доля (расход)","Their share (expense)"],
+  "U qabul qilgan (tushum)":["Он получил (доход)","They received (income)"],
+  "Uning ulushi (tushum)":["Его доля (доход)","Their share (income)"],
+  "Amaliyotlari":["Его операции","Their entries"],
+  "Bu a‘zo hali hech qaysi amaliyotda qatnashmagan.":["Этот участник ещё не участвовал ни в одной операции.","This member has not taken part in any entry yet."],
+  "qabul qildi":["получил","received"],
+  "to‘ladi":["заплатил","paid"],
+  "ulushi":["доля","share"],
+  "teng":["поровну","even"],
+  "Summa (jami)":["Сумма (итого)","Total amount"],
   "Qo‘shdi":["Добавил","Added by"],
   "O‘zgartirdi":["Изменил","Edited by"],
   "nomaʼlum":["неизвестно","unknown"],
@@ -2198,9 +2214,13 @@ function viewGroup(){
       var v=net[m.id]||0;
       var cls=v<-1?'neg':v>1?'pos':'';
       var lbl=Math.abs(v)<1?'hisob teng':v>0?'qaytariladi':'qarzdor';
-      h+='<div class="row">'
+      var cnt=(g.expenses||[]).filter(function(e){
+        return e.paidBy===m.id || (e.splits||[]).some(function(x){ return x.memberId===m.id; });
+      }).length;
+      h+='<div class="row tap" data-act="member-view" data-gid="'+g.id+'" data-id="'+m.id+'">'
         +'<div class="avatar" style="background:'+colorFor(m.id)+'">'+esc(initials(m.name))+'</div>'
-        +'<div class="main"><div class="t">'+esc(m.name)+(m.id===meId(g)?' (siz)':'')+'</div><div class="s">'+lbl+'</div></div>'
+        +'<div class="main"><div class="t">'+esc(m.name)+(m.id===meId(g)?' (siz)':'')+'</div>'
+        +'<div class="s">'+lbl+(cnt?(' · '+cnt+' ta amaliyot'):'')+'</div></div>'
         +'<div class="end"><div class="a '+cls+'">'+(Math.abs(v)<1?'—':fmtMoney(v,true))+'</div></div>'
         +'</div>';
     });
@@ -2653,6 +2673,59 @@ function buildSplitBody(mode, g, amount, prev){
     });
   }
   return '<div class="split-list">'+rows+'</div><div class="split-status" id="sstat"></div>';
+}
+
+/* ---------- bitta a‘zoning amaliyotlari ---------- */
+function openMemberView(gid, mid){
+  var g=grp(gid); if(!g) return;
+  var m=(g.members||[]).filter(function(x){ return x.id===mid; })[0];
+  if(!m) return;
+
+  var rows=(g.expenses||[]).map(function(e){
+    var share=((e.splits||[]).filter(function(x){ return x.memberId===mid; })[0]||{}).share || 0;
+    var paid = (e.paidBy===mid) ? e.amount : 0;
+    return {e:e, share:share, paid:paid};
+  }).filter(function(r){ return r.share>0 || r.paid>0; })
+    .sort(function(a,b){ return a.e.date<b.e.date ? 1 : a.e.date>b.e.date ? -1 : 0; });
+
+  var paidSum=0, shareSum=0, incPaid=0, incShare=0;
+  rows.forEach(function(r){
+    if(entryType(r.e)==='income'){ incPaid+=r.paid; incShare+=r.share; }
+    else { paidSum+=r.paid; shareSum+=r.share; }
+  });
+  var net=computeBalances(g)[mid]||0;
+
+  var body='<div class="view-amt '+(net<-1?'neg':net>1?'pos':'')+'">'
+    + (Math.abs(net)<1 ? 'Hisob teng' : fmtMoney(net,true)) + '</div>'
+    + '<div class="view-meta">'
+    + '<div class="kv"><span>'+(net>1?'Unga qaytariladi':net<-1?'U qaytaradi':'Holati')+'</span><b>'
+    +   (Math.abs(net)<1?'teng':fmtMoney(Math.abs(net)))+'</b></div>'
+    + '<div class="kv"><span>Qatnashgan amaliyoti</span><b>'+rows.length+'</b></div>'
+    + (paidSum>0  ? '<div class="kv"><span>U to‘lagan (xarajat)</span><b>'+fmtMoney(paidSum)+'</b></div>' : '')
+    + (shareSum>0 ? '<div class="kv"><span>Uning ulushi (xarajat)</span><b>'+fmtMoney(shareSum)+'</b></div>' : '')
+    + (incPaid>0  ? '<div class="kv"><span>U qabul qilgan (tushum)</span><b class="pos">'+fmtMoney(incPaid)+'</b></div>' : '')
+    + (incShare>0 ? '<div class="kv"><span>Uning ulushi (tushum)</span><b class="pos">'+fmtMoney(incShare)+'</b></div>' : '')
+    + '</div>';
+
+  if(!rows.length){
+    body += '<div class="empty" style="padding:16px 0">Bu a‘zo hali hech qaysi amaliyotda qatnashmagan.</div>';
+  }else{
+    body += '<div class="view-split"><div class="eyebrow">Amaliyotlari</div><div class="list">';
+    rows.forEach(function(r){
+      var inc=entryType(r.e)==='income';
+      var sub=[];
+      if(r.paid>0)  sub.push((inc?'qabul qildi ':'to‘ladi ')+fmtMoney(r.paid));
+      if(r.share>0) sub.push('ulushi '+fmtMoney(r.share));
+      body += '<div class="row tap" data-act="entry-view" data-gid="'+g.id+'" data-id="'+r.e.id+'">'
+        + '<div class="avatar" style="background:'+colorFor(r.e.categoryName||r.e.id)+'">'+esc(initials(r.e.title))+'</div>'
+        + '<div class="main"><div class="t">'+esc(r.e.title)+'</div>'
+        + '<div class="s">'+fmtDateShort(r.e.date)+(sub.length?(' · '+esc(sub.join(' · '))):'')+'</div></div>'
+        + '<div class="end"><div class="a '+(inc?'pos':'')+'">'+(inc?'+':'')+fmtMoney(r.e.amount)+'</div></div>'
+        + '</div>';
+    });
+    body += '</div></div>';
+  }
+  openModal(m.name, body, {});
 }
 
 /* ---------- read-only ko‘rish oynalari ---------- */
@@ -3157,6 +3230,16 @@ function lastPriceOf(id, type){
   return best ? best.price : 0;
 }
 function lastInPrice(id){ return lastPriceOf(id, 'in'); }
+/* oldin yozilgan izohlar — yangisidan eskisiga, takrorsiz */
+function noteHints(){
+  var seen={}, out=[];
+  curStock().slice().reverse().forEach(function(m){
+    var t=(m.note||'').trim();
+    if(!t || seen[t.toLowerCase()]) return;
+    seen[t.toLowerCase()]=1; out.push(t);
+  });
+  return out.slice(0,20);
+}
 /* o‘rtacha kirim narxi — jami prihod puli / jami prihod miqdori */
 function avgInPrice(id){
   var q=0, sm=0;
@@ -3734,8 +3817,12 @@ function openStockModal(existing, presetItem, presetType){
     + '<div class="field"><label>Miqdor</label><input name="qty" inputmode="decimal" placeholder="0" value="'+(m.qty||'')+'" autofocus></div>'
     + '<div class="field"><label id="mpl">Narx (1 dona)</label><input name="price" inputmode="numeric" placeholder="0" value="'+(m.price||'')+'"></div>'
     + '</div>'
+    + '<div class="field"><label>Summa (jami)</label><input name="total" inputmode="numeric" placeholder="0"></div>'
     + '<div class="field"><label>Sana</label><input type="date" name="date" value="'+m.date+'"></div>'
-    + '<div class="field"><label>Izoh</label><input name="note" value="'+esc(m.note||'')+'" placeholder="kimdan / kimga, ixtiyoriy"></div>'
+    + '<div class="field"><label>Izoh</label>'
+    + '<input name="note" list="notehints" value="'+esc(m.note||'')+'" placeholder="kimdan / kimga, ixtiyoriy">'
+    + '<datalist id="notehints">'+noteHints().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('')+'</datalist>'
+    + '</div>'
     + (omborGroup()
         ? '<div class="note" id="mhint">Guruh omborida pul harakati alohida yozilmaydi — faqat qoldiq o‘zgaradi.</div>'
         : ('<label class="chk"><input type="checkbox" name="kassa"'+(linked?' checked':'')+'> Kassaga ham yozilsin — pul harakati</label>'
@@ -3813,8 +3900,28 @@ function openStockModal(existing, presetItem, presetType){
         root.querySelector('#maccf').hidden = !form.kassa.checked;
         paint();
       });
-      form.qty.addEventListener('input', paint);
-      form.price.addEventListener('input', paint);
+      /* Summa ↔ narx: narx yoki miqdor yozilsa summa chiqadi,
+         summa yozilsa — miqdorga bo‘linib dona narxi chiqadi. */
+      var totalInp = form.total, syncing = false;
+      var setVal = function(inp, v){
+        syncing = true;
+        inp.value = (v > 0) ? String(v) : '';
+        syncing = false;
+      };
+      var fromPrice = function(){
+        if(syncing) return;
+        var q = parseQty(form.qty.value), pr = parseAmount(form.price.value);
+        setVal(totalInp, (q > 0 && pr > 0) ? Math.round(q * pr) : 0);
+      };
+      var fromTotal = function(){
+        if(syncing) return;
+        var q = parseQty(form.qty.value), t = parseAmount(totalInp.value);
+        if(q > 0 && t > 0) setVal(form.price, Math.round(t / q));
+      };
+      form.qty.addEventListener('input', function(){ fromPrice(); paint(); });
+      form.price.addEventListener('input', function(){ fromPrice(); paint(); });
+      totalInp.addEventListener('input', function(){ fromTotal(); paint(); });
+      fromPrice();            /* tahrirlashda summa darrov to‘lsin */
       paint();
       root._getType = function(){ return type; };
     },
@@ -4524,6 +4631,13 @@ document.addEventListener('click', function(e){
   if(a==='edit-expense'){
     var g=grp(route.id); var ex=g.expenses.filter(function(x){return x.id===el.dataset.id;})[0];
     if(ex) openEntryView(g.id,ex); return;
+  }
+  if(a==='member-view'){ openMemberView(el.dataset.gid, el.dataset.id); return; }
+  if(a==='entry-view'){
+    var ge=grp(el.dataset.gid);
+    var en2=ge && (ge.expenses||[]).filter(function(x){ return x.id===el.dataset.id; })[0];
+    if(en2) openEntryView(ge.id, en2);
+    return;
   }
   if(a==='del-expense'){
     if(!confirm('Bu amaliyot o‘chirilsinmi?')) return;

@@ -140,6 +140,34 @@ eslab qolinadi. Tovar yoki tur almashsa narx ham moslashadi, lekin
 maydon bo‘sh bo‘lsa yoki ichida o‘zimiz qo‘ygan taklif tursa yangilaydi.
 Miqdor esa har safar bo‘sh qoladi.
 
+## Summa ↔ dona narxi
+
+Ombor oynasida **uchta** bog‘liq maydon: Miqdor, Narx (1 dona), Summa (jami).
+
+- miqdor yoki narx yozilsa → `summa = miqdor × narx`
+- **summa yozilsa** → `narx = summa ÷ miqdor` (miqdor 0 dan katta bo‘lsa)
+
+`syncing` bayrog‘i aylanma chaqiriqni to‘xtatadi: boshqa maydonga qiymat
+qo‘yilganda `input` hodisasi yuborilmaydi. Narx butun songa yaxlitlanadi —
+`parseAmount` baribir shunday saqlaydi, shuning uchun ko‘rinib turgan son
+saqlanadigan son bilan bir xil bo‘ladi.
+
+## Izoh takliflari
+
+`noteHints()` — joriy ombordagi oldingi izohlar, **yangisidan eskisiga**,
+takrorsiz, 20 tagacha. Izoh maydoni `list="notehints"` orqali ularga ulangan,
+ya‘ni bir marta yozilgan nom keyingi safar tanlanadi.
+
+## A‘zoning amaliyotlari
+
+Balanslar ro‘yxatidagi a‘zo qatori bosiladi (`data-act="member-view"` →
+`openMemberView`). Oynada: balansi, nechta amaliyotda qatnashgani, u to‘lagan
+va uning ulushi (xarajat va tushum alohida), pastida esa amaliyotlar ro‘yxati
+— har birida uning ulushi yozilgan. Qator bosilsa o‘sha amaliyot ochiladi
+(`data-act="entry-view"`).
+
+Ro‘yxatga a‘zo **to‘lovchi** bo‘lgan yoki **ulushi bor** amaliyotlar kiradi.
+
 ## Kim va qachon (audit)
 
 `entries` va `stock_moves` da `created_by`/`created_at` **avvaldan bor** edi;
