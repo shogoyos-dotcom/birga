@@ -46,6 +46,9 @@ create table if not exists entries (
   created_at timestamptz not null default now()
 );
 create index if not exists entries_group_idx on entries(group_id);
+-- kim va qachon o'zgartirgani (keyin qo'shilgan)
+alter table entries add column if not exists updated_by uuid references auth.users(id);
+alter table entries add column if not exists updated_at timestamptz;
 
 create table if not exists settlements (
   id uuid primary key default gen_random_uuid(),
@@ -85,6 +88,8 @@ create table if not exists stock_moves (
   created_at timestamptz not null default now()
 );
 create index if not exists stock_moves_group_idx on stock_moves(group_id);
+alter table stock_moves add column if not exists updated_by uuid references auth.users(id);
+alter table stock_moves add column if not exists updated_at timestamptz;
 create index if not exists stock_moves_item_idx on stock_moves(item_id);
 
 -- ---------- Yordamchi funksiyalar (RLS uchun) ----------

@@ -591,6 +591,11 @@ var I18N = {
   "Mening omborim":["Мой склад","My inventory"],
   "Shaxsiy profil":["Личный профиль","Personal profile"],
   "Kim qancha":["Кто сколько","Who owes what"],
+  "Qo‘shdi":["Добавил","Added by"],
+  "O‘zgartirdi":["Изменил","Edited by"],
+  "nomaʼlum":["неизвестно","unknown"],
+  "Kim o‘zgartirgani serverda saqlanmadi — «Profil ▸ Serverni yangilash (SQL)» ni yana bir marta bajaring.":["Кто изменил — не сохранилось на сервере. Выполните «Профиль ▸ Обновить сервер (SQL)» ещё раз.","Who edited it was not saved on the server — run “Profile ▸ Update server (SQL)” once more."],
+  "Amaliyotning o‘zi saqlandi.":["Сама операция сохранена.","The entry itself was saved."],
   "Foiz":["Процент","Percent"],
   "Kamida bitta foiz kiriting":["Введите хотя бы один процент","Enter at least one percentage"],
   "Bo‘linish to‘g‘ri emas — kishi tanlang, ulush yoki foiz kiriting (foiz 100 dan oshmasin)":["Разделение неверно — выберите участника, укажите долю или процент (процент не больше 100)","The split is not valid — pick a person, or enter a share or a percentage (at most 100%)"],
@@ -1424,7 +1429,8 @@ function rowToEntry(r){
   return { id:r.id, type:r.type||'expense', title:r.title, amount:Number(r.amount)||0,
     categoryName:r.category||'', paidBy:r.paid_by, date:r.occurred_on,
     splits:(r.splits||[]).map(function(s){ return {memberId:s.member_id, share:Number(s.share)||0}; }),
-    receipt:r.receipt||null, createdAt:r.created_at };
+    receipt:r.receipt||null, createdAt:r.created_at, createdBy:r.created_by,
+    updatedAt:r.updated_at, updatedBy:r.updated_by };
 }
 function entryToRow(g, d){
   var rc=d.receipt||null; if(rc && rc.length>250000) rc=null;
@@ -1463,7 +1469,9 @@ function loadGroups(){
         stock:(row.stock_moves||[]).map(function(x){
           return {id:x.id, itemId:x.item_id, type:(x.type==='out'?'out':'in'),
                   qty:Number(x.qty)||0, price:Number(x.price)||0,
-                  date:x.occurred_on, note:x.note||'', txId:null};
+                  date:x.occurred_on, note:x.note||'', txId:null,
+                  createdAt:x.created_at, createdBy:x.created_by,
+                  updatedAt:x.updated_at, updatedBy:x.updated_by};
         })
       };
     }).sort(function(a,b){ return (a.name||'')<(b.name||'')?-1:1; });
@@ -1555,9 +1563,17 @@ function sqlNeeded(what){
 }
 function saveExpenseTo(g, existing, data, done){
   if(!canEdit(g)){ alert('Sizda tahrirlash huquqi yo‘q — guruh egasidan so‘rang.'); return; }
-  var row=entryToRow(g, data);
-  var q = existing ? SB.from('entries').update(row).eq('id', existing.id) : SB.from('entries').insert(row);
-  q.then(function(r){ if(r.error) throw r.error; return loadGroups(); }).then(function(){ done&&done(); }).catch(sbFail);
+  var send=function(){
+    var row=stampRow(entryToRow(g, data), existing);
+    return existing ? SB.from('entries').update(row).eq('id', existing.id) : SB.from('entries').insert(row);
+  };
+  send().then(function(r){
+    if(r.error && isMissingAudit(r.error)){ sbHasAudit=false; auditSqlHint(); return send(); }
+    return r;
+  }).then(function(r){
+    if(r.error) throw r.error;
+    return loadGroups();
+  }).then(function(){ done&&done(); }).catch(sbFail);
 }
 function deleteExpenseFrom(g, id){
   SB.from('entries').delete().eq('id',id).then(function(r){ if(r.error) return sbFail(r.error); loadGroups(); });
@@ -1572,6 +1588,30 @@ function deleteSettlementFrom(g, id){
   SB.from('settlements').delete().eq('id',id).then(function(r){ if(r.error) return sbFail(r.error); loadGroups(); });
 }
 
+/* auth user id → guruhdagi ismi */
+function memNameByUid(g, uid){
+  if(!uid) return '';
+  var m=(g.members||[]).filter(function(x){ return x.user_id===uid; })[0];
+  return m ? m.name : 'nomaʼlum';
+}
+/* «26-noy 14:30» */
+function fmtWhen(iso){
+  if(!iso) return '';
+  var d=new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  var z=function(n){ return String(n).padStart(2,'0'); };
+  return d.getDate()+'-'+UZMONTH_SHORT[d.getMonth()]+' '+z(d.getHours())+':'+z(d.getMinutes());
+}
+/* «Qo‘shdi: Aziz · 26-noy 14:30» va kerak bo‘lsa «O‘zgartirdi: …» */
+function auditBlock(g, r){
+  if(!g || !r) return '';
+  var out='';
+  var cw=fmtWhen(r.createdAt), cn=memNameByUid(g, r.createdBy);
+  if(cw || cn) out += '<div class="kv"><span>Qo‘shdi</span><b>'+esc((cn||'—')+(cw?(' · '+cw):''))+'</b></div>';
+  var uw=fmtWhen(r.updatedAt), un=memNameByUid(g, r.updatedBy);
+  if(uw || r.updatedBy) out += '<div class="kv"><span>O‘zgartirdi</span><b>'+esc((un||'—')+(uw?(' · '+uw):''))+'</b></div>';
+  return out;
+}
 function inviteLink(m){ return location.href.split('#')[0] + '#invite=' + m.id + '.' + (m.claim_token||''); }
 function handleInviteHash(){
   var m=(location.hash||'').match(/invite=([0-9a-fA-F-]{10,})\.([A-Za-z0-9_-]+)/);
@@ -2627,6 +2667,7 @@ function openEntryView(gid, e){
     + kv('Kategoriya', cName)
     + kv('Sana', fmtDateLong(e.date))
     + kv('Guruh', g.name)
+    + auditBlock(g, e)
     +'</div>';
   if(e.receipt) body+='<img class="view-receipt" src="'+e.receipt+'" data-act="view-img" alt="chek rasmi">';
   body+='<div class="view-split"><div class="eyebrow">Bo‘linishi</div>';
@@ -3014,6 +3055,25 @@ function stockDenied(){
 }
 /* serverda hali 'cat' ustuni bo‘lmasligi mumkin — bir marta aniqlab, keyin usiz yuboramiz */
 var sbHasItemCat = true, catSqlWarned = false;
+/* xuddi shunday: kim o‘zgartirgani uchun updated_by/updated_at */
+var sbHasAudit = true, auditSqlWarned = false;
+function isMissingAudit(e){
+  return sbHasAudit && /updated_by|updated_at|schema cache|column/i.test((e && e.message) || '');
+}
+function auditSqlHint(){
+  if(auditSqlWarned) return;
+  auditSqlWarned = true;
+  alert('Kim o‘zgartirgani serverda saqlanmadi — «Profil ▸ Serverni yangilash (SQL)» ni yana bir marta bajaring.\n\nAmaliyotning o‘zi saqlandi.');
+}
+/* yangi qator — kim qo‘shgani; tahrir — kim o‘zgartirgani */
+function stampRow(row, existing){
+  if(existing){
+    if(sbHasAudit){ row.updated_by = SB_UID; row.updated_at = new Date().toISOString(); }
+  }else{
+    row.created_by = SB_UID;
+  }
+  return row;
+}
 function itemRow(g, data){
   var row={group_id:g.id, name:data.name, unit:data.unit, min_qty:data.min||0};
   if(sbHasItemCat) row.cat = (data.cat||'').trim() || null;
@@ -3055,12 +3115,16 @@ function deleteItemCloud(g, id, done){
 }
 function saveMoveCloud(g, existing, data, done){
   if(!canEdit(g)){ stockDenied(); return; }
-  var row={group_id:g.id, item_id:data.itemId, type:data.type, qty:data.qty,
-           price:data.price||0, occurred_on:data.date, note:data.note||null};
-  if(!existing) row.created_by = SB_UID;
-  var q = existing ? SB.from('stock_moves').update(row).eq('id',existing.id)
-                   : SB.from('stock_moves').insert(row);
-  q.then(function(r){
+  var send=function(){
+    var row=stampRow({group_id:g.id, item_id:data.itemId, type:data.type, qty:data.qty,
+                      price:data.price||0, occurred_on:data.date, note:data.note||null}, existing);
+    return existing ? SB.from('stock_moves').update(row).eq('id',existing.id)
+                    : SB.from('stock_moves').insert(row);
+  };
+  send().then(function(r){
+    if(r.error && isMissingAudit(r.error)){ sbHasAudit=false; auditSqlHint(); return send(); }
+    return r;
+  }).then(function(r){
     if(r.error) throw r.error;
     return loadGroups().then(function(){ done && done(); });
   }).catch(sbFail);
@@ -3082,15 +3146,17 @@ function movesOf(id){ return curStock().filter(function(m){ return m.itemId===id
 function itemQty(id){
   return movesOf(id).reduce(function(a,m){ return a + (m.type==='in' ? m.qty : -m.qty); }, 0);
 }
-/* oxirgi prihod narxi — eng kech sana; sana teng bo‘lsa keyin kiritilgani */
-function lastInPrice(id){
+/* oxirgi narx — eng kech sana; sana teng bo‘lsa keyin kiritilgani.
+   Prihod va rasxod narxi alohida eslab qolinadi. */
+function lastPriceOf(id, type){
   var best=null, bi=-1;
   curStock().forEach(function(m,ix){
-    if(m.itemId!==id || m.type!=='in' || !(m.price>0)) return;
+    if(m.itemId!==id || m.type!==type || !(m.price>0)) return;
     if(!best || m.date>best.date || (m.date===best.date && ix>bi)){ best=m; bi=ix; }
   });
   return best ? best.price : 0;
 }
+function lastInPrice(id){ return lastPriceOf(id, 'in'); }
 /* o‘rtacha kirim narxi — jami prihod puli / jami prihod miqdori */
 function avgInPrice(id){
   var q=0, sm=0;
@@ -3647,10 +3713,14 @@ function openItemModal(existing, onDone){
 /* ---------- prihod / rasxod modali ---------- */
 function openStockModal(existing, presetItem, presetType){
   if(!curItems().length){ openItemModal(null, function(id){ openStockModal(null, id, presetType); }); return; }
+  var m0type = presetType || 'in';
+  var m0item = presetItem || curItems()[0].id;
   var m = existing || {
-    type: presetType || 'in',
-    itemId: presetItem || curItems()[0].id,
-    qty:'', price:'', date: today(), note:''
+    type: m0type,
+    itemId: m0item,
+    /* oxirgi narx o‘zi turadi — har safar qaytadan yozmaslik uchun;
+       o‘chirib boshqasini yozsa, o‘sha qoladi */
+    qty:'', price: (lastPriceOf(m0item, m0type) || ''), date: today(), note:''
   };
   var isEdit = !!existing;
   var linked = isEdit ? moveTx(m) : null;
@@ -3677,11 +3747,26 @@ function openStockModal(existing, presetItem, presetType){
     + (isEdit?'<button class="btn btn-danger btn-block" type="button" data-act="del-move" data-id="'+m.id+'">O‘chirish</button>':'')
     + '</form>';
 
+  if(isEdit){
+    var ag=omborGroup(), ab=auditBlock(ag, m);
+    if(ab) body = '<div class="view-meta" style="margin-bottom:12px">'+ab+'</div>' + body;
+  }
   openModal(isEdit?'Harakatni tahrirlash':'Prihod / Rasxod', body, {
     onMount:function(root){
       var type = m.type;
       var form = root.querySelector('form');
       var isGroup = !!omborGroup();
+      /* taklif qilingan narx — foydalanuvchi uni o‘zgartirmagan bo‘lsa, yangilaymiz */
+      var suggested = isEdit ? null : String(m.price || '');
+      var suggestPrice = function(){
+        if(isEdit) return;
+        /* bo‘sh bo‘lsa doim taklif qilamiz; aks holda faqat o‘zimiz qo‘ygan
+           narx turgan bo‘lsa — foydalanuvchi yozganiga tegmaymiz */
+        if(form.price.value !== '' && String(form.price.value) !== String(suggested)) return;
+        var np = lastPriceOf(form.itemId.value, type) || '';
+        suggested = String(np);
+        form.price.value = suggested;
+      };
       var paint = function(){
         var it = itm(form.itemId.value);
         var unit = (it && it.unit) || 'dona';
@@ -3708,6 +3793,7 @@ function openStockModal(existing, presetItem, presetType){
           root.querySelectorAll('#mseg button').forEach(function(x){
             x.setAttribute('aria-pressed', x.dataset.t===type);
           });
+          suggestPrice();
           paint();
         });
       });
@@ -3720,6 +3806,7 @@ function openStockModal(existing, presetItem, presetType){
           });
           return;
         }
+        suggestPrice();
         paint();
       });
       if(form.kassa) form.kassa.addEventListener('change', function(){
@@ -4195,6 +4282,12 @@ var PERM_SQL = [
   "create index if not exists stock_moves_item_idx on stock_moves(item_id);",
   "",
   "alter table stock_items add column if not exists cat text;",
+  "",
+  "-- Kim va qachon o'zgartirgani ko'rinishi uchun",
+  "alter table entries     add column if not exists updated_by uuid references auth.users(id);",
+  "alter table entries     add column if not exists updated_at timestamptz;",
+  "alter table stock_moves add column if not exists updated_by uuid references auth.users(id);",
+  "alter table stock_moves add column if not exists updated_at timestamptz;",
   "",
   "-- 2) Yangi a'zo sukut bo'yicha faqat ko'radi va omborni ko'rmaydi",
   "alter table members alter column role set default 'viewer';",
