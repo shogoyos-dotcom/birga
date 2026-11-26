@@ -222,6 +222,15 @@ bo‘ladi, shuning uchun tiyin-tiyingacha to‘g‘ri chiqadi.
 
 Tahrirlashda hozirgi summalardan foiz tiklanadi (`share/amount*100`).
 
+**Foiz — pul emas, shuning uchun `parseAmount` ishlatilmaydi.** U butun songa
+yaxlitlaydi va `27,5` ni `28` qilib qo‘yardi: jami 100 o‘rniga 101% chiqib
+«oshib ketdi» deyilardi, summa ham noto‘g‘ri edi (18 480 ≠ 18 150). Hozir
+foiz va ulush maydonlari `inputNums()` (ya‘ni `parseQty`) orqali o‘qiladi,
+maydon `inputmode="decimal"` (Androidda nuqta/vergul chiqishi uchun),
+`splitPct` esa `tot` ni 3 kasrga yaxlitlab float qoldig‘ini olib tashlaydi.
+Taqqoslash ham aniq son bilan emas, chegara bilan: `>100.001` — oshdi,
+`>99.999` — aynan 100%. Foizni ko‘rsatish `fmtPct()` da (`27,5`, `30`).
+
 ## «Pulim» (Asosiy ekranning birinchi kartasi)
 
 `pulimCard()` — foydalanuvchining asosiy savoliga javob: **naqd pulim qancha**.

@@ -152,6 +152,42 @@ await pin.nth(1).fill('95'); await pg.waitForTimeout(400);
 st = (await pg.locator('#modal #sstat').textContent()).replace(/\s+/g, ' ');
 must(/Jami 100%/.test(st) && /1 450 000/.test(st), '100% da jami summa ko‘rsatiladi: ' + st);
 
+// --- KASR FOIZ (27,5%) — butun songa yaxlitlanib ketmasin ---
+// Oldin parseAmount ishlatilgani uchun 27,5 → 28 bo'lib ketardi: jami 100
+// o'rniga 101% chiqib "oshib ketdi" deyilardi, summa ham noto'g'ri edi.
+await pg.fill('#modal #eamt', '66000');
+await pin.nth(0).fill('27,5');
+await pin.nth(1).fill('27,5');
+await pin.nth(2).fill('45');
+await pg.waitForTimeout(400);
+st = (await pg.locator('#modal #sstat').textContent()).replace(/\s+/g, ' ');
+must(/Jami 100%/.test(st) && /66 000/.test(st), '27,5 + 27,5 + 45 = aniq 100%: ' + st);
+shares = (await pg.locator('#modal .calc').allTextContents()).map(x => x.replace(/\s+/g, ' ').trim());
+must(/^18 150/.test(shares[0]), 'Men 27,5% = 18 150 (28% → 18 480 emas): ' + shares[0]);
+must(/^18 150/.test(shares[1]), 'Aziz 27,5% = 18 150: ' + shares[1]);
+must(/^29 700/.test(shares[2]), 'Bek 45% = 29 700: ' + shares[2]);
+out = await pg.evaluate(() => document.getElementById('modal')._readSplits());
+must(JSON.stringify(out) === JSON.stringify([{ memberId: '__me__', share: 18150 },
+                                             { memberId: 'm2', share: 18150 },
+                                             { memberId: 'm3', share: 29700 }]),
+     'Kasr foizdagi ulushlar saqlanadi: ' + JSON.stringify(out));
+// nuqta bilan yozilgani ham
+await pin.nth(0).fill('27.5'); await pg.waitForTimeout(400);
+st = (await pg.locator('#modal #sstat').textContent()).replace(/\s+/g, ' ');
+must(/Jami 100%/.test(st), 'Nuqta bilan ham: 27.5 → 100%: ' + st);
+// kasr foiz yetmasa — qolgani ko'rsatiladi
+await pin.nth(2).fill('40'); await pg.waitForTimeout(400);
+st = (await pg.locator('#modal #sstat').textContent()).replace(/\s+/g, ' ');
+must(/Jami 95%/.test(st) && /qolgan 5% bo‘linmaydi/.test(st), '95% da qolgan 5%: ' + st);
+await pin.nth(0).fill('27,55'); await pg.waitForTimeout(400);
+st = (await pg.locator('#modal #sstat').textContent()).replace(/\s+/g, ' ');
+must(/Jami 95,05%/.test(st), 'Yuzdan bir ham ko‘rinadi: ' + st);
+await pg.screenshot({ path: (process.argv[2] || '.') + '/k-foiz-kasr.png' });
+await pg.fill('#modal #eamt', '1450000');
+await pin.nth(0).fill('');
+await pin.nth(2).fill('5');
+await pg.waitForTimeout(300);
+
 // 100% dan oshsa — saqlanmasin
 await pin.nth(1).fill('120'); await pg.waitForTimeout(400);
 st = (await pg.locator('#modal #sstat').textContent()).replace(/\s+/g, ' ');
