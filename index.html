@@ -268,6 +268,7 @@
   .split-line{display:flex;align-items:center;gap:9px}
   .split-line .nm{flex:1;min-width:0;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .split-line .sinput{width:104px;flex:none}
+  .split-line .xinput{width:92px;flex:none;font-size:13px}
   .split-line .calc{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);min-width:78px;flex:none;text-align:right}
   .split-line input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--accent)}
   .split-line .pcs{color:var(--ink-3);font-size:13px;margin-left:-4px}
@@ -500,6 +501,13 @@ var I18N = {
   "Joylash va almashtirish":["Вставить и заменить","Paste and replace"],
   "Kategoriyani tahrirlash":["Изменить категорию","Edit category"],
   "kishi teng — har biriga":["человек поровну — каждому","people evenly — each"],
+  "kishiga teng, har biriga":["человекам поровну — каждому","people evenly — each"],
+  "Shaxsiy summalar":["Личные суммы","Own amounts"],
+  "Shaxsiy summa":["Личная сумма","Own amount"],
+  "umumiy summadan oshib ketdi":["превышают общую сумму","exceed the total"],
+  "qolgani to‘lovchida qoladi":["остаток остаётся у плательщика","the rest stays with the payer"],
+  "+ shaxsiy":["+ личное","+ личное"],
+  "qolgan":["остаток","remaining"],
   "tahrirlash uchun bosing":["нажмите, чтобы изменить","tap to edit"],
   "«Bosh ekranga qo‘shish»":["«На экран «Домой»»","“Add to Home Screen”"],
   "• byudjet nolga tushadi":["• бюджет обнулится","• the budget is reset"],
@@ -1072,6 +1080,21 @@ function splitEqual(amount, ids){
 }
 /* Foizni ko‘rsatish: 27,5 → "27,5", 30 → "30" */
 function fmtPct(n){ return String(Math.round(n*100)/100).replace('.',','); }
+/* "Teng" rejimi + shaxsiy qo‘shimcha.
+   Avval kimning nimasi o‘ziniki bo‘lsa (extra) ayriladi, QOLGANI
+   belgilangan a‘zolar orasida teng bo‘linadi. Masalan 69 000 dan
+   7 000 Izzatniki bo‘lsa, qolgan 62 000 ikkiga bo‘linadi va
+   Izzatga 38 000, SHO ga 31 000 chiqadi. */
+function splitEqualPlus(amount, ids, extra, allIds){
+  extra = extra || {}; allIds = allIds || ids;
+  var own=0, map={};
+  allIds.forEach(function(id){ var v=(extra[id]>0?extra[id]:0); if(v>0){ map[id]=v; own+=v; } });
+  var rest=amount-own; if(rest<0) rest=0;
+  if(ids.length) splitEqual(rest, ids).forEach(function(x){ map[x.memberId]=(map[x.memberId]||0)+x.share; });
+  var rows=allIds.filter(function(id){ return map[id]>0; }).map(function(id){ return {memberId:id, share:map[id]}; });
+  return {rows:rows, map:map, own:own, rest:rest,
+          each: ids.length ? Math.round(rest/ids.length) : 0};
+}
 function splitWeighted(amount, pairs){
   var total=pairs.reduce(function(s,p){return s+p.w;},0);
   if(total<=0) return [];
@@ -2647,8 +2670,11 @@ function buildSplitBody(mode, g, amount, prev){
     var eq=splitEqual(amount, eqIds), map={}; eq.forEach(function(s){ map[s.memberId]=s.share; });
     g.members.forEach(function(m){
       var on = eqIds.indexOf(m.id)>=0;
+      /* <label> ichidagi <input> cheksiz belgilamaydi — interaktiv
+         element bo‘lgani uchun bosish belgilash tugmasiga o‘tmaydi */
       rows+='<label class="split-line"><input type="checkbox" class="pcheck" data-id="'+m.id+'"'+(on?' checked':'')+'>'
         +'<span class="nm">'+esc(m.name)+'</span>'
+        +'<input class="xinput" data-id="'+m.id+'" inputmode="numeric" placeholder="+ shaxsiy">'
         +'<span class="calc" data-id="'+m.id+'">'+fmtMoney(map[m.id]||0)+'</span></label>';
     });
   }else if(mode==='exact'){
@@ -2861,6 +2887,8 @@ function openExpenseModal(groupId, existing){
       var exactTouched = {};
       function checkedIds(){ return [].slice.call(box.querySelectorAll('.pcheck:checked')).map(function(c){return c.dataset.id;}); }
       function inputRaw(){ var o={}; [].slice.call(box.querySelectorAll('.sinput')).forEach(function(i){ o[i.dataset.id]=i.value; }); return o; }
+      /* "Teng" rejimidagi shaxsiy qo‘shimchalar — bular pul, yaxlitlanadi */
+      function extraVals(){ var o={}; [].slice.call(box.querySelectorAll('.xinput')).forEach(function(i){ o[i.dataset.id]=parseAmount(i.value); }); return o; }
       /* Foiz va ulush — pul emas: parseAmount butun songa yaxlitlaydi
          (27,5 → 28), shuning uchun kasrni saqlaydigan parseQty ishlatiladi */
       function inputNums(){ var o={}; [].slice.call(box.querySelectorAll('.sinput')).forEach(function(i){ o[i.dataset.id]=parseQty(i.value); }); return o; }
@@ -2870,10 +2898,24 @@ function openExpenseModal(groupId, existing){
         var amt=amount();
         if(mode==='equal'){
           var ids=checkedIds();
-          var eq=splitEqual(amt,ids), map={}; eq.forEach(function(s){map[s.memberId]=s.share;});
-          setCalc(map);
-          stat.textContent = ids.length ? (ids.length+' kishi teng — har biriga '+fmtMoney(ids.length?Math.round(amt/ids.length):0)) : 'Kamida bitta kishi tanlang';
-          stat.className='split-status'+(ids.length?'':' bad');
+          var eq=splitEqualPlus(amt, ids, extraVals(), memberIds);
+          setCalc(eq.map);
+          if(eq.own>amt){
+            stat.textContent='Shaxsiy summalar ('+fmtMoney(eq.own)+') umumiy summadan oshib ketdi';
+            stat.className='split-status bad';
+          }else if(!ids.length){
+            stat.textContent = eq.own>0
+              ? ('Shaxsiy summa '+fmtMoney(eq.own)+' · qolgani to‘lovchida qoladi')
+              : 'Kamida bitta kishi tanlang';
+            stat.className='split-status'+(eq.own>0?' warn':' bad');
+          }else if(eq.own>0){
+            stat.textContent='Shaxsiy summa '+fmtMoney(eq.own)+' · qolgan '+fmtMoney(eq.rest)
+              +' — '+ids.length+' kishiga teng, har biriga '+fmtMoney(eq.each);
+            stat.className='split-status';
+          }else{
+            stat.textContent=ids.length+' kishi teng — har biriga '+fmtMoney(eq.each);
+            stat.className='split-status';
+          }
         }else if(mode==='exact'){
           var touched=Object.keys(exactTouched);
           if(!touched.length && hadSplits){
@@ -2927,7 +2969,7 @@ function openExpenseModal(groupId, existing){
       var splitTouched=false;
       function rebuild(){
         box.innerHTML=buildSplitBody(mode,g,amount(),splitPrev);
-        box.querySelectorAll('.pcheck,.sinput').forEach(function(el){
+        box.querySelectorAll('.pcheck,.sinput,.xinput').forEach(function(el){
           var mark=function(){
             splitTouched=true;
             if(mode==='exact' && el.classList.contains('sinput')){
@@ -2957,8 +2999,9 @@ function openExpenseModal(groupId, existing){
         var amt=amount();
         if(mode==='equal'){
           var ids=checkedIds();
-          if(!ids.length) return null;
-          return splitEqual(amt,ids);
+          var eq=splitEqualPlus(amt, ids, extraVals(), memberIds);
+          if(!eq.rows.length || eq.own>amt) return null;
+          return eq.rows;
         }
         if(mode==='exact'){
           var touched=Object.keys(exactTouched);
