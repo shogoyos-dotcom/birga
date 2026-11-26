@@ -55,6 +55,11 @@ await pg.route('**/index.html*', async route => {
 });
 ```
 
+**Sahifani `serviceWorkers: 'block'` bilan oching** — aks holda ikkinchi
+qayta yuklashdan keyin SW sahifani o'zi beradi, `page.route` esa umuman
+chaqirilmaydi va patch yo'qoladi. Bu bir marta yarim soat vaqt oldi:
+test «faqat ko'radi» holatiga tushib qolgan edi.
+
 A'zoning `user_id` si `'u1'` bo'lsa, u endi «men» hisoblanadi va ega oynalari
 ochiladi. **Saqlashni sinab bo'lmaydi** — `SB` baribir `null`, bulutga yozish
 yiqiladi. Shuning uchun natijani `modalEl._readSplits()` orqali tekshiring.

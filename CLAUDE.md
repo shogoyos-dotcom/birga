@@ -131,6 +131,31 @@ urinishi ham kerak. `migrateStock` da u unutilib, eski serverda butun
 ko‘chirish «Bulut xatosi» bilan yiqilardi. Hozir ikkala joyda ham bor,
 `roleNote()` esa Ombor ekranida doimiy ogohlantirish ko‘rsatadi.
 
+## Narx o‘zi turadi
+
+Yangi prihod/rasxodda narx maydoni **oxirgi shunday harakatning narxi** bilan
+to‘ldiriladi — `lastPriceOf(itemId, type)`. Prihod va rasxod narxi **alohida**
+eslab qolinadi. Tovar yoki tur almashsa narx ham moslashadi, lekin
+**foydalanuvchi o‘zi yozgan narxga tegilmaydi**: `suggestPrice()` faqat
+maydon bo‘sh bo‘lsa yoki ichida o‘zimiz qo‘ygan taklif tursa yangilaydi.
+Miqdor esa har safar bo‘sh qoladi.
+
+## Kim va qachon (audit)
+
+`entries` va `stock_moves` da `created_by`/`created_at` **avvaldan bor** edi;
+tahrir uchun `updated_by`/`updated_at` qo‘shildi. `stampRow(row, existing)`
+yozishda to‘ldiradi, `auditBlock(g, r)` esa ko‘rsatadi:
+
+- guruh amaliyoti — `openEntryView` dagi ma‘lumot jadvalida
+- ombor harakati — tahrirlash oynasining tepasida
+
+`memNameByUid(g, uid)` auth id ni guruhdagi ismga aylantiradi, `fmtWhen(iso)`
+«26-noy 14:30» qiladi. O‘zgartirilmagan yozuvda «O‘zgartirdi» qatori
+chiqmaydi.
+
+Eski serverda bu ustunlar yo‘q — `sbHasAudit` bayrog‘i `sbHasItemCat` kabi
+ishlaydi: xato chiqsa usiz qayta yuboriladi va bir marta ogohlantiriladi.
+
 ## Kalkulyator (summa maydonlarida)
 
 Har bir `inputmode="numeric"` / `"decimal"` maydoniga **ifoda** yozsa bo‘ladi:
