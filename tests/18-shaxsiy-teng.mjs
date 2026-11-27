@@ -125,6 +125,33 @@ must((await pg.locator('#modal .xinput').first().inputValue()) === '', 'Rejim al
 st = await stat();
 must(/4 kishi teng — har biriga 17 250/.test(st), 'Shaxsiysiz holat avvalgidek: ' + st);
 
+// ============ SUMMA BO'SH BO'LSA — SHAXSIYLARDAN HISOBLANADI ============
+// Chek bo'yicha har kimnikini yozib chiqsa, jami o'zi chiqsin.
+// Toza oyna kerak: yuqorida summa qo'lda yozilgan edi.
+await pg.locator('#modal .close-x').evaluate(e => e.click()); await pg.waitForTimeout(400);
+await pg.click('#fab'); await pg.waitForTimeout(600);
+await pg.fill('#modal input[name="title"]', 'Oq Saroy');
+await own.nth(0).fill('127325'); await pg.waitForTimeout(250);
+await own.nth(2).fill('89925');  await pg.waitForTimeout(400);
+const amtVal = () => pg.locator('#modal #eamt').inputValue();
+must(await amtVal() === '217250',
+     'Summa o‘zi to‘ldi: 127 325 + 89 925 = 217 250 · chiqdi: ' + await amtVal());
+st = await stat();
+must(/Summa shaxsiy summalardan hisoblandi/.test(st) && /217 250/.test(st), 'Nima bo‘lgani aytiladi: ' + st);
+const cs = (await pg.locator('#modal .calc').allTextContents()).map(x => x.replace(/\s+/g, ' ').trim());
+must(/^127 325/.test(cs[0]) && /^89 925/.test(cs[2]), 'Har kim aynan o‘zi yozganini oladi');
+must(/^0/.test(cs[1]) && /^0/.test(cs[3]), 'Yozmaganlarga 0 — bo‘linadigan qoldiq yo‘q');
+out = await pg.evaluate(() => document.getElementById('modal')._readSplits());
+must(JSON.stringify(out) === JSON.stringify([{ memberId: '__me__', share: 127325 },
+                                             { memberId: 'm3', share: 89925 }]),
+     'Shu holda saqlanadi: ' + JSON.stringify(out));
+await pg.screenshot({ path: (process.argv[2] || '.') + '/k-summa-ozi.png' });
+// summani qo'lda yozsa — eski xulq qaytadi
+await pg.fill('#modal #eamt', '300000'); await pg.waitForTimeout(400);
+st = await stat();
+must(/Shaxsiy summa 217 250/.test(st) && /qolgan 82 750/.test(st),
+     'Qo‘lda summa yozilsa — qolgani teng bo‘linadi: ' + st);
+
 // ================= «NIMA UCHUN» MAJBURIY EMAS =================
 must((await pg.locator('#modal label', { hasText: 'Nima uchun' }).first().textContent()).includes('ixtiyoriy'),
      '«Nima uchun» yorlig‘ida «ixtiyoriy» yozilgan');

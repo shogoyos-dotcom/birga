@@ -222,3 +222,26 @@ alter publication supabase_realtime add table entries;
 alter publication supabase_realtime add table settlements;
 alter publication supabase_realtime add table stock_items;
 alter publication supabase_realtime add table stock_moves;
+
+-- ---------- Guruh zametkalari ----------
+-- 6) Guruh zametkalari
+create table if not exists group_notes (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  body text not null,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id),
+  updated_at timestamptz
+);
+create index if not exists group_notes_group_idx on group_notes(group_id);
+alter table group_notes enable row level security;
+drop policy if exists gn_select on group_notes;
+drop policy if exists gn_write  on group_notes;
+create policy gn_select on group_notes for select using (is_member(group_id));
+create policy gn_write  on group_notes for all
+  using (member_role(group_id) in ('owner','editor'))
+  with check (member_role(group_id) in ('owner','editor'));
+do $$ begin
+  alter publication supabase_realtime add table group_notes;
+exception when duplicate_object then null; end $$;
