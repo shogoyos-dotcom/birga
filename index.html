@@ -532,6 +532,7 @@ var I18N = {
   "Hamma klient":["Все клиенты","All clients"],
   "Harakat topilmadi":["Движений не найдено","No movements found"],
   "Tanlanmagan":["Не указан","Not set"],
+  "Birga Hamyondan chiqasizmi?":["Выйти из Birga Hamyon?","Leave Birga Hamyon?"],
   "Valyuta kursi":["Курс валют","Exchange rate"],
   "Yangilash":["Обновить","Refresh"],
   "Yangilanmoqda…":["Обновляется…","Refreshing…"],
@@ -2131,11 +2132,26 @@ function commit(){ save(); render(); }
 
 /* ---------- routing ---------- */
 var route = { name:'home', ym: today().slice(0,7) };
+/* Orqaga tugmasi uchun kichik tarix: qaysi ekrandan kelgani */
+var navStack = [];
 function go(name, extra){
+  if(route && route.name && route.name !== name){
+    navStack.push(route);
+    if(navStack.length > 20) navStack.shift();
+  }
   route = Object.assign({name:name}, extra||{});
   if(name==='home' && !route.ym) route.ym = today().slice(0,7);
   window.scrollTo(0,0);
   render();
+}
+/* orqaga: oldingi ekranga (navStack ga yozmasdan) */
+function goBack(){
+  var prev = navStack.pop();
+  if(!prev){ return false; }
+  route = prev;
+  window.scrollTo(0,0);
+  render();
+  return true;
 }
 
 var screenEl = document.getElementById('screen');
@@ -5939,6 +5955,29 @@ document.addEventListener('visibilitychange', function(){
   if(!lockOn() || lockedNow) return;
   if(lockHiddenAt && Date.now() - lockHiddenAt > 60000) lockShow();
 });
+
+/* ================= TELEFONDAGI «ORQAGA» TUGMASI =================
+   PWA da orqaga bosilsa ilova shartta yopiladi. Shuning uchun tarixda
+   bitta qo‘riqchi yozuv turadi: orqaga bosilganda avval modal yopiladi,
+   keyin oldingi ekranga qaytiladi va faqat asosiy ekranda chiqish
+   so‘raladi. */
+function navGuard(){ try{ history.pushState({birga:1}, ''); }catch(e){} }
+window.addEventListener('popstate', function(){
+  var lb = document.getElementById('lightbox');
+  if(lb && !lb.hidden){ lb.hidden = true; lb.innerHTML = ''; navGuard(); return; }
+  if(!modalEl.hidden){ closeModal(); navGuard(); return; }
+  if(lockedNow){ navGuard(); return; }          /* qulfdan orqaga chiqib bo‘lmaydi */
+  if(goBack()){ navGuard(); return; }
+  if(route.name !== 'home'){ go('home'); navStack = []; navGuard(); return; }
+  if(confirm('Birga Hamyondan chiqasizmi?')){
+    /* qo‘riqchidan oldingi yozuvga o‘tamiz — shunda ilova yopiladi */
+    try{ history.go(-1); }catch(e){}
+    setTimeout(function(){ try{ window.close(); }catch(e){} }, 120);
+    return;
+  }
+  navGuard();
+});
+navGuard();
 
 /* ---------- go ---------- */
 if(lockOn()) lockShow();
