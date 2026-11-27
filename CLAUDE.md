@@ -283,23 +283,35 @@ PWA da orqaga bosilsa ilova **shartta yopilardi**. Endi tarixda bitta
 qo‘riqchi yozuv turadi (`navGuard()` → `history.pushState`), `popstate`
 esa tartib bilan ishlaydi:
 
-1. rasm ochiq bo‘lsa — yopiladi
-2. modal ochiq bo‘lsa — yopiladi
-3. qulf ochiq bo‘lsa — **hech narsa qilmaydi** (orqaga qulfdan chiqib
+1. chiqish so‘rovi ochiq bo‘lsa — yopiladi
+2. rasm ochiq bo‘lsa — yopiladi
+3. modal ochiq bo‘lsa — yopiladi
+4. qulf ochiq bo‘lsa — **hech narsa qilmaydi** (orqaga qulfdan chiqib
    bo‘lmasin)
-4. `goBack()` — oldingi ekranga (`navStack`)
-5. asosiy ekranda — «Birga Hamyondan chiqasizmi?»
+5. `goBack()` — oldingi ekranga (`navStack`)
+6. asosiy ekranda — `askExit()`
 
-Har holatda `navGuard()` qayta chaqiriladi, shuning uchun tarixda doim
-aynan bitta qo‘shimcha yozuv bo‘ladi.
+Har holatda `navGuard()` **aynan bir marta** chaqiriladi. Ikki marta
+chaqirilsa `history.length` har orqaga bosishda o‘sib ketadi va
+chiqishdagi `history.go(-2)` yetmay qoladi — shuning uchun `askExit()`
+o‘zi qo‘riqchi qo‘shmaydi.
+
+**Native `confirm()` ishlatilmaydi.** Androidda PWA ichida u chiqmay
+qolgan va ilova so‘ramasdan yopilgan. O‘rniga `#exitask` — o‘z oynamiz
+(«Yo‘q» / «Ha, chiqaman»), u doim chiziladi.
+
+`navEnsure()` qo‘riqchi yo‘qolib qolmasligini tekshiradi
+(`history.state.birga`): `handleInviteHash` dagi `replaceState` holatni
+tozalaydi, bfcache dan qaytganda ham shunday bo‘ladi. Shuning uchun u
+`go()` da, `visibilitychange` va `pageshow` da chaqiriladi.
 
 `go(name, extra)` endi joriy ekranni `navStack` ga yozadi (20 tagacha),
 `goBack()` esa uni qaytaradi — **navStack ga yozmasdan**, aks holda
 aylanib qolardi. Tab tugmalari ham `go()` orqali o‘tadi, ya‘ni orqaga
 tugmasi tablar bo‘ylab ham qaytaradi.
 
-«Ha» deyilganda `history.go(-1)` — qo‘riqchidan oldingi yozuvga o‘tadi
-va ilova yopiladi. Brauzerda (PWA emas) bu shunchaki oldingi sahifaga
+«Ha, chiqaman» deyilganda `history.go(-2)` — qo‘riqchi va sahifa
+yozuvidan oldingisiga o‘tadi, shunda ilova yopiladi. Brauzerda (PWA emas) bu shunchaki oldingi sahifaga
 olib boradi; zaxira sifatida `window.close()` ham urinib ko‘riladi.
 
 ## Qulf (PIN / grafik kalit / barmoq izi)

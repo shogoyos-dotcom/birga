@@ -40,27 +40,39 @@ must(await screen() === 'home', 'Ekran o‘zgarmaydi');
 must(await pg.locator('#screen .card').count() > 0, 'Ilova joyida');
 
 // ---- asosiy ekranda — so'raydi ----
-let asked = '';
-pg.once('dialog', d => { asked = d.message(); d.dismiss(); });
+// Native confirm() emas, o'z oynamiz: Androidda PWA ichida native oyna
+// chiqmay qolishi mumkin edi.
+const exOpen = async () => (await pg.locator('#exitask').getAttribute('hidden')) === null;
+const histLen = () => pg.evaluate(() => history.length);
+const len0 = await histLen();
 await pg.goBack(); await pg.waitForTimeout(500);
-must(/chiqasizmi/i.test(asked), 'Chiqishdan oldin so‘raydi: ' + asked);
-must(await pg.locator('#screen .card').count() > 0, '«Yo‘q» desa ilova joyida qoladi');
+must(await exOpen(), 'Chiqishdan oldin so‘rov oynasi chiqadi');
+must(/chiqasizmi/i.test(await pg.locator('#exitask .ex-t').textContent()), 'Matni tushunarli');
+must(await pg.locator('#exitask #exno').count() === 1 && await pg.locator('#exitask #exyes').count() === 1,
+     'Ikkita tugma: «Yo‘q» va «Ha, chiqaman»');
+await pg.screenshot({ path: (process.argv[2] || '.') + '/o-chiqish.png' });
+await pg.click('#exitask #exno'); await pg.waitForTimeout(400);
+must(!(await exOpen()), '«Yo‘q» bosilsa yopiladi');
+must(await pg.locator('#screen .card').count() > 0, 'Ilova joyida qoladi');
 
 // yana so'raydi — bir martalik emas
-asked = '';
-pg.once('dialog', d => { asked = d.message(); d.dismiss(); });
 await pg.goBack(); await pg.waitForTimeout(500);
-must(/chiqasizmi/i.test(asked), 'Keyingi safar ham so‘raydi');
+must(await exOpen(), 'Keyingi safar ham so‘raydi');
+// so'rov ochiq turganda orqaga bosilsa — faqat so'rov yopiladi
+await pg.goBack(); await pg.waitForTimeout(450);
+must(!(await exOpen()), 'So‘rov ochiq turganda orqaga — so‘rov yopiladi');
+must(await pg.locator('#screen .card').count() > 0, 'Ilova baribir joyida');
+
+// tarix cheksiz o'smasin — har orqadan keyin qo'riqchi bittaligicha qoladi
+must(await histLen() === len0, 'Tarix o‘smaydi (' + len0 + ' → ' + await histLen() + ')');
 
 // ---- qulf ochiq bo'lsa orqaga chiqib bo'lmaydi ----
 await pg.evaluate(() => localStorage.setItem('birga_lock',
   JSON.stringify({ kind: 'pin', salt: 'x', hash: 'yoq', len: 4, bio: false, credId: null })));
 await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(800);
 must((await pg.locator('#lockscreen').getAttribute('hidden')) === null, 'Qulf chiqdi');
-let asked2 = '';
-pg.once('dialog', d => { asked2 = d.message(); d.dismiss(); });
 await pg.goBack(); await pg.waitForTimeout(500);
-must(asked2 === '', 'Qulfda chiqish so‘ralmaydi');
+must(!(await exOpen()), 'Qulfda chiqish so‘ralmaydi');
 must((await pg.locator('#lockscreen').getAttribute('hidden')) === null, 'Qulf joyida qoladi');
 
 must(errs.length === 0, 'JS xatosi yo‘q' + (errs.length ? ': ' + errs[0] : ''));
