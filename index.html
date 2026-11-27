@@ -264,6 +264,16 @@
   .seg button{flex:1;border:0;background:0;padding:9px;border-radius:9px;color:var(--ink-2);font-weight:600;font-size:14px;cursor:pointer}
   .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
   .seg.five button{font-size:13px;padding:9px 2px}
+  /* ---- chiqishni so‘rash ---- */
+  #exitask{position:fixed;inset:0;z-index:400;display:grid;place-items:center;padding:24px}
+  #exitask[hidden]{display:none}
+  #exitask .ex-bg{position:fixed;inset:0;background:rgba(0,0,0,.5)}
+  #exitask .ex-box{position:relative;background:var(--surface);border-radius:16px;padding:20px;
+    max-width:320px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+  #exitask .ex-t{font-family:var(--font-display);font-size:18px;font-weight:500;margin-bottom:6px}
+  #exitask .ex-s{color:var(--ink-2);font-size:13px;margin-bottom:16px}
+  #exitask .ex-row{display:flex;gap:10px}
+  #exitask .ex-row .btn{flex:1}
   /* ---- qulf ekrani ---- */
   #lockscreen{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;
     flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px}
@@ -394,6 +404,7 @@
   </button>
 </nav>
 
+<div id="exitask" hidden></div>
 <div id="lockscreen" hidden></div>
 <div id="modal" hidden></div>
 <div id="lightbox" hidden></div>
@@ -533,6 +544,8 @@ var I18N = {
   "Harakat topilmadi":["Движений не найдено","No movements found"],
   "Tanlanmagan":["Не указан","Not set"],
   "Birga Hamyondan chiqasizmi?":["Выйти из Birga Hamyon?","Leave Birga Hamyon?"],
+  "Yozilgan narsalar saqlanib qoladi.":["Всё записанное сохранится.","Everything you entered stays saved."],
+  "Ha, chiqaman":["Да, выйти","Yes, leave"],
   "Valyuta kursi":["Курс валют","Exchange rate"],
   "Yangilash":["Обновить","Refresh"],
   "Yangilanmoqda…":["Обновляется…","Refreshing…"],
@@ -2141,6 +2154,7 @@ function go(name, extra){
   }
   route = Object.assign({name:name}, extra||{});
   if(name==='home' && !route.ym) route.ym = today().slice(0,7);
+  if(typeof navEnsure==='function') navEnsure();
   window.scrollTo(0,0);
   render();
 }
@@ -5962,22 +5976,52 @@ document.addEventListener('visibilitychange', function(){
    keyin oldingi ekranga qaytiladi va faqat asosiy ekranda chiqish
    so‘raladi. */
 function navGuard(){ try{ history.pushState({birga:1}, ''); }catch(e){} }
+/* Qo‘riqchi yozuv yo‘qolib qolishi mumkin: `handleInviteHash` dagi
+   `replaceState` holatni tozalaydi, bfcache dan qaytganda ham shunday
+   bo‘ladi. Shuning uchun har gal tekshirib turamiz. */
+function navEnsure(){
+  try{
+    if(!(history.state && history.state.birga)) navGuard();
+  }catch(e){ navGuard(); }
+}
+var exitAsked = false;
+function askExit(){
+  if(exitAsked) return;
+  exitAsked = true;
+  var el = document.getElementById('exitask');
+  el.innerHTML = tr('<div class="ex-bg"></div><div class="ex-box">'
+    + '<div class="ex-t">Birga Hamyondan chiqasizmi?</div>'
+    + '<div class="ex-s">Yozilgan narsalar saqlanib qoladi.</div>'
+    + '<div class="ex-row">'
+    + '<button class="btn" type="button" id="exno">Yo‘q</button>'
+    + '<button class="btn btn-primary" type="button" id="exyes">Ha, chiqaman</button>'
+    + '</div></div>');
+  el.hidden = false;
+  var done = function(){ el.hidden = true; el.innerHTML = ''; exitAsked = false; };
+  el.querySelector('#exno').addEventListener('click', done);
+  el.querySelector('.ex-bg').addEventListener('click', done);
+  el.querySelector('#exyes').addEventListener('click', function(){
+    done();
+    /* qo‘riqchilardan oldingi yozuvga o‘tamiz — shunda ilova yopiladi */
+    try{ history.go(-2); }catch(e){}
+    setTimeout(function(){ try{ window.close(); }catch(e){} }, 150);
+  });
+}
 window.addEventListener('popstate', function(){
+  var ex = document.getElementById('exitask');
+  if(ex && !ex.hidden){ ex.hidden = true; ex.innerHTML = ''; exitAsked = false; navGuard(); return; }
   var lb = document.getElementById('lightbox');
   if(lb && !lb.hidden){ lb.hidden = true; lb.innerHTML = ''; navGuard(); return; }
   if(!modalEl.hidden){ closeModal(); navGuard(); return; }
   if(lockedNow){ navGuard(); return; }          /* qulfdan orqaga chiqib bo‘lmaydi */
   if(goBack()){ navGuard(); return; }
   if(route.name !== 'home'){ go('home'); navStack = []; navGuard(); return; }
-  if(confirm('Birga Hamyondan chiqasizmi?')){
-    /* qo‘riqchidan oldingi yozuvga o‘tamiz — shunda ilova yopiladi */
-    try{ history.go(-1); }catch(e){}
-    setTimeout(function(){ try{ window.close(); }catch(e){} }, 120);
-    return;
-  }
-  navGuard();
+  navGuard();                                   /* avval tarixni tiklaymiz, keyin so‘raymiz */
+  askExit();
 });
 navGuard();
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) navEnsure(); });
+window.addEventListener('pageshow', function(){ navEnsure(); });
 
 /* ---------- go ---------- */
 if(lockOn()) lockShow();
