@@ -256,6 +256,27 @@ olmaydi. Shu karta nima ochiqligini aytadi va bir bosishda o‘tkazadi
 `signOutCloud()` **avval tasdiq so‘raydi** — chiqib ketish qaytarib
 bo‘lmaydigan ish emas, lekin guruhlar ko‘rinmay qoladi.
 
+## Valyuta kursi
+
+**Valyuta tanlagichi summani o‘girmaydi** — u faqat raqam yonidagi belgi
+(`fmtMoney`). Buni tanlagich ostidagi izoh aytib turadi, aks holda USD ga
+o‘tgan odam so‘mdagi raqamni dollar deb o‘qiydi.
+
+Kurs ikki manbadan:
+
+| Manba | Qayerdan | Nega shunday |
+|---|---|---|
+| **Markaziy bank** | `cbu.uz` dan **avtomatik** | CORS ochiq (`access-control-allow-origin: *`) |
+| **O‘z banki** | foydalanuvchi **qo‘lda** yozadi | Ipak Yo‘li va boshqa tijorat banklarida ochiq JSON API yo‘q, CORS ham yopiq (Cloudflare) — brauzerdan o‘qib bo‘lmaydi |
+
+- `ratesLoad(force, cb)` — 6 soatda bir marta so‘raydi, natija
+  `localStorage['birga_rates']` da. Oflaynda oxirgisi qoladi
+- `sw.js` boshqa domenlarni o‘ziga olmaydi, shuning uchun kurs eskirib
+  qolmaydi
+- `bankRate()` — `state.settings.bankRate` `{name, buy, sell}`
+- `usdRate()` — avval bankning **sotish** kursi, bo‘lmasa MB. «Pulim»
+  ostida `≈ $…` shu bilan chiqadi va **qaysi kurs ishlatilgani yoziladi**
+
 ## Qulf (PIN / grafik kalit / barmoq izi)
 
 **Bu qurilma qulfi, shifr emas.** Ma‘lumot baribir shu telefonning
