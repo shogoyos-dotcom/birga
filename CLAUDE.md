@@ -221,6 +221,41 @@ turi** («Chiqim» / «Tushum»). Amaliyot qatori, avatar harflari va
 
 Tekshiruvda faqat summa qoldi: `if(amt<=0){ form.amount.focus(); return; }`.
 
+## Guruh zametkalari
+
+Serverda alohida **`group_notes`** jadvali (`groups.note` ustuni emas:
+`g_update` siyosati faqat egaga ruxsat beradi, zametkani esa tahrirlovchi
+ham yozishi kerak). Siyosatlar: `gn_select` — `is_member`, `gn_write` —
+`owner`/`editor`.
+
+`notesCard(g)` guruh sarlavhasi bilan tablar orasida turadi, ya‘ni **ikkala
+tabda ham** ko‘rinadi. Bo‘sh bo‘lsa va odam yoza olmasa — umuman chiqmaydi.
+`openNoteModal` da `auditBlock` ham bor.
+
+Eski serverda jadval yo‘q — **`sbHasNotes`** bayrog‘i. `loadGroups()` select
+ni bo‘lak-bo‘lak yig‘adi va xatoda aybdorini aniqlaydi: avval `group_notes`,
+keyin ombor jadvallari. Bu CLAUDE.md dagi 7-tuzoqning aynan o‘zi — yangi
+jadval qo‘shilganda butun guruhlar ishlamay qolmasligi uchun.
+
+## Kim nimani ko‘radi — bitta joydan
+
+`setMemberFull(g, memberId)` — «To‘liq huquq»: bitta bosishda `role='editor'`
+va `can_stock=true`. Eski serverda `can_stock` bo‘lmasa, **rol baribir
+beriladi** va SQL yangilash kerakligi aytiladi.
+
+A‘zolar ro‘yxatida ega va tahrirlovchida tugma emas, **«omborni ko‘radi»**
+yozuvi turadi — `stock_visible()` ularni baribir kiritadi, shuning uchun
+tugma yolg‘on tanlov bo‘lib qolardi.
+
+**`groupOmborHint()`** — Ombor ekranida. Guruhga qo‘shilgan a‘zo Ombor ni
+ochsa o‘zining (bo‘sh) **shaxsiy** omborini ko‘radi va guruhnikini topa
+olmaydi. Shu karta nima ochiqligini aytadi va bir bosishda o‘tkazadi
+(`data-act="oscope"`). Faqat `omborScope()==='local'` bo‘lganda va
+`canSeeStock(g)` o‘tgan guruhlar uchun chiqadi.
+
+`signOutCloud()` **avval tasdiq so‘raydi** — chiqib ketish qaytarib
+bo‘lmaydigan ish emas, lekin guruhlar ko‘rinmay qoladi.
+
 ## Izoh takliflari
 
 `noteHints()` — joriy ombordagi oldingi izohlar, **yangisidan eskisiga**,
@@ -295,6 +330,13 @@ Izzat 38 000, SHO 31 000.
   to‘laydi, qolganiga qo‘shilmaydi)
 - hech kim belgilanmasa — faqat shaxsiylar yoziladi, qolgani to‘lovchida qoladi
 - shaxsiylar yig‘indisi summadan oshsa `_readSplits()` `null` qaytaradi
+
+**Summa yozilmagan bo‘lsa — shaxsiylardan hisoblanadi.** Chekdagi har kimning
+summasini yozib chiqsa, jami o‘zi chiqadi. `amtTouched` bayrog‘i hal qiladi:
+`#eamt` ga **odam** yozsa `true` bo‘ladi va avtomatik to‘ldirish o‘chadi;
+tahrirlashda esa boshidanoq `true` (summa allaqachon bor). `setAmt()` qiymatni
+qo‘yadi, lekin `input` hodisasini **yubormaydi** — shuning uchun tinglovchi
+faqat odam yozganini ko‘radi va aylanma chaqiriq bo‘lmaydi.
 
 Qator `<label>` bo‘lgani uchun ichidagi maydon bosilganda belgilash tugmasi
 **almashmaydi** — HTML spetsifikatsiyasi bo‘yicha interaktiv element ichidagi

@@ -496,6 +496,20 @@ var I18N = {
   "Hamma klient":["Все клиенты","All clients"],
   "Harakat topilmadi":["Движений не найдено","No movements found"],
   "Tanlanmagan":["Не указан","Not set"],
+  "Zametkalar":["Заметки","Notes"],
+  "Zametka":["Заметка","Note"],
+  "Zametka +":["Заметка +","Note +"],
+  "Yangi zametka":["Новая заметка","New note"],
+  "Zametkani tahrirlash":["Изменить заметку","Edit note"],
+  "Zametka o‘chirilsinmi?":["Удалить заметку?","Delete this note?"],
+  "Nima eslab qolish kerak…":["Что нужно запомнить…","What to remember…"],
+  "Hali zametka yo‘q. Kelishilgan narsalarni shu yerga yozib qo‘ying — hamma a‘zo ko‘radi.":["Заметок пока нет. Запишите сюда, о чём договорились — увидят все участники.","No notes yet. Write down what you agreed on — every member sees it."],
+  "Hali zametka yo‘q.":["Заметок пока нет.","No notes yet."],
+  "To‘liq huquq":["Полные права","Full access"],
+  "omborni ko‘radi":["видит склад","sees the inventory"],
+  "Guruh ombori":["Склад группы","Group inventory"],
+  "omboriga o‘tish":["— перейти к складу","— switch to its inventory"],
+  "Summa shaxsiy summalardan hisoblandi —":["Сумма посчитана из личных сумм —","Total computed from the own amounts —"],
   "Nima uchun (ixtiyoriy)":["За что (необязательно)","What for (optional)"],
   "Kassada":["В кассе","In cash book"],
   "Ha — pul harakati yozilgan":["Да — движение денег записано","Yes — a cash movement exists"],
@@ -1418,6 +1432,7 @@ function openSignIn(){
 }
 
 function signOutCloud(){
+  if(!confirm('Hisobdan chiqasizmi?\n\nGuruhlaringiz shu qurilmada ko‘rinmay qoladi — qaytib kirish uchun email va parol kerak bo‘ladi.')) return;
   if(!confirm('Hisobdan chiqasizmi?\n\nGuruhlaringiz serverda qoladi — qaytib kirsangiz hammasi joyida bo‘ladi.\nTelefondagi shaxsiy hamyon va «Mening omborim» ham tegilmaydi.')) return;
   SB.auth.signOut().then(function(){
     /* ilova ishlayverishi uchun yana anonim kiramiz */
@@ -1513,13 +1528,21 @@ function rowToSettlement(r){ return { id:r.id, from:r.from_member, to:r.to_membe
    hali ishga tushirmagan bo‘lsa, so‘rovni ularsiz qaytaramiz — aks holda
    butun guruhlar ishlamay qolardi. */
 var sbHasStock = true;
+/* guruh zametkalari jadvali — eski serverda bo‘lmasligi mumkin */
+var sbHasNotes = true;
 function loadGroups(){
   if(!cloudOn()) return Promise.resolve();
-  var sel = sbHasStock
-    ? '*, members(*), entries(*), settlements(*), stock_items(*), stock_moves(*)'
-    : '*, members(*), entries(*), settlements(*)';
+  var sel = '*, members(*), entries(*), settlements(*)'
+    + (sbHasStock ? ', stock_items(*), stock_moves(*)' : '')
+    + (sbHasNotes ? ', group_notes(*)' : '');
   return SB.from('groups').select(sel).then(function(res){
-    if(res.error && sbHasStock && /stock_items|stock_moves|relationship|schema cache/i.test(res.error.message||'')){
+    var em = (res.error && res.error.message) || '';
+    /* eski sxemada jadval yo‘q bo‘lsa butun so‘rov yiqiladi (PGRST200) —
+       aybdorini aniqlab, usiz qayta so‘raymiz */
+    if(res.error && sbHasNotes && /group_notes/i.test(em)){
+      sbHasNotes = false; return loadGroups();
+    }
+    if(res.error && sbHasStock && /stock_items|stock_moves|relationship|schema cache/i.test(em)){
       sbHasStock = false;                 /* eski sxema — omborsiz davom etamiz */
       return loadGroups();
     }
@@ -1534,6 +1557,10 @@ function loadGroups(){
         items:(row.stock_items||[]).map(function(x){
           return {id:x.id, name:x.name, unit:x.unit||'dona', min:Number(x.min_qty)||0, cat:x.cat||''};
         }),
+        notes:(row.group_notes||[]).map(function(x){
+          return {id:x.id, body:x.body||'', createdAt:x.created_at, createdBy:x.created_by,
+                  updatedAt:x.updated_at, updatedBy:x.updated_by};
+        }).sort(function(a,b){ return (a.createdAt||'')<(b.createdAt||'') ? 1 : -1; }),
         stock:(row.stock_moves||[]).map(function(x){
           return {id:x.id, itemId:x.item_id, type:(x.type==='out'?'out':'in'),
                   qty:Number(x.qty)||0, price:Number(x.price)||0,
@@ -1578,6 +1605,88 @@ function addMemberTo(g, name, done){
   SB.from('members').insert({group_id:g.id, name:name, role:'viewer', claim_token:randToken()}).select().single()
     .then(function(r){ if(r.error) throw r.error; var mid=r.data.id; return loadGroups().then(function(){ done&&done(mid); }); })
     .catch(sbFail);
+}
+/* «To‘liq huquq» — bitta bosishda: tahrirlaydi va hamma joyni ko‘radi */
+function setMemberFull(g, memberId){
+  if(!isOwner(g)){ alert('Huquqni faqat guruh egasi beradi.'); return; }
+  var m = (g.members||[]).filter(function(x){ return x.id===memberId; })[0];
+  if(!m) return;
+  if(!confirm('«'+m.name+'» ga to‘liq huquq berilsinmi?\n\nU guruh amaliyotlarini ham, omborni ham ko‘radi va o‘zgartiradi. Guruhni o‘chirish va a‘zo chiqarish esa faqat sizda qoladi.')) return;
+  var send = function(row){ return SB.from('members').update(row).eq('id', memberId); };
+  send({role:'editor', can_stock:true}).then(function(r){
+    /* eski serverda can_stock ustuni bo‘lmasligi mumkin — rolni baribir beramiz */
+    if(r.error && /can_stock|column|schema cache/i.test(r.error.message||'')){
+      return send({role:'editor'}).then(function(r2){
+        if(r2.error) throw r2.error;
+        alert(sqlNeeded('Ombor ruxsati alohida yozilmadi'));
+        return r2;
+      });
+    }
+    if(r.error) throw r.error;
+    return r;
+  }).then(function(){ return loadGroups(); }).then(function(){ render(); }).catch(sbFail);
+}
+/* ---------- Guruh zametkalari ---------- */
+function notesCard(g){
+  if(!sbHasNotes) return '';
+  var canEd = canEdit(g), ns = g.notes || [];
+  var h = '<div class="card" style="margin-top:14px"><div class="card-h"><h2>Zametkalar</h2>'
+        + (canEd ? '<button class="link" data-act="add-note" data-gid="'+g.id+'">Zametka +</button>' : '')
+        + '</div>';
+  if(!ns.length){
+    if(!canEd) return '';               /* bo‘sh va yoza olmaydi — bekorga joy egallamasin */
+    return h + '<div class="empty">Hali zametka yo‘q. Kelishilgan narsalarni shu yerga '
+      + 'yozib qo‘ying — hamma a‘zo ko‘radi.</div></div>';
+  }
+  h += '<div class="list">';
+  ns.forEach(function(n){
+    var who = memNameByUid(g, n.updatedBy || n.createdBy);
+    var when = fmtWhen(n.updatedAt || n.createdAt);
+    h += '<div class="row'+(canEd?' tap':'')+'"'+(canEd?(' data-act="edit-note" data-gid="'+g.id+'" data-id="'+n.id+'"'):'')+'>'
+       + '<div class="main"><div class="t" style="white-space:pre-wrap">'+esc(n.body)+'</div>'
+       + '<div class="s">'+esc([who, when].filter(Boolean).join(' · '))+'</div></div></div>';
+  });
+  return h + '</div></div>';
+}
+function openNoteModal(g, existing){
+  var n = existing || {body:''};
+  var body = '<form>'
+    + '<div class="field"><label>Zametka</label>'
+    + '<textarea name="body" rows="5" placeholder="Nima eslab qolish kerak…">'+esc(n.body||'')+'</textarea></div>'
+    + '<button class="btn btn-primary btn-block" type="submit">'+(existing?'Saqlash':'Qo‘shish')+'</button>'
+    + (existing ? '<button class="btn btn-danger btn-block" type="button" data-act="del-note" data-gid="'+g.id+'" data-id="'+n.id+'">O‘chirish</button>' : '')
+    + '</form>';
+  if(existing){
+    var ab = auditBlock(g, n);
+    if(ab) body = '<div class="view-meta" style="margin-bottom:12px">'+ab+'</div>' + body;
+  }
+  openModal(existing?'Zametkani tahrirlash':'Yangi zametka', body, {
+    onSubmit:function(form){
+      var txt = form.body.value.trim();
+      if(!txt){ form.body.focus(); return; }
+      saveNoteCloud(g, existing||null, txt, function(){ closeModal(); });
+    }
+  });
+}
+function saveNoteCloud(g, existing, txt, done){
+  if(!canEdit(g)){ alert('Zametka yozish uchun «Tahrirlaydi» huquqi kerak.'); return; }
+  var send = function(){
+    var row = stampRow({group_id:g.id, body:txt}, existing);
+    return existing ? SB.from('group_notes').update(row).eq('id', existing.id)
+                    : SB.from('group_notes').insert(row);
+  };
+  sendRetry(send).then(function(r){
+    if(r.error) throw r.error;
+    return loadGroups();
+  }).then(function(){ done && done(); }).catch(sbFail);
+}
+function deleteNoteCloud(g, id){
+  if(!canEdit(g)){ alert('Zametkani o‘chirish uchun «Tahrirlaydi» huquqi kerak.'); return; }
+  if(!confirm('Zametka o‘chirilsinmi?')) return;
+  SB.from('group_notes').delete().eq('id', id).then(function(r){
+    if(r.error) throw r.error;
+    return loadGroups();
+  }).then(function(){ closeModal(); render(); }).catch(sbFail);
 }
 function setMemberRole(g, memberId, role){
   SB.from('members').update({role:role}).eq('id',memberId).then(function(r){ if(r.error) return sbFail(r.error); loadGroups(); });
@@ -2236,6 +2345,7 @@ function viewGroup(){
   var bch = balanceChart(g, net);
   if(bch) h += '<div style="margin-top:14px"></div>' + bch;
 
+  h+=notesCard(g);                    /* ikkala tabda ham ko‘rinsin — guruhning o‘ziga tegishli */
   h+='<div class="seg" style="margin:14px 0 12px">'
     +'<button data-act="gtab" data-tab="expenses" aria-pressed="'+(tab==='expenses')+'">Amaliyotlar</button>'
     +'<button data-act="gtab" data-tab="balances" aria-pressed="'+(tab==='balances')+'">Balanslar</button>'
@@ -2309,10 +2419,17 @@ function viewGroup(){
           +['editor','viewer','owner'].map(function(r){return '<option value="'+r+'"'+(m.role===r?' selected':'')+'>'+roleLabel(r)+'</option>';}).join('')
           +'</select>';
       }
-      if(owner && !isMe && m.role!=='owner' && m.role!=='editor'){
-        var seesStock = m.can_stock===true;
-        end+='<button class="mini-btn" data-act="mstock" data-id="'+m.id+'" data-v="'+(seesStock?'0':'1')+'">'
-          + (seesStock ? '✓ Omborni ko‘radi' : 'Omborni ko‘rsin') + '</button>';
+      if(owner && !isMe){
+        /* egasi va tahrirlovchi omborni baribir ko‘radi (stock_visible) —
+           ularda tugma emas, holat yoziladi */
+        if(m.role==='owner' || m.role==='editor'){
+          end+='<span class="eyebrow" style="font-size:11px">omborni ko‘radi</span>';
+        }else{
+          var seesStock = m.can_stock===true;
+          end+='<button class="mini-btn" data-act="mstock" data-id="'+m.id+'" data-v="'+(seesStock?'0':'1')+'">'
+            + (seesStock ? '✓ Omborni ko‘radi' : 'Omborni ko‘rsin') + '</button>';
+          end+='<button class="mini-btn" data-act="mfull" data-id="'+m.id+'">To‘liq huquq</button>';
+        }
       }
       if(pending && owner){
         end+='<button class="mini-btn" data-act="invite-member" data-id="'+m.id+'">Taklif havolasi</button>';
@@ -2870,6 +2987,11 @@ function openExpenseModal(groupId, existing){
       var box=root.querySelector('#splitbox');
       var amtInput=root.querySelector('#eamt');
       function amount(){ return parseAmount(amtInput.value); }
+      /* Summani foydalanuvchi o‘zi yozmagan bo‘lsa, «Teng» rejimida qo‘lda
+         yozilgan shaxsiy summalar jamlanib SUMMA maydoniga tushadi —
+         chek bo‘yicha har kimnikini yozib chiqsa, jami o‘zi chiqadi. */
+      var amtTouched = !!(e && e.amount > 0);
+      function setAmt(v){ amtInput.value = v > 0 ? String(v) : ''; }
 
       root.querySelectorAll('#etseg button').forEach(function(b){
         b.addEventListener('click',function(){
@@ -2923,9 +3045,17 @@ function openExpenseModal(groupId, existing){
         var amt=amount();
         if(mode==='equal'){
           var ids=checkedIds();
-          var eq=splitEqualPlus(amt, ids, extraVals(), memberIds);
+          var ex=extraVals();
+          var own0=0;
+          memberIds.forEach(function(id){ if(ex[id]>0) own0+=ex[id]; });
+          var auto = (own0>0 && !amtTouched);
+          if(auto && own0!==amt){ setAmt(own0); amt=own0; }
+          var eq=splitEqualPlus(amt, ids, ex, memberIds);
           setCalc(eq.map);
-          if(eq.own>amt){
+          if(auto){
+            stat.textContent='Summa shaxsiy summalardan hisoblandi — '+fmtMoney(eq.own);
+            stat.className='split-status';
+          }else if(eq.own>amt){
             stat.textContent='Shaxsiy summalar ('+fmtMoney(eq.own)+') umumiy summadan oshib ketdi';
             stat.className='split-status bad';
           }else if(!ids.length){
@@ -3018,7 +3148,10 @@ function openExpenseModal(groupId, existing){
           rebuild();
         });
       });
-      amtInput.addEventListener('input',function(){ if(mode==='shares'||splitTouched) recalc(); else rebuild(); });
+      amtInput.addEventListener('input',function(){
+        amtTouched = true;                 /* setAmt 'input' yubormaydi — bu faqat odam yozgani */
+        if(mode==='shares'||splitTouched) recalc(); else rebuild();
+      });
       rebuild();
       root._readSplits=function(){
         var amt=amount();
@@ -3558,6 +3691,22 @@ function roleNote(){
   return '<div class="note" style="margin-bottom:12px">👁 Siz bu omborni <b>faqat ko‘rasiz</b>. '
        + 'O‘zgartirish uchun guruh egasidan «Tahrirlaydi» ruxsatini so‘rang.</div>';
 }
+/* Guruhga qo‘shilgan a‘zo Ombor ni ochsa, o‘zining (bo‘sh) SHAXSIY omborini
+   ko‘radi va guruhnikini topa olmaydi — shuni aytib, bir bosishda o‘tkazamiz. */
+function groupOmborHint(){
+  if(omborScope()!=='local') return '';
+  var gs = state.groups.filter(function(g){ return g.id && canSeeStock(g); });
+  if(!gs.length) return '';
+  return '<div class="card"><div class="card-h"><h2>Guruh ombori</h2></div>'
+    + '<div class="note" style="margin-bottom:10px">Hozir <b>shaxsiy</b> omboringiz ochiq. '
+    + (gs.length===1 ? ('«'+esc(gs[0].name)+'» guruhida ham ombor bor.') : 'Guruhlaringizda ham ombor bor.')
+    + ' O‘tish uchun bosing; qaytish — Profil ▸ «Profil» dan.</div>'
+    + gs.map(function(g){
+        return '<button class="btn btn-block" data-act="oscope" data-s="'+g.id+'" style="margin-bottom:6px">'
+             + esc(g.name) + ' omboriga o‘tish</button>';
+      }).join('')
+    + '</div>';
+}
 function viewOmbor(){
   var canEd = omborCanEdit(), g = omborGroup();
   var h = '<div class="topbar"><h1>Ombor</h1>'
@@ -3571,6 +3720,7 @@ function viewOmbor(){
   }
 
   h += roleNote();
+  h += groupOmborHint();
 
   if(!curItems().length){
     h += '<div class="empty">'+(g?('«'+esc(g.name)+'» ombori bo‘sh.'):'Ombor bo‘sh.')
@@ -4737,6 +4887,28 @@ var PERM_SQL = [
   "exception when duplicate_object then null; end $$;",
   "do $$ begin",
   "  alter publication supabase_realtime add table stock_moves;",
+  "exception when duplicate_object then null; end $$;",
+  "",
+  "-- 6) Guruh zametkalari",
+  "create table if not exists group_notes (",
+  "  id uuid primary key default gen_random_uuid(),",
+  "  group_id uuid not null references groups(id) on delete cascade,",
+  "  body text not null,",
+  "  created_by uuid references auth.users(id),",
+  "  created_at timestamptz not null default now(),",
+  "  updated_by uuid references auth.users(id),",
+  "  updated_at timestamptz",
+  ");",
+  "create index if not exists group_notes_group_idx on group_notes(group_id);",
+  "alter table group_notes enable row level security;",
+  "drop policy if exists gn_select on group_notes;",
+  "drop policy if exists gn_write  on group_notes;",
+  "create policy gn_select on group_notes for select using (is_member(group_id));",
+  "create policy gn_write  on group_notes for all",
+  "  using (member_role(group_id) in ('owner','editor'))",
+  "  with check (member_role(group_id) in ('owner','editor'));",
+  "do $$ begin",
+  "  alter publication supabase_realtime add table group_notes;",
   "exception when duplicate_object then null; end $$;"
 ].join("\n");
 
@@ -4871,6 +5043,22 @@ document.addEventListener('click', function(e){
   }
   if(a==='mstock'){
     var sg=grp(route.id); if(sg) setMemberStock(sg, el.dataset.id, el.dataset.v==='1');
+    return;
+  }
+  if(a==='add-note'){
+    var ang=grp(el.dataset.gid); if(ang) openNoteModal(ang, null); return;
+  }
+  if(a==='edit-note'){
+    var eng=grp(el.dataset.gid);
+    var enn=eng && (eng.notes||[]).filter(function(x){ return x.id===el.dataset.id; })[0];
+    if(enn) openNoteModal(eng, enn); return;
+  }
+  if(a==='del-note'){
+    var dng=grp(el.dataset.gid); if(dng) deleteNoteCloud(dng, el.dataset.id); return;
+  }
+  if(a==='mfull'){
+    var fg=grp(route.id);
+    if(fg) setMemberFull(fg, el.dataset.id);
     return;
   }
   if(a==='new-ombor'){ openNewOmbor(); return; }
