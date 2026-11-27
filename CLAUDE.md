@@ -256,6 +256,31 @@ olmaydi. Shu karta nima ochiqligini aytadi va bir bosishda o‘tkazadi
 `signOutCloud()` **avval tasdiq so‘raydi** — chiqib ketish qaytarib
 bo‘lmaydigan ish emas, lekin guruhlar ko‘rinmay qoladi.
 
+## Qulf (PIN / grafik kalit / barmoq izi)
+
+**Bu qurilma qulfi, shifr emas.** Ma‘lumot baribir shu telefonning
+xotirasida turadi — brauzer vositalaridan o‘qisa bo‘ladi. Maqsadi:
+telefonni qo‘lga olgan odam ilovani ocholmasin.
+
+Sozlama **`localStorage['birga_lock']`** da — `state` dan **alohida**,
+shuning uchun «Ma‘lumotni ko‘chirish» bilan boshqa telefonga ko‘chmaydi:
+`{kind:'pin'|'pattern', salt, hash, len, bio, credId}`.
+
+- `lockHash(secret, salt, cb)` — SHA-256 (`crypto.subtle`), har kodga
+  tasodifiy tuz. Eski brauzerda zaxira yo‘l bor, lekin u himoya emas
+- PIN uzunligi `len` da saqlanadi: shuncha raqam yozilishi bilan
+  **o‘zi tekshiradi**, OK bosish shart emas
+- Grafik kalit — 3×3 SVG. **Chizib ham, nuqtalarni birma-bir bosib ham**
+  kiritsa bo‘ladi: `pointerdown` da `startLen` eslanadi, `pointerup` da
+  shu harakatda 2+ nuqta qo‘shilgan bo‘lsa «chizildi» deb yakunlanadi,
+  bitta bo‘lsa «bosildi» deb yig‘ilaveradi va «Tayyor» yakunlaydi
+- Barmoq izi / Face ID — **WebAuthn** platforma autentifikatori
+  (`bioEnroll` / `bioCheck`). Server yo‘q, tekshiruv mahalliy. Qulf
+  ochilishi bilan o‘zi so‘raydi; kod esa zaxira bo‘lib qoladi
+
+Qulf ilova ochilganda va **fonda 60 soniyadan ko‘p turib qaytganda**
+so‘raladi (`visibilitychange`).
+
 ## Izoh takliflari
 
 `noteHints()` — joriy ombordagi oldingi izohlar, **yangisidan eskisiga**,
