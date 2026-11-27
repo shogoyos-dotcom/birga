@@ -532,6 +532,18 @@ var I18N = {
   "Hamma klient":["Все клиенты","All clients"],
   "Harakat topilmadi":["Движений не найдено","No movements found"],
   "Tanlanmagan":["Не указан","Not set"],
+  "Valyuta kursi":["Курс валют","Exchange rate"],
+  "Yangilash":["Обновить","Refresh"],
+  "Yangilanmoqda…":["Обновляется…","Refreshing…"],
+  "Markaziy bank":["Центральный банк","Central Bank"],
+  "Mening bankim":["Мой банк","My bank"],
+  "Dollar — olish":["Доллар — покупка","Dollar — buy"],
+  "Dollar — sotish":["Доллар — продажа","Dollar — sell"],
+  "Bank kursi":["Курс банка","Bank rate"],
+  "Bank nomi":["Название банка","Bank name"],
+  "O‘z bankim kursini yozish":["Записать курс своего банка","Enter my bank\u2019s rate"],
+  "Bank kursini o‘zgartirish":["Изменить курс банка","Change the bank rate"],
+  "kursi bo‘yicha":["по курсу","rate"],
   "Qulf":["Замок","Lock"],
   "Qulf qo‘yish":["Поставить замок","Set a lock"],
   "Qulfni o‘chirish":["Снять замок","Remove the lock"],
@@ -1028,6 +1040,104 @@ var _alert = window.alert, _confirm = window.confirm, _prompt = window.prompt;
 function alert(m){ return _alert.call(window, tr(m)); }
 function confirm(m){ return _confirm.call(window, tr(m)); }
 function prompt(m, d){ return _prompt.call(window, tr(m), d); }
+
+/* ================= VALYUTA KURSI =================
+   Markaziy bank (cbu.uz) brauzerdan to‘g‘ridan-to‘g‘ri o‘qiladi — unda
+   CORS ochiq. Ipak Yo‘li va boshqa tijorat banklari esa brauzerga ruxsat
+   bermaydi (Cloudflare, CORS sarlavhasi yo‘q), shuning uchun o‘z bankining
+   olish/sotish kursi QO‘LDA yoziladi va shu yerda turadi. */
+var RATES_KEY = 'birga_rates';
+var RATE_CCY = ['USD','EUR','RUB'];
+var ratesBusy = false;
+function ratesGet(){
+  try{ return JSON.parse(localStorage.getItem(RATES_KEY) || 'null'); }catch(e){ return null; }
+}
+function ratesSave(r){ try{ localStorage.setItem(RATES_KEY, JSON.stringify(r)); }catch(e){} }
+function ratesLoad(force, cb){
+  var cur = ratesGet();
+  if(!force && cur && cur.at && (Date.now() - cur.at) < 6*3600*1000){ cb && cb(cur); return; }
+  if(ratesBusy){ cb && cb(cur); return; }
+  if(!window.fetch){ cb && cb(cur); return; }
+  ratesBusy = true;
+  fetch('https://cbu.uz/uz/arkhiv-kursov-valyut/json/', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(list){
+      var out = {date:'', list:{}, at:Date.now()};
+      (list||[]).forEach(function(x){
+        if(RATE_CCY.indexOf(x.Ccy) < 0) return;
+        var nom = parseFloat(x.Nominal) || 1;
+        out.list[x.Ccy] = Math.round((parseFloat(x.Rate)/nom) * 100) / 100;
+        out.date = x.Date || out.date;
+      });
+      ratesBusy = false;
+      if(Object.keys(out.list).length){ ratesSave(out); cb && cb(out); }
+      else cb && cb(cur);
+    })
+    .catch(function(){ ratesBusy = false; cb && cb(cur); });
+}
+function bankRate(){ return (state.settings && state.settings.bankRate) || null; }
+/* 1 dollar necha so‘m: avval o‘z bankining sotish kursi, bo‘lmasa MB */
+function usdRate(){
+  var b = bankRate();
+  if(b && b.sell > 0) return {v:b.sell, src:(b.name || 'bank')};
+  var r = ratesGet();
+  if(r && r.list && r.list.USD > 0) return {v:r.list.USD, src:'Markaziy bank'};
+  return null;
+}
+function fmtRate(n){
+  if(!(n > 0)) return '—';
+  return (Math.round(n*100)/100).toLocaleString('en-US').replace(/,/g,' ') + " so'm";
+}
+function ratesCard(){
+  var r = ratesGet(), b = bankRate() || {};
+  var h = '<div class="card"><div class="card-h"><h2>Valyuta kursi</h2>'
+        + '<button class="link" data-act="rates-refresh">Yangilash</button></div>';
+  if(b.buy > 0 || b.sell > 0){
+    h += '<div class="eyebrow" style="margin:2px 0 4px">'+esc(b.name || 'Mening bankim')+'</div>'
+       + '<div class="kv"><span>Dollar — olish</span><b>'+fmtRate(b.buy)+'</b></div>'
+       + '<div class="kv"><span>Dollar — sotish</span><b>'+fmtRate(b.sell)+'</b></div>';
+  }
+  if(r && r.list){
+    h += '<div class="eyebrow" style="margin:10px 0 4px">Markaziy bank'+(r.date?(' · '+esc(r.date)):'')+'</div>';
+    RATE_CCY.forEach(function(c){
+      if(r.list[c] > 0) h += '<div class="kv"><span>'+c+'</span><b>'+fmtRate(r.list[c])+'</b></div>';
+    });
+  }else{
+    h += '<div class="note" style="margin-bottom:10px">Markaziy bank kursi hali olinmadi — internetni tekshiring va «Yangilash» ni bosing.</div>';
+  }
+  h += '<div class="note" style="margin:10px 0">Tijorat banklari kursini brauzer to‘g‘ridan-to‘g‘ri o‘qiy olmaydi '
+     + '(bank ruxsat bermaydi), shuning uchun o‘z bankingiznikini qo‘lda yozib qo‘yasiz — '
+     + 'u shu yerda turadi va hisobda ishlatiladi.</div>'
+     + '<button class="btn btn-block" data-act="rates-bank">'
+     + ((b.buy > 0 || b.sell > 0) ? 'Bank kursini o‘zgartirish' : 'O‘z bankim kursini yozish') + '</button>'
+     + '</div>';
+  return h;
+}
+function openBankRate(){
+  var b = bankRate() || {name:'Ipak Yo‘li', buy:0, sell:0};
+  var body = '<form>'
+    + '<div class="field"><label>Bank nomi</label><input name="bname" value="'+esc(b.name || 'Ipak Yo‘li')+'" placeholder="Ipak Yo‘li"></div>'
+    + '<div class="two">'
+    + '<div class="field"><label>Dollar — olish</label><input name="buy" inputmode="numeric" placeholder="0" value="'+(b.buy>0?b.buy:'')+'"></div>'
+    + '<div class="field"><label>Dollar — sotish</label><input name="sell" inputmode="numeric" placeholder="0" value="'+(b.sell>0?b.sell:'')+'"></div>'
+    + '</div>'
+    + '<div class="note" style="margin:10px 0">Bank kursini o‘z ilovasidan yoki saytidan ko‘chirib yozing. '
+    + 'O‘zgarganda shu yerni yangilab qo‘ying.</div>'
+    + '<button class="btn btn-primary btn-block" type="submit">Saqlash</button>'
+    + ((b.buy>0||b.sell>0) ? '<button class="btn btn-danger btn-block" type="button" data-act="rates-bank-off">O‘chirish</button>' : '')
+    + '</form>';
+  openModal('Bank kursi', body, {
+    onSubmit:function(form){
+      state.settings = state.settings || {};
+      state.settings.bankRate = {
+        name: form.bname.value.trim() || 'Bank',
+        buy: parseAmount(form.buy.value),
+        sell: parseAmount(form.sell.value)
+      };
+      closeModal(); commit();
+    }
+  });
+}
 
 /* ---------- Qulf kartasi ---------- */
 function lockCard(){
@@ -2258,10 +2368,20 @@ function pulimCard(){
   if(owedToMe)  rows += '<div class="kv"><span>Menga qaytariladi</span><b class="pos">'+fmtMoney(owedToMe)+'</b></div>';
   if(iOwe)      rows += '<div class="kv"><span>Men qaytaraman</span><b class="neg">'+fmtMoney(-iOwe,true)+'</b></div>';
 
+  /* dollardagi qiymati — o‘z bankining kursi bo‘lsa o‘shaniki, bo‘lmasa MB */
+  var ur = (state.currency==='UZS') ? usdRate() : null;
+  var usdLine = '';
+  if(ur && Math.abs(cash) >= ur.v){
+    var d = Math.round(cash/ur.v);
+    usdLine = '<div class="sub" style="color:var(--ink-2);font-size:12.5px;margin-top:2px">≈ $'
+            + Math.abs(d).toLocaleString('en-US').replace(/,/g,' ')
+            + ' · ' + esc(ur.src) + ' kursi bo‘yicha</div>';
+  }
   var h = '<div class="balance-hero" style="padding:14px 16px">'
         + '<span class="eyebrow">Pulim — naqd</span>'
         + '<span class="big '+sgn(cash)+'" style="font-size:27px">'+fmtMoney(cash)+'</span>'
         + '<div class="sub" style="color:var(--ink-2);font-size:12.5px;margin-top:2px">Hisoblaringizdagi qoldiq</div>'
+        + usdLine
         + '</div>';
   if(rows){
     h += '<div class="card" style="margin-top:10px">' + rows
@@ -2683,6 +2803,8 @@ function viewProfil(){
 
   h+=profileCard();
 
+  h+=ratesCard();
+
   h+=lockCard();
 
   h+=langCard();
@@ -2710,6 +2832,8 @@ function viewProfil(){
     +'<div class="field"><label>Valyuta</label><select id="cur">'
     +['UZS','USD','EUR','RUB','KZT'].map(function(x){return '<option'+(state.currency===x?' selected':'')+'>'+x+'</option>';}).join('')
     +'</select></div>'
+    +'<div class="note" style="margin-top:8px">Bu faqat summalar yonida yoziladigan belgi — '
+    +'summalar o‘girilmaydi. Dollardagi qiymatni «Valyuta kursi» kartasi ko‘rsatadi.</div>'
     +'<div style="height:12px"></div>'
     +'<button class="btn btn-block" data-act="data-io">Ma‘lumotni ko‘chirish / joylash</button>'
     +'<div style="height:8px"></div>'
@@ -5327,6 +5451,17 @@ document.addEventListener('click', function(e){
   if(a==='link-email'){ openLinkEmail(); return; }
   if(a==='sign-in'){ openSignIn(); return; }
   if(a==='sign-out'){ signOutCloud(); return; }
+  if(a==='rates-refresh'){
+    el.textContent = tr('Yangilanmoqda…');
+    ratesLoad(true, function(){ render(); });
+    return;
+  }
+  if(a==='rates-bank'){ openBankRate(); return; }
+  if(a==='rates-bank-off'){
+    if(state.settings) state.settings.bankRate = null;
+    closeModal(); commit();
+    return;
+  }
   if(a==='lock-set'){ openLockSet(); return; }
   if(a==='lock-bio'){ toggleLockBio(); return; }
   if(a==='lock-off'){
@@ -5808,6 +5943,8 @@ document.addEventListener('visibilitychange', function(){
 /* ---------- go ---------- */
 if(lockOn()) lockShow();
 render();
+/* kurs — kuniga bir marta, oflaynda oxirgisi qoladi */
+setTimeout(function(){ ratesLoad(false, function(){ render(); }); }, 1200);
 sbReady.then(function(ok){
   if(ok){
     subscribeCloud(); loadGroups();
