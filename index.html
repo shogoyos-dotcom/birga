@@ -264,6 +264,26 @@
   .seg button{flex:1;border:0;background:0;padding:9px;border-radius:9px;color:var(--ink-2);font-weight:600;font-size:14px;cursor:pointer}
   .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
   .seg.five button{font-size:13px;padding:9px 2px}
+  /* ---- qulf ekrani ---- */
+  #lockscreen{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;
+    flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px}
+  #lockscreen[hidden]{display:none}
+  .lk-title{font-family:var(--font-display);font-size:22px;font-weight:500;text-align:center}
+  .lk-sub{color:var(--ink-2);font-size:13px;text-align:center;min-height:19px}
+  .lk-sub.bad{color:var(--neg)}
+  .lk-dots{display:flex;gap:11px;height:14px;align-items:center}
+  .lk-dots i{width:12px;height:12px;border-radius:50%;border:1.6px solid var(--ink-3);display:block}
+  .lk-dots i.on{background:var(--accent);border-color:var(--accent)}
+  .lk-pad{display:grid;grid-template-columns:repeat(3,70px);gap:12px;justify-content:center}
+  .lk-pad button{height:62px;border-radius:50%;border:1px solid var(--line);background:var(--surface);
+    color:var(--ink);font:inherit;font-size:22px;font-family:var(--font-mono);cursor:pointer}
+  .lk-pad button.wide{font-size:15px;font-family:inherit}
+  .lk-pad button:disabled{opacity:.35}
+  .lk-grid{touch-action:none;width:252px;height:252px}
+  .lk-grid circle.d{fill:var(--surface);stroke:var(--ink-3);stroke-width:1.6}
+  .lk-grid circle.d.on{fill:var(--accent);stroke:var(--accent)}
+  .lk-grid path{fill:none;stroke:var(--accent);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+  .lk-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
   .bill-line{border-top:1px solid var(--line);padding:9px 0}
   .bill-list .bill-line:first-child{border-top:0}
   .bill-top{display:flex;gap:7px;align-items:center}
@@ -374,6 +394,7 @@
   </button>
 </nav>
 
+<div id="lockscreen" hidden></div>
 <div id="modal" hidden></div>
 <div id="lightbox" hidden></div>
 
@@ -511,6 +532,30 @@ var I18N = {
   "Hamma klient":["Все клиенты","All clients"],
   "Harakat topilmadi":["Движений не найдено","No movements found"],
   "Tanlanmagan":["Не указан","Not set"],
+  "Qulf":["Замок","Lock"],
+  "Qulf qo‘yish":["Поставить замок","Set a lock"],
+  "Qulfni o‘chirish":["Снять замок","Remove the lock"],
+  "Kodni o‘zgartirish":["Изменить код","Change the code"],
+  "PIN kod":["PIN-код","PIN"],
+  "Grafik kalit":["Графический ключ","Pattern"],
+  "PIN kodni kiriting":["Введите PIN-код","Enter your PIN"],
+  "Grafik kalitni chizing":["Нарисуйте графический ключ","Draw your pattern"],
+  "4–6 raqamli kod o‘ylab toping":["Придумайте код из 4–6 цифр","Pick a 4–6 digit code"],
+  "Kamida 4 nuqtani bog‘lang":["Соедините хотя бы 4 точки","Connect at least 4 dots"],
+  "Yana bir marta kiriting":["Введите ещё раз","Enter it again"],
+  "Yana bir marta chizing":["Нарисуйте ещё раз","Draw it again"],
+  "Mos kelmadi — boshidan":["Не совпало — сначала","Did not match — start over"],
+  "Noto‘g‘ri — qaytadan":["Неверно — ещё раз","Wrong — try again"],
+  "Kamida 4 raqam":["Хотя бы 4 цифры","At least 4 digits"],
+  "Kamida 4 nuqta kerak":["Нужно хотя бы 4 точки","At least 4 dots needed"],
+  "Barmoq izi / Face ID":["Отпечаток / Face ID","Fingerprint / Face ID"],
+  "Barmoq izi / Face ID ni yoqish":["Включить отпечаток / Face ID","Turn on fingerprint / Face ID"],
+  "Barmoq izi / Face ID ni o‘chirish":["Выключить отпечаток / Face ID","Turn off fingerprint / Face ID"],
+  "Tanilmadi — qaytadan urinib ko‘ring":["Не распознано — попробуйте ещё раз","Not recognised — try again"],
+  "Kutilmoqda…":["Ожидание…","Waiting…"],
+  "Tayyor":["Готово","Done"],
+  "yoqiq":["включён","on"],
+  "Ilova ochilganda kod so‘ralsin — telefonni qo‘lga olgan odam ochib ko‘rolmaydi.":["Пусть при открытии спрашивает код — тот, кто возьмёт телефон, не откроет.","Ask for a code when the app opens, so whoever picks up the phone can\u2019t open it."],
   "Chek":["Чек","Bill"],
   "Taom nomi":["Название блюда","Dish name"],
   "+ Qator":["+ Строка","+ Line"],
@@ -984,6 +1029,117 @@ function alert(m){ return _alert.call(window, tr(m)); }
 function confirm(m){ return _confirm.call(window, tr(m)); }
 function prompt(m, d){ return _prompt.call(window, tr(m), d); }
 
+/* ---------- Qulf kartasi ---------- */
+function lockCard(){
+  var c = lockCfg();
+  var on = !!(c && c.kind);
+  var kindName = on ? (c.kind==='pin' ? 'PIN kod' : 'Grafik kalit') : '';
+  return '<div class="card"><div class="card-h"><h2>Qulf</h2>'
+    + (on ? '<span class="eyebrow">yoqiq</span>' : '') + '</div>'
+    + '<div class="note" style="margin-bottom:10px">'
+    + (on
+        ? ('Ilova ochilganda '+kindName.toLowerCase()+' so‘raydi'
+           + ((c.bio && c.credId) ? ', barmoq izi / Face ID ham yoqilgan' : '') + '.')
+        : 'Ilova ochilganda kod so‘ralsin — telefonni qo‘lga olgan odam ochib ko‘rolmaydi.')
+    + '</div>'
+    + (on
+        ? ('<button class="btn btn-block" data-act="lock-set">Kodni o‘zgartirish</button>'
+           + '<button class="btn btn-block" data-act="lock-bio">'
+           + ((c.bio && c.credId) ? 'Barmoq izi / Face ID ni o‘chirish' : 'Barmoq izi / Face ID ni yoqish') + '</button>'
+           + '<button class="btn btn-danger btn-block" data-act="lock-off">Qulfni o‘chirish</button>')
+        : '<button class="btn btn-primary btn-block" data-act="lock-set">Qulf qo‘yish</button>')
+    + '</div>';
+}
+/* Kod qo‘yish: avval turini tanlaymiz, keyin ikki marta kiritamiz */
+function openLockSet(){
+  var body = '<div class="note" style="margin-bottom:12px">Kod faqat shu telefonda saqlanadi — '
+    + 'ma‘lumotni ko‘chirganda u ko‘chmaydi. Unutib qo‘ysangiz, qulfni ilovani '
+    + 'qaytadan o‘rnatib yechasiz, shuning uchun eslab qoladiganini tanlang.</div>'
+    + '<div class="lk-row"><button class="btn btn-primary" type="button" data-lk="pin">PIN kod</button>'
+    + '<button class="btn btn-primary" type="button" data-lk="pattern">Grafik kalit</button></div>';
+  openModal('Qulf qo‘yish', body, {
+    onMount:function(root){
+      root.querySelectorAll('[data-lk]').forEach(function(b){
+        b.addEventListener('click', function(){ openLockEnter(b.dataset.lk); });
+      });
+    }
+  });
+}
+function openLockEnter(kind){
+  var first = null;
+  var body = '<div class="lk-sub" id="lkmsg" style="margin-bottom:12px"></div>'
+    + (kind==='pin' ? '<div style="display:flex;justify-content:center;margin-bottom:12px">'+lockDotsHtml(0)+'</div>'+lockPadHtml('OK')
+                    : '<div style="display:flex;justify-content:center">'+lockGridHtml()+'</div>');
+  openModal(kind==='pin' ? 'PIN kod' : 'Grafik kalit', body, {
+    onMount:function(root){
+      var pin = '', msg = root.querySelector('#lkmsg');
+      var say = function(t, bad){ msg.textContent = tr(t); msg.className = 'lk-sub'+(bad?' bad':''); };
+      var dots = function(){
+        var d = root.querySelector('.lk-dots');
+        if(d) d.innerHTML = lockDotsHtml(pin.length).replace(/^<div[^>]*>|<\/div>$/g,'');
+      };
+      var take = function(v){
+        if(!first){
+          first = v;
+          pin = ''; dots();
+          say(kind==='pin' ? 'Yana bir marta kiriting' : 'Yana bir marta chizing');
+          return;
+        }
+        if(v !== first){
+          first = null; pin = ''; dots();
+          say(kind==='pin' ? 'Mos kelmadi — boshidan' : 'Mos kelmadi — boshidan', true);
+          return;
+        }
+        var salt = lockSalt();
+        lockHash(v, salt, function(h){
+          var old = lockCfg() || {};
+          lockSave({kind:kind, salt:salt, hash:h, len:(kind==='pin'?v.length:0),
+                    bio:!!(old.bio && old.credId), credId:old.credId||null});
+          closeModal();
+          alert('Qulf qo‘yildi. Endi ilova ochilganda kod so‘raladi.');
+          render();
+        });
+      };
+      say(kind==='pin' ? '4–6 raqamli kod o‘ylab toping' : 'Kamida 4 nuqtani bog‘lang');
+      if(kind==='pin'){
+        root.querySelectorAll('.lk-pad button').forEach(function(b){
+          b.addEventListener('click', function(){
+            var k = b.dataset.k;
+            if(k==='del'){ pin = pin.slice(0,-1); dots(); return; }
+            if(k==='ok'){ if(pin.length>=4) take(pin); else say('Kamida 4 raqam', true); return; }
+            if(pin.length>=6) return;
+            pin += k; dots();
+          });
+        });
+      }else{
+        wireGrid(root, function(v){
+          if(v && v.split('-').length >= 4) take(v);
+          else if(v) say('Kamida 4 nuqta kerak', true);
+        });
+      }
+    }
+  });
+}
+function toggleLockBio(){
+  var c = lockCfg();
+  if(!c || !c.kind){ alert('Avval PIN kod yoki grafik kalit qo‘ying.'); return; }
+  if(c.bio && c.credId){
+    c.bio = false; c.credId = null; lockSave(c); render();
+    alert('Barmoq izi o‘chirildi. Endi faqat kod so‘raladi.');
+    return;
+  }
+  bioMaybe(function(ok){
+    if(!ok){
+      alert('Bu telefon yoki brauzer barmoq izi / Face ID ni bermayapti.\n\nAndroidda Chrome, iPhone‘da Safari orqali oching va telefonda barmoq izi yoqilgan bo‘lsin.');
+      return;
+    }
+    bioEnroll(function(id){
+      if(!id){ alert('Bog‘lab bo‘lmadi — qaytadan urinib ko‘ring.'); return; }
+      c.bio = true; c.credId = id; lockSave(c); render();
+      alert('Tayyor. Endi ilova ochilganda barmoq izi so‘raladi, kod esa zaxira bo‘lib qoladi.');
+    });
+  });
+}
 function langCard(){
   var cur = lang();
   return '<div class="card"><div class="card-h"><h2>Til · Язык · Language</h2></div>'
@@ -2526,6 +2682,8 @@ function viewProfil(){
   h+=installCard();
 
   h+=profileCard();
+
+  h+=lockCard();
 
   h+=langCard();
 
@@ -5169,6 +5327,12 @@ document.addEventListener('click', function(e){
   if(a==='link-email'){ openLinkEmail(); return; }
   if(a==='sign-in'){ openSignIn(); return; }
   if(a==='sign-out'){ signOutCloud(); return; }
+  if(a==='lock-set'){ openLockSet(); return; }
+  if(a==='lock-bio'){ toggleLockBio(); return; }
+  if(a==='lock-off'){
+    if(confirm('Qulf o‘chirilsinmi?\n\nIlova kodsiz ochiladigan bo‘ladi.')){ lockClear(); render(); }
+    return;
+  }
   if(a==='reset-pass'){ resetPass(); return; }
   if(a==='perm-sql'){ openPermSql(); return; }
   if(a==='copy-sql'){ copyText(PERM_SQL, el, 'Nusxa olindi ✓', document.getElementById('permsql')); return; }
@@ -5424,7 +5588,225 @@ document.addEventListener('click', function(e){
 
 document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !modalEl.hidden) closeModal(); });
 
+/* ================= QULF (PIN / grafik kalit / barmoq izi) =================
+   Bu — QURILMA qulfi: ma‘lumot baribir shu telefonning xotirasida turadi,
+   ya‘ni brauzer vositalaridan o‘qisa bo‘ladi. Maqsadi — telefonni qo‘lga
+   olgan odam ilovani ocholmasin. Shuning uchun kalit alohida kalitda
+   (`birga_lock`) saqlanadi: ma‘lumotni ko‘chirganda u ko‘chmaydi. */
+var LOCK_KEY = 'birga_lock';
+var lockEl = document.getElementById('lockscreen');
+var lockedNow = false, lockHiddenAt = 0;
+function lockCfg(){
+  try{ return JSON.parse(localStorage.getItem(LOCK_KEY) || 'null') || null; }catch(e){ return null; }
+}
+function lockSave(c){ try{ localStorage.setItem(LOCK_KEY, JSON.stringify(c)); }catch(e){} }
+function lockClear(){ try{ localStorage.removeItem(LOCK_KEY); }catch(e){} }
+function lockOn(){ var c = lockCfg(); return !!(c && c.kind); }
+/* SHA-256; eski brauzerda yoki himoyasiz ulanishda oddiy zaxira */
+function lockHash(secret, salt, cb){
+  var txt = salt + '|' + secret;
+  if(!(window.crypto && crypto.subtle && window.TextEncoder)){ cb('x:' + txt); return; }
+  try{
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt)).then(function(buf){
+      var a = Array.prototype.slice.call(new Uint8Array(buf));
+      cb(a.map(function(x){ return ('0' + x.toString(16)).slice(-2); }).join(''));
+    }).catch(function(){ cb('x:' + txt); });
+  }catch(e){ cb('x:' + txt); }
+}
+function lockSalt(){
+  var a = new Uint8Array(12);
+  if(window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
+  else for(var i=0;i<12;i++) a[i] = Math.floor(Math.random()*256);
+  return Array.prototype.slice.call(a).map(function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
+}
+/* ---- barmoq izi / Face ID: WebAuthn platforma autentifikatori ---- */
+function bioMaybe(cb){
+  if(!(window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable)){ cb(false); return; }
+  PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+    .then(function(ok){ cb(!!ok); }).catch(function(){ cb(false); });
+}
+function b64(buf){
+  var b = ''; var a = new Uint8Array(buf);
+  for(var i=0;i<a.length;i++) b += String.fromCharCode(a[i]);
+  return btoa(b);
+}
+function unb64(str){
+  var bin = atob(str), a = new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) a[i] = bin.charCodeAt(i);
+  return a;
+}
+function rnd32(){
+  var a = new Uint8Array(32);
+  if(window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
+  return a;
+}
+function bioEnroll(cb){
+  if(!navigator.credentials || !navigator.credentials.create){ cb(null); return; }
+  navigator.credentials.create({publicKey:{
+    challenge: rnd32(),
+    rp: {name:'Birga Hamyon'},
+    user: {id: rnd32(), name:'birga', displayName:'Birga Hamyon'},
+    pubKeyCredParams: [{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
+    authenticatorSelection: {authenticatorAttachment:'platform', userVerification:'required'},
+    timeout: 60000, attestation: 'none'
+  }}).then(function(c){ cb(c ? b64(c.rawId) : null); }).catch(function(){ cb(null); });
+}
+function bioCheck(id, cb){
+  if(!navigator.credentials || !navigator.credentials.get){ cb(false); return; }
+  navigator.credentials.get({publicKey:{
+    challenge: rnd32(),
+    allowCredentials: [{type:'public-key', id: unb64(id)}],
+    userVerification: 'required', timeout: 60000
+  }}).then(function(c){ cb(!!c); }).catch(function(){ cb(false); });
+}
+/* ---- grafik kalit: 3×3 nuqta ---- */
+function lockGridHtml(){
+  var c = '', P = [];
+  for(var r=0;r<3;r++) for(var k=0;k<3;k++){
+    var x = 42 + k*84, y = 42 + r*84;
+    P.push([x,y]);
+    c += '<circle class="d" data-i="'+(r*3+k)+'" cx="'+x+'" cy="'+y+'" r="13"></circle>'
+       + '<circle class="hit" data-i="'+(r*3+k)+'" cx="'+x+'" cy="'+y+'" r="38" fill="transparent"></circle>';
+  }
+  /* Chizib ham, nuqtalarni birma-bir bosib ham kiritsa bo‘ladi —
+     bosib kiritganda «Tayyor» tugmasi yakunlaydi. */
+  return '<svg class="lk-grid" viewBox="0 0 252 252"><path d=""></path>'+c+'</svg>'
+    + '<div class="lk-row"><button type="button" class="btn" data-grid-ok>Tayyor</button></div>';
+}
+function wireGrid(root, done){
+  var svg = root.querySelector('.lk-grid');
+  if(!svg) return;
+  var path = svg.querySelector('path'), seq = [], drawing = false, startLen = 0;
+  var pt = function(i){ return [42 + (i%3)*84, 42 + Math.floor(i/3)*84]; };
+  var paint = function(){
+    path.setAttribute('d', seq.map(function(i,n){ var p=pt(i); return (n?'L':'M')+p[0]+' '+p[1]; }).join(' '));
+    svg.querySelectorAll('circle.d').forEach(function(c){
+      c.classList.toggle('on', seq.indexOf(+c.dataset.i) >= 0);
+    });
+  };
+  var add = function(t){
+    if(!t || !t.dataset || t.dataset.i===undefined) return;
+    var i = +t.dataset.i;
+    if(seq.indexOf(i) >= 0) return;
+    seq.push(i); paint();
+  };
+  svg.addEventListener('pointerdown', function(ev){
+    /* seq ni bu yerda tozalamaymiz: nuqtalarni birma-bir bosib ham
+       kiritsa bo‘lsin (chizolmaydiganlar va test uchun) */
+    drawing = true; startLen = seq.length;
+    try{ svg.setPointerCapture(ev.pointerId); }catch(e){}
+    add(document.elementFromPoint(ev.clientX, ev.clientY));
+    ev.preventDefault();
+  });
+  svg.addEventListener('pointermove', function(ev){
+    if(!drawing) return;
+    add(document.elementFromPoint(ev.clientX, ev.clientY));
+    ev.preventDefault();
+  });
+  var finish = function(){
+    if(!drawing) return;
+    drawing = false;
+    /* Shu harakatda nechta nuqta qo‘shildi: bittasi — bu bosish (yig‘ilaversin,
+       «Tayyor» yakunlaydi), ikki va undan ko‘pi — chizib bo‘lindi. */
+    if(seq.length - startLen < 2) return;
+    var v = seq.join('-');
+    setTimeout(function(){ seq = []; paint(); }, 220);
+    done(v);
+  };
+  svg.addEventListener('pointerup', finish);
+  svg.addEventListener('pointercancel', finish);
+  svg.addEventListener('pointerleave', finish);
+  var okb = root.querySelector('[data-grid-ok]');
+  if(okb) okb.addEventListener('click', function(){
+    if(!seq.length) return;                 /* chizib bo‘lingan — bo‘sh yuborilmasin */
+    var v = seq.join('-');
+    seq = []; paint();
+    done(v);
+  });
+}
+/* ---- PIN klaviaturasi ---- */
+function lockPadHtml(okLabel){
+  var h = '<div class="lk-pad">';
+  [1,2,3,4,5,6,7,8,9].forEach(function(n){ h += '<button type="button" data-k="'+n+'">'+n+'</button>'; });
+  h += '<button type="button" class="wide" data-k="del">⌫</button>'
+     + '<button type="button" data-k="0">0</button>'
+     + '<button type="button" class="wide" data-k="ok">'+(okLabel||'OK')+'</button></div>';
+  return h;
+}
+function lockDotsHtml(n, total){
+  var t = (total >= 4 && total <= 6) ? total : 6;
+  var h = '<div class="lk-dots">';
+  for(var i=0;i<t;i++) h += '<i'+(i<n?' class="on"':'')+'></i>';
+  return h + '</div>';
+}
+/* ================= qulf ekrani ================= */
+function lockShow(){
+  var cfg = lockCfg();
+  if(!cfg || !cfg.kind) return;
+  lockedNow = true;
+  lockEl.hidden = false;
+  document.body.style.overflow = 'hidden';
+  var pin = '', tries = 0;
+  var draw = function(msg, bad){
+    var bio = cfg.bio && cfg.credId;
+    lockEl.innerHTML = tr('<div class="lk-title">Birga Hamyon</div>'
+      + '<div class="lk-sub'+(bad?' bad':'')+'" id="lksub">'+esc(msg || (cfg.kind==='pin' ? 'PIN kodni kiriting' : 'Grafik kalitni chizing'))+'</div>'
+      + (cfg.kind==='pin' ? (lockDotsHtml(pin.length, cfg.len) + lockPadHtml('OK')) : lockGridHtml())
+      + (bio ? '<div class="lk-row"><button class="btn" type="button" id="lkbio">Barmoq izi / Face ID</button></div>' : ''));
+    if(cfg.kind==='pin'){
+      lockEl.querySelectorAll('.lk-pad button').forEach(function(b){
+        b.addEventListener('click', function(){
+          var k = b.dataset.k;
+          if(k === 'del'){ pin = pin.slice(0,-1); draw(); return; }
+          if(k === 'ok'){ submit(pin); return; }
+          var want = (cfg.len >= 4 && cfg.len <= 6) ? cfg.len : 6;
+          if(pin.length >= want) return;
+          pin += k;
+          draw();
+          if(pin.length >= want) submit(pin);
+        });
+      });
+    }else{
+      wireGrid(lockEl, function(v){ if(v && v.split('-').length >= 2) submit(v); });
+    }
+    var bb = lockEl.querySelector('#lkbio');
+    if(bb) bb.addEventListener('click', function(){
+      bb.disabled = true; bb.textContent = tr('Kutilmoqda…');
+      bioCheck(cfg.credId, function(ok){
+        bb.disabled = false; bb.textContent = tr('Barmoq izi / Face ID');
+        if(ok) lockHide(); else draw('Tanilmadi — qaytadan urinib ko‘ring', true);
+      });
+    });
+  };
+  var submit = function(v){
+    if(!v){ return; }
+    lockHash(v, cfg.salt, function(h){
+      if(h === cfg.hash){ lockHide(); return; }
+      tries++; pin = '';
+      draw(tries >= 3 ? ('Noto‘g‘ri · '+tries+' marta urindingiz') : 'Noto‘g‘ri — qaytadan', true);
+    });
+  };
+  draw();
+  /* ochilishi bilan barmoq izini so‘raymiz — odam bosib o‘tirmasin */
+  if(cfg.bio && cfg.credId) setTimeout(function(){
+    bioCheck(cfg.credId, function(ok){ if(ok && lockedNow) lockHide(); });
+  }, 350);
+}
+function lockHide(){
+  lockedNow = false;
+  lockEl.hidden = true;
+  lockEl.innerHTML = '';
+  document.body.style.overflow = '';
+}
+/* fonda 60 soniyadan ko‘p turgan bo‘lsa — qaytadan so‘raymiz */
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ lockHiddenAt = Date.now(); return; }
+  if(!lockOn() || lockedNow) return;
+  if(lockHiddenAt && Date.now() - lockHiddenAt > 60000) lockShow();
+});
+
 /* ---------- go ---------- */
+if(lockOn()) lockShow();
 render();
 sbReady.then(function(ok){
   if(ok){
