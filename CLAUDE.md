@@ -313,10 +313,34 @@ mavjud bo‘lmagan klaviaturani taqlid qiladi va kamchilik ko‘rinmay qoladi.
   `.split-line` ichidagilar **chiqarib tashlanadi** — ularda natija yon
   tomondagi `.calc` ustunida ko‘rinadi, qo‘shimcha qator flex qatorini buzardi
 
-## Guruhda pulni bo‘lish — to‘rt rejim
+## Guruhda pulni bo‘lish — besh rejim
 
-`buildSplitBody(mode, …)` va `recalc()` da: `equal` (teng), `exact` (aniq
-summa), `shares` (ulush nisbati), **`pct` (foiz)**.
+`buildSplitBody(mode, …)` va `recalc()` da: `equal` (teng), **`bill` (chek)**,
+`exact` (aniq summa), `shares` (ulush nisbati), `pct` (foiz).
+
+### «Chek» — taomlar ro‘yxati bo‘yicha
+
+Restoran chekini qatorma-qator yozib, har qatorda **kim yeganini** belgilash.
+`splitBill(lines, svc, allIds)`:
+
+- qator summasi belgilanganlar orasida teng bo‘linadi; **hech kim
+  belgilanmagan bo‘lsa — hammaga** (chalkashib qolmasin)
+- `svc` — chekdagi «обслуживание» foizi, jamiga qo‘shiladi
+- taqsimlashni `splitWeighted` qiladi, shuning uchun xizmat haqi ham
+  nisbatda tarqaladi va **tiyin yo‘qolmaydi**
+
+Qatorlar `billLines` massivida (modal ichida), serverga **saqlanmaydi** —
+saqlanadigani faqat natija (`splits`). Shuning uchun tahrirlashda chek
+rejimi bo‘sh boshlanadi.
+
+Chizish `billHtml()` da, `rebuild()` esa `mode==='bill'` bo‘lsa aynan shuni
+qo‘yadi. Matn maydonlari yozilganda **qayta chizilmaydi** (fokus yo‘qolardi):
+`input` faqat modelni yangilaydi va `recalc()` chaqiradi. Qator qo‘shish va
+o‘chirish esa to‘liq `rebuild()`.
+
+Summa maydoni bo‘sh bo‘lsa chek jamisi o‘zi tushadi (`amtTouched`).
+Qo‘lda boshqa summa yozilsa — **chek nisbati saqlanib**, o‘sha summa
+bo‘linadi va holat qatorida shu aytiladi.
 
 ### «Teng» + shaxsiy qo‘shimcha
 
