@@ -263,6 +263,21 @@
   .seg{display:flex;background:var(--surface-2);border-radius:11px;padding:3px}
   .seg button{flex:1;border:0;background:0;padding:9px;border-radius:9px;color:var(--ink-2);font-weight:600;font-size:14px;cursor:pointer}
   .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+  .seg.five button{font-size:13px;padding:9px 2px}
+  .bill-line{border-top:1px solid var(--line);padding:9px 0}
+  .bill-list .bill-line:first-child{border-top:0}
+  .bill-top{display:flex;gap:7px;align-items:center}
+  .bill-top input{font:inherit;font-size:13px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
+  .bill-top .bname{flex:1 1 auto;min-width:0;width:auto}
+  .bill-top .bamt{flex:0 0 96px;width:96px;text-align:right;font-family:var(--font-mono)}
+  .bill-x{border:0;background:0;color:var(--ink-3);font-size:20px;line-height:1;padding:2px 2px;cursor:pointer;flex:none}
+  .bill-who{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .bill-who button{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+  .bill-who button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .bill-who .all{font-style:italic;color:var(--ink-3)}
+  .bill-foot{display:flex;gap:9px;align-items:center;margin-top:12px}
+  .bill-foot label{flex:1;font-size:12px;color:var(--ink-2)}
+  .bill-foot input{flex:0 0 76px;width:76px;font:inherit;font-size:13px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);text-align:right}
 
   .split-list{display:flex;flex-direction:column;gap:9px}
   .split-line{display:flex;align-items:center;gap:9px}
@@ -496,6 +511,16 @@ var I18N = {
   "Hamma klient":["Все клиенты","All clients"],
   "Harakat topilmadi":["Движений не найдено","No movements found"],
   "Tanlanmagan":["Не указан","Not set"],
+  "Chek":["Чек","Bill"],
+  "Taom nomi":["Название блюда","Dish name"],
+  "+ Qator":["+ Строка","+ Line"],
+  "hammasi":["все","everyone"],
+  "Xizmat haqi (%) — chekdagi «обслуживание»":["Обслуживание (%) — как в чеке","Service charge (%) — as on the bill"],
+  "Taomlarni yozing — nomi va narxi. Yonidagi ismlardan kim yeganini belgilang.":["Впишите блюда — название и цену. Отметьте рядом, кто что ел.","List the dishes — name and price. Mark next to each who ate it."],
+  "ta qator":["строк","lines"],
+  "+ xizmat":["+ обслуживание","+ service"],
+  "nisbat bo‘yicha bo‘linadi":["делится в той же пропорции","split in the same proportion"],
+  "yozilgan summa":["указанная сумма","the amount you entered"],
   "Zametkalar":["Заметки","Notes"],
   "Zametka":["Заметка","Note"],
   "Zametka +":["Заметка +","Note +"],
@@ -1144,6 +1169,27 @@ function splitPct(amount, pairs){
   var used=Math.round(amount*tot/100);
   var rows=splitWeighted(used, pairs.map(function(x){ return {id:x.id, w:(x.p>0?x.p:0)}; }));
   return {rows:rows, totalPct:tot, used:used};
+}
+/* "Chek" rejimi: har bir taom (qator) o‘z narxi bilan, yonida kim yegani.
+   Qatorda hech kim belgilanmagan bo‘lsa — hammaga teng tegadi.
+   Xizmat haqi (%) hamma qatorga nisbatan qo‘shiladi. */
+function splitBill(lines, svc, allIds){
+  var sum = 0, raw = {};
+  allIds.forEach(function(id){ raw[id] = 0; });
+  (lines||[]).forEach(function(l){
+    var a = (l && l.amt > 0) ? l.amt : 0;
+    if(a <= 0) return;
+    sum += a;
+    var who = allIds.filter(function(id){ return l.who && l.who[id]; });
+    if(!who.length) who = allIds.slice();
+    who.forEach(function(id){ raw[id] += a / who.length; });
+  });
+  var total = Math.round(sum * (1 + ((svc > 0 ? svc : 0) / 100)));
+  var pairs = allIds.filter(function(id){ return raw[id] > 0; })
+                    .map(function(id){ return {id:id, w:raw[id]}; });
+  /* splitWeighted nisbatni saqlab butun songa bo‘ladi — xizmat haqi
+     ham shu nisbatda tarqaladi, tiyin yo‘qolmaydi */
+  return {rows: pairs.length ? splitWeighted(total, pairs) : [], total:total, sum:sum, raw:raw};
 }
 // "Aniq" rejim: ba'zi a'zolar summasi qo'lda kiritiladi (raw[id] bo'sh emas),
 // qolgan summa bo'sh qolganlar orasida teng bo'linadi.
@@ -2971,8 +3017,9 @@ function openExpenseModal(groupId, existing){
     +'<div class="field" id="rcfield"'+(etype==='income'?' hidden':'')+'><label>Chek rasmi</label><div id="rzone">'+receiptZone(e.receipt)+'</div>'
     +'<input type="file" accept="image/*" capture="environment" id="efile" hidden></div>'
     +'<div class="field"><label id="splitlbl">'+(etype==='income'?'Kimlarga tegishli':'Qanday bo‘linadi')+'</label>'
-    +'<div class="seg" id="mseg">'
+    +'<div class="seg five" id="mseg">'
     +'<button type="button" data-m="equal" aria-pressed="'+(mode==='equal')+'">Teng</button>'
+    +'<button type="button" data-m="bill" aria-pressed="'+(mode==='bill')+'">Chek</button>'
     +'<button type="button" data-m="exact" aria-pressed="'+(mode==='exact')+'">Aniq</button>'
     +'<button type="button" data-m="shares" aria-pressed="'+(mode==='shares')+'">Ulush</button>'
     +'<button type="button" data-m="pct" aria-pressed="'+(mode==='pct')+'">Foiz</button>'
@@ -3028,6 +3075,82 @@ function openExpenseModal(groupId, existing){
       });
       paintZone();
       root._getReceipt=function(){ return receipt; };
+      /* ---------- «Chek» rejimi: taomlar ro‘yxati ---------- */
+      var billLines = null, billSvc = '';
+      function billNewLine(){
+        var w = {};
+        g.members.forEach(function(m){ w[m.id] = true; });   /* sukut — hammasi */
+        return {name:'', amt:0, who:w};
+      }
+      function billHtml(){
+        var h = '<div class="bill-list">';
+        billLines.forEach(function(l, i){
+          h += '<div class="bill-line">'
+             + '<div class="bill-top">'
+             + '<input class="bname" data-i="'+i+'" placeholder="Taom nomi" value="'+esc(l.name)+'">'
+             + '<input class="bamt" data-i="'+i+'" inputmode="numeric" placeholder="0" value="'+(l.amt>0?l.amt:'')+'">'
+             + '<button type="button" class="bill-x" data-bact="del" data-i="'+i+'" aria-label="O‘chirish">×</button>'
+             + '</div><div class="bill-who">'
+             + g.members.map(function(m){
+                 return '<button type="button" data-bact="who" data-i="'+i+'" data-id="'+m.id+'" aria-pressed="'+(!!l.who[m.id])+'">'+esc(m.name)+'</button>';
+               }).join('')
+             + '<button type="button" class="all" data-bact="all" data-i="'+i+'">hammasi</button>'
+             + '</div></div>';
+        });
+        h += '</div><button type="button" class="btn btn-block" data-bact="add" style="margin-top:10px">+ Qator</button>'
+           + '<div class="bill-foot"><label>Xizmat haqi (%) — chekdagi «обслуживание»</label>'
+           + '<input id="bsvc" inputmode="decimal" placeholder="0" value="'+esc(billSvc)+'"></div>'
+           + '<div class="split-list" style="margin-top:12px">'
+           + g.members.map(function(m){
+               return '<div class="split-line"><span class="nm">'+esc(m.name)+'</span>'
+                    + '<span class="calc" data-id="'+m.id+'"></span></div>';
+             }).join('')
+           + '</div><div class="split-status" id="sstat"></div>';
+        return h;
+      }
+      function wireBill(){
+        box.querySelectorAll('.bname').forEach(function(el){
+          el.addEventListener('input', function(){ billLines[+el.dataset.i].name = el.value; });
+        });
+        box.querySelectorAll('.bamt').forEach(function(el){
+          el.addEventListener('input', function(){
+            billLines[+el.dataset.i].amt = parseAmount(el.value);
+            splitTouched = true; recalc();
+          });
+          el.addEventListener('change', function(){
+            /* ifoda yozilgan bo‘lsa — natijasini ko‘rsatamiz */
+            var v = billLines[+el.dataset.i].amt;
+            el.value = v > 0 ? String(v) : '';
+          });
+        });
+        box.querySelectorAll('[data-bact]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var act = b.dataset.bact, i = +b.dataset.i;
+            if(act === 'add'){ billLines.push(billNewLine()); rebuild(); return; }
+            if(act === 'del'){
+              billLines.splice(i, 1);
+              if(!billLines.length) billLines.push(billNewLine());
+              rebuild(); return;
+            }
+            if(act === 'all'){
+              var l = billLines[i], on = g.members.some(function(m){ return !l.who[m.id]; });
+              g.members.forEach(function(m){ l.who[m.id] = on; });
+              box.querySelectorAll('[data-bact="who"][data-i="'+i+'"]').forEach(function(x){
+                x.setAttribute('aria-pressed', on);
+              });
+              splitTouched = true; recalc(); return;
+            }
+            if(act === 'who'){
+              var ln = billLines[i];
+              ln.who[b.dataset.id] = !ln.who[b.dataset.id];
+              b.setAttribute('aria-pressed', !!ln.who[b.dataset.id]);
+              splitTouched = true; recalc(); return;
+            }
+          });
+        });
+        var sv = box.querySelector('#bsvc');
+        if(sv) sv.addEventListener('input', function(){ billSvc = sv.value; splitTouched = true; recalc(); });
+      }
       var splitPrev = prevSplitMap(e.splits);
       var hadSplits = !!(e.splits && e.splits.length);
       var memberIds = g.members.map(function(m){return m.id;});
@@ -3092,6 +3215,32 @@ function openExpenseModal(groupId, existing){
               stat.className='split-status'+(diff===0?'':' warn');
             }
           }
+        }else if(mode==='bill'){
+          var br=splitBill(billLines, parseQty(billSvc), memberIds);
+          /* summani odam yozmagan bo‘lsa — chek jamisi o‘zi tushadi */
+          if(br.total>0 && !amtTouched && br.total!==amt){ setAmt(br.total); amt=br.total; }
+          var bmap={};
+          br.rows.forEach(function(x){ bmap[x.memberId]=x.share; });
+          setCalc(bmap);
+          var nLines=(billLines||[]).filter(function(l){ return l.amt>0; }).length;
+          if(!nLines){
+            stat.textContent='Taomlarni yozing — nomi va narxi. Yonidagi ismlardan kim yeganini belgilang.';
+            stat.className='split-status';
+          }else{
+            var svcN=parseQty(billSvc);
+            stat.textContent = nLines+' ta qator · '+fmtMoney(br.sum)
+              + (svcN>0 ? (' + xizmat '+fmtPct(svcN)+'% = '+fmtMoney(br.total)) : '')
+              + (amtTouched && amt!==br.total ? (' — yozilgan summa '+fmtMoney(amt)+', nisbat bo‘yicha bo‘linadi') : '');
+            stat.className='split-status'+(amtTouched && amt!==br.total ? ' warn' : '');
+            if(amtTouched && amt!==br.total){
+              /* summa qo‘lda boshqacha yozilgan — chek nisbatida bo‘lamiz */
+              var pr2=memberIds.filter(function(id){ return br.raw[id]>0; })
+                               .map(function(id){ return {id:id, w:br.raw[id]}; });
+              var m2={};
+              splitWeighted(amt, pr2).forEach(function(x){ m2[x.memberId]=x.share; });
+              setCalc(m2);
+            }
+          }
         }else if(mode==='pct'){
           var pv=inputNums();
           var pp=Object.keys(pv).map(function(k){ return {id:k, p:pv[k]}; });
@@ -3123,6 +3272,13 @@ function openExpenseModal(groupId, existing){
       }
       var splitTouched=false;
       function rebuild(){
+        if(mode==='bill'){
+          if(!billLines) billLines=[billNewLine()];
+          box.innerHTML = tr(billHtml());
+          wireBill();
+          recalc();
+          return;
+        }
         box.innerHTML=buildSplitBody(mode,g,amount(),splitPrev);
         box.querySelectorAll('.pcheck,.sinput,.xinput').forEach(function(el){
           var mark=function(){
@@ -3143,7 +3299,8 @@ function openExpenseModal(groupId, existing){
       root.querySelectorAll('#mseg button').forEach(function(b){
         b.addEventListener('click',function(){
           if(mode===b.dataset.m) return;
-          mode=b.dataset.m; splitTouched=false; exactTouched={};
+          mode=b.dataset.m; exactTouched={};
+          splitTouched = (mode==='bill' && billLines && billLines.some(function(l){ return l.amt>0; }));
           root.querySelectorAll('#mseg button').forEach(function(x){x.setAttribute('aria-pressed',x.dataset.m===mode);});
           rebuild();
         });
@@ -3160,6 +3317,16 @@ function openExpenseModal(groupId, existing){
           var eq=splitEqualPlus(amt, ids, extraVals(), memberIds);
           if(!eq.rows.length || eq.own>amt) return null;
           return eq.rows;
+        }
+        if(mode==='bill'){
+          var br=splitBill(billLines, parseQty(billSvc), memberIds);
+          if(!br.rows.length) return null;
+          if(amtTouched && amt>0 && amt!==br.total){
+            var pr2=memberIds.filter(function(id){ return br.raw[id]>0; })
+                             .map(function(id){ return {id:id, w:br.raw[id]}; });
+            return splitWeighted(amt, pr2).filter(function(x){ return x.share>0; });
+          }
+          return br.rows.filter(function(x){ return x.share>0; });
         }
         if(mode==='exact'){
           var touched=Object.keys(exactTouched);
